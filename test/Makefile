@@ -11,7 +11,7 @@ OUTPUT_V := $(OUTPUT_DIR)/output.v
 .PHONY: test
 test: $(INPUT_IL)
 	mkdir -p $(OUTPUT_DIR)
-	yosys -m $(TRANSFORM_LIB) -p "read_rtlil $(INPUT_IL); insert_accessor; opt; write_rtlil $(OUTPUT_IL); write_verilog $(OUTPUT_V)"
+	yosys -m $(TRANSFORM_LIB) -p "read_rtlil $(INPUT_IL); insert_accessor; write_rtlil $(OUTPUT_IL); write_verilog $(OUTPUT_V)"
 
 $(INPUT_IL): $(VSRCS)
 	mkdir -p $(OUTPUT_DIR)
