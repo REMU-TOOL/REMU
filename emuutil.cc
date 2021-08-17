@@ -8,11 +8,6 @@ void WidthAdapterBuilder::run() {
     log_assert(in_w > 0);
     log_assert(out_w > 0);
 
-    // constants
-    const int buflen = in_w + out_w;
-    const int max_w = in_w > out_w ? in_w : out_w;
-    const int cntlen = ceil_log2(max_w + 1);
-
     // interfaces
     SigSpec idata = module->addWire(NEW_ID, in_w);
     SigSpec ivalid = module->addWire(NEW_ID);
@@ -20,6 +15,19 @@ void WidthAdapterBuilder::run() {
     SigSpec odata = module->addWire(NEW_ID, out_w);
     SigSpec ovalid = module->addWire(NEW_ID);
     SigSpec oready = module->addWire(NEW_ID);
+
+    // trivial case
+    if (in_w == out_w) {
+        module->connect(iready, oready);
+        module->connect(ovalid, ivalid);
+        module->connect(odata, idata);
+        return;
+    }
+
+    // constants
+    const int buflen = in_w + out_w;
+    const int max_w = in_w > out_w ? in_w : out_w;
+    const int cntlen = ceil_log2(max_w + 1);
 
     // iptr & optr registers
     SigSpec iptr_next = module->addWire(NEW_ID, cntlen);
