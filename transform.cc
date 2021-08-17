@@ -6,6 +6,8 @@
 
 #include <queue>
 
+#include "emuutil.h"
+
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
