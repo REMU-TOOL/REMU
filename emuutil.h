@@ -5,6 +5,8 @@
 
 namespace EmuUtil {
 
+    USING_YOSYS_NAMESPACE
+
     class LogicBuilder {
     protected:
         Module *module;
@@ -16,22 +18,24 @@ namespace EmuUtil {
     };
 
     class WidthAdapterBuilder : public LogicBuilder {
+    public:
         WidthAdapterBuilder(Module *mod, int in_width, int out_width, SigSpec clock, SigSpec reset)
             : LogicBuilder(mod), in_w(in_width), out_w(out_width), clk(clock), rst(reset) {}
 
         virtual void run();
 
-        SigSpec in_data() const { return idata; }
-        SigSpec in_valid() const { return ivalid; }
-        SigSpec in_ready() const { return iready; }
-        SigSpec out_data() const { return odata; }
-        SigSpec out_valid() const { return ovalid; }
-        SigSpec out_ready() const { return oready; }
+        SigSpec s_idata() const { return idata; }
+        SigSpec s_ivalid() const { return ivalid; }
+        SigSpec s_iready() const { return iready; }
+        SigSpec s_odata() const { return odata; }
+        SigSpec s_ovalid() const { return ovalid; }
+        SigSpec s_oready() const { return oready; }
+        SigSpec s_flush() const { return flush; }
 
     private:
         int in_w, out_w;
         SigSpec clk, rst;
-        SigSpec idata, ivalid, iready, odata, ovalid, oready;
+        SigSpec idata, ivalid, iready, odata, ovalid, oready, flush;
     };
 
 }
