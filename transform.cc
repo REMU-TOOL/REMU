@@ -8,6 +8,10 @@
 
 #include "emuutil.h"
 
+using namespace EmuUtil;
+
+#define EMU_NAME(x) (IDGen.gen("\\$EMUGEN." #x "_"))
+
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
@@ -19,28 +23,30 @@ private:
     static const int DATA_WIDTH = 64;
     Module *module;
 
+    SigSpec wire_reset;
     SigSpec wire_halt;
     SigSpec wire_wen;
     SigSpec wire_waddr;
     SigSpec wire_wdata;
     SigSpec wire_raddr;
     SigSpec wire_rdata;
-    SigSpec wire_ramid;
+    SigSpec wire_ram_wid;
     SigSpec wire_ram_wreq;
     SigSpec wire_ram_wdata;
     SigSpec wire_ram_wvalid;
     SigSpec wire_ram_wready;
     SigSpec wire_ram_wdone;
+    SigSpec wire_ram_rid;
     SigSpec wire_ram_rreq;
     SigSpec wire_ram_rdata;
     SigSpec wire_ram_rvalid;
     SigSpec wire_ram_rready;
     SigSpec wire_ram_rdone;
 
-    SigSpec find_ff_clock(const std::vector<Cell *> &ff_cells) {
+    SigSpec find_clock(const std::vector<Cell *> &ff_cells, const std::vector<Mem> &mem_cells) {
         pool<SigSpec> clocks;
 
-        for (auto cell : ff_cells) {
+        for (auto &cell : ff_cells) {
             FfData ff(nullptr, cell);
 
             if (!ff.has_clk || ff.has_arst || ff.has_sr)
@@ -50,6 +56,23 @@ private:
                 log_error("Negedge clock polarity not supported: %s (%s.%s)\n", log_id(cell->type), log_id(module), log_id(cell));
 
             clocks.insert(ff.sig_clk);
+        }
+
+        for (auto &mem : mem_cells) {
+            for (auto &rd : mem.rd_ports) {
+                if (rd.clk_enable) {
+                    if (!rd.clk_polarity)
+                        log_error("Negedge clock polarity not supported in mem %s.%s\n", log_id(module), log_id(mem.memid));
+                    clocks.insert(rd.clk);
+                }
+            }
+            for (auto &wr : mem.wr_ports) {
+                if (!wr.clk_enable)
+                    log_error("Mem with asynchronous write port not supported (%s.%s)\n", log_id(module), log_id(mem.cell));
+                if (!wr.clk_polarity)
+                    log_error("Negedge clock polarity not supported in mem %s.%s\n", log_id(module), log_id(mem.memid));
+                clocks.insert(wr.clk);
+            }
         }
 
         if (clocks.size() > 1) {
@@ -68,25 +91,8 @@ private:
         return clocks.pop();
     }
 
-    void check_mem(const std::vector<Mem> &mem_cells, SigSpec clock) {
-        for (auto mem : mem_cells) {
-            for (auto rd : mem.rd_ports) {
-                if (rd.clk_enable && rd.clk != clock) {
-                    log_error("The clock domains of mem %s.%s and FFs differ\n", log_id(module), log_id(mem.cell));
-                }
-            }
-            for (auto wr : mem.wr_ports) {
-                if (!wr.clk_enable) {
-                    log_error("Mem with asynchronous write port not supported (%s.%s)\n", log_id(module), log_id(mem.cell));
-                }
-                if (wr.clk != clock) {
-                    log_error("The clock domains of mem %s.%s and FFs differ\n", log_id(module), log_id(mem.cell));
-                }
-            }
-        }
-    }
-
     void create_ports() {
+        wire_reset      = module->addWire("\\$EMU$RESET");                      wire_reset      .as_wire()->port_input = true;
         wire_halt       = module->addWire("\\$EMU$HALT");                       wire_halt       .as_wire()->port_input = true;
         wire_wen        = module->addWire("\\$EMU$WEN",         DATA_WIDTH);    wire_wen        .as_wire()->port_input = true;
         wire_waddr      = module->addWire("\\$EMU$WADDR",       ADDR_WIDTH);    wire_waddr      .as_wire()->port_input = true;
@@ -94,12 +100,13 @@ private:
         wire_raddr      = module->addWire("\\$EMU$RADDR",       ADDR_WIDTH);    wire_raddr      .as_wire()->port_input = true;
         wire_rdata      = module->addWire("\\$EMU$RDATA",       DATA_WIDTH);    wire_rdata      .as_wire()->port_output = true;
 
-        wire_ramid      = module->addWire("\\$EMU$RAMID",       ADDR_WIDTH);    wire_ramid      .as_wire()->port_input = true;
+        wire_ram_wid    = module->addWire("\\$EMU$RAM$WID",     ADDR_WIDTH);    wire_ram_wid    .as_wire()->port_input = true;
         wire_ram_wreq   = module->addWire("\\$EMU$RAM$WREQ");                   wire_ram_wreq   .as_wire()->port_input = true;
         wire_ram_wdata  = module->addWire("\\$EMU$RAM$WDATA",   DATA_WIDTH);    wire_ram_wdata  .as_wire()->port_input = true;
         wire_ram_wvalid = module->addWire("\\$EMU$RAM$WVALID");                 wire_ram_wvalid .as_wire()->port_input = true;
         wire_ram_wready = module->addWire("\\$EMU$RAM$WREADY");                 wire_ram_wready .as_wire()->port_output = true;
         wire_ram_wdone  = module->addWire("\\$EMU$RAM$WDONE");                  wire_ram_wdone  .as_wire()->port_output = true;
+        wire_ram_rid    = module->addWire("\\$EMU$RAM$RID",     ADDR_WIDTH);    wire_ram_rid    .as_wire()->port_input = true;
         wire_ram_rreq   = module->addWire("\\$EMU$RAM$RREQ");                   wire_ram_rreq   .as_wire()->port_input = true;
         wire_ram_rdata  = module->addWire("\\$EMU$RAM$RDATA",   DATA_WIDTH);    wire_ram_rdata  .as_wire()->port_output = true;
         wire_ram_rvalid = module->addWire("\\$EMU$RAM$RVALID");                 wire_ram_rvalid .as_wire()->port_output = true;
@@ -109,16 +116,16 @@ private:
         module->fixup_ports();
     }
 
-    void process_ffs(const std::vector<Cell *> &ff_cells, SigSpec clock) {
+    void process_ffs(std::vector<Cell *> &ff_cells, SigSpec clock) {
         // break FFs into signals for packing
         int total_width = 0;
         std::map<int, std::queue<SigSig>> ff_sigs; // width -> {(D, Q)}
-        for (auto cell : ff_cells) {
+        for (auto &cell : ff_cells) {
             FfData ff(nullptr, cell);
             ff.unmap_ce_srst(module);
 
             // slice signals if width > DATA_WIDTH
-            int width = ff.sig_d.size();
+            int width = GetSize(ff.sig_d);
             for (int i = 0; i < width; i += DATA_WIDTH) {
                 int slice = width - i;
                 slice = slice > DATA_WIDTH ? DATA_WIDTH : slice;
@@ -130,6 +137,7 @@ private:
 
             module->remove(cell);
         }
+        ff_cells.clear();
         log("Total width of FFs: %d\n", total_width);
 
         // pack new FFs
@@ -176,7 +184,7 @@ private:
                 }
 
                 packed_ffs.push_back(ff);
-                total_packed_width += ff.first.size();
+                total_packed_width += GetSize(ff.first);
             }
         }
         log("Total width of FFs after packing: %d\n", total_packed_width);
@@ -188,11 +196,11 @@ private:
 
         // new FFs indexed by assigned addresses
         int assigned_addr = 0;
-        dict<Cell*, int> addr_map;
+        SigSpec read_pmux_b, read_pmux_s;
 
-        // insert write logic
-        for (auto ff : packed_ffs) {
-            int width = ff.first.size();
+        // insert read & write logic
+        for (auto &ff : packed_ffs) {
+            int width = GetSize(ff.first);
 
             // generate write control signal
             SigSpec ff_sel = module->Eq(NEW_ID, wire_waddr, Const(assigned_addr, ADDR_WIDTH));
@@ -208,6 +216,13 @@ private:
 
             // create new FF
             Cell *new_ff = module->addDff(NEW_ID, clock, ff_d, ff_q);
+            ff_cells.push_back(new_ff);
+
+            // signals for read pmux
+            SigSpec b = width < DATA_WIDTH ? SigSpec({Const(0, DATA_WIDTH - width), ff_q}) : ff_q;
+            SigSpec s = module->Eq(NEW_ID, wire_raddr, Const(assigned_addr, ADDR_WIDTH));
+            read_pmux_b.append(b);
+            read_pmux_s.append(s);
 
             // save original register names
             std::stringstream regnames;
@@ -220,31 +235,156 @@ private:
 
             // assign address for new FF
             new_ff->set_string_attribute("\\accessor_addr", stringf("%d", assigned_addr));
-            addr_map[new_ff] = assigned_addr;
+
             assigned_addr++;
         }
-        log("insert_accessor assigned addresses: %d\n", assigned_addr);
 
-        // insert read logic
-        SigSpec read_pmux_b, read_pmux_s;
-        for (auto pair : addr_map) {
-            Cell *cell = pair.first;
-            int addr = pair.second;
-            int width = cell->getParam(ID::WIDTH).as_int();
-
-            SigSpec ff_q = cell->getPort(ID::Q);
-            SigSpec b = width < DATA_WIDTH ? SigSpec({Const(0, DATA_WIDTH - width), ff_q}) : ff_q;
-            SigSpec s = module->Eq(NEW_ID, wire_raddr, Const(addr, ADDR_WIDTH));
-            read_pmux_b.append(b);
-            read_pmux_s.append(s);
-        }
-        SigSpec pmux = module->Pmux(NEW_ID, Const(0, DATA_WIDTH), read_pmux_b, read_pmux_s);
+        SigSpec pmux = assigned_addr ? module->Pmux(NEW_ID, Const(0, DATA_WIDTH), read_pmux_b, read_pmux_s) : Const(0, DATA_WIDTH);
         module->addDff(NEW_ID, clock, pmux, wire_rdata);
+
+        log("Assigned FF addresses: %d\n", assigned_addr);
     }
 
-    void process_mems(const std::vector<Mem> &mem_cells, SigSpec clock) {
-        for (auto mem : mem_cells) {
+    void process_mems(std::vector<Mem> &mem_cells, SigSpec clock) {
+        int assigned_id = 0;
+
+        SigSpec wready_pmux_b, wready_pmux_s;
+        SigSpec rvalid_pmux_b, rvalid_pmux_s;
+        SigSpec rdata_pmux_b, rdata_pmux_s;
+
+        for (auto &mem : mem_cells) {
+            // add halt signal to write ports
+            for (auto &wr : mem.wr_ports) {
+                wr.en = module->Mux(NEW_ID, wr.en, Const(0, GetSize(wr.en)), wire_halt);
+            }
+
+            const int transfer_beats = (mem.size * mem.width + DATA_WIDTH - 1) / DATA_WIDTH;
+            const int cntlen = ceil_log2(transfer_beats + 1);
+            const int addrlen = ceil_log2(mem.size + 1);
+
+            SigSpec ram_wsel = module->Eq(NEW_ID, wire_ram_wid, Const(assigned_id, ADDR_WIDTH));
+            SigSpec ram_rsel = module->Eq(NEW_ID, wire_ram_rid, Const(assigned_id, ADDR_WIDTH));
+            SigSpec ram_wreq = module->And(NEW_ID, ram_wsel, wire_ram_wreq);
+            SigSpec ram_rreq = module->And(NEW_ID, ram_rsel, wire_ram_rreq);
+            SigSpec ram_wvalid = module->And(NEW_ID, ram_wsel, wire_ram_wvalid);
+            SigSpec ram_rvalid = module->And(NEW_ID, ram_rsel, wire_ram_rvalid);
+
+            // convert data width to mem width
+            WidthAdapterBuilder wr_adapter(module, DATA_WIDTH, mem.width, clock, module->Or(NEW_ID, wire_reset, ram_wreq));
+            WidthAdapterBuilder rd_adapter(module, mem.width, DATA_WIDTH, clock, module->Or(NEW_ID, wire_reset, ram_rreq));
+            wr_adapter.run();
+            rd_adapter.run();
+
+            SigSpec wr_ifire = module->And(NEW_ID, wr_adapter.s_ivalid(), wr_adapter.s_iready());
+            SigSpec wr_ofire = module->And(NEW_ID, wr_adapter.s_ovalid(), wr_adapter.s_oready());
+            SigSpec rd_ifire = module->And(NEW_ID, rd_adapter.s_ivalid(), rd_adapter.s_iready());
+            SigSpec rd_ofire = module->And(NEW_ID, rd_adapter.s_ovalid(), rd_adapter.s_oready());
+
+            // read/write counters & RAM address generators
+
+            SigSpec wr_cnt = module->addWire(EMU_NAME(wr_cnt), cntlen);
+            SigSpec wr_cnt_next = module->addWire(EMU_NAME(wr_cnt_next), cntlen);
+            SigSpec rd_cnt = module->addWire(EMU_NAME(rd_cnt), cntlen);
+            SigSpec rd_cnt_next = module->addWire(EMU_NAME(rd_cnt_next), cntlen);
+            SigSpec wr_addr = module->addWire(EMU_NAME(wr_addr), addrlen);
+            SigSpec wr_addr_next = module->addWire(EMU_NAME(wr_addr_next), addrlen);
+            SigSpec rd_addr = module->addWire(EMU_NAME(rd_addr), addrlen);
+            SigSpec rd_addr_next = module->addWire(EMU_NAME(rd_addr_next), addrlen);
+
+            SigSpec wr_cnt_full = module->Eq(NEW_ID, wr_cnt, Const(transfer_beats, cntlen));
+            SigSpec rd_cnt_full = module->Eq(NEW_ID, rd_cnt, Const(transfer_beats, cntlen));
+            SigSpec wr_addr_full = module->Eq(NEW_ID, wr_addr, Const(mem.size, addrlen));
+            SigSpec rd_addr_full = module->Eq(NEW_ID, rd_addr, Const(mem.size, addrlen));
+
+            SigSpec wr_cnt_not_full = module->Not(NEW_ID, wr_cnt_full);
+            SigSpec rd_cnt_not_full = module->Not(NEW_ID, rd_cnt_full);
+            SigSpec wr_addr_not_full = module->Not(NEW_ID, wr_addr_full);
+            SigSpec rd_addr_not_full = module->Not(NEW_ID, rd_addr_full);
+
+            module->addSdffe(NEW_ID, clock, module->And(NEW_ID, wr_ifire, wr_cnt_not_full), ram_wreq, wr_cnt_next, wr_cnt, Const(0, cntlen));
+            module->addSdffe(NEW_ID, clock, module->And(NEW_ID, rd_ofire, rd_cnt_not_full), ram_rreq, rd_cnt_next, rd_cnt, Const(0, cntlen));
+            module->addSdffe(NEW_ID, clock, module->And(NEW_ID, wr_ofire, wr_addr_not_full), ram_wreq, wr_addr_next, wr_addr, Const(0, addrlen));
+            module->addSdffe(NEW_ID, clock, module->And(NEW_ID, rd_ifire, rd_addr_not_full), ram_rreq, rd_addr_next, rd_addr, Const(0, addrlen));
+
+            module->connect(wr_cnt_next, module->Add(NEW_ID, wr_cnt, Const(1, cntlen)));
+            module->connect(rd_cnt_next, module->Add(NEW_ID, rd_cnt, Const(1, cntlen)));
+            module->connect(wr_addr_next, module->Add(NEW_ID, wr_addr, Const(1, addrlen)));
+            module->connect(rd_addr_next, module->Add(NEW_ID, rd_addr, Const(1, addrlen)));
+
+            // internal connections
+
+            module->connect(wr_adapter.s_ivalid(), ram_wvalid);
+            wready_pmux_b.append(wr_adapter.s_iready());
+            wready_pmux_s.append(ram_wsel);
+            module->connect(wr_adapter.s_idata(), wire_ram_wdata);
+            module->connect(wr_adapter.s_oready(), State::S1);
+
+            module->connect(rd_adapter.s_ivalid(), module->And(NEW_ID, ram_rsel, rd_cnt_not_full));
+            rvalid_pmux_b.append(rd_adapter.s_ovalid());
+            rvalid_pmux_s.append(ram_rsel);
+            rdata_pmux_b.append(rd_adapter.s_odata());
+            rdata_pmux_s.append(ram_rsel);
+            module->connect(rd_adapter.s_oready(), wire_ram_rready);
+
+            module->connect(wr_adapter.s_flush(), wr_cnt_full);
+            module->connect(wire_ram_wdone, wr_addr_full);
+            module->connect(rd_adapter.s_flush(), rd_addr_full);
+            module->connect(wire_ram_rdone, rd_cnt_full);
+
+            // add read/write ports to mem
+
+            const int abits = ceil_log2(mem.size);
+
+            MemWr mwr;
+            mwr.wide_log2 = 0;
+            mwr.clk_enable = true;
+            mwr.clk_polarity = true;
+            mwr.priority_mask = std::vector<bool>(mem.wr_ports.size(), true);
+            mwr.priority_mask.push_back(false);
+            mwr.clk = clock;
+            mwr.en = std::vector<SigBit>(mem.width, wr_ofire);
+            mwr.addr = wr_addr.extract(0, abits);
+            mwr.data = wr_adapter.s_odata();
+
+            for (auto &wr : mem.wr_ports) {
+                wr.priority_mask.push_back(false);
+            }
+            mem.wr_ports.push_back(mwr);
+
+            MemRd mrd;
+            mrd.wide_log2 = 0;
+            mrd.clk_enable = false;
+            mrd.clk_polarity = true;
+            mrd.ce_over_srst = false;
+            mrd.arst_value = mrd.srst_value = mrd.init_value = Const(0, mem.width);
+            mrd.transparency_mask = std::vector<bool>(mem.wr_ports.size(), false);
+            mrd.collision_x_mask = std::vector<bool>(mem.wr_ports.size(), false);
+            mrd.clk = State::Sx;
+            mrd.en = State::S1;
+            mrd.arst = State::S0;
+            mrd.srst = State::S0;
+            mrd.addr = rd_addr.extract(0, abits);
+            mrd.data = rd_adapter.s_idata();
+
+            for (auto &rd : mem.rd_ports) {
+                rd.transparency_mask.push_back(false);
+                rd.collision_x_mask.push_back(false);
+            }
+            mem.rd_ports.push_back(mrd);
+
+            mem.packed = true;
+            mem.emit();
+
+            mem.cell->set_string_attribute("\\accessor_id", stringf("%d", assigned_id));
+
+            assigned_id++;
         }
+
+        module->connect(wire_ram_wready, assigned_id ? module->Pmux(NEW_ID, State::S0, wready_pmux_b, wready_pmux_s) : State::S0);
+        module->connect(wire_ram_rvalid, assigned_id ? module->Pmux(NEW_ID, State::S0, rvalid_pmux_b, rvalid_pmux_s) : State::S0);
+        module->connect(wire_ram_rdata, assigned_id ? module->Pmux(NEW_ID, Const(0, DATA_WIDTH), rdata_pmux_b, rdata_pmux_s) : Const(0, DATA_WIDTH));
+
+        log("Assigned mem IDs: %d\n", assigned_id);
     }
 
 public:
@@ -270,16 +410,16 @@ public:
 				ff_cells.push_back(cell);
 		}
 
-        SigSpec clock = find_ff_clock(ff_cells);
+        // get mem cells
+        std::vector<Mem> mem_cells;
+        mem_cells = Mem::get_selected_memories(module);
+
+        // find the clock signal
+        SigSpec clock = find_clock(ff_cells, mem_cells);
 
         // if no clock is found, then this module does not contain sequential logic
         if (clock.empty())
             return;
-
-        // get mem cells
-        std::vector<Mem> mem_cells;
-        mem_cells = Mem::get_selected_memories(module);
-        check_mem(mem_cells, clock);
 
         // add accessor ports
         create_ports();
@@ -301,6 +441,11 @@ struct InsertAccessorPass : public Pass {
         (void)args;
 
         log_header(design, "Executing INSERT_ACCESSOR pass.\n");
+        log_push();
+
+        Pass::call(design, "memory_nordff");
+
+        log("\n");
 
         for (auto mod : design->modules()) {
             if (design->selected(mod)) {
@@ -308,6 +453,10 @@ struct InsertAccessorPass : public Pass {
                 worker.run();
             }
         }
+
+        log("INSERT_ACCESSOR finished.\n");
+
+        log_pop();
     }
 } InsertAccessorPass;
 

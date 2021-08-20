@@ -38,6 +38,15 @@ namespace EmuUtil {
         SigSpec idata, ivalid, iready, odata, ovalid, oready, flush;
     };
 
+    struct {
+        size_t count = 0;
+        std::string gen(std::string prefix) {
+            std::stringstream s;
+            s << prefix << count++;
+            return s.str();
+        }
+    } IDGen;
+
 }
 
 #endif // #ifndef _EMUUTIL_H_
