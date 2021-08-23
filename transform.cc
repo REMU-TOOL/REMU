@@ -437,11 +437,36 @@ public:
 
 struct InsertAccessorPass : public Pass {
     InsertAccessorPass() : Pass("insert_accessor") { }
+
+    string top_module;
+    bool autotop;
+
     void execute(vector<string> args, Design* design) override {
-        (void)args;
+        size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++)
+		{
+			if (args[argidx] == "-top" && argidx+1 < args.size()) {
+				top_module = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-auto-top") {
+				autotop = true;
+				continue;
+			}
+			break;
+		}
+		extra_args(args, argidx, design);
 
         log_header(design, "Executing INSERT_ACCESSOR pass.\n");
         log_push();
+
+        if (top_module.empty()) {
+            if (autotop)
+                Pass::call(design, "hierarchy -check -auto-top");
+            else
+                Pass::call(design, "hierarchy -check");
+        } else
+            Pass::call(design, stringf("hierarchy -check -top %s", top_module.c_str()));
 
         Pass::call(design, "proc");
         Pass::call(design, "flatten");
@@ -451,6 +476,7 @@ struct InsertAccessorPass : public Pass {
 
         for (auto mod : design->modules()) {
             if (design->selected(mod)) {
+                log("Processing module %s\n", mod->name.c_str());
                 InsertAccessorWorker worker(mod);
                 worker.run();
             }
