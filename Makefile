@@ -14,3 +14,8 @@ $(TRANSFORM_LIB): $(CXXDEPS)
 .PHONY: test
 test: build
 	make -C test TRANSFORM_LIB=$(TRANSFORM_LIB) test
+
+.PHONY: clean
+clean:
+	rm -rf $(BUILD_DIR)
+	make -C test clean

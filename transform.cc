@@ -443,7 +443,9 @@ struct InsertAccessorPass : public Pass {
         log_header(design, "Executing INSERT_ACCESSOR pass.\n");
         log_push();
 
-        Pass::call(design, "memory_nordff");
+        Pass::call(design, "proc");
+        Pass::call(design, "flatten");
+        Pass::call(design, "memory_collect");
 
         log("\n");
 
