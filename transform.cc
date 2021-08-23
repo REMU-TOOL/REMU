@@ -462,34 +462,11 @@ struct InsertAccessorPass : public Pass {
         size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			if (args[argidx] == "-top" && argidx+1 < args.size()) {
-				top_module = args[++argidx];
-				continue;
-			}
-			if (args[argidx] == "-auto-top") {
-				autotop = true;
-				continue;
-			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
         log_header(design, "Executing INSERT_ACCESSOR pass.\n");
-        log_push();
-
-        if (top_module.empty()) {
-            if (autotop)
-                Pass::call(design, "hierarchy -check -auto-top");
-            else
-                Pass::call(design, "hierarchy -check");
-        } else
-            Pass::call(design, stringf("hierarchy -check -top %s", top_module.c_str()));
-
-        Pass::call(design, "proc");
-        Pass::call(design, "flatten");
-        Pass::call(design, "memory_collect");
-
-        log("\n");
 
         for (auto mod : design->modules()) {
             if (design->selected(mod)) {
@@ -500,8 +477,6 @@ struct InsertAccessorPass : public Pass {
         }
 
         log("INSERT_ACCESSOR finished.\n");
-
-        log_pop();
     }
 } InsertAccessorPass;
 
