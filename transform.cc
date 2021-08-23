@@ -43,8 +43,9 @@ private:
     SigSpec wire_ram_rready;
     SigSpec wire_ram_rdone;
 
-    SigSpec find_clock(const std::vector<Cell *> &ff_cells, const std::vector<Mem> &mem_cells) {
+    SigSpec process_clock(std::vector<Cell *> &ff_cells, std::vector<Mem> &mem_cells) {
         pool<SigSpec> clocks;
+        SigMap assign_map(module);
 
         for (auto &cell : ff_cells) {
             FfData ff(nullptr, cell);
@@ -55,15 +56,25 @@ private:
             if (!ff.pol_clk)
                 log_error("Negedge clock polarity not supported: %s (%s.%s)\n", log_id(cell->type), log_id(module), log_id(cell));
 
-            clocks.insert(ff.sig_clk);
+            SigSpec c = assign_map(ff.sig_clk);
+            if (c != ff.sig_clk)
+                cell->setPort(ID::CLK, c);
+
+            clocks.insert(c);
         }
 
         for (auto &mem : mem_cells) {
+            bool changed = false;
             for (auto &rd : mem.rd_ports) {
                 if (rd.clk_enable) {
                     if (!rd.clk_polarity)
                         log_error("Negedge clock polarity not supported in mem %s.%s\n", log_id(module), log_id(mem.memid));
-                    clocks.insert(rd.clk);
+                    SigSpec c = assign_map(rd.clk);
+                    if (c != rd.clk) {
+                        rd.clk = c;
+                        changed = true;
+                    }
+                    clocks.insert(c);
                 }
             }
             for (auto &wr : mem.wr_ports) {
@@ -71,8 +82,14 @@ private:
                     log_error("Mem with asynchronous write port not supported (%s.%s)\n", log_id(module), log_id(mem.cell));
                 if (!wr.clk_polarity)
                     log_error("Negedge clock polarity not supported in mem %s.%s\n", log_id(module), log_id(mem.memid));
+                SigSpec c = assign_map(wr.clk);
+                if (c != wr.clk) {
+                    wr.clk = c;
+                    changed = true;
+                }
                 clocks.insert(wr.clk);
             }
+            if (changed) mem.emit();
         }
 
         if (clocks.size() > 1) {
@@ -415,7 +432,7 @@ public:
         mem_cells = Mem::get_selected_memories(module);
 
         // find the clock signal
-        SigSpec clock = find_clock(ff_cells, mem_cells);
+        SigSpec clock = process_clock(ff_cells, mem_cells);
 
         // if no clock is found, then this module does not contain sequential logic
         if (clock.empty())
