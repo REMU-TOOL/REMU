@@ -1,4 +1,4 @@
-`timescale 10 ns / 1 ns
+`timescale 1 ns / 1 ns
 
 // Coprocessor 0 Registers
 
@@ -703,76 +703,5 @@ module mips_cpu(
     assign rf_wen   = ctrl_i[`I_WEX]||ctrl_i[`I_WWB];
     assign rf_waddr = waddr;
     assign rf_wdata = ctrl_i[`I_MEM_R] ? memdata : fwd_data;
-
-endmodule
-
-module sim_ram #(
-    parameter WIDTH = 32,
-    parameter DEPTH = 1024,
-    localparam AWIDTH = $clog2(DEPTH)
-)(
-    input clk,
-    input wen,
-    input [AWIDTH-1:0] waddr,
-    input [WIDTH-1:0] wdata,
-    input [WIDTH/8-1:0] wstrb,
-    input [AWIDTH-1:0] raddr1,
-    input [AWIDTH-1:0] raddr2,
-    output [WIDTH-1:0] rdata1,
-    output [WIDTH-1:0] rdata2
-);
-
-    reg [31:0] mem [1023:0];
-
-    integer i;
-    always @(posedge clk) begin
-        if (wen) begin
-            for (i=0; i<WIDTH/8; i=i+1) if (wstrb[i]) mem[waddr][i*8+:8] <= wdata[i*8+:8];
-        end
-    end
-
-    assign rdata1 = mem[raddr1];
-    assign rdata2 = mem[raddr2];
-
-endmodule
-
-module sim_top(
-    input clk,
-    input rst
-);
-
-    wire [31:0] PC;
-    wire  [31:0] Instruction;
-    wire [31:0] Address;
-    wire MemWrite;
-    wire [31:0] Write_data;
-    wire [3:0] Write_strb;
-    wire MemRead;
-    wire [31:0] Read_data;
-
-    mips_cpu u_cpu ( 
-        .clk                (clk),
-        .rst                (rst),
-        .PC                 (PC),
-        .Instruction        (Instruction),
-        .Address            (Address),
-        .MemWrite           (MemWrite),
-        .Write_data         (Write_data),
-        .Write_strb         (Write_strb),
-        .MemRead            (MemRead),
-        .Read_data          (Read_data)
-    );
-
-    sim_ram #(.WIDTH(32), .DEPTH(1024)) u_ram (
-        .clk(clk),
-        .wen(MemWrite),
-        .waddr(Address[11:2]),
-        .wdata(Write_data),
-        .wstrb(Write_strb),
-        .raddr1(PC[11:2]),
-        .raddr2(Address[11:2]),
-        .rdata1(Instruction),
-        .rdata2(Read_data)
-    );
 
 endmodule

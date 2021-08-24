@@ -7,15 +7,21 @@ VTOP := mips_cpu
 INPUT_IL := $(OUTPUT_DIR)/input.il
 OUTPUT_IL := $(OUTPUT_DIR)/output.il
 OUTPUT_V := $(OUTPUT_DIR)/output.v
+OUTPUT_SIM := $(OUTPUT_DIR)/sim
 
 .PHONY: test
-test: $(INPUT_IL)
-	mkdir -p $(OUTPUT_DIR)
-	yosys -m $(TRANSFORM_LIB) -p "read_rtlil $(INPUT_IL); insert_accessor -cfg output/cfg.txt; opt; write_rtlil $(OUTPUT_IL); write_verilog $(OUTPUT_V)"
+test: $(OUTPUT_SIM)
+	$(OUTPUT_SIM)
+
+$(OUTPUT_SIM): $(OUTPUT_V) sim.v
+	iverilog -o $@ $^
+
+$(OUTPUT_V): $(INPUT_IL) $(TRANSFORM_LIB)
+	yosys -m $(TRANSFORM_LIB) -p "read_rtlil $(INPUT_IL); insert_accessor -cfg output/cfg.txt; opt; write_rtlil $(OUTPUT_IL); write_verilog $@"
 
 $(INPUT_IL): $(VSRCS)
 	mkdir -p $(OUTPUT_DIR)
-	yosys -p "read_verilog $^; prep -top $(VTOP) -flatten; write_rtlil $(INPUT_IL)"
+	yosys -p "read_verilog $^; prep -top $(VTOP) -flatten; write_rtlil $@"
 
 .PHONY: clean
 clean:
