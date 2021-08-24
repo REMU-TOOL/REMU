@@ -21,7 +21,10 @@ private:
 
     static const int ADDR_WIDTH = 12;
     static const int DATA_WIDTH = 64;
+
     Module *module;
+    std::vector<Cell *> ff_cells;
+    std::vector<Mem> mem_cells;
 
     SigSpec wire_reset;
     SigSpec wire_halt;
@@ -406,7 +409,16 @@ private:
 
 public:
 
-    InsertAccessorWorker(Module *mod) : module(mod) {}
+    InsertAccessorWorker(Module *mod) : module(mod) {
+        // search for all FFs
+        for (auto cell : module->cells()) {
+			if (module->design->selected(module, cell) && RTLIL::builtin_ff_cell_types().count(cell->type))
+				ff_cells.push_back(cell);
+		}
+
+        // get mem cells
+        mem_cells = Mem::get_selected_memories(module);
+    }
 
     void run() {
         // check if already processed
@@ -415,21 +427,9 @@ public:
             return;
         }
 
-        // RTLIL proceesses are not accepted
-        if (!module->processes.empty())
-            log_error("Module %s contains unmapped RTLIL processes. Use \"proc\"\n"
-				"to convert processes to logic networks and registers.\n", log_id(module));
-
-        // search for all FFs
-        std::vector<Cell *> ff_cells;
-        for (auto cell : module->cells()) {
-			if (module->design->selected(module, cell) && RTLIL::builtin_ff_cell_types().count(cell->type))
-				ff_cells.push_back(cell);
-		}
-
-        // get mem cells
-        std::vector<Mem> mem_cells;
-        mem_cells = Mem::get_selected_memories(module);
+        // RTLIL proceesses & memories are not accepted
+        if (module->has_processes_warn() || module->has_memories_warn())
+            return;
 
         // find the clock signal
         SigSpec clock = process_clock(ff_cells, mem_cells);
@@ -450,18 +450,62 @@ public:
         // set attribute to indicate this module is processed
         module->set_bool_attribute("\\insert_accessor");
     }
+
+    void write_config(std::string filename) {
+        std::ofstream f;
+        f.open(filename.c_str(), std::ofstream::trunc);
+        if (f.fail()) {
+            log_error("Can't open file `%s' for writing: %s\n", filename.c_str(), strerror(errno));
+        }
+
+        log("Writing to configuration file %s\n", filename.c_str());
+
+        f << "#FF\n";
+        for (auto &ff : ff_cells) {
+            f   << ff->get_string_attribute("\\accessor_addr")
+                << ": "
+                << ff->get_string_attribute("\\accessor_name")
+                << "\n";
+        }
+
+        f << "#MEM\n";
+        for (auto &mem : mem_cells) {
+            f   << mem.cell->get_string_attribute("\\accessor_id")
+                << ": "
+                << mem.memid.str()
+                << "\n";
+        }
+
+        f.close();
+    }
 };
 
 struct InsertAccessorPass : public Pass {
-    InsertAccessorPass() : Pass("insert_accessor") { }
+    InsertAccessorPass() : Pass("insert_accessor", "insert accessors for emulation") { }
 
-    string top_module;
-    bool autotop;
+    void help() override
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    insert_accessor [options]\n");
+		log("\n");
+		log("This command inserts accessors to FFs and mems for an FPGA emulator.\n");
+		log("\n");
+		log("    -cfg <file>\n");
+		log("        write generated configuration to the specified file\n");
+		log("\n");
+	}
+
+    std::string cfg_file;
 
     void execute(vector<string> args, Design* design) override {
         size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
+			if (args[argidx] == "-cfg" && argidx+1 < args.size()) {
+				cfg_file = args[++argidx];
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -473,10 +517,9 @@ struct InsertAccessorPass : public Pass {
                 log("Processing module %s\n", mod->name.c_str());
                 InsertAccessorWorker worker(mod);
                 worker.run();
+                if (!cfg_file.empty()) worker.write_config(cfg_file);
             }
         }
-
-        log("INSERT_ACCESSOR finished.\n");
     }
 } InsertAccessorPass;
 
