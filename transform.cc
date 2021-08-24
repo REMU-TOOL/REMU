@@ -10,7 +10,7 @@
 
 using namespace EmuUtil;
 
-#define EMU_NAME(x) (IDGen.gen("\\$EMUGEN." #x "_"))
+#define EMU_NAME(x) (IDGen("\\$EMUGEN." #x "_"))
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN

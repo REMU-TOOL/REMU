@@ -40,7 +40,7 @@ namespace EmuUtil {
 
     struct {
         size_t count = 0;
-        std::string gen(std::string prefix) {
+        std::string operator()(std::string prefix) {
             std::stringstream s;
             s << prefix << count++;
             return s.str();

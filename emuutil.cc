@@ -4,7 +4,7 @@ USING_YOSYS_NAMESPACE
 
 using namespace EmuUtil;
 
-#define WA_NAME(x) (IDGen.gen("\\$WidthAdapter." #x "_"))
+#define WA_NAME(x) (IDGen("\\$WidthAdapter." #x "_"))
 
 void WidthAdapterBuilder::run() {
     log_assert(in_w > 0);
