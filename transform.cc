@@ -269,8 +269,10 @@ private:
         int assigned_id = 0;
 
         SigSpec wready_pmux_b, wready_pmux_s;
+        SigSpec wdone_pmux_b, wdone_pmux_s;
         SigSpec rvalid_pmux_b, rvalid_pmux_s;
         SigSpec rdata_pmux_b, rdata_pmux_s;
+        SigSpec rdone_pmux_b, rdone_pmux_s;
 
         for (auto &mem : mem_cells) {
             // add halt signal to write ports
@@ -280,7 +282,7 @@ private:
 
             const int transfer_beats = (mem.size * mem.width + DATA_WIDTH - 1) / DATA_WIDTH;
             const int cntlen = ceil_log2(transfer_beats + 1);
-            const int addrlen = ceil_log2(mem.size + 1);
+            const int addrlen = ceil_log2(mem.start_offset + mem.size + 1);
 
             SigSpec ram_wsel = module->Eq(NEW_ID, wire_ram_wid, Const(assigned_id, ADDR_WIDTH));
             SigSpec ram_rsel = module->Eq(NEW_ID, wire_ram_rid, Const(assigned_id, ADDR_WIDTH));
@@ -289,9 +291,12 @@ private:
             SigSpec ram_wvalid = module->And(NEW_ID, ram_wsel, wire_ram_wvalid);
             SigSpec ram_rvalid = module->And(NEW_ID, ram_rsel, wire_ram_rvalid);
 
+            SigSpec ram_wrst = module->Or(NEW_ID, wire_reset, ram_wreq);
+            SigSpec ram_rrst = module->Or(NEW_ID, wire_reset, ram_rreq);
+
             // convert data width to mem width
-            WidthAdapterBuilder wr_adapter(module, DATA_WIDTH, mem.width, clock, module->Or(NEW_ID, wire_reset, ram_wreq));
-            WidthAdapterBuilder rd_adapter(module, mem.width, DATA_WIDTH, clock, module->Or(NEW_ID, wire_reset, ram_rreq));
+            WidthAdapterBuilder wr_adapter(module, DATA_WIDTH, mem.width, clock, ram_wrst);
+            WidthAdapterBuilder rd_adapter(module, mem.width, DATA_WIDTH, clock, ram_rrst);
             wr_adapter.run();
             rd_adapter.run();
 
@@ -313,18 +318,18 @@ private:
 
             SigSpec wr_cnt_full = module->Eq(NEW_ID, wr_cnt, Const(transfer_beats, cntlen));
             SigSpec rd_cnt_full = module->Eq(NEW_ID, rd_cnt, Const(transfer_beats, cntlen));
-            SigSpec wr_addr_full = module->Eq(NEW_ID, wr_addr, Const(mem.size, addrlen));
-            SigSpec rd_addr_full = module->Eq(NEW_ID, rd_addr, Const(mem.size, addrlen));
+            SigSpec wr_addr_full = module->Eq(NEW_ID, wr_addr, Const(mem.start_offset + mem.size, addrlen));
+            SigSpec rd_addr_full = module->Eq(NEW_ID, rd_addr, Const(mem.start_offset + mem.size, addrlen));
 
             SigSpec wr_cnt_not_full = module->Not(NEW_ID, wr_cnt_full);
             SigSpec rd_cnt_not_full = module->Not(NEW_ID, rd_cnt_full);
             SigSpec wr_addr_not_full = module->Not(NEW_ID, wr_addr_full);
             SigSpec rd_addr_not_full = module->Not(NEW_ID, rd_addr_full);
 
-            module->addSdffe(NEW_ID, clock, module->And(NEW_ID, wr_ifire, wr_cnt_not_full), ram_wreq, wr_cnt_next, wr_cnt, Const(0, cntlen));
-            module->addSdffe(NEW_ID, clock, module->And(NEW_ID, rd_ofire, rd_cnt_not_full), ram_rreq, rd_cnt_next, rd_cnt, Const(0, cntlen));
-            module->addSdffe(NEW_ID, clock, module->And(NEW_ID, wr_ofire, wr_addr_not_full), ram_wreq, wr_addr_next, wr_addr, Const(0, addrlen));
-            module->addSdffe(NEW_ID, clock, module->And(NEW_ID, rd_ifire, rd_addr_not_full), ram_rreq, rd_addr_next, rd_addr, Const(0, addrlen));
+            module->addSdffe(NEW_ID, clock, module->And(NEW_ID, wr_ifire, wr_cnt_not_full), ram_wrst, wr_cnt_next, wr_cnt, Const(0, cntlen));
+            module->addSdffe(NEW_ID, clock, module->And(NEW_ID, rd_ofire, rd_cnt_not_full), ram_rrst, rd_cnt_next, rd_cnt, Const(0, cntlen));
+            module->addSdffe(NEW_ID, clock, module->And(NEW_ID, wr_ofire, wr_addr_not_full), ram_wrst, wr_addr_next, wr_addr, Const(mem.start_offset, addrlen));
+            module->addSdffe(NEW_ID, clock, module->And(NEW_ID, rd_ifire, rd_addr_not_full), ram_rrst, rd_addr_next, rd_addr, Const(mem.start_offset, addrlen));
 
             module->connect(wr_cnt_next, module->Add(NEW_ID, wr_cnt, Const(1, cntlen)));
             module->connect(rd_cnt_next, module->Add(NEW_ID, rd_cnt, Const(1, cntlen)));
@@ -346,14 +351,18 @@ private:
             rdata_pmux_s.append(ram_rsel);
             module->connect(rd_adapter.s_oready(), wire_ram_rready);
 
-            module->connect(wr_adapter.s_flush(), wr_cnt_full);
-            module->connect(wire_ram_wdone, wr_addr_full);
-            module->connect(rd_adapter.s_flush(), rd_addr_full);
-            module->connect(wire_ram_rdone, rd_cnt_full);
+            module->connect(wr_adapter.s_flush(), module->And(NEW_ID, wr_cnt_full, wr_addr_not_full));
+            wdone_pmux_b.append(wr_addr_full);
+            wdone_pmux_s.append(ram_wsel);
+            module->connect(rd_adapter.s_flush(), module->And(NEW_ID, rd_addr_full, rd_cnt_not_full));
+            rdone_pmux_b.append(rd_cnt_full);
+            rdone_pmux_s.append(ram_rsel);
 
             // add read/write ports to mem
 
-            const int abits = ceil_log2(mem.size);
+            const int abits = ceil_log2(mem.start_offset + mem.size);
+
+            SigSpec ram_wen = module->And(NEW_ID, wr_ofire, wr_addr_not_full);
 
             MemWr mwr;
             mwr.wide_log2 = 0;
@@ -362,7 +371,7 @@ private:
             mwr.priority_mask = std::vector<bool>(mem.wr_ports.size(), true);
             mwr.priority_mask.push_back(false);
             mwr.clk = clock;
-            mwr.en = std::vector<SigBit>(mem.width, wr_ofire);
+            mwr.en = std::vector<SigBit>(mem.width, ram_wen);
             mwr.addr = wr_addr.extract(0, abits);
             mwr.data = wr_adapter.s_odata();
 
@@ -401,8 +410,10 @@ private:
         }
 
         module->connect(wire_ram_wready, assigned_id ? module->Pmux(NEW_ID, State::S0, wready_pmux_b, wready_pmux_s) : State::S0);
+        module->connect(wire_ram_wdone, assigned_id ? module->Pmux(NEW_ID, State::S0, wdone_pmux_b, wdone_pmux_s) : State::S0);
         module->connect(wire_ram_rvalid, assigned_id ? module->Pmux(NEW_ID, State::S0, rvalid_pmux_b, rvalid_pmux_s) : State::S0);
         module->connect(wire_ram_rdata, assigned_id ? module->Pmux(NEW_ID, Const(0, DATA_WIDTH), rdata_pmux_b, rdata_pmux_s) : Const(0, DATA_WIDTH));
+        module->connect(wire_ram_rdone, assigned_id ? module->Pmux(NEW_ID, State::S0, rdone_pmux_b, rdone_pmux_s) : State::S0);
 
         log("Assigned mem IDs: %d\n", assigned_id);
     }
