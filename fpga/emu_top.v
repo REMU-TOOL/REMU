@@ -56,7 +56,7 @@ module emu_top(
 
     input           s_axilite_emureg_arvalid,
     output          s_axilite_emureg_arready,
-    input   [11:0]  s_axilite_emureg_araddr,
+    input   [14:0]  s_axilite_emureg_araddr,
     input   [ 2:0]  s_axilite_emureg_arprot,
     output          s_axilite_emureg_rvalid,
     input           s_axilite_emureg_rready,
@@ -64,7 +64,7 @@ module emu_top(
     output  [63:0]  s_axilite_emureg_rdata,
     input           s_axilite_emureg_awvalid,
     output          s_axilite_emureg_awready,
-    input   [11:0]  s_axilite_emureg_awaddr,
+    input   [14:0]  s_axilite_emureg_awaddr,
     input   [ 2:0]  s_axilite_emureg_awprot,
     input           s_axilite_emureg_wvalid,
     output          s_axilite_emureg_wready,
@@ -511,7 +511,7 @@ module emu_top(
         .write_abort                    (1'b0)
     );
 
-    reg [11:0] emureg_read_addr, emureg_write_addr;
+    reg [14:0] emureg_read_addr, emureg_write_addr;
     reg [63:0] emureg_read_data, emureg_write_data;
     reg emureg_read_addr_valid, emureg_read_data_valid, emureg_write_addr_valid, emureg_write_data_valid, emureg_write_resp_valid;
     wire emureg_do_write = emureg_write_addr_valid && emureg_write_data_valid;
@@ -592,9 +592,9 @@ module emu_top(
         .Read_data          (Read_data),
         .\$EMU$RESET        (rst),
         .\$EMU$HALT         (emu_halt),
-        .\$EMU$RADDR        (emureg_read_addr),
+        .\$EMU$RADDR        (emureg_read_addr[14:3]),
         .\$EMU$RDATA        (emureg_read_data_wire),
-        .\$EMU$WADDR        (emureg_write_addr),
+        .\$EMU$WADDR        (emureg_write_addr[14:3]),
         .\$EMU$WDATA        (emureg_write_data),
         .\$EMU$WEN          ({64{emureg_do_write}}),
         .\$EMU$RAM$RDATA    (s_axis_write_data_tdata),

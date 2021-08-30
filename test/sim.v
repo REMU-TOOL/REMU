@@ -54,12 +54,12 @@ module sim_top();
 
     reg             s_axilite_emureg_arvalid = 0;
     wire            s_axilite_emureg_arready;
-    reg     [11:0]  s_axilite_emureg_araddr = 0;
+    reg     [14:0]  s_axilite_emureg_araddr = 0;
     wire            s_axilite_emureg_rvalid;
     wire    [63:0]  s_axilite_emureg_rdata;
     reg             s_axilite_emureg_awvalid = 0;
     wire            s_axilite_emureg_awready;
-    reg     [11:0]  s_axilite_emureg_awaddr = 0;
+    reg     [14:0]  s_axilite_emureg_awaddr = 0;
     reg             s_axilite_emureg_wvalid = 0;
     wire            s_axilite_emureg_wready;
     reg     [63:0]  s_axilite_emureg_wdata = 0;
