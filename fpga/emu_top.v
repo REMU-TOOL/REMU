@@ -395,7 +395,6 @@ module emu_top(
         .AXI_DATA_WIDTH                 (64),
         .AXI_ADDR_WIDTH                 (64),
         .AXI_ID_WIDTH                   (1),
-        .AXIS_KEEP_ENABLE               (0),
         .AXIS_USER_ENABLE               (0)
     )
     u_dma(
@@ -407,10 +406,10 @@ module emu_top(
         */
         .s_axis_read_desc_addr          (emu_dma_rd_addr),
         .s_axis_read_desc_len           (emu_dma_rd_len),
-        .s_axis_read_desc_tag           (0),
-        .s_axis_read_desc_id            (0),
-        .s_axis_read_desc_dest          (0),
-        .s_axis_read_desc_user          (0),
+        .s_axis_read_desc_tag           (8'd0),
+        .s_axis_read_desc_id            (8'd0),
+        .s_axis_read_desc_dest          (8'd0),
+        .s_axis_read_desc_user          (1'd0),
         .s_axis_read_desc_valid         (s_axis_read_desc_valid),
         .s_axis_read_desc_ready         (s_axis_read_desc_ready),
 
@@ -438,7 +437,7 @@ module emu_top(
         */
         .s_axis_write_desc_addr         (emu_dma_wr_addr),
         .s_axis_write_desc_len          (emu_dma_wr_len),
-        .s_axis_write_desc_tag          (0),
+        .s_axis_write_desc_tag          (8'd0),
         .s_axis_write_desc_valid        (s_axis_write_desc_valid),
         .s_axis_write_desc_ready        (s_axis_write_desc_ready),
 
@@ -457,13 +456,13 @@ module emu_top(
         * AXI stream write data input
         */
         .s_axis_write_data_tdata        (s_axis_write_data_tdata),
-        .s_axis_write_data_tkeep        (0),
+        .s_axis_write_data_tkeep        (8'b11111111),
         .s_axis_write_data_tvalid       (s_axis_write_data_tvalid),
         .s_axis_write_data_tready       (s_axis_write_data_tready),
         .s_axis_write_data_tlast        (s_axis_write_data_tlast),
-        .s_axis_write_data_tid          (0),
-        .s_axis_write_data_tdest        (0),
-        .s_axis_write_data_tuser        (0),
+        .s_axis_write_data_tid          (8'd0),
+        .s_axis_write_data_tdest        (8'd0),
+        .s_axis_write_data_tuser        (1'd0),
 
         /*
         * AXI master interface
@@ -478,7 +477,7 @@ module emu_top(
         .m_axi_arprot                   (m_axi_arprot),
         .m_axi_arvalid                  (m_axi_arvalid),
         .m_axi_arready                  (m_axi_arready),
-        .m_axi_rid                      (0),
+        .m_axi_rid                      (1'd0),
         .m_axi_rdata                    (m_axi_rdata),
         .m_axi_rresp                    (m_axi_rresp),
         .m_axi_rlast                    (m_axi_rlast),
@@ -499,7 +498,7 @@ module emu_top(
         .m_axi_wlast                    (m_axi_wlast),
         .m_axi_wvalid                   (m_axi_wvalid),
         .m_axi_wready                   (m_axi_wready),
-        .m_axi_bid                      (0),
+        .m_axi_bid                      (1'd0),
         .m_axi_bresp                    (m_axi_bresp),
         .m_axi_bvalid                   (m_axi_bvalid),
         .m_axi_bready                   (m_axi_bready),
@@ -509,7 +508,7 @@ module emu_top(
         */
         .read_enable                    (emu_dma_rd_running),
         .write_enable                   (emu_dma_wr_running),
-        .write_abort                    ()
+        .write_abort                    (1'b0)
     );
 
     reg [11:0] emureg_read_addr, emureg_write_addr;
@@ -539,11 +538,11 @@ module emu_top(
                 emureg_read_data          <= emureg_read_data_wire;
                 emureg_read_data_valid    <= 1'b1;
             end
-            if (s_axilite_idealmem_rvalid && s_axilite_emureg_rready) begin
+            if (s_axilite_emureg_rvalid && s_axilite_emureg_rready) begin
                 emureg_read_addr_valid    <= 1'b0;
                 emureg_read_data_valid    <= 1'b0;
             end
-            if (s_axilite_idealmem_awvalid && s_axilite_idealmem_awready) begin
+            if (s_axilite_emureg_awvalid && s_axilite_emureg_awready) begin
                 emureg_write_addr         <= s_axilite_emureg_awaddr;
                 emureg_write_addr_valid   <= 1'b1;
             end
@@ -599,14 +598,14 @@ module emu_top(
         .\$EMU$WDATA        (emureg_write_data),
         .\$EMU$WEN          ({64{emureg_do_write}}),
         .\$EMU$RAM$RDATA    (s_axis_write_data_tdata),
-        .\$EMU$RAM$RDONE    (s_axis_write_data_tlast),
-        .\$EMU$RAM$RID      (0),
+        .\$EMU$RAM$RID      (12'd0),
+        .\$EMU$RAM$RLAST    (s_axis_write_data_tlast),
         .\$EMU$RAM$RREADY   (s_axis_write_data_tready),
         .\$EMU$RAM$RREQ     (emu_scan_out_prep),
         .\$EMU$RAM$RVALID   (s_axis_write_data_tvalid),
         .\$EMU$RAM$WDATA    (m_axis_read_data_tdata),
-        .\$EMU$RAM$WDONE    (),
-        .\$EMU$RAM$WID      (0),
+        .\$EMU$RAM$WID      (12'd0),
+        .\$EMU$RAM$WLAST    (m_axis_read_data_tlast),
         .\$EMU$RAM$WREADY   (m_axis_read_data_tready),
         .\$EMU$RAM$WREQ     (emu_scan_in_prep),
         .\$EMU$RAM$WVALID   (m_axis_read_data_tvalid)
