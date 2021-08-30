@@ -38,13 +38,13 @@ private:
     SigSpec wire_ram_wdata;
     SigSpec wire_ram_wvalid;
     SigSpec wire_ram_wready;
-    SigSpec wire_ram_wdone;
+    SigSpec wire_ram_wlast;
     SigSpec wire_ram_rid;
     SigSpec wire_ram_rreq;
     SigSpec wire_ram_rdata;
     SigSpec wire_ram_rvalid;
     SigSpec wire_ram_rready;
-    SigSpec wire_ram_rdone;
+    SigSpec wire_ram_rlast;
 
     SigSpec process_clock(std::vector<Cell *> &ff_cells, std::vector<Mem> &mem_cells) {
         pool<SigSpec> clocks;
@@ -125,13 +125,13 @@ private:
         wire_ram_wdata  = module->addWire("\\$EMU$RAM$WDATA",   DATA_WIDTH);    wire_ram_wdata  .as_wire()->port_input = true;
         wire_ram_wvalid = module->addWire("\\$EMU$RAM$WVALID");                 wire_ram_wvalid .as_wire()->port_input = true;
         wire_ram_wready = module->addWire("\\$EMU$RAM$WREADY");                 wire_ram_wready .as_wire()->port_output = true;
-        wire_ram_wdone  = module->addWire("\\$EMU$RAM$WDONE");                  wire_ram_wdone  .as_wire()->port_output = true;
+        wire_ram_wlast  = module->addWire("\\$EMU$RAM$WLAST");                  wire_ram_wlast  .as_wire()->port_input = true;
         wire_ram_rid    = module->addWire("\\$EMU$RAM$RID",     ADDR_WIDTH);    wire_ram_rid    .as_wire()->port_input = true;
         wire_ram_rreq   = module->addWire("\\$EMU$RAM$RREQ");                   wire_ram_rreq   .as_wire()->port_input = true;
         wire_ram_rdata  = module->addWire("\\$EMU$RAM$RDATA",   DATA_WIDTH);    wire_ram_rdata  .as_wire()->port_output = true;
         wire_ram_rvalid = module->addWire("\\$EMU$RAM$RVALID");                 wire_ram_rvalid .as_wire()->port_output = true;
         wire_ram_rready = module->addWire("\\$EMU$RAM$RREADY");                 wire_ram_rready .as_wire()->port_input = true;
-        wire_ram_rdone  = module->addWire("\\$EMU$RAM$RDONE");                  wire_ram_rdone  .as_wire()->port_output = true;
+        wire_ram_rlast  = module->addWire("\\$EMU$RAM$RLAST");                  wire_ram_rlast  .as_wire()->port_output = true;
 
         module->fixup_ports();
     }
@@ -269,10 +269,9 @@ private:
         int assigned_id = 0;
 
         SigSpec wready_pmux_b, wready_pmux_s;
-        SigSpec wdone_pmux_b, wdone_pmux_s;
         SigSpec rvalid_pmux_b, rvalid_pmux_s;
         SigSpec rdata_pmux_b, rdata_pmux_s;
-        SigSpec rdone_pmux_b, rdone_pmux_s;
+        SigSpec rlast_pmux_b, rlast_pmux_s;
 
         for (auto &mem : mem_cells) {
             // add halt signal to write ports
@@ -351,12 +350,12 @@ private:
             rdata_pmux_s.append(ram_rsel);
             module->connect(rd_adapter.s_oready(), wire_ram_rready);
 
+            SigSpec rlast = module->Eq(NEW_ID, rd_cnt, Const(transfer_beats - 1, cntlen));
+
             module->connect(wr_adapter.s_flush(), module->And(NEW_ID, wr_cnt_full, wr_addr_not_full));
-            wdone_pmux_b.append(wr_addr_full);
-            wdone_pmux_s.append(ram_wsel);
             module->connect(rd_adapter.s_flush(), module->And(NEW_ID, rd_addr_full, rd_cnt_not_full));
-            rdone_pmux_b.append(rd_cnt_full);
-            rdone_pmux_s.append(ram_rsel);
+            rlast_pmux_b.append(rlast);
+            rlast_pmux_s.append(ram_rsel);
 
             // add read/write ports to mem
 
@@ -410,10 +409,9 @@ private:
         }
 
         module->connect(wire_ram_wready, assigned_id ? module->Pmux(NEW_ID, State::S0, wready_pmux_b, wready_pmux_s) : State::S0);
-        module->connect(wire_ram_wdone, assigned_id ? module->Pmux(NEW_ID, State::S0, wdone_pmux_b, wdone_pmux_s) : State::S0);
         module->connect(wire_ram_rvalid, assigned_id ? module->Pmux(NEW_ID, State::S0, rvalid_pmux_b, rvalid_pmux_s) : State::S0);
         module->connect(wire_ram_rdata, assigned_id ? module->Pmux(NEW_ID, Const(0, DATA_WIDTH), rdata_pmux_b, rdata_pmux_s) : Const(0, DATA_WIDTH));
-        module->connect(wire_ram_rdone, assigned_id ? module->Pmux(NEW_ID, State::S0, rdone_pmux_b, rdone_pmux_s) : State::S0);
+        module->connect(wire_ram_rlast, assigned_id ? module->Pmux(NEW_ID, State::S0, rlast_pmux_b, rlast_pmux_s) : State::S0);
 
         log("Assigned mem IDs: %d\n", assigned_id);
     }
