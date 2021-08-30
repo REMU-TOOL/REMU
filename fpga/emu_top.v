@@ -715,7 +715,7 @@ module ideal_mem #(
     output [WIDTH-1:0] rdata3
 );
 
-    reg [31:0] mem [1023:0];
+    reg [WIDTH-1:0] mem [DEPTH-1:0];
 
     integer i;
     always @(posedge clk) begin
