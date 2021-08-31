@@ -191,6 +191,8 @@ module emu_top(
     assign emu_csr[31:1]    = 31'd0;
     assign emu_csr[0]       = emu_halt;
 
+    wire trigger;
+
     always @(posedge clk) begin
         if (rst) begin
             emu_halt            <= 1'b0;
@@ -208,6 +210,9 @@ module emu_top(
                 emu_halt            <= reg_write_data[0];
                 emu_scan_in_prep    <= reg_write_data[2];
                 emu_scan_out_prep   <= reg_write_data[3];
+            end
+            if (trigger) begin
+                emu_halt            <= 1'b1;
             end
         end
     end
@@ -610,6 +615,8 @@ module emu_top(
         .\$EMU$RAM$WREQ     (emu_scan_in_prep),
         .\$EMU$RAM$WVALID   (m_axis_read_data_tvalid)
     );
+
+    assign trigger = MemWrite && Address == 32'h0000000c;
 
     reg [11:0] idealmem_read_addr, idealmem_write_addr;
     reg [31:0] idealmem_read_data, idealmem_write_data;

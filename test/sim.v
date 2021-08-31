@@ -404,6 +404,11 @@ module sim_top();
         while (!finish) #CYCLE;
 
         $display("=== halt & prepare for load ===");
+        // R EMUCSR[0x0]
+        s_axilite_araddr = 12'h000;
+        s_axilite_arvalid = 1;
+        while (!s_axilite_rvalid) #CYCLE;
+        #CYCLE;
         // W EMUCSR[0x0] 0x5
         s_axilite_awaddr = 12'h000;
         s_axilite_awvalid = 1;
@@ -520,14 +525,7 @@ module sim_top();
 
         #(CYCLE*5);
 
-        $display("=== halt ===");
-        // W EMUCSR[0x0] 0x1
-        s_axilite_awaddr = 12'h000;
-        s_axilite_awvalid = 1;
-        s_axilite_wdata = 32'h00000001;
-        s_axilite_wvalid = 1;
-        while (!s_axilite_bvalid) #CYCLE;
-        #CYCLE;
+        $display("=== read emu_csr ===");
         // R EMUCSR[0x0]
         s_axilite_araddr = 12'h000;
         s_axilite_arvalid = 1;
