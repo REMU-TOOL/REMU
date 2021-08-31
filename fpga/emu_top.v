@@ -181,21 +181,36 @@ module emu_top(
     assign s_axilite_bvalid     = reg_write_resp_valid;
     assign s_axilite_bresp      = reg_write_error ? 2'b10 : 2'b00;
 
-    // 0x000 -> EMU_CSR
+    // 0x000 -> EMU_STAT
     //          [0]     -> HALT
-    //          [2]     -> SCAN_IN_PREP [WO]
-    //          [3]     -> SCAN_OUT_PREP [WO]
+    // 0x004 -> EMU_CTRL
+    //          [0]     -> SCAN_IN_PREP [WO]
+    //          [1]     -> SCAN_OUT_PREP [WO]
 
     reg emu_halt, emu_scan_in_prep, emu_scan_out_prep;
-    wire [31:0] emu_csr;
-    assign emu_csr[31:1]    = 31'd0;
-    assign emu_csr[0]       = emu_halt;
+    wire [31:0] emu_stat, emu_ctrl;
+    assign emu_stat[31:1]   = 31'd0;
+    assign emu_stat[0]      = emu_halt;
+    assign emu_ctrl         = 32'd0;
 
     wire trigger;
 
     always @(posedge clk) begin
         if (rst) begin
             emu_halt            <= 1'b0;
+        end
+        else if (trigger) begin
+            emu_halt            <= 1'b1;
+        end
+        else begin
+            if (reg_do_write && reg_write_addr == 12'h000) begin
+                emu_halt            <= reg_write_data[0];
+            end
+        end
+    end
+
+    always @(posedge clk) begin
+        if (rst) begin
             emu_scan_in_prep    <= 1'b0;
             emu_scan_out_prep   <= 1'b0;
         end
@@ -206,13 +221,9 @@ module emu_top(
             if (emu_scan_out_prep) begin
                 emu_scan_out_prep   <= 1'b0;
             end
-            if (reg_do_write && reg_write_addr == 12'h000) begin
-                emu_halt            <= reg_write_data[0];
-                emu_scan_in_prep    <= reg_write_data[2];
-                emu_scan_out_prep   <= reg_write_data[3];
-            end
-            if (trigger) begin
-                emu_halt            <= 1'b1;
+            if (reg_do_write && reg_write_addr == 12'h004) begin
+                emu_scan_in_prep    <= reg_write_data[0];
+                emu_scan_out_prep   <= reg_write_data[1];
             end
         end
     end
@@ -351,7 +362,8 @@ module emu_top(
 
     always @* begin
         case (reg_read_addr)
-            12'h000:    reg_read_data_wire = emu_csr;
+            12'h000:    reg_read_data_wire = emu_stat;
+            12'h004:    reg_read_data_wire = emu_ctrl;
             12'h008:    reg_read_data_wire = emu_cycle[31:0];
             12'h00c:    reg_read_data_wire = emu_cycle[63:32];
             12'h010:    reg_read_data_wire = emu_dma_rd_addr[31:0];

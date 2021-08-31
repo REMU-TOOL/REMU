@@ -303,20 +303,20 @@ module sim_top();
         #(CYCLE*100);
 
         $display("=== halt & prepare for dump ===");
-        // W EMUCSR[0x0] 0x9
+        // W EMUCSR[0x0] 0x1
         s_axilite_awaddr = 12'h000;
         s_axilite_awvalid = 1;
-        s_axilite_wdata = 32'h00000009;
+        s_axilite_wdata = 32'h00000001;
         s_axilite_wvalid = 1;
         while (!s_axilite_bvalid) #CYCLE;
         #CYCLE;
-        // R EMUCSR[0x0]
-        s_axilite_araddr = 12'h000;
-        s_axilite_arvalid = 1;
-        while (!s_axilite_rvalid) #CYCLE;
+        // W EMUCSR[0x4] 0x2
+        s_axilite_awaddr = 12'h004;
+        s_axilite_awvalid = 1;
+        s_axilite_wdata = 32'h00000002;
+        s_axilite_wvalid = 1;
+        while (!s_axilite_bvalid) #CYCLE;
         #CYCLE;
-
-        #(CYCLE*5);
 
         $display("=== read cycle_lo ===");
         // R EMUCSR[0x8]
@@ -327,8 +327,6 @@ module sim_top();
         $display("cycle_lo: %d", emucsr_rdata);
         cycle_lo_save = emucsr_rdata;
 
-        #(CYCLE*5);
-
         $display("=== read dut register ===");
         // R DUTREG[0x0]
         s_axilite_emureg_araddr = 0;
@@ -336,8 +334,6 @@ module sim_top();
         while (!s_axilite_emureg_rvalid) #CYCLE;
         #CYCLE;
         pc_save = dutreg_rdata;
-
-        #(CYCLE*5);
 
         $display("=== read ideal mem ===");
         for (i=0; i<1024; i=i+1) begin
@@ -348,8 +344,6 @@ module sim_top();
             #CYCLE;
             idealmem_save[i] = idlmem_rdata;
         end
-
-        #(CYCLE*5);
 
         $display("=== start dma_wr transfer ===");
         // W EMUCSR[0x20] 0x0
@@ -390,8 +384,6 @@ module sim_top();
             #CYCLE;
         end
 
-        #(CYCLE*5);
-
         $display("=== continue ===");
         // W EMUCSR[0x0] 0x0
         s_axilite_awaddr = 12'h000;
@@ -403,26 +395,21 @@ module sim_top();
 
         while (!finish) #CYCLE;
 
-        $display("=== halt & prepare for load ===");
-        // R EMUCSR[0x0]
-        s_axilite_araddr = 12'h000;
-        s_axilite_arvalid = 1;
-        while (!s_axilite_rvalid) #CYCLE;
-        #CYCLE;
-        // W EMUCSR[0x0] 0x5
-        s_axilite_awaddr = 12'h000;
-        s_axilite_awvalid = 1;
-        s_axilite_wdata = 32'h00000005;
-        s_axilite_wvalid = 1;
-        while (!s_axilite_bvalid) #CYCLE;
-        #CYCLE;
+        $display("=== read emu_stat ===");
         // R EMUCSR[0x0]
         s_axilite_araddr = 12'h000;
         s_axilite_arvalid = 1;
         while (!s_axilite_rvalid) #CYCLE;
         #CYCLE;
 
-        #(CYCLE*5);
+        $display("=== prepare for load ===");
+        // W EMUCSR[0x4] 0x1
+        s_axilite_awaddr = 12'h004;
+        s_axilite_awvalid = 1;
+        s_axilite_wdata = 32'h00000002;
+        s_axilite_wvalid = 1;
+        while (!s_axilite_bvalid) #CYCLE;
+        #CYCLE;
 
         $display("=== read cycle_lo ===");
         // R EMUCSR[0x8]
@@ -431,8 +418,6 @@ module sim_top();
         while (!s_axilite_rvalid) #CYCLE;
         #CYCLE;
         $display("cycle_lo: %d", emucsr_rdata);
-
-        #(CYCLE*5);
 
         $display("=== restore cycle_lo ===");
         // W EMUCSR[0x8]
@@ -443,8 +428,6 @@ module sim_top();
         while (!s_axilite_bvalid) #CYCLE;
         #CYCLE;
 
-        #(CYCLE*5);
-
         $display("=== restore dut register ===");
         // W DUTREG[0x0]
         s_axilite_emureg_awaddr = 0;
@@ -453,8 +436,6 @@ module sim_top();
         s_axilite_emureg_wvalid = 1;
         while (!s_axilite_emureg_bvalid) #CYCLE;
         #CYCLE;
-
-        #(CYCLE*5);
 
         $display("=== restore ideal mem ===");
         for (i=0; i<1024; i=i+1) begin
@@ -466,8 +447,6 @@ module sim_top();
             while (!s_axilite_idealmem_bvalid) #CYCLE;
             #CYCLE;
         end
-
-        #(CYCLE*5);
 
         $display("=== start dma_rd transfer ===");
         // W EMUCSR[0x10] 0x0
@@ -508,8 +487,6 @@ module sim_top();
             #CYCLE;
         end
 
-        #(CYCLE*5);
-
         finish = 0;
 
         $display("=== continue ===");
@@ -523,16 +500,12 @@ module sim_top();
 
         while (!finish) #CYCLE;
 
-        #(CYCLE*5);
-
-        $display("=== read emu_csr ===");
+        $display("=== read emu_stat ===");
         // R EMUCSR[0x0]
         s_axilite_araddr = 12'h000;
         s_axilite_arvalid = 1;
         while (!s_axilite_rvalid) #CYCLE;
         #CYCLE;
-
-        #(CYCLE*5);
 
         $display("=== read cycle_lo ===");
         // R EMUCSR[0x8]
@@ -541,8 +514,6 @@ module sim_top();
         while (!s_axilite_rvalid) #CYCLE;
         #CYCLE;
         $display("cycle_lo: %d", emucsr_rdata);
-
-        #(CYCLE*5);
 
         $finish;
     end
