@@ -183,13 +183,15 @@ module emu_top(
 
     // 0x000 -> EMU_STAT
     //          [0]     -> HALT
+    //          [1]     -> DUT_RESET
     // 0x004 -> EMU_CTRL
     //          [0]     -> SCAN_IN_PREP [WO]
     //          [1]     -> SCAN_OUT_PREP [WO]
 
-    reg emu_halt, emu_scan_in_prep, emu_scan_out_prep;
+    reg emu_halt, emu_dut_reset, emu_scan_in_prep, emu_scan_out_prep;
     wire [31:0] emu_stat, emu_ctrl;
-    assign emu_stat[31:1]   = 31'd0;
+    assign emu_stat[31:2]   = 31'd0;
+    assign emu_stat[1]      = emu_dut_reset;
     assign emu_stat[0]      = emu_halt;
     assign emu_ctrl         = 32'd0;
 
@@ -197,7 +199,8 @@ module emu_top(
 
     always @(posedge clk) begin
         if (rst) begin
-            emu_halt            <= 1'b0;
+            emu_halt            <= 1'b1;
+            emu_dut_reset       <= 1'b1;
         end
         else if (trigger) begin
             emu_halt            <= 1'b1;
@@ -205,6 +208,7 @@ module emu_top(
         else begin
             if (reg_do_write && reg_write_addr == 12'h000) begin
                 emu_halt            <= reg_write_data[0];
+                emu_dut_reset       <= reg_write_data[1];
             end
         end
     end
@@ -598,7 +602,7 @@ module emu_top(
 
     mips_cpu u_cpu ( 
         .clk                (clk),
-        .rst                (rst),
+        .rst                (emu_dut_reset),
         .PC                 (PC),
         .Instruction        (Instruction),
         .Address            (Address),

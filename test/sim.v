@@ -300,6 +300,29 @@ module sim_top();
     initial begin
         #(CYCLE*5);
         resetn = 1;
+
+        #(CYCLE*100);
+
+        $display("=== start emulation & assert reset ===");
+        // W EMUCSR[0x0] 0x2
+        s_axilite_awaddr = 12'h000;
+        s_axilite_awvalid = 1;
+        s_axilite_wdata = 32'h00000002;
+        s_axilite_wvalid = 1;
+        while (!s_axilite_bvalid) #CYCLE;
+        #CYCLE;
+
+        #(CYCLE*100);
+
+        $display("=== deassert reset ===");
+        // W EMUCSR[0x0] 0x2
+        s_axilite_awaddr = 12'h000;
+        s_axilite_awvalid = 1;
+        s_axilite_wdata = 32'h00000000;
+        s_axilite_wvalid = 1;
+        while (!s_axilite_bvalid) #CYCLE;
+        #CYCLE;
+
         #(CYCLE*100);
 
         $display("=== halt & prepare for dump ===");
