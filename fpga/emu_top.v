@@ -256,6 +256,36 @@ module emu_top(
         end
     end
 
+    // EMU_STEP
+
+    reg [31:0] emu_step, emu_step_next;
+
+    always @* begin
+        if (emu_halt) begin
+            emu_step_next = emu_step;
+        end
+        else if (emu_step != 32'd0) begin
+            emu_step_next = emu_step - 32'd1;
+        end
+        else begin
+            emu_step_next = 32'd0;
+        end
+    end
+
+    wire step_trigger = emu_step != 32'd0 && emu_step_next == 32'd0;
+
+    always @(posedge clk) begin
+        if (rst) begin
+            emu_step <= 32'd0;
+        end
+        else if (reg_do_write && reg_write_addr == `EMU_STEP) begin
+            emu_step <= reg_write_data;
+        end
+        else begin
+            emu_step <= emu_step_next;
+        end
+    end
+
     // EMU_DMA_RD_ADDR_LO
     // EMU_DMA_RD_ADDR_HI
     // EMU_DMA_RD_LEN
@@ -372,6 +402,7 @@ module emu_top(
             `EMU_CTRL:              reg_read_data_wire = emu_ctrl;
             `EMU_CYCLE_LO:          reg_read_data_wire = emu_cycle[31:0];
             `EMU_CYCLE_HI:          reg_read_data_wire = emu_cycle[63:32];
+            `EMU_STEP:              reg_read_data_wire = emu_step;
             `EMU_DMA_RD_ADDR_LO:    reg_read_data_wire = emu_dma_rd_addr[31:0];
             `EMU_DMA_RD_ADDR_HI:    reg_read_data_wire = emu_dma_rd_addr[63:32];
             `EMU_DMA_RD_LEN:        reg_read_data_wire = {12'd0, emu_dma_rd_len};
@@ -634,7 +665,7 @@ module emu_top(
         .\$EMU$RAM$WVALID   (m_axis_read_data_tvalid)
     );
 
-    assign trigger = MemWrite && Address == 32'h0000000c;
+    wire user_trigger = MemWrite && Address == 32'h0000000c;
 
     reg [11:0] idealmem_read_addr, idealmem_write_addr;
     reg [31:0] idealmem_read_data, idealmem_write_data;
@@ -719,6 +750,8 @@ module emu_top(
 
     assign Read_data = mux_rdata;
     assign idealmem_read_data_wire = mux_rdata;
+
+    assign trigger = step_trigger || user_trigger;
 
 endmodule
 

@@ -305,6 +305,14 @@ module sim_top();
 
         #(CYCLE*100);
 
+        $display("=== set step count to 100 ===");
+        s_axilite_awaddr = `EMU_STEP;
+        s_axilite_awvalid = 1;
+        s_axilite_wdata = 32'h00000064;
+        s_axilite_wvalid = 1;
+        while (!s_axilite_bvalid) #CYCLE;
+        #CYCLE;
+
         $display("=== start emulation & assert reset ===");
         // W EMUCSR[0x0] 0x2
         s_axilite_awaddr = `EMU_STAT;
@@ -314,10 +322,33 @@ module sim_top();
         while (!s_axilite_bvalid) #CYCLE;
         #CYCLE;
 
-        #(CYCLE*100);
+        $display("=== wait for trigger ===");
+        emucsr_rdata = 0;
+        while ((emucsr_rdata & 1) == 0) begin
+            #(CYCLE*20);
+            s_axilite_araddr = `EMU_STAT;
+            s_axilite_arvalid = 1;
+            while (!s_axilite_rvalid) #CYCLE;
+            #CYCLE;
+        end
 
         $display("=== deassert reset ===");
-        // W EMUCSR[0x0] 0x2
+        s_axilite_awaddr = `EMU_STAT;
+        s_axilite_awvalid = 1;
+        s_axilite_wdata = 32'h00000001;
+        s_axilite_wvalid = 1;
+        while (!s_axilite_bvalid) #CYCLE;
+        #CYCLE;
+
+        $display("=== read cycle_lo ===");
+        // R EMUCSR[0x8]
+        s_axilite_araddr = `EMU_CYCLE_LO;
+        s_axilite_arvalid = 1;
+        while (!s_axilite_rvalid) #CYCLE;
+        #CYCLE;
+        $display("cycle_lo: %d", emucsr_rdata);
+
+        $display("=== continue ===");
         s_axilite_awaddr = `EMU_STAT;
         s_axilite_awvalid = 1;
         s_axilite_wdata = 32'h00000000;
