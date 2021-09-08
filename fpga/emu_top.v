@@ -692,23 +692,27 @@ module emu_top(
     assign s_axilite_idealmem_bvalid    = idealmem_write_resp_valid;
     assign s_axilite_idealmem_bresp     = 2'd0;
 
+    wire mux_wen = emu_halt ? idealmem_do_write : MemWrite;
+    wire [9:0] mux_waddr = emu_halt ? idealmem_write_addr[11:2] : Address[11:2];
+    wire [31:0] mux_wdata = emu_halt ? idealmem_write_data : Write_data;
+    wire [3:0] mux_wstrb = emu_halt ? idealmem_write_strb : Write_strb;
+    wire [9:0] mux_raddr = emu_halt ? idealmem_read_addr[11:2] : Address[11:2];
+    wire [31:0] mux_rdata;
+
     ideal_mem #(.WIDTH(32), .DEPTH(1024)) u_mem (
         .clk                (clk),
-        .wen1               (MemWrite),
-        .waddr1             (Address[11:2]),
-        .wdata1             (Write_data),
-        .wstrb1             (Write_strb),
-        .wen2               (idealmem_do_write),
-        .waddr2             (idealmem_write_addr[11:2]),
-        .wdata2             (idealmem_write_data),
-        .wstrb2             (idealmem_write_strb),
+        .wen1               (mux_wen),
+        .waddr1             (mux_waddr),
+        .wdata1             (mux_wdata),
+        .wstrb1             (mux_wstrb),
         .raddr1             (PC[11:2]),
         .rdata1             (Instruction),
-        .raddr2             (Address[11:2]),
-        .rdata2             (Read_data),
-        .raddr3             (idealmem_read_addr[11:2]),
-        .rdata3             (idealmem_read_data_wire)
+        .raddr2             (mux_raddr),
+        .rdata2             (mux_rdata)
     );
+
+    assign Read_data = mux_rdata;
+    assign idealmem_read_data_wire = mux_rdata;
 
 endmodule
 
@@ -722,16 +726,10 @@ module ideal_mem #(
     input [AWIDTH-1:0] waddr1,
     input [WIDTH-1:0] wdata1,
     input [WIDTH/8-1:0] wstrb1,
-    input wen2,
-    input [AWIDTH-1:0] waddr2,
-    input [WIDTH-1:0] wdata2,
-    input [WIDTH/8-1:0] wstrb2,
     input [AWIDTH-1:0] raddr1,
     output [WIDTH-1:0] rdata1,
     input [AWIDTH-1:0] raddr2,
-    output [WIDTH-1:0] rdata2,
-    input [AWIDTH-1:0] raddr3,
-    output [WIDTH-1:0] rdata3
+    output [WIDTH-1:0] rdata2
 );
 
     reg [WIDTH-1:0] mem [DEPTH-1:0];
@@ -739,11 +737,9 @@ module ideal_mem #(
     integer i;
     always @(posedge clk) begin
         for (i=0; i<WIDTH/8; i=i+1) if (wen1 && wstrb1[i]) mem[waddr1][i*8+:8] <= wdata1[i*8+:8];
-        for (i=0; i<WIDTH/8; i=i+1) if (wen2 && wstrb2[i]) mem[waddr2][i*8+:8] <= wdata2[i*8+:8];
     end
 
     assign rdata1 = mem[raddr1];
     assign rdata2 = mem[raddr2];
-    assign rdata3 = mem[raddr3];
 
 endmodule
