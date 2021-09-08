@@ -16,7 +16,7 @@ test: $(OUTPUT_SIM)
 	$(OUTPUT_SIM)
 
 $(OUTPUT_SIM): $(VSRCS_SIM)
-	iverilog -o $@ $^
+	iverilog -o $@ -I$(FPGA_DIR) $^
 
 $(OUTPUT_V): $(INPUT_IL) $(TRANSFORM_LIB)
 	yosys -m $(TRANSFORM_LIB) -p "read_rtlil $(INPUT_IL); insert_accessor -cfg output/cfg.txt; opt; write_rtlil $(OUTPUT_IL); write_verilog $@"

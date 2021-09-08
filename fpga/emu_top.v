@@ -1,3 +1,5 @@
+`include "emu_csr.vh"
+
 module emu_top(
     input           clk,
     input           resetn,
@@ -181,12 +183,12 @@ module emu_top(
     assign s_axilite_bvalid     = reg_write_resp_valid;
     assign s_axilite_bresp      = reg_write_error ? 2'b10 : 2'b00;
 
-    // 0x000 -> EMU_STAT
-    //          [0]     -> HALT
-    //          [1]     -> DUT_RESET
-    // 0x004 -> EMU_CTRL
-    //          [0]     -> SCAN_IN_PREP [WO]
-    //          [1]     -> SCAN_OUT_PREP [WO]
+    // EMU_STAT
+    //      [0]     -> HALT
+    //      [1]     -> DUT_RESET
+    // EMU_CTRL
+    //      [0]     -> SCAN_IN_PREP [WO]
+    //      [1]     -> SCAN_OUT_PREP [WO]
 
     reg emu_halt, emu_dut_reset, emu_scan_in_prep, emu_scan_out_prep;
     wire [31:0] emu_stat, emu_ctrl;
@@ -206,7 +208,7 @@ module emu_top(
             emu_halt            <= 1'b1;
         end
         else begin
-            if (reg_do_write && reg_write_addr == 12'h000) begin
+            if (reg_do_write && reg_write_addr == `EMU_STAT) begin
                 emu_halt            <= reg_write_data[0];
                 emu_dut_reset       <= reg_write_data[1];
             end
@@ -225,15 +227,15 @@ module emu_top(
             if (emu_scan_out_prep) begin
                 emu_scan_out_prep   <= 1'b0;
             end
-            if (reg_do_write && reg_write_addr == 12'h004) begin
+            if (reg_do_write && reg_write_addr == `EMU_CTRL) begin
                 emu_scan_in_prep    <= reg_write_data[0];
                 emu_scan_out_prep   <= reg_write_data[1];
             end
         end
     end
 
-    // 0x008 -> EMU_CYCLE_LO
-    // 0x00c -> EMU_CYCLE_HI
+    // EMU_CYCLE_LO
+    // EMU_CYCLE_HI
 
     reg [63:0] emu_cycle;
 
@@ -245,22 +247,22 @@ module emu_top(
             emu_cycle <= emu_cycle + 64'd1;
         end
         else begin
-            if (reg_do_write && reg_write_addr == 12'h008) begin
+            if (reg_do_write && reg_write_addr == `EMU_CYCLE_LO) begin
                 emu_cycle[31:0] <= reg_write_data;
             end
-            if (reg_do_write && reg_write_addr == 12'h00c) begin
+            if (reg_do_write && reg_write_addr == `EMU_CYCLE_HI) begin
                 emu_cycle[63:32] <= reg_write_data;
             end
         end
     end
 
-    // 0x010 -> EMU_DMA_RD_ADDR_LO
-    // 0x014 -> EMU_DMA_RD_ADDR_HI
-    // 0x018 -> EMU_DMA_RD_LEN
-    //          [19:0]  -> LEN
-    // 0x01c -> EMU_DMA_RD_CSR
-    //          [0]     -> START [WO] / RUNNING [RO]
-    //          [4:1]   -> ERROR [RO]
+    // EMU_DMA_RD_ADDR_LO
+    // EMU_DMA_RD_ADDR_HI
+    // EMU_DMA_RD_LEN
+    //      [19:0]  -> LEN
+    // EMU_DMA_RD_CSR
+    //      [0]     -> START [WO] / RUNNING [RO]
+    //      [4:1]   -> ERROR [RO]
 
     reg [63:0] emu_dma_rd_addr;
     reg [19:0] emu_dma_rd_len;
@@ -287,16 +289,16 @@ module emu_top(
                 emu_dma_rd_running      <= 1'b0;
                 emu_dma_rd_error        <= m_axis_read_desc_status_error;
             end
-            if (reg_do_write && reg_write_addr == 12'h010) begin
+            if (reg_do_write && reg_write_addr == `EMU_DMA_RD_ADDR_LO) begin
                 emu_dma_rd_addr[31:0]   <= reg_write_data;
             end
-            if (reg_do_write && reg_write_addr == 12'h014) begin
+            if (reg_do_write && reg_write_addr == `EMU_DMA_RD_ADDR_HI) begin
                 emu_dma_rd_addr[63:32]  <= reg_write_data;
             end
-            if (reg_do_write && reg_write_addr == 12'h018) begin
+            if (reg_do_write && reg_write_addr == `EMU_DMA_RD_LEN) begin
                 emu_dma_rd_len          <= reg_write_data[19:0];
             end
-            if (reg_do_write && reg_write_addr == 12'h01c) begin
+            if (reg_do_write && reg_write_addr == `EMU_DMA_RD_CSR) begin
                 emu_dma_rd_start        <= emu_dma_rd_start || reg_write_data[0];
                 emu_dma_rd_running      <= emu_dma_rd_running || reg_write_data[0];
             end
@@ -305,13 +307,13 @@ module emu_top(
 
     assign s_axis_read_desc_valid   = emu_dma_rd_start;
 
-    // 0x020 -> EMU_DMA_WR_ADDR_LO
-    // 0x024 -> EMU_DMA_WR_ADDR_HI
-    // 0x028 -> EMU_DMA_WR_LEN
-    //          [19:0]  -> LEN
-    // 0x02c -> EMU_DMA_WR_CSR
-    //          [0]     -> START [WO] / RUNNING [RO]
-    //          [4:1]   -> ERROR [RO]
+    // EMU_DMA_WR_ADDR_LO
+    // EMU_DMA_WR_ADDR_HI
+    // EMU_DMA_WR_LEN
+    //      [19:0]  -> LEN
+    // EMU_DMA_WR_CSR
+    //      [0]     -> START [WO] / RUNNING [RO]
+    //      [4:1]   -> ERROR [RO]
 
     reg [63:0] emu_dma_wr_addr;
     reg [19:0] emu_dma_wr_len;
@@ -339,16 +341,16 @@ module emu_top(
                 emu_dma_wr_running      <= 1'b0;
                 emu_dma_wr_error        <= m_axis_write_desc_status_error;
             end
-            if (reg_do_write && reg_write_addr == 12'h020) begin
+            if (reg_do_write && reg_write_addr == `EMU_DMA_WR_ADDR_LO) begin
                 emu_dma_wr_addr[31:0]   <= reg_write_data;
             end
-            if (reg_do_write && reg_write_addr == 12'h024) begin
+            if (reg_do_write && reg_write_addr == `EMU_DMA_WR_ADDR_HI) begin
                 emu_dma_wr_addr[63:32]  <= reg_write_data;
             end
-            if (reg_do_write && reg_write_addr == 12'h028) begin
+            if (reg_do_write && reg_write_addr == `EMU_DMA_WR_LEN) begin
                 emu_dma_wr_len          <= reg_write_data[19:0];
             end
-            if (reg_do_write && reg_write_addr == 12'h02c) begin
+            if (reg_do_write && reg_write_addr == `EMU_DMA_WR_CSR) begin
                 emu_dma_wr_start        <= emu_dma_wr_start || reg_write_data[0];
                 emu_dma_wr_running      <= emu_dma_wr_running || reg_write_data[0];
             end
@@ -366,19 +368,19 @@ module emu_top(
 
     always @* begin
         case (reg_read_addr)
-            12'h000:    reg_read_data_wire = emu_stat;
-            12'h004:    reg_read_data_wire = emu_ctrl;
-            12'h008:    reg_read_data_wire = emu_cycle[31:0];
-            12'h00c:    reg_read_data_wire = emu_cycle[63:32];
-            12'h010:    reg_read_data_wire = emu_dma_rd_addr[31:0];
-            12'h014:    reg_read_data_wire = emu_dma_rd_addr[63:32];
-            12'h018:    reg_read_data_wire = {12'd0, emu_dma_rd_len};
-            12'h01c:    reg_read_data_wire = emu_dma_rd_csr;
-            12'h020:    reg_read_data_wire = emu_dma_wr_addr[31:0];
-            12'h024:    reg_read_data_wire = emu_dma_wr_addr[63:32];
-            12'h028:    reg_read_data_wire = {12'd0, emu_dma_wr_len};
-            12'h02c:    reg_read_data_wire = emu_dma_wr_csr;
-            default:    reg_read_data_wire = 32'd0;
+            `EMU_STAT:              reg_read_data_wire = emu_stat;
+            `EMU_CTRL:              reg_read_data_wire = emu_ctrl;
+            `EMU_CYCLE_LO:          reg_read_data_wire = emu_cycle[31:0];
+            `EMU_CYCLE_HI:          reg_read_data_wire = emu_cycle[63:32];
+            `EMU_DMA_RD_ADDR_LO:    reg_read_data_wire = emu_dma_rd_addr[31:0];
+            `EMU_DMA_RD_ADDR_HI:    reg_read_data_wire = emu_dma_rd_addr[63:32];
+            `EMU_DMA_RD_LEN:        reg_read_data_wire = {12'd0, emu_dma_rd_len};
+            `EMU_DMA_RD_CSR:        reg_read_data_wire = emu_dma_rd_csr;
+            `EMU_DMA_WR_ADDR_LO:    reg_read_data_wire = emu_dma_wr_addr[31:0];
+            `EMU_DMA_WR_ADDR_HI:    reg_read_data_wire = emu_dma_wr_addr[63:32];
+            `EMU_DMA_WR_LEN:        reg_read_data_wire = {12'd0, emu_dma_wr_len};
+            `EMU_DMA_WR_CSR:        reg_read_data_wire = emu_dma_wr_csr;
+            default:                reg_read_data_wire = 32'd0;
         endcase
     end
 
