@@ -260,7 +260,7 @@ private:
         }
 
         SigSpec pmux = assigned_addr ? module->Pmux(NEW_ID, Const(0, DATA_WIDTH), read_pmux_b, read_pmux_s) : Const(0, DATA_WIDTH);
-        module->addDff(NEW_ID, clock, pmux, wire_rdata);
+        module->connect(wire_rdata, pmux);
 
         log("Assigned FF addresses: %d\n", assigned_addr);
     }
