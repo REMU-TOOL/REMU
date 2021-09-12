@@ -583,7 +583,7 @@ module sim_top();
         end
     end
 
-    initial $readmemh("initmem.txt", u_emu_top.u_mem.mem);
+    initial $readmemh("test/initmem.txt", u_emu_top.u_mem.mem);
 
     initial begin
         $dumpfile("output/dump.vcd");
