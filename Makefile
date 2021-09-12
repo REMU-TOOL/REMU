@@ -27,7 +27,7 @@ $(TRANSFORM_LIB): $(CXXDEPS)
 transform: $(OUTPUT_V)
 
 $(OUTPUT_V): $(INPUT_IL) $(TRANSFORM_LIB)
-	yosys -m $(TRANSFORM_LIB) -p "read_rtlil $(INPUT_IL); insert_accessor -cfg output/cfg.txt; opt; write_rtlil $(OUTPUT_IL); write_verilog $@"
+	yosys -m $(TRANSFORM_LIB) -p "read_rtlil $(INPUT_IL); insert_accessor -cfg output/cfg.txt -ldr output/loader.vh; opt; write_rtlil $(OUTPUT_IL); write_verilog $@"
 
 $(INPUT_IL): $(VSRC)
 	mkdir -p $(OUTPUT_DIR)

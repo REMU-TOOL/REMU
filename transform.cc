@@ -244,15 +244,6 @@ private:
             read_pmux_b.append(b);
             read_pmux_s.append(s);
 
-            // save original register names
-            std::stringstream regnames;
-            for (SigChunk chunk : ff_q.chunks()) {
-                log_assert(chunk.is_wire());
-                regnames    << chunk.wire->name.c_str()
-                            << "[" << chunk.offset+chunk.width-1 << ":" << chunk.offset << "];";
-            }
-            new_ff->set_string_attribute("\\accessor_name", regnames.str());
-
             // assign address for new FF
             new_ff->set_string_attribute("\\accessor_addr", stringf("%d", assigned_addr));
 
@@ -471,20 +462,72 @@ public:
 
         f << "#FF\n";
         for (auto &ff : ff_cells) {
-            f   << ff->get_string_attribute("\\accessor_addr")
-                << ": "
-                << ff->get_string_attribute("\\accessor_name")
-                << "\n";
+            int offset = 0;
+            std::string addr = ff->get_string_attribute("\\accessor_addr");
+            for (SigChunk chunk : ff->getPort(ID::Q).chunks()) {
+                log_assert(chunk.is_wire());
+
+                std::string name = chunk.wire->name.str();
+                if (name[0] == '\\') {
+                    f   << addr << "," << offset << ": " << name.substr(1)
+                        << "[" << chunk.offset + chunk.width - 1 << ":" << chunk.offset << "]\n";
+                }
+                offset += chunk.width;
+            }
         }
 
         f << "#MEM\n";
         for (auto &mem : mem_cells) {
-            f   << mem.cell->get_string_attribute("\\accessor_id")
-                << ": "
-                << mem.memid.str()
-                << "\n";
+            std::string name = mem.memid.str();
+            if (name[0] == '\\') {
+                f   << mem.cell->get_string_attribute("\\accessor_id")
+                    << ": " << name.substr(1) << "\n";
+            }
         }
 
+        f.close();
+    }
+
+    void write_loader(std::string filename) {
+        std::ofstream f;
+        f.open(filename.c_str(), std::ofstream::trunc);
+        if (f.fail()) {
+            log_error("Can't open file `%s' for writing: %s\n", filename.c_str(), strerror(errno));
+        }
+
+        log("Writing to loader file %s\n", filename.c_str());
+
+        f << "reg [" << DATA_WIDTH - 1 << ":0] __reconstructed_ffs [" << ff_cells.size() - 1 << ":0]\n";
+        f << "initial begin\n";
+
+        f << stringf("    $readmemh({`CHECKPOINT_PATH, \"/ffdata.txt\"}, __reconstructed_ffs);\n");
+        for (auto &ff : ff_cells) {
+            int offset = 0;
+            std::string addr = ff->get_string_attribute("\\accessor_addr");
+            for (SigChunk chunk : ff->getPort(ID::Q).chunks()) {
+                log_assert(chunk.is_wire());
+
+                std::string name = chunk.wire->name.str();
+                if (name[0] == '\\') {
+                    f   << "    `DUT_INST." << name.substr(1)
+                        << "[" << chunk.offset + chunk.width - 1 << ":" << chunk.offset << "]"
+                        << " = __reconstructed_ffs[" << addr << "]"
+                        << "[" << offset + chunk.width - 1 << ":" << offset << "];\n";
+                }
+                offset += chunk.width;
+            }
+        }
+
+        for (auto &mem : mem_cells) {
+            std::string name = mem.memid.str();
+            if (name[0] == '\\') {
+                f   << "    $readmemh({`CHECKPOINT_PATH, \"/mem_"
+                    << mem.cell->get_string_attribute("\\accessor_id")
+                    << ".txt\"}, `DUT_INST." << name.substr(1) << ");\n";
+            }
+        }
+
+        f << "end\n";
         f.close();
     }
 };
@@ -502,10 +545,12 @@ struct InsertAccessorPass : public Pass {
 		log("\n");
 		log("    -cfg <file>\n");
 		log("        write generated configuration to the specified file\n");
+		log("    -ldr <file>\n");
+		log("        write generated simulation loader to the specified file\n");
 		log("\n");
 	}
 
-    std::string cfg_file;
+    std::string cfg_file, ldr_file;
 
     void execute(vector<string> args, Design* design) override {
         size_t argidx;
@@ -513,6 +558,10 @@ struct InsertAccessorPass : public Pass {
 		{
 			if (args[argidx] == "-cfg" && argidx+1 < args.size()) {
 				cfg_file = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-ldr" && argidx+1 < args.size()) {
+				ldr_file = args[++argidx];
 				continue;
 			}
 			break;
@@ -527,6 +576,7 @@ struct InsertAccessorPass : public Pass {
                 InsertAccessorWorker worker(mod);
                 worker.run();
                 if (!cfg_file.empty()) worker.write_config(cfg_file);
+                if (!ldr_file.empty()) worker.write_loader(ldr_file);
             }
         }
     }
