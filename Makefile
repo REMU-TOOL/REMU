@@ -6,6 +6,7 @@ CXXDEPS := transform.cc emuutil.cc emuutil.h
 
 OUTPUT_DIR := $(shell pwd)/output
 FPGA_DIR := $(shell pwd)/fpga
+SIM_DIR := $(shell pwd)/sim
 
 VSRC ?= test/test.v
 VTOP ?= mips_cpu
@@ -13,8 +14,12 @@ VTOP ?= mips_cpu
 INPUT_IL := $(OUTPUT_DIR)/input.il
 OUTPUT_IL := $(OUTPUT_DIR)/output.il
 OUTPUT_V := $(OUTPUT_DIR)/output.v
-VSRC_SIM := $(OUTPUT_V) $(wildcard $(FPGA_DIR)/ip/*.v) $(FPGA_DIR)/emu_top.v test/sim.v
+
+VSRC_SIM := $(VSRC) $(SIM_DIR)/top.v
 SIM_BIN := $(OUTPUT_DIR)/sim
+
+VSRC_TEST := $(OUTPUT_V) $(wildcard $(FPGA_DIR)/ip/*.v) $(FPGA_DIR)/emu_top.v test/sim.v
+TEST_BIN := $(OUTPUT_DIR)/test
 
 .PHONY: build
 build: $(TRANSFORM_LIB)
@@ -37,11 +42,19 @@ $(INPUT_IL): $(VSRC)
 transform_clean:
 	rm -rf $(OUTPUT_DIR)
 
-.PHONY: test
-test: $(SIM_BIN)
-	$(SIM_BIN)
+.PHONY: sim
+sim: $(SIM_BIN)
+	STARTCYCLE=$$(((`cat checkpoint/cyclehi.txt`<<32)|`cat checkpoint/cyclelo.txt`)); \
+	$(SIM_BIN) +startcycle=$$STARTCYCLE +runcycle=1000
 
 $(SIM_BIN): $(VSRC_SIM)
+	iverilog -o $@ -I$(OUTPUT_DIR) $^
+
+.PHONY: test
+test: $(TEST_BIN)
+	$(TEST_BIN)
+
+$(TEST_BIN): $(VSRC_TEST)
 	iverilog -o $@ -I$(FPGA_DIR) $^
 
 .PHONY: clean
