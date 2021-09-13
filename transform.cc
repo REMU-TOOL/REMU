@@ -497,10 +497,10 @@ public:
 
         log("Writing to loader file %s\n", filename.c_str());
 
-        f << "reg [" << DATA_WIDTH - 1 << ":0] __reconstructed_ffs [" << ff_cells.size() - 1 << ":0]\n";
-        f << "initial begin\n";
+        f << "`define LOADER_DEFS reg [" << DATA_WIDTH - 1 << ":0] __reconstructed_ffs [" << ff_cells.size() - 1 << ":0];\n";
+        f << "`define LOADER_STMTS \\\n";
 
-        f << stringf("    $readmemh({`CHECKPOINT_PATH, \"/ffdata.txt\"}, __reconstructed_ffs);\n");
+        f << stringf("    $readmemh({`CHECKPOINT_PATH, \"/ffdata.txt\"}, __reconstructed_ffs);\\\n");
         for (auto &ff : ff_cells) {
             int offset = 0;
             std::string addr = ff->get_string_attribute("\\accessor_addr");
@@ -512,7 +512,7 @@ public:
                     f   << "    `DUT_INST." << name.substr(1)
                         << "[" << chunk.offset + chunk.width - 1 << ":" << chunk.offset << "]"
                         << " = __reconstructed_ffs[" << addr << "]"
-                        << "[" << offset + chunk.width - 1 << ":" << offset << "];\n";
+                        << "[" << offset + chunk.width - 1 << ":" << offset << "];\\\n";
                 }
                 offset += chunk.width;
             }
@@ -523,11 +523,11 @@ public:
             if (name[0] == '\\') {
                 f   << "    $readmemh({`CHECKPOINT_PATH, \"/mem_"
                     << mem.cell->get_string_attribute("\\accessor_id")
-                    << ".txt\"}, `DUT_INST." << name.substr(1) << ");\n";
+                    << ".txt\"}, `DUT_INST." << name.substr(1) << ");\\\n";
             }
         }
 
-        f << "end\n";
+        f << "\n";
         f.close();
     }
 };
