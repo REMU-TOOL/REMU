@@ -580,7 +580,7 @@ module mips_cpu(
                      | {5{inst_r31_wex}}                & 5'd31;
 
     // imm extension
-    wire [15:0] imm = `GET_IMM(inst_i);
+    //wire [15:0] imm = `GET_IMM(inst_i);
     wire [31:0] imm_sx = {{16{imm[15]}}, imm};
     wire [31:0] imm_zx = {16'd0, imm};
     wire [31:0] imm_32 = imm_is_sx ? imm_sx : imm_zx;
