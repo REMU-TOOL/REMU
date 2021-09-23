@@ -31,16 +31,9 @@ $(TRANSFORM_LIB): $(CXXDEPS)
 .PHONY: transform
 transform: $(OUTPUT_V)
 
-$(OUTPUT_V): $(INPUT_IL) $(TRANSFORM_LIB)
-	yosys -m $(TRANSFORM_LIB) -p "read_rtlil $(INPUT_IL); insert_accessor -cfg output/cfg.txt -ldr output/loader.vh; opt; write_rtlil $(OUTPUT_IL); write_verilog $@"
-
-$(INPUT_IL): $(VSRC)
+$(OUTPUT_V): $(TRANSFORM_LIB) $(VSRC)
 	mkdir -p $(OUTPUT_DIR)
-	yosys -p "read_verilog $^; prep -top $(VTOP) -flatten; write_rtlil $@"
-
-.PHONY: transform_clean
-transform_clean:
-	rm -rf $(OUTPUT_DIR)
+	yosys -m $(TRANSFORM_LIB) -p "tcl scripts/transform.tcl -top $(VTOP) -cfg $(OUTPUT_DIR)/cfg.txt -ldr $(OUTPUT_DIR)/loader.vh" -o $@ $(VSRC)
 
 .PHONY: sim
 sim: $(SIM_BIN)
@@ -58,5 +51,6 @@ $(TEST_BIN): $(VSRC_TEST)
 	iverilog -o $@ -I$(FPGA_DIR) $^
 
 .PHONY: clean
-clean: transform_clean
+clean:
+	rm -rf $(OUTPUT_DIR)
 	rm -rf $(BUILD_DIR)
