@@ -1,6 +1,9 @@
 *.o
 *.d
 *.so
+*.out
+*.out.v
+*.vcd
 
 checkpoint/
 output/
