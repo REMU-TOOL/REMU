@@ -1,4 +1,7 @@
-build/
+*.o
+*.d
+*.so
+
 checkpoint/
 output/
 

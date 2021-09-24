@@ -1,8 +1,4 @@
-BUILD_DIR := $(shell pwd)/build
-TRANSFORM_LIB := $(BUILD_DIR)/transform.so
-
-CXXSRCS := transform.cc emuutil.cc
-CXXDEPS := transform.cc emuutil.cc emuutil.h
+TRANSFORM_LIB := transform/transform.so
 
 OUTPUT_DIR := $(shell pwd)/output
 FPGA_DIR := $(shell pwd)/fpga
@@ -24,9 +20,8 @@ TEST_BIN := $(OUTPUT_DIR)/test
 .PHONY: build
 build: $(TRANSFORM_LIB)
 
-$(TRANSFORM_LIB): $(CXXDEPS)
-	mkdir -p $(BUILD_DIR)
-	yosys-config --exec --cxx --cxxflags --ldflags -o $(TRANSFORM_LIB) --shared $(CXXSRCS) --ldlibs
+$(TRANSFORM_LIB):
+	make -C transform
 
 .PHONY: transform
 transform: $(OUTPUT_V)
@@ -53,4 +48,4 @@ $(TEST_BIN): $(VSRC_TEST)
 .PHONY: clean
 clean:
 	rm -rf $(OUTPUT_DIR)
-	rm -rf $(BUILD_DIR)
+	make -C transform clean
