@@ -19,4 +19,4 @@ clean:
 	rm -f *.o
 	rm -f *.d
 
--include *.d
+-include $(OBJS:%.o=%.d)

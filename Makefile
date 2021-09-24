@@ -17,10 +17,12 @@ SIM_BIN := $(OUTPUT_DIR)/sim
 VSRC_TEST := $(OUTPUT_V) $(wildcard $(FPGA_DIR)/ip/*.v) $(FPGA_DIR)/emu_top.v test/sim.v
 TEST_BIN := $(OUTPUT_DIR)/test
 
+.PHONY: FORCE
+
 .PHONY: build
 build: $(TRANSFORM_LIB)
 
-$(TRANSFORM_LIB):
+$(TRANSFORM_LIB): FORCE
 	make -C transform
 
 .PHONY: transform
