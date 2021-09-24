@@ -543,6 +543,8 @@ module sim_top();
             #CYCLE;
         end
 
+        #(CYCLE*100); // TODO: wait for completion flag
+
         finish = 0;
 
         $display("=== continue ===");
