@@ -6,7 +6,9 @@ LD := $(shell yosys-config --cxx)
 LDFLAGS := $(shell yosys-config --ldflags)
 LDLIBS := $(shell yosys-config --ldlibs)
 
-OBJS := transform.o emuutil.o
+SRCS := $(wildcard *.cc)
+OBJS := $(SRCS:%.cc=%.o)
+DEPS := $(SRCS:%.cc=%.d)
 
 $(TRANSFORM_LIB): $(OBJS)
 	$(LD) $(LDFLAGS) $(LDLIBS) -shared -o $@ $^
@@ -19,4 +21,4 @@ clean:
 	rm -f *.o
 	rm -f *.d
 
--include $(OBJS:%.o=%.d)
+-include $(DEPS)
