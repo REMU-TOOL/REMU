@@ -1,10 +1,13 @@
-TRANSFORM_LIB := transform.so
+include ../common.mk
 
 CXX := $(shell yosys-config --cxx)
 CXXFLAGS := $(shell yosys-config --cxxflags)
 LD := $(shell yosys-config --cxx)
 LDFLAGS := $(shell yosys-config --ldflags)
 LDLIBS := $(shell yosys-config --ldlibs)
+
+# workaround to include some header files not installed in /usr/local
+CXXFLAGS += -I"$(YOSYS_DIR)"
 
 SRCS := $(wildcard *.cc)
 OBJS := $(SRCS:%.cc=%.o)
