@@ -15,7 +15,7 @@ module mem #(
     input   [WIDTH-1:0]     wdata
 );
 
-    reg [WIDTH-1:0] mem [OFFSET:OFFSET+DEPTH];
+    reg [WIDTH-1:0] mem [OFFSET:OFFSET+DEPTH-1];
 
     always @(posedge clk) begin
         if (wen) mem[waddr] <= wdata;
