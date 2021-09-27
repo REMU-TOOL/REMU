@@ -1,11 +1,15 @@
-TRANSFORM_LIB := transform/transform.so
-
-OUTPUT_DIR := $(shell pwd)/output
-FPGA_DIR := $(shell pwd)/fpga
-SIM_DIR := $(shell pwd)/sim
+include common.mk
 
 VSRC ?= test/test.v
 VTOP ?= mips_cpu
+
+DEBUG ?= n
+
+ifeq ($(DEBUG),y)
+YOSYS := gdb --args $(YOSYS_DIR)/yosys
+else
+YOSYS := yosys
+endif
 
 INPUT_IL := $(OUTPUT_DIR)/input.il
 OUTPUT_IL := $(OUTPUT_DIR)/output.il
@@ -26,11 +30,9 @@ $(TRANSFORM_LIB): FORCE
 	make -C transform
 
 .PHONY: transform
-transform: $(OUTPUT_V)
-
-$(OUTPUT_V): $(TRANSFORM_LIB) $(VSRC)
+transform: $(TRANSFORM_LIB) $(VSRC) FORCE
 	mkdir -p $(OUTPUT_DIR)
-	yosys -m $(TRANSFORM_LIB) -p "tcl scripts/transform.tcl -top $(VTOP) -cfg $(OUTPUT_DIR)/cfg.txt -ldr $(OUTPUT_DIR)/loader.vh" -o $@ $(VSRC)
+	$(YOSYS) -m $(TRANSFORM_LIB) -p "tcl $(TRANSFORM_TCL) -top $(VTOP) -cfg $(OUTPUT_DIR)/cfg.txt -ldr $(OUTPUT_DIR)/loader.vh" -o $(OUTPUT_V) $(VSRC)
 
 .PHONY: sim
 sim: $(SIM_BIN)
