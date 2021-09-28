@@ -37,6 +37,7 @@ namespace EmuUtil {
     };
 
     std::string get_sig_src(Yosys::SigSpec sig);
+    std::vector<std::tuple<std::string, int, int>> parse_sig_src(std::string src);
 
     struct {
         size_t count = 0;
