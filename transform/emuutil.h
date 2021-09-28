@@ -36,7 +36,7 @@ namespace EmuUtil {
         Yosys::SigSpec idata, ivalid, iready, odata, ovalid, oready, flush;
     };
 
-    std::string dump_sig(Yosys::SigSpec sig);
+    std::string get_sig_src(Yosys::SigSpec sig);
 
     struct {
         size_t count = 0;

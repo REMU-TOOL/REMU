@@ -538,7 +538,7 @@ struct MemoryDffWorker
 				log("    Write port %d: non-transparent.\n", pi);
 			}
 		}
-		mem.set_string_attribute("\\emu_orig_rdata", dump_sig(ff.sig_q));
+		mem.set_string_attribute("\\emu_orig_rdata", get_sig_src(ff.sig_q));
 		mem.emit();
 	}
 
@@ -587,7 +587,7 @@ struct MemoryDffWorker
 		port.clk_polarity = ff.pol_clk;
 		for (int i = 0; i < GetSize(mem.wr_ports); i++)
 			port.transparency_mask[i] = true;
-		mem.set_string_attribute("\\emu_orig_raddr", dump_sig(ff.sig_q));
+		mem.set_string_attribute("\\emu_orig_raddr", get_sig_src(ff.sig_q));
 		mem.emit();
 		log("merged address FF to cell.\n");
 	}

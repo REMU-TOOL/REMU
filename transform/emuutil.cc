@@ -4,7 +4,7 @@ USING_YOSYS_NAMESPACE
 
 using namespace EmuUtil;
 
-std::string EmuUtil::dump_sig(SigSpec sig) {
+std::string EmuUtil::get_sig_src(SigSpec sig) {
     std::stringstream s;
     for (auto &c : sig.chunks()) {
         log_assert(c.is_wire());
