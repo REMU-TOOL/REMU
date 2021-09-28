@@ -234,7 +234,6 @@ private:
                 module->And(NEW_ID, wire_wdata.extract(0, width), ff_wen)
             );
             SigSpec ff_d = module->Mux(NEW_ID, ff.first, ff_wdata, wire_halt);
-
             // create new FF
             Cell *new_ff = module->addDff(NEW_ID, clock, ff_d, ff_q);
             ff_cells.push_back(new_ff);
@@ -362,9 +361,6 @@ private:
             SigSpec ram_wen = module->And(NEW_ID, wr_ofire, wr_addr_not_full);
 
             // add halt signal to ports
-            for (auto &rd : mem.rd_ports) {
-                if (rd.clk_enable) rd.en = module->Mux(NEW_ID, rd.en, Const(0, 1), wire_halt);
-            }
             for (auto &wr : mem.wr_ports) {
                 wr.en = module->Mux(NEW_ID, wr.en, Const(0, GetSize(wr.en)), wire_halt);
             }
@@ -372,14 +368,17 @@ private:
             // add accessor to write port 0
             auto &wr = mem.wr_ports[0];
             wr.en = module->Mux(NEW_ID, wr.en, SigSpec(ram_wen, mem.width), wire_halt);
-            wr.addr = module->Mux(NEW_ID, wr.addr, wr_addr.extract(0, abits), wire_halt);
+            if (abits > 0)
+                wr.addr = module->Mux(NEW_ID, wr.addr, wr_addr.extract(0, abits), wire_halt);
             wr.data = module->Mux(NEW_ID, wr.data, wr_adapter.s_odata(), wire_halt);
 
             // add accessor to read port 0
             auto &rd = mem.rd_ports[0];
-            rd.addr = module->Mux(NEW_ID, rd.addr, rd_addr.extract(0, abits), wire_halt);
+            if (abits > 0)
+                rd.addr = module->Mux(NEW_ID, rd.addr, rd_addr.extract(0, abits), wire_halt);
             if (rd.clk_enable) {
-                rd.en = module->Mux(NEW_ID, rd.en, module->And(NEW_ID, ram_rsel, mem_rready), wire_halt);
+                // TODO: do not use rd.en
+                //rd.en = module->Mux(NEW_ID, rd.en, module->And(NEW_ID, ram_rsel, mem_rready), wire_halt);
                 module->connect(rd_adapter.s_idata(), rd.data);
             }
             else {
@@ -409,13 +408,13 @@ private:
             for (auto &rd : mem.rd_ports) {
                 if (rd.clk_enable) {
                     if (mem.has_attribute("\\emu_orig_raddr")) {
-                        SigSpec ff_q = module->addWire(NEW_ID, GetSize(rd.addr));
+                        SigSpec ff_q = module->addWire(EMU_NAME(restored_raddr), GetSize(rd.addr));
                         Cell *ff = module->addDff(NEW_ID, rd.clk, rd.addr, ff_q);
                         ff->set_string_attribute("\\emu_orig", mem.get_string_attribute("\\emu_orig_raddr"));
                         ff_cells.push_back(ff);
                     }
                     else if (mem.has_attribute("\\emu_orig_rdata")) {
-                        SigSpec ff_q = module->addWire(NEW_ID, GetSize(rd.data));
+                        SigSpec ff_q = module->addWire(EMU_NAME(restored_rdata), GetSize(rd.data));
                         Cell *ff = module->addDff(NEW_ID, rd.clk, rd.data, ff_q);
                         ff->set_string_attribute("\\emu_orig", mem.get_string_attribute("\\emu_orig_rdata"));
                         ff_cells.push_back(ff);
@@ -472,6 +471,9 @@ public:
 
         // add accessor ports
         create_ports();
+
+        // restore merged ffs in read ports
+        restore_mem_rdport_ffs(mem_cells, ff_cells);
 
         // process FFs
         instrument_ffs(ff_cells, clock);

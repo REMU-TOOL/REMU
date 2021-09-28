@@ -48,18 +48,14 @@ if {$ldr_file != ""} {
 yosys hierarchy {*}$hierarchy_cmd
 yosys proc
 yosys flatten
+yosys opt
 yosys wreduce
-
-# recognize byte-write-enable patterns for write ports
 yosys memory_share
-
-# run opt_dff to enable recognition of some patterns of synchronous read ports
-yosys opt_dff
-
 yosys memory_collect
+yosys opt -fast
 
 yosys emu_opt_ram
 yosys opt_clean
 yosys emu_instrument {*}$emu_instrument_cmd
 
-#yosys opt
+yosys opt
