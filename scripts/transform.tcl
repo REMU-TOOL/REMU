@@ -30,20 +30,36 @@ if {$opt != ""} {
     exit
 }
 
-set prep_cmd [list -flatten -rdff]
+set hierarchy_cmd [list -check]
 if {$top != ""} {
-    lappend prep_cmd -top ${top}
+    lappend hierarchy_cmd -top ${top}
+} else {
+    lappend hierarchy_cmd -auto-top
 }
 
-set insert_accessor_cmd [list]
+set emu_instrument_cmd [list]
 if {$cfg_file != ""} {
-    lappend insert_accessor_cmd -cfg ${cfg_file}
+    lappend emu_instrument_cmd -cfg ${cfg_file}
 }
 if {$ldr_file != ""} {
-    lappend insert_accessor_cmd -ldr ${ldr_file}
+    lappend emu_instrument_cmd -ldr ${ldr_file}
 }
 
-yosys prep {*}$prep_cmd
+yosys hierarchy {*}$hierarchy_cmd
+yosys proc
+yosys flatten
+yosys wreduce
+
+# recognize byte-write-enable patterns for write ports
 yosys memory_share
-yosys insert_accessor {*}$insert_accessor_cmd
-yosys opt
+
+# run opt_dff to enable recognition of some patterns of synchronous read ports
+yosys opt_dff
+
+yosys memory_collect
+
+yosys emu_opt_ram
+yosys opt_clean
+yosys emu_instrument {*}$emu_instrument_cmd
+
+#yosys opt
