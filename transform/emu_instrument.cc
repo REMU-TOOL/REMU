@@ -69,6 +69,7 @@ private:
         for (auto &mem : mem_cells) {
             bool changed = false;
             for (auto &rd : mem.rd_ports) {
+                // TODO: check for arst
                 if (rd.clk_enable) {
                     if (!rd.clk_polarity)
                         log_error("Negedge clock polarity not supported in mem %s.%s\n", log_id(module), log_id(mem.memid));
@@ -136,7 +137,7 @@ private:
         module->fixup_ports();
     }
 
-    void process_ffs(std::vector<Cell *> &ff_cells, SigSpec clock) {
+    void instrument_ffs(std::vector<Cell *> &ff_cells, SigSpec clock) {
         // break FFs into signals for packing
         int total_width = 0;
         std::map<int, std::queue<SigSig>> ff_sigs; // width -> {(D, Q)}
@@ -246,6 +247,8 @@ private:
 
             // assign address for new FF
             new_ff->set_string_attribute("\\accessor_addr", stringf("%d", assigned_addr));
+            if (!new_ff->has_attribute("\\emu_orig"))
+                new_ff->set_string_attribute("\\emu_orig", get_sig_src(ff_q));
 
             assigned_addr++;
         }
@@ -256,7 +259,7 @@ private:
         log("Assigned FF addresses: %d\n", assigned_addr);
     }
 
-    void process_mems(std::vector<Mem> &mem_cells, SigSpec clock) {
+    void instrument_mems(std::vector<Mem> &mem_cells, SigSpec clock) {
         int assigned_id = 0;
 
         SigSpec wready_pmux_b, wready_pmux_s;
@@ -265,11 +268,6 @@ private:
         SigSpec rlast_pmux_b, rlast_pmux_s;
 
         for (auto &mem : mem_cells) {
-            // add halt signal to write ports
-            for (auto &wr : mem.wr_ports) {
-                wr.en = module->Mux(NEW_ID, wr.en, Const(0, GetSize(wr.en)), wire_halt);
-            }
-
             const int transfer_beats = (mem.size * mem.width + DATA_WIDTH - 1) / DATA_WIDTH;
             const int cntlen = ceil_log2(transfer_beats + 1);
             const int addrlen = ceil_log2(mem.start_offset + mem.size + 1);
@@ -316,10 +314,12 @@ private:
             SigSpec wr_addr_not_full = module->Not(NEW_ID, wr_addr_full);
             SigSpec rd_addr_not_full = module->Not(NEW_ID, rd_addr_full);
 
+            SigSpec mem_rfire = module->addWire(EMU_NAME(mem_rfire));
+
             module->addSdffe(NEW_ID, clock, module->And(NEW_ID, wr_ifire, wr_cnt_not_full), ram_wrst, wr_cnt_next, wr_cnt, Const(0, cntlen));
             module->addSdffe(NEW_ID, clock, module->And(NEW_ID, rd_ofire, rd_cnt_not_full), ram_rrst, rd_cnt_next, rd_cnt, Const(0, cntlen));
             module->addSdffe(NEW_ID, clock, module->And(NEW_ID, wr_ofire, wr_addr_not_full), ram_wrst, wr_addr_next, wr_addr, Const(mem.start_offset, addrlen));
-            module->addSdffe(NEW_ID, clock, module->And(NEW_ID, rd_ifire, rd_addr_not_full), ram_rrst, rd_addr_next, rd_addr, Const(mem.start_offset, addrlen));
+            module->addSdffe(NEW_ID, clock, module->And(NEW_ID, mem_rfire, rd_addr_not_full), ram_rrst, rd_addr_next, rd_addr, Const(mem.start_offset, addrlen));
 
             module->connect(wr_cnt_next, module->Add(NEW_ID, wr_cnt, Const(1, cntlen)));
             module->connect(rd_cnt_next, module->Add(NEW_ID, rd_cnt, Const(1, cntlen)));
@@ -334,7 +334,14 @@ private:
             module->connect(wr_adapter.s_idata(), wire_ram_wdata);
             module->connect(wr_adapter.s_oready(), State::S1);
 
-            module->connect(rd_adapter.s_ivalid(), module->And(NEW_ID, ram_rsel, rd_cnt_not_full));
+            // delay 1 cycle to sync with the synchronous read port
+            SigSpec mem_rvalid_r = module->addWire(EMU_NAME(mem_rvalid_r));
+            SigSpec mem_rvalid = module->And(NEW_ID, ram_rsel, rd_cnt_not_full);
+            SigSpec mem_rready = module->Or(NEW_ID, rd_adapter.s_iready(), module->Not(NEW_ID, mem_rvalid));
+            module->addSdff(NEW_ID, clock, ram_rrst, module->Xor(NEW_ID, mem_rvalid_r, module->Xor(NEW_ID, mem_rfire, rd_ifire)), mem_rvalid_r, Const(0, 1));
+            module->connect(mem_rfire, module->And(NEW_ID, mem_rvalid, mem_rready));
+
+            module->connect(rd_adapter.s_ivalid(), mem_rvalid_r);
             rvalid_pmux_b.append(rd_adapter.s_ovalid());
             rvalid_pmux_s.append(ram_rsel);
             rdata_pmux_b.append(rd_adapter.s_odata());
@@ -348,53 +355,43 @@ private:
             rlast_pmux_b.append(rlast);
             rlast_pmux_s.append(ram_rsel);
 
-            // add read/write ports to mem
+            // instrument read/write ports
 
             const int abits = ceil_log2(mem.start_offset + mem.size);
 
             SigSpec ram_wen = module->And(NEW_ID, wr_ofire, wr_addr_not_full);
 
-            MemWr mwr;
-            mwr.wide_log2 = 0;
-            mwr.clk_enable = true;
-            mwr.clk_polarity = true;
-            mwr.priority_mask = std::vector<bool>(mem.wr_ports.size(), true);
-            mwr.priority_mask.push_back(false);
-            mwr.clk = clock;
-            mwr.en = std::vector<SigBit>(mem.width, ram_wen);
-            mwr.addr = wr_addr.extract(0, abits);
-            mwr.data = wr_adapter.s_odata();
-
-            for (auto &wr : mem.wr_ports) {
-                wr.priority_mask.push_back(false);
-            }
-            mem.wr_ports.push_back(mwr);
-
-            MemRd mrd;
-            mrd.wide_log2 = 0;
-            mrd.clk_enable = false;
-            mrd.clk_polarity = true;
-            mrd.ce_over_srst = false;
-            mrd.arst_value = mrd.srst_value = mrd.init_value = Const(0, mem.width);
-            mrd.transparency_mask = std::vector<bool>(mem.wr_ports.size(), false);
-            mrd.collision_x_mask = std::vector<bool>(mem.wr_ports.size(), false);
-            mrd.clk = State::Sx;
-            mrd.en = State::S1;
-            mrd.arst = State::S0;
-            mrd.srst = State::S0;
-            mrd.addr = rd_addr.extract(0, abits);
-            mrd.data = rd_adapter.s_idata();
-
+            // add halt signal to ports
             for (auto &rd : mem.rd_ports) {
-                rd.transparency_mask.push_back(false);
-                rd.collision_x_mask.push_back(false);
+                if (rd.clk_enable) rd.en = module->Mux(NEW_ID, rd.en, Const(0, 1), wire_halt);
             }
-            mem.rd_ports.push_back(mrd);
+            for (auto &wr : mem.wr_ports) {
+                wr.en = module->Mux(NEW_ID, wr.en, Const(0, GetSize(wr.en)), wire_halt);
+            }
+
+            // add accessor to write port 0
+            auto &wr = mem.wr_ports[0];
+            wr.en = module->Mux(NEW_ID, wr.en, SigSpec(ram_wen, mem.width), wire_halt);
+            wr.addr = module->Mux(NEW_ID, wr.addr, wr_addr.extract(0, abits), wire_halt);
+            wr.data = module->Mux(NEW_ID, wr.data, wr_adapter.s_odata(), wire_halt);
+
+            // add accessor to read port 0
+            auto &rd = mem.rd_ports[0];
+            rd.addr = module->Mux(NEW_ID, rd.addr, rd_addr.extract(0, abits), wire_halt);
+            if (rd.clk_enable) {
+                rd.en = module->Mux(NEW_ID, rd.en, module->And(NEW_ID, ram_rsel, mem_rready), wire_halt);
+                module->connect(rd_adapter.s_idata(), rd.data);
+            }
+            else {
+                // delay 1 cycle for asynchronous read ports
+                SigSpec mem_rdata = module->addWire(EMU_NAME(mem_rdata), mem.width);
+                module->addDffe(NEW_ID, clock, mem_rready, rd.data, mem_rdata);
+                module->connect(rd_adapter.s_idata(), mem_rdata);
+            }
 
             mem.packed = true;
+            mem.set_string_attribute("\\accessor_id", stringf("%d", assigned_id));
             mem.emit();
-
-            mem.cell->set_string_attribute("\\accessor_id", stringf("%d", assigned_id));
 
             assigned_id++;
         }
@@ -407,29 +404,64 @@ private:
         log("Assigned mem IDs: %d\n", assigned_id);
     }
 
+    void restore_mem_rdport_ffs(std::vector<Mem> &mem_cells, std::vector<Cell *> &ff_cells) {
+        for (auto &mem : mem_cells) {
+            for (auto &rd : mem.rd_ports) {
+                if (rd.clk_enable) {
+                    if (mem.has_attribute("\\emu_orig_raddr")) {
+                        SigSpec ff_q = module->addWire(NEW_ID, GetSize(rd.addr));
+                        Cell *ff = module->addDff(NEW_ID, rd.clk, rd.addr, ff_q);
+                        ff->set_string_attribute("\\emu_orig", mem.get_string_attribute("\\emu_orig_raddr"));
+                        ff_cells.push_back(ff);
+                    }
+                    else if (mem.has_attribute("\\emu_orig_rdata")) {
+                        SigSpec ff_q = module->addWire(NEW_ID, GetSize(rd.data));
+                        Cell *ff = module->addDff(NEW_ID, rd.clk, rd.data, ff_q);
+                        ff->set_string_attribute("\\emu_orig", mem.get_string_attribute("\\emu_orig_rdata"));
+                        ff_cells.push_back(ff);
+                        // TODO: use specialized halt signal
+                    }
+                    else {
+                        log_error(
+                            "%s.%s: Memory has synchronous read port without source information. \n"
+                            "Run emu_opt_ram instead of memory_dff.",
+                            log_id(module), log_id(mem.cell));
+                    }
+                }
+            }
+        }
+    }
+
 public:
 
-    InsertAccessorWorker(Module *mod) : module(mod) {
-        // search for all FFs
-        for (auto cell : module->cells()) {
-			if (module->design->selected(module, cell) && RTLIL::builtin_ff_cell_types().count(cell->type))
-				ff_cells.push_back(cell);
-		}
-
-        // get mem cells
-        mem_cells = Mem::get_selected_memories(module);
-    }
+    InsertAccessorWorker(Module *mod) : module(mod) {}
 
     void run() {
         // check if already processed
-        if (module->get_bool_attribute("\\insert_accessor")) {
-            log_warning("Module %s is already processed by insert_accessor\n", log_id(module));
+        if (module->get_bool_attribute("\\emu_instrumented")) {
+            log_warning("Module %s is already processed by emu_instrument\n", log_id(module));
             return;
         }
 
         // RTLIL proceesses & memories are not accepted
         if (module->has_processes_warn() || module->has_memories_warn())
             return;
+
+        // search for all FFs
+        for (auto cell : module->cells())
+			if (module->design->selected(module, cell) && RTLIL::builtin_ff_cell_types().count(cell->type))
+                if (!cell->get_bool_attribute("\\emu_internal"))
+				    ff_cells.push_back(cell);
+
+        // get mem cells
+        mem_cells = Mem::get_selected_memories(module);
+
+        // exclude mem cells without write ports (ROM)
+        for (auto it = mem_cells.begin(); it != mem_cells.end(); )
+            if (it->wr_ports.size() == 0)
+                it = mem_cells.erase(it);
+            else
+                ++it;
 
         // find the clock signal
         SigSpec clock = process_clock(ff_cells, mem_cells);
@@ -442,13 +474,13 @@ public:
         create_ports();
 
         // process FFs
-        process_ffs(ff_cells, clock);
+        instrument_ffs(ff_cells, clock);
 
         // process mems
-        process_mems(mem_cells, clock);
+        instrument_mems(mem_cells, clock);
 
         // set attribute to indicate this module is processed
-        module->set_bool_attribute("\\insert_accessor");
+        module->set_bool_attribute("\\emu_instrumented");
     }
 
     void write_config(std::string filename) {
@@ -462,17 +494,16 @@ public:
 
         f << "#FF\n";
         for (auto &ff : ff_cells) {
-            int offset = 0;
             std::string addr = ff->get_string_attribute("\\accessor_addr");
-            for (SigChunk chunk : ff->getPort(ID::Q).chunks()) {
-                log_assert(chunk.is_wire());
-
-                std::string name = chunk.wire->name.str();
+            int new_offset = 0;
+            for (auto &s : parse_sig_src(ff->get_string_attribute("\\emu_orig"))) {
+                std::string &name = std::get<0>(s);
+                int offset = std::get<1>(s), width = std::get<2>(s);
                 if (name[0] == '\\') {
-                    f   << addr << "," << offset << ": " << name.substr(1)
-                        << "[" << chunk.offset + chunk.width - 1 << ":" << chunk.offset << "]\n";
+                    f   << addr << "," << new_offset << ": " << name.substr(1)
+                        << "[" << offset + width - 1 << ":" << offset << "]\n";
                 }
-                offset += chunk.width;
+                new_offset += width;
             }
         }
 
@@ -502,19 +533,18 @@ public:
 
         f << stringf("    $readmemh({`CHECKPOINT_PATH, \"/ffdata.txt\"}, __reconstructed_ffs);\\\n");
         for (auto &ff : ff_cells) {
-            int offset = 0;
             std::string addr = ff->get_string_attribute("\\accessor_addr");
-            for (SigChunk chunk : ff->getPort(ID::Q).chunks()) {
-                log_assert(chunk.is_wire());
-
-                std::string name = chunk.wire->name.str();
+            int new_offset = 0;
+            for (auto &s : parse_sig_src(ff->get_string_attribute("\\emu_orig"))) {
+                std::string &name = std::get<0>(s);
+                int offset = std::get<1>(s), width = std::get<2>(s);
                 if (name[0] == '\\') {
                     f   << "    `DUT_INST." << name.substr(1)
-                        << "[" << chunk.offset + chunk.width - 1 << ":" << chunk.offset << "]"
+                        << "[" << offset + width - 1 << ":" << offset << "]"
                         << " = __reconstructed_ffs[" << addr << "]"
-                        << "[" << offset + chunk.width - 1 << ":" << offset << "];\\\n";
+                        << "[" << new_offset + width - 1 << ":" << new_offset << "];\\\n";
                 }
-                offset += chunk.width;
+                new_offset += width;
             }
         }
 
@@ -532,14 +562,14 @@ public:
     }
 };
 
-struct InsertAccessorPass : public Pass {
-    InsertAccessorPass() : Pass("insert_accessor", "insert accessors for emulation") { }
+struct EmuInstrumentPass : public Pass {
+    EmuInstrumentPass() : Pass("emu_instrument", "insert accessors for emulation") { }
 
     void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    insert_accessor [options]\n");
+		log("    emu_instrument [options]\n");
 		log("\n");
 		log("This command inserts accessors to FFs and mems for an FPGA emulator.\n");
 		log("\n");
@@ -568,7 +598,7 @@ struct InsertAccessorPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-        log_header(design, "Executing INSERT_ACCESSOR pass.\n");
+        log_header(design, "Executing EMU_INSTRUMENT pass.\n");
 
         for (auto mod : design->modules()) {
             if (design->selected(mod)) {
