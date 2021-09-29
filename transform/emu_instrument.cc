@@ -442,15 +442,15 @@ public:
             return;
         }
 
-        // RTLIL proceesses & memories are not accepted
+        // RTLIL processes & memories are not accepted
         if (module->has_processes_warn() || module->has_memories_warn())
             return;
 
         // search for all FFs
         for (auto cell : module->cells())
-			if (module->design->selected(module, cell) && RTLIL::builtin_ff_cell_types().count(cell->type))
+            if (module->design->selected(module, cell) && RTLIL::builtin_ff_cell_types().count(cell->type))
                 if (!cell->get_bool_attribute("\\emu_internal"))
-				    ff_cells.push_back(cell);
+                    ff_cells.push_back(cell);
 
         // get mem cells
         mem_cells = Mem::get_selected_memories(module);
@@ -568,37 +568,37 @@ struct EmuInstrumentPass : public Pass {
     EmuInstrumentPass() : Pass("emu_instrument", "insert accessors for emulation") { }
 
     void help() override
-	{
-		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
-		log("\n");
-		log("    emu_instrument [options]\n");
-		log("\n");
-		log("This command inserts accessors to FFs and mems for an FPGA emulator.\n");
-		log("\n");
-		log("    -cfg <file>\n");
-		log("        write generated configuration to the specified file\n");
-		log("    -ldr <file>\n");
-		log("        write generated simulation loader to the specified file\n");
-		log("\n");
-	}
+    {
+        //   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+        log("\n");
+        log("    emu_instrument [options]\n");
+        log("\n");
+        log("This command inserts accessors to FFs and mems for an FPGA emulator.\n");
+        log("\n");
+        log("    -cfg <file>\n");
+        log("        write generated configuration to the specified file\n");
+        log("    -ldr <file>\n");
+        log("        write generated simulation loader to the specified file\n");
+        log("\n");
+    }
 
     std::string cfg_file, ldr_file;
 
     void execute(vector<string> args, Design* design) override {
         size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++)
-		{
-			if (args[argidx] == "-cfg" && argidx+1 < args.size()) {
-				cfg_file = args[++argidx];
-				continue;
-			}
-			if (args[argidx] == "-ldr" && argidx+1 < args.size()) {
-				ldr_file = args[++argidx];
-				continue;
-			}
-			break;
-		}
-		extra_args(args, argidx, design);
+        for (argidx = 1; argidx < args.size(); argidx++)
+        {
+            if (args[argidx] == "-cfg" && argidx+1 < args.size()) {
+                cfg_file = args[++argidx];
+                continue;
+            }
+            if (args[argidx] == "-ldr" && argidx+1 < args.size()) {
+                ldr_file = args[++argidx];
+                continue;
+            }
+            break;
+        }
+        extra_args(args, argidx, design);
 
         log_header(design, "Executing EMU_INSTRUMENT pass.\n");
 
