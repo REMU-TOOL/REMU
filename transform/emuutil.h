@@ -36,9 +36,6 @@ namespace EmuUtil {
         Yosys::SigSpec idata, ivalid, iready, odata, ovalid, oready, flush;
     };
 
-    std::string get_sig_src(Yosys::SigSpec sig);
-    std::vector<std::tuple<std::string, int, int>> parse_sig_src(std::string src);
-
     struct SrcInfoChunk {
         std::string name;
         int offset;
@@ -46,7 +43,9 @@ namespace EmuUtil {
         SrcInfoChunk(std::string n, int o, int w) : name(n), offset(o), width(w) {}
         SrcInfoChunk(Yosys::SigChunk c)
             : name(c.is_wire() ? c.wire->name.str() : ""), offset(c.offset), width(c.width) {}
-        SrcInfoChunk extract(int offset, int length);
+        SrcInfoChunk extract(int offset, int length) {
+            return SrcInfoChunk(name, this->offset + offset, length);
+        }
     };
 
     struct SrcInfo {
