@@ -15,27 +15,6 @@ namespace EmuUtil {
         virtual void run() {}
     };
 
-    class WidthAdapterBuilder : public LogicBuilder {
-    public:
-        WidthAdapterBuilder(Yosys::Module *mod, int in_width, int out_width, Yosys::SigSpec clock, Yosys::SigSpec reset)
-            : LogicBuilder(mod), in_w(in_width), out_w(out_width), clk(clock), rst(reset) {}
-
-        virtual void run();
-
-        Yosys::SigSpec s_idata() const { return idata; }
-        Yosys::SigSpec s_ivalid() const { return ivalid; }
-        Yosys::SigSpec s_iready() const { return iready; }
-        Yosys::SigSpec s_odata() const { return odata; }
-        Yosys::SigSpec s_ovalid() const { return ovalid; }
-        Yosys::SigSpec s_oready() const { return oready; }
-        Yosys::SigSpec s_flush() const { return flush; }
-
-    private:
-        int in_w, out_w;
-        Yosys::SigSpec clk, rst;
-        Yosys::SigSpec idata, ivalid, iready, odata, ovalid, oready, flush;
-    };
-
     struct SrcInfoChunk {
         std::string name;
         int offset;
