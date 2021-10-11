@@ -53,9 +53,11 @@ yosys wreduce
 yosys memory_share
 yosys memory_collect
 yosys opt -fast
+yosys check
 
 yosys emu_opt_ram
 yosys opt_clean
 yosys emu_instrument {*}$emu_instrument_cmd
+yosys check
 
 yosys opt
