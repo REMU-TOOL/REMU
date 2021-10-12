@@ -499,7 +499,7 @@ public:
 
         // RTLIL processes & memories are not accepted
         if (module->has_processes_warn() || module->has_memories_warn())
-            return;
+            log_error("RTLIL processes or memories detected");
 
         // search for all FFs
         std::vector<Cell *> ff_cells;
@@ -663,15 +663,21 @@ struct EmuInstrumentPass : public Pass {
 
         log_header(design, "Executing EMU_INSTRUMENT pass.\n");
 
-        for (auto mod : design->modules()) {
-            if (design->selected(mod)) {
-                log("Processing module %s\n", mod->name.c_str());
-                InsertAccessorWorker worker(mod);
-                worker.run();
-                if (!cfg_file.empty()) worker.write_config(cfg_file);
-                if (!ldr_file.empty()) worker.write_loader(ldr_file);
-            }
+        
+        auto modules = design->selected_modules();
+        if (modules.size() != 1) {
+            log_error(
+                "Exactly 1 selected module required.\n"
+                "Run flatten first to convert design hierarchy to a flattened module\n");
         }
+
+        auto &mod = modules.front();
+        log("Processing module %s\n", mod->name.c_str());
+        design->rename(mod, "\\$EMU_DUT");
+        InsertAccessorWorker worker(mod);
+        worker.run();
+        if (!cfg_file.empty()) worker.write_config(cfg_file);
+        if (!ldr_file.empty()) worker.write_loader(ldr_file);
     }
 } InsertAccessorPass;
 
