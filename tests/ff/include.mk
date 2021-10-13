@@ -1,5 +1,5 @@
-TESTS := ff
+TESTS-ff := ff
 
-VSRC-ff := ff.v
-VTOP-ff := ff
-VSIM-ff := fftest.v
+VSRC-ff-ff := ff.v
+VTOP-ff-ff := ff
+VSIM-ff-ff := fftest.v

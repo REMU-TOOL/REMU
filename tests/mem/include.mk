@@ -1,5 +1,5 @@
-TESTS := arsw
+TESTS-mem := arsw
 
-VSRC-arsw := arsw.v mem.v
-VTOP-arsw := arsw
-VSIM-arsw := arswtest.v
+VSRC-mem-arsw := arsw.v mem.v
+VTOP-mem-arsw := arsw
+VSIM-mem-arsw := arswtest.v
