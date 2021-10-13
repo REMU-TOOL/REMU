@@ -313,10 +313,10 @@ private:
             // shift counter
             // always @(posedge clk)
             //   if (!scan) scnt <= 0;
-            //   else scnt <= {scnt[slices-2:1], inc && !addr_is_last};
+            //   else scnt <= {scnt[slices-2:0], inc && !addr_is_last};
             SigSpec scnt = module->addWire(EMU_NAME(scnt), slices);
             module->addSdff(NEW_ID, wire_clk, module->Not(NEW_ID, wire_ram_scan), 
-                {scnt.extract(1, slices-1), module->And(NEW_ID, inc, module->Not(NEW_ID, addr_is_last))},
+                {scnt.extract(0, slices-1), module->And(NEW_ID, inc, module->Not(NEW_ID, addr_is_last))},
                 scnt, Const(0, slices));
             SigSpec scnt_msb = scnt.extract(slices-1);
 
@@ -504,19 +504,19 @@ private:
         //     cnt <= 0;
         //   else if (!full)
         //     cnt <= cnt + 1;
-        // reg scan_r;
+        // wire ok = dir ? full : scan;
+        // reg ok_r;
         // always @(posedge clk)
-        //    scan_r <= scan;
-        // wire scan_pos = scan && !scan_r;
-        // assign last_i = dir ? full : scan_pos;
+        //    ok_r <= ok;
+        // assign last_i = ok && !ok_r;
         SigSpec cnt = module->addWire(EMU_NAME(cnt), cntbits);
         SigSpec full = module->Eq(NEW_ID, cnt, Const(chain.depth(), cntbits));
         module->addSdffe(NEW_ID, wire_clk, module->Not(NEW_ID, full), module->Not(NEW_ID, wire_ram_scan),
             module->Add(NEW_ID, cnt, Const(1, cntbits)), cnt, Const(0, cntbits));
-        SigSpec scan_r = module->addWire(EMU_NAME(scan_r));
-        module->addDff(NEW_ID, wire_clk, wire_ram_scan, scan_r);
-        SigSpec scan_pos = module->And(NEW_ID, wire_ram_scan, module->Not(NEW_ID, scan_r));
-        module->connect(chain.last_i(), module->Mux(NEW_ID, scan_pos, full, wire_ram_dir));
+        SigSpec ok = module->Mux(NEW_ID, wire_ram_scan, full, wire_ram_dir);
+        SigSpec ok_r = module->addWire(EMU_NAME(ok_r));
+        module->addDff(NEW_ID, wire_clk, ok, ok_r);
+        module->connect(chain.last_i(), module->And(NEW_ID, ok, module->Not(NEW_ID, ok_r)));
     }
 
 public:
