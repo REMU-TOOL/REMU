@@ -8,8 +8,8 @@ foreach arg $argv {
         if {[string index $arg 0] == "-"} {
             set opt $arg
         } else {
-            puts ${arg}: option expected
-            exit
+            puts "${arg}: option expected"
+            exit 1
         }
     } else {
         switch $opt {
@@ -17,8 +17,8 @@ foreach arg $argv {
             -cfg { set cfg_file $arg }
             -ldr { set ldr_file $arg }
             default {
-                puts unrecognized option ${opt}
-                exit
+                puts "unrecognized option ${opt}"
+                exit 1
             }
         }
         set opt {}
@@ -26,8 +26,8 @@ foreach arg $argv {
 }
 
 if {$opt != ""} {
-    puts missing parameter for option ${opt}
-    exit
+    puts "missing parameter for option ${opt}"
+    exit 1
 }
 
 set hierarchy_cmd [list -check]
