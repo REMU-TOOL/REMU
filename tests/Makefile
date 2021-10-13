@@ -22,10 +22,10 @@ VCD := $(OUTPUT_DIR)/$(SUITE)-$(TEST).vcd
 test: $(SIM)
 	$(abspath $(SIM)) $(SIM_FLAGS)
 
-$(SIM): $(foreach n,$(VSIM-$(TEST)),$(TEST)/$(n)) $(OUT_V)
+$(SIM): $(foreach n,$(VSIM-$(TEST)),$(SUITE)/$(n)) $(OUT_V)
 	iverilog -Icommon -DDUMP_FILE=\"$(VCD)\" -o $@ $^
 
-$(OUT_V): $(foreach n,$(VSRC-$(TEST)),$(TEST)/$(n))
+$(OUT_V): $(foreach n,$(VSRC-$(TEST)),$(SUITE)/$(n))
 	mkdir -p $(OUTPUT_DIR)
 	yosys -m $(TRANSFORM_LIB) -p "tcl $(TRANSFORM_TCL) -top $(VTOP-$(TEST)) -cfg $(CFG)" -o $@ $^
 
