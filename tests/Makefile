@@ -1,28 +1,32 @@
 include ../common.mk
 
-TEST ?= mem
+SUITE ?= ff
+TEST ?= ff
 DUMP ?= n
 
-include $(TEST)/include.mk
-
-SIM := $(TEST).out
-OUT_V := $(TEST).out.v
 SIM_FLAGS :=
 
 ifeq ($(DUMP),y)
 	SIM_FLAGS += +DUMP
 endif
 
+include $(SUITE)/include.mk
+
+OUTPUT_DIR := output
+
+SIM := $(OUTPUT_DIR)/$(SUITE)-$(TEST).out
+OUT_V := $(OUTPUT_DIR)/$(SUITE)-$(TEST).out.v
+CFG := $(OUTPUT_DIR)/$(SUITE)-$(TEST).cfg.txt
+
 test: $(SIM)
 	$(abspath $(SIM)) $(SIM_FLAGS)
 
-$(SIM): $(foreach n,$(VSIM),$(TEST)/$(n)) $(OUT_V)
+$(SIM): $(foreach n,$(VSIM-$(TEST)),$(TEST)/$(n)) $(OUT_V)
 	iverilog -o $@ $^
 
-$(OUT_V): $(foreach n,$(VSRC),$(TEST)/$(n))
-	yosys -m $(TRANSFORM_LIB) -p "tcl $(TRANSFORM_TCL) -top $(VTOP)" -o $@ $^
+$(OUT_V): $(foreach n,$(VSRC-$(TEST)),$(TEST)/$(n))
+	mkdir -p $(OUTPUT_DIR)
+	yosys -m $(TRANSFORM_LIB) -p "tcl $(TRANSFORM_TCL) -top $(VTOP-$(TEST)) -cfg $(CFG)" -o $@ $^
 
 clean:
-	rm -f *.out
-	rm -f *.out.v
-	rm -f *.vcd
+	rm -rf $(OUTPUT_DIR)
