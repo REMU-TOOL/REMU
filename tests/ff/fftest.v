@@ -1,3 +1,5 @@
+`include "test.vh"
+
 module fftest();
 
     reg clk = 0, rst = 1;
@@ -91,11 +93,6 @@ module fftest();
         $finish;
     end
 
-    initial begin
-        if ($test$plusargs("DUMP")) begin
-            $dumpfile("dump.vcd");
-            $dumpvars();
-        end
-    end
+    `DUMP_VCD
 
 endmodule

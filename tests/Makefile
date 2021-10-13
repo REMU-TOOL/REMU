@@ -17,12 +17,13 @@ OUTPUT_DIR := output
 SIM := $(OUTPUT_DIR)/$(SUITE)-$(TEST).out
 OUT_V := $(OUTPUT_DIR)/$(SUITE)-$(TEST).out.v
 CFG := $(OUTPUT_DIR)/$(SUITE)-$(TEST).cfg.txt
+VCD := $(OUTPUT_DIR)/$(SUITE)-$(TEST).vcd
 
 test: $(SIM)
 	$(abspath $(SIM)) $(SIM_FLAGS)
 
 $(SIM): $(foreach n,$(VSIM-$(TEST)),$(TEST)/$(n)) $(OUT_V)
-	iverilog -o $@ $^
+	iverilog -Icommon -DDUMP_FILE=\"$(VCD)\" -o $@ $^
 
 $(OUT_V): $(foreach n,$(VSRC-$(TEST)),$(TEST)/$(n))
 	mkdir -p $(OUTPUT_DIR)
