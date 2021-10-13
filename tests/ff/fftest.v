@@ -19,7 +19,7 @@ module fftest();
 
     \$EMU_DUT emu_dut(
         .\$EMU$CLK      (clk),
-        .\$EMU$HALT     (rst),
+        .\$EMU$HALT     (halt),
         .\$EMU$FF$SCAN  (ff_scan),
         .\$EMU$FF$SDI   (ff_dir ? ff_sdi : ff_sdo),
         .\$EMU$FF$SDO   (ff_sdo),
