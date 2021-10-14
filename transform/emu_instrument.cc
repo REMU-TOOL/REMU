@@ -415,6 +415,15 @@ private:
                     if (mem.has_attribute(attr)) {
                         int total_width = GetSize(rd.addr);
 
+                        // synchronous read port inferred by raddr register cannot have reset value, but we still warn on this
+                        if (rd.srst != State::S0) {
+                            log_warning(
+                                "Mem %s.%s should not have a sychronous read port inferred by raddr register with reset\n"
+                                "which cannot be emulated correctly. This is possibly a bug in transformation passes.\n",
+                                log_id(module), log_id(mem.memid)
+                            );
+                        }
+
                         // reg [..] shadow_raddr;
                         // wire en;
                         // always @(posedge clk) shadow_raddr <= raddr;
@@ -452,9 +461,17 @@ private:
 
                         // reg [..] shadow_rdata;
                         // reg en;
-                        // always @(posedge clk) shadow_rdata <= output;
+                        // always @(posedge clk) begin
+                        //   if (rrst && !halt) shadow_rdata <= RSTVAL;
+                        //   else shadow_rdata <= output;
+                        // end
                         // always @(posedge clk) en <= ren && !halt;
                         // assign output = en ? rdata : shadow_rdata;
+
+                        SigSpec rst = rd.srst;
+                        if (rd.ce_over_srst)
+                            rst = module->And(NEW_ID, rst, rd.en);
+                        rst = module->And(NEW_ID, rst, module->Not(NEW_ID, wire_halt));
 
                         SigSpec shadow_rdata = module->addWire(EMU_NAME(shadow_rdata), total_width);
                         SigSpec en = module->addWire(EMU_NAME(shadow_rdata_en));
@@ -472,8 +489,9 @@ private:
                             sdo = sdi;
                             sdi = module->addWire(EMU_NAME(sdi), DATA_WIDTH);
 
-                            module->addDff(NEW_ID, wire_clk,
-                                module->Mux(NEW_ID, {Const(0, DATA_WIDTH - w), output.extract(i, w)}, sdi, wire_ff_scan), sdo);
+                            module->addSdff(NEW_ID, wire_clk, rst,
+                                module->Mux(NEW_ID, {Const(0, DATA_WIDTH - w), output.extract(i, w)}, sdi, wire_ff_scan), sdo,
+                                rd.srst_value.extract(i, DATA_WIDTH));
                             module->connect(shadow_rdata.extract(i, w), sdo.extract(0, w));
 
                             block.depth()++;
