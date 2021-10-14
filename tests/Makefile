@@ -2,7 +2,7 @@ include ../common.mk
 
 OUTPUT_DIR := output
 
-SUITES := ff mem
+SUITES := halt ff mem
 
 SUITE ?=
 TEST ?=
