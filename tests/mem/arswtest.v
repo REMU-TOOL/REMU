@@ -52,6 +52,7 @@ module sim_top();
                 $display("round %d: mem[%h]=%h", i, waddr, wdata);
             end
             halt = 1;
+            #10;
             ram_scan = 1;
             ram_dir = 0;
             for (j=0; j<128; j=j+1) begin
@@ -60,12 +61,14 @@ module sim_top();
                 $display("round %d: scan data %d: %h", i, j, ram_sdo);
             end
             ram_scan = 0;
+            #10;
             halt = 0;
         end
         #10;
         $display("restore checkpoint");
         for (i=0; i<4; i=i+1) begin
             halt = 1;
+            #10;
             ram_scan = 1;
             ram_dir = 1;
             for (j=0; j<128; j=j+1) begin
@@ -74,6 +77,7 @@ module sim_top();
             end
             #10;
             ram_scan = 0;
+            #10;
             halt = 0;
             for (j=0; j<64; j=j+1) begin
                 raddr = j;
