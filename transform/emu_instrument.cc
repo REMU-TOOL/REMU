@@ -378,8 +378,11 @@ private:
 
             // add accessor to read port 0
             auto &rd = mem.rd_ports[0];
-            if (abits > 0)
-                rd.addr = module->Mux(NEW_ID, rd.addr, addr, wire_halt);
+            if (abits > 0) {
+                // do not use halt signal to select address input here
+                // because we need to restore raddr before halt is deasserted to preserve output data
+                rd.addr = module->Mux(NEW_ID, rd.addr, addr, wire_ram_scan);
+            }
             if (rd.clk_enable) {
                 module->connect(rdata, rd.data);
             }
