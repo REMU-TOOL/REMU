@@ -53,7 +53,7 @@ module sim_top();
     always #10 begin
         $display("%dns: halt=%h rst=%h wen=%h waddr=%h wdata=%h ren=%h raddr=%h rdata_dut=%h rdata_ref=%h",
             $time, halt, rst, wen, waddr, wdata, ren, raddr, rdata_dut, rdata_ref);
-        if (rdata_dut != rdata_ref) begin
+        if (rdata_dut !== rdata_ref) begin
             $display("ERROR: data mismatch");
             $fatal;
         end
