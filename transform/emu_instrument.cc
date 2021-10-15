@@ -300,12 +300,15 @@ private:
             SigSpec inc = module->addWire(EMU_NAME(inc));
 
             // address generator
+            // reg [..] addr;
+            // wire [..] addr_next = addr + 1;
             // always @(posedge clk)
             //   if (!scan) addr <= 0;
-            //   else if (inc) addr <= addr + 1;
+            //   else if (inc) addr <= addr_next;
             SigSpec addr = module->addWire(EMU_NAME(addr), abits);
+            SigSpec addr_next = module->Add(NEW_ID, addr, Const(1, abits));
             module->addSdffe(NEW_ID, wire_clk, inc, module->Not(NEW_ID, wire_ram_scan),
-                module->Add(NEW_ID, addr, Const(1, abits)), addr, Const(init_addr, abits));
+                addr_next, addr, Const(init_addr, abits));
 
             // assign addr_is_last = addr == last_addr;
             SigSpec addr_is_last = module->Eq(NEW_ID, addr, Const(last_addr, abits));
@@ -381,7 +384,7 @@ private:
             if (abits > 0) {
                 // do not use halt signal to select address input here
                 // because we need to restore raddr before halt is deasserted to preserve output data
-                rd.addr = module->Mux(NEW_ID, rd.addr, addr, wire_ram_scan);
+                rd.addr = module->Mux(NEW_ID, rd.addr, module->Mux(NEW_ID, addr, addr_next, inc), wire_ram_scan);
             }
             if (rd.clk_enable) {
                 rd.en = module->Or(NEW_ID, rd.en, wire_halt);
