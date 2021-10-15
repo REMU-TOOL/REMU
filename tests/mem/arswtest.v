@@ -83,7 +83,7 @@ module sim_top();
                 raddr = j;
                 #10;
                 $display("round %d: mem[%h]=%h", i, raddr, rdata);
-                if (rdata != data_save[i][j]) begin
+                if (rdata !== data_save[i][j]) begin
                     $display("ERROR: data mismatch while dumping");
                     $fatal;
                 end

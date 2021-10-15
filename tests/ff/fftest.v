@@ -67,7 +67,7 @@ module fftest();
             ff_scan = 0;
             halt = 0;
             $display("round %d: q1=%h q2=%h q3=%h q4=%h", i, q1, q2, q3, q4);
-            if (d_data[i] != {q1, q2, q3, q4}) begin
+            if (d_data[i] !== {q1, q2, q3, q4}) begin
                 $display("ERROR: data mismatch while dumping");
                 $fatal;
             end
@@ -84,7 +84,7 @@ module fftest();
             end
             ff_scan = 0;
             $display("round %d: q1=%h q2=%h q3=%h q4=%h", i, q1, q2, q3, q4);
-            if (d_data[i] != {q1, q2, q3, q4}) begin
+            if (d_data[i] !== {q1, q2, q3, q4}) begin
                 $display("ERROR: data mismatch after restoring");
                 $fatal;
             end
