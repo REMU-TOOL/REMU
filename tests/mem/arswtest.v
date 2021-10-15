@@ -55,10 +55,11 @@ module sim_top();
             #10;
             ram_scan = 1;
             ram_dir = 0;
+            #20;
             for (j=0; j<128; j=j+1) begin
-                #10;
                 scan_save[i][j] = ram_sdo;
                 $display("round %d: scan data %d: %h", i, j, ram_sdo);
+                #10;
             end
             ram_scan = 0;
             #10;

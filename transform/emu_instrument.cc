@@ -518,6 +518,10 @@ private:
 
     void generate_mem_last_i(ScanChain &chain) {
         const int cntbits = ceil_log2(chain.depth() + 1);
+
+        // generate last_i signal for mem scan chain
+        // delay 1 cycle for scan-out mode to prepare raddr
+
         // reg [..] cnt;
         // wire full = cnt == chain.depth;
         // always @(posedge clk)
@@ -525,18 +529,26 @@ private:
         //     cnt <= 0;
         //   else if (!full)
         //     cnt <= cnt + 1;
-        // wire ok = dir ? full : scan;
+        // reg scan_r;
+        // always @(posedge clk) scan_r <= scan;
+        // wire ok = dir ? full : scan_r;
         // reg ok_r;
         // always @(posedge clk)
         //    ok_r <= ok;
         // assign last_i = ok && !ok_r;
+
         SigSpec cnt = module->addWire(EMU_NAME(cnt), cntbits);
         SigSpec full = module->Eq(NEW_ID, cnt, Const(chain.depth(), cntbits));
         module->addSdffe(NEW_ID, wire_clk, module->Not(NEW_ID, full), module->Not(NEW_ID, wire_ram_scan),
-            module->Add(NEW_ID, cnt, Const(1, cntbits)), cnt, Const(0, cntbits));
-        SigSpec ok = module->Mux(NEW_ID, wire_ram_scan, full, wire_ram_dir);
+            module->Add(NEW_ID, cnt, Const(1, cntbits)), cnt, Const(0, cntbits)); 
+
+        SigSpec scan_r = module->addWire(EMU_NAME(scan_r));
+        module->addDff(NEW_ID, wire_clk, wire_ram_scan, scan_r);
+
+        SigSpec ok = module->Mux(NEW_ID, scan_r, full, wire_ram_dir);
         SigSpec ok_r = module->addWire(EMU_NAME(ok_r));
         module->addDff(NEW_ID, wire_clk, ok, ok_r);
+
         module->connect(chain.last_i(), module->And(NEW_ID, ok, module->Not(NEW_ID, ok_r)));
     }
 
