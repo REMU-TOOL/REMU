@@ -1,4 +1,4 @@
-TESTS-mem := arsw srsw srsw2 offset
+TESTS-mem := arsw srsw srsw2 offset chain
 
 VSRC-mem-arsw := arsw.v mem.v
 VTOP-mem-arsw := arsw
@@ -15,3 +15,7 @@ VSIM-mem-srsw2 := srsw2test.v
 VSRC-mem-offset := offset.v mem.v
 VTOP-mem-offset := offset
 VSIM-mem-offset := offsettest.v
+
+VSRC-mem-chain := chain.v mem.v
+VTOP-mem-chain := chain
+VSIM-mem-chain := chaintest.v
