@@ -384,6 +384,7 @@ private:
                 rd.addr = module->Mux(NEW_ID, rd.addr, addr, wire_ram_scan);
             }
             if (rd.clk_enable) {
+                rd.en = module->Or(NEW_ID, rd.en, wire_halt);
                 module->connect(rdata, rd.data);
             }
             else {
