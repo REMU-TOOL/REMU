@@ -1,6 +1,7 @@
 include ../common.mk
 
 OUTPUT_DIR := output
+RESULT_FILE := $(OUTPUT_DIR)/result.log
 
 SUITES := halt ff mem
 
@@ -41,17 +42,26 @@ TEST_USE := $(foreach S,$(SUITE_USE),$(foreach T,$(TEST),$(S)-$(T)))
 endif
 
 .PHONY: test
-test: $(foreach N,$(TEST_USE),run-$(N))
+test: clean-result $(foreach N,$(TEST_USE),run-$(N))
+	@cat $(RESULT_FILE)
+	@test -z "`grep FAIL $(RESULT_FILE)`"
 
 .PHONY: clean
 clean:
 	rm -rf $(OUTPUT_DIR)
 
+.PHONY: clean-result
+clean-result:
+	rm -f $(RESULT_FILE)
+
 .SECONDEXPANSION:
 
 .PHONY: run-%
 run-%: $(OUTPUT_DIR)/%.out
-	$(abspath $<) $(SIM_FLAGS)
+	@($(abspath $<) $(SIM_FLAGS) \
+	&& echo "\033[32m[PASS]\033[39m $*" >> $(RESULT_FILE) \
+	|| echo "\033[31m[FAIL]\033[39m $*" >> $(RESULT_FILE) \
+	) 2>&1 | tee $(OUTPUT_DIR)/$*.log
 
 .SECONDARY: $(foreach N,$(TEST_USE),$(OUTPUT_DIR)/$(N).out)
 $(OUTPUT_DIR)/%.out: $$(VSIM-%-reloc) $(OUTPUT_DIR)/%.out.v
