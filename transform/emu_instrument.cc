@@ -2,8 +2,6 @@
 #include "kernel/ff.h"
 #include "kernel/mem.h"
 
-#include "backends/rtlil/rtlil_backend.h"
-
 #include <queue>
 
 #include "emuutil.h"
@@ -136,70 +134,6 @@ private:
         for (auto cell : cells_to_remove) {
             module->remove(cell);
         }
-    }
-
-    void process_clock(std::vector<Cell *> &ff_cells, std::vector<Mem> &mem_cells) {
-        pool<SigSpec> clocks;
-        SigMap assign_map(module);
-
-        for (auto &cell : ff_cells) {
-            FfData ff(nullptr, cell);
-
-            if (!ff.has_clk || ff.has_arst || ff.has_sr)
-                log_error("Cell type not supported: %s (%s.%s)\n", log_id(cell->type), log_id(module), log_id(cell));
-
-            if (!ff.pol_clk)
-                log_error("Negedge clock polarity not supported: %s (%s.%s)\n", log_id(cell->type), log_id(module), log_id(cell));
-
-            SigSpec c = assign_map(ff.sig_clk);
-            if (c != ff.sig_clk)
-                cell->setPort(ID::CLK, c);
-
-            clocks.insert(c);
-        }
-
-        for (auto &mem : mem_cells) {
-            bool changed = false;
-            for (auto &rd : mem.rd_ports) {
-                // TODO: check for arst
-                if (rd.clk_enable) {
-                    if (!rd.clk_polarity)
-                        log_error("Negedge clock polarity not supported in mem %s.%s\n", log_id(module), log_id(mem.memid));
-                    SigSpec c = assign_map(rd.clk);
-                    if (c != rd.clk) {
-                        rd.clk = c;
-                        changed = true;
-                    }
-                    clocks.insert(c);
-                }
-            }
-            for (auto &wr : mem.wr_ports) {
-                if (!wr.clk_enable)
-                    log_error("Mem with asynchronous write port not supported (%s.%s)\n", log_id(module), log_id(mem.cell));
-                if (!wr.clk_polarity)
-                    log_error("Negedge clock polarity not supported in mem %s.%s\n", log_id(module), log_id(mem.memid));
-                SigSpec c = assign_map(wr.clk);
-                if (c != wr.clk) {
-                    wr.clk = c;
-                    changed = true;
-                }
-                clocks.insert(wr.clk);
-            }
-            if (changed) mem.emit();
-        }
-
-        if (clocks.size() > 1) {
-            std::cerr << "Multiple clocks detected:\n";
-            for (SigSpec s : clocks) {
-                std::cerr << "\t";
-                RTLIL_BACKEND::dump_sigspec(std::cerr, s);
-                std::cerr << "\n";
-            }
-            log_error("Multiple clock domains not supported (in module %s)\n", log_id(module));
-        }
-
-        if (clocks.empty())
-            log_error("No clock found in module %s\n", log_id(module));
     }
 
     void create_ports() {
@@ -594,10 +528,6 @@ public:
             return;
         }
 
-        // RTLIL processes & memories are not accepted
-        if (module->has_processes_warn() || module->has_memories_warn())
-            log_error("RTLIL processes or memories detected");
-
         // search for all FFs
         std::vector<Cell *> ff_cells;
         for (auto cell : module->cells())
@@ -620,9 +550,6 @@ public:
 
         // replace library instances with emulation logic
         process_emulib();
-
-        // find the clock signal
-        process_clock(ff_cells, mem_cells);
 
         ff_scanchain = new ScanChain(module, DATA_WIDTH);
         mem_scanchain = new ScanChain(module, DATA_WIDTH);
@@ -777,11 +704,11 @@ struct EmuInstrumentPass : public Pass {
 
         auto &mod = modules.front();
         log("Processing module %s\n", mod->name.c_str());
-        design->rename(mod, "\\$EMU_DUT");
         InsertAccessorWorker worker(mod);
         worker.run();
         if (!cfg_file.empty()) worker.write_config(cfg_file);
         if (!ldr_file.empty()) worker.write_loader(ldr_file);
+        design->rename(mod, "\\$EMU_DUT");
     }
 } InsertAccessorPass;
 
