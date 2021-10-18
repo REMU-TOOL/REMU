@@ -1,10 +1,8 @@
 include common.mk
 
-VSRC ?= test/test.v
-VTOP ?= mips_cpu
+VSRC ?= tests/mips_cpu/singlecycle_top.v tests/mips_cpu/singlecycle.v
+VTOP ?= emu_top
 
-INPUT_IL := $(OUTPUT_DIR)/input.il
-OUTPUT_IL := $(OUTPUT_DIR)/output.il
 OUTPUT_V := $(OUTPUT_DIR)/output.v
 
 VSRC_SIM := $(VSRC) $(SIM_DIR)/top.v
