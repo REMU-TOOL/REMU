@@ -4,6 +4,8 @@
 
 module sim_top();
 
+    parameter ROUND = 4;
+
     reg clk = 0, rst = 1;
     reg halt = 0;
     reg ram_scan = 0, ram_dir = 0;
@@ -34,18 +36,20 @@ module sim_top();
     );
 
     integer i, j;
-    reg [79:0] data_save [3:0][63:0];
-    reg [63:0] scan_save [3:0][127:0];
+    reg [79:0] data_save [ROUND-1:0][31:0];
+    reg [`LOAD_WIDTH-1:0] scan_save [ROUND-1:0][`CHAIN_MEM_WORDS-1:0];
 
     always #5 clk = ~clk;
+
+    `LOAD_DECLARE
 
     initial begin
         #30;
         rst = 0;
         $display("dump checkpoint");
-        for (i=0; i<4; i=i+1) begin
-            for (j=32; j<64; j=j+1) begin
-                waddr = j;
+        for (i=0; i<ROUND; i=i+1) begin
+            for (j=0; j<32; j=j+1) begin
+                waddr = j + 32;
                 wdata = {$random, $random, $random};
                 wen = 1;
                 #10;
@@ -58,7 +62,7 @@ module sim_top();
             ram_scan = 1;
             ram_dir = 0;
             #20;
-            for (j=0; j<64; j=j+1) begin
+            for (j=0; j<`CHAIN_MEM_WORDS; j=j+1) begin
                 scan_save[i][j] = ram_sdo;
                 $display("round %d: scan data %d: %h", i, j, ram_sdo);
                 #10;
@@ -69,12 +73,12 @@ module sim_top();
         end
         #10;
         $display("restore checkpoint");
-        for (i=0; i<4; i=i+1) begin
+        for (i=0; i<ROUND; i=i+1) begin
             halt = 1;
             #10;
             ram_scan = 1;
             ram_dir = 1;
-            for (j=0; j<64; j=j+1) begin
+            for (j=0; j<`CHAIN_MEM_WORDS; j=j+1) begin
                 ram_sdi = scan_save[i][j];
                 #10;
             end
@@ -82,8 +86,8 @@ module sim_top();
             ram_scan = 0;
             #10;
             halt = 0;
-            for (j=32; j<64; j=j+1) begin
-                raddr = j;
+            for (j=0; j<32; j=j+1) begin
+                raddr = j + 32;
                 #10;
                 $display("round %d: mem[%h]=%h", i, raddr, rdata);
                 if (rdata !== data_save[i][j]) begin

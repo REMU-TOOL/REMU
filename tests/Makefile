@@ -65,9 +65,9 @@ run-%: $(OUTPUT_DIR)/%.out
 
 .SECONDARY: $(foreach N,$(TEST_USE),$(OUTPUT_DIR)/$(N).out)
 $(OUTPUT_DIR)/%.out: $$(VSIM-%-reloc) $(OUTPUT_DIR)/%.out.v $(EMULIBS)
-	iverilog -Icommon -DSIMULATION -DDUMP_FILE=\"$(OUTPUT_DIR)/$*.vcd\" -o $@ $^
+	iverilog -Icommon -Ioutput -DSIMULATION -DLOADER_VH=\"$*.ldr.vh\" -DDUMP_FILE=\"$(OUTPUT_DIR)/$*.vcd\" -o $@ $^
 
 .SECONDARY: $(foreach N,$(TEST_USE),$(OUTPUT_DIR)/$(N).out.v)
 $(OUTPUT_DIR)/%.out.v: $(TRANSFORM_LIB) $$(VSRC-%-reloc)
 	mkdir -p $(OUTPUT_DIR)
-	$(YOSYS) -m $(TRANSFORM_LIB) -p "tcl $(TRANSFORM_TCL) -top $(VTOP-$*) -cfg $(OUTPUT_DIR)/$*.cfg.txt" -o $@ $(EMULIBS) $(VSRC-$*-reloc)
+	$(YOSYS) -m $(TRANSFORM_LIB) -p "tcl $(TRANSFORM_TCL) -top $(VTOP-$*) -cfg $(OUTPUT_DIR)/$*.cfg.txt -ldr $(OUTPUT_DIR)/$*.ldr.vh" -o $@ $(EMULIBS) $(VSRC-$*-reloc)

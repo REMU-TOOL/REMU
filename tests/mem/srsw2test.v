@@ -4,6 +4,8 @@
 
 module sim_top();
 
+    parameter ROUND = 4;
+
     reg clk = 0, rst = 1;
     reg halt = 0;
     reg ff_scan = 0, ff_dir = 0;
@@ -37,18 +39,20 @@ module sim_top();
     );
 
     integer i, j;
-    reg [79:0] data_save [3:0][7:0];
-    reg [79:0] rdata_save [3:0];
-    reg [63:0] scan_save [3:0][15:0];
-    reg [63:0] ff_scan_save [3:0][1:0];
+    reg [79:0] data_save [ROUND-1:0][7:0];
+    reg [79:0] rdata_save [ROUND-1:0];
+    reg [`LOAD_WIDTH-1:0] scan_save [ROUND-1:0][`CHAIN_MEM_WORDS-1:0];
+    reg [`LOAD_WIDTH-1:0] ff_scan_save [ROUND-1:0][`CHAIN_FF_WORDS-1:0];
 
     always #5 clk = ~clk;
+
+    `LOAD_DECLARE
 
     initial begin
         #30;
         rst = 0;
         $display("dump checkpoint");
-        for (i=0; i<4; i=i+1) begin
+        for (i=0; i<ROUND; i=i+1) begin
             // initialize memory contents
             for (j=0; j<8; j=j+1) begin
                 waddr = j;
@@ -70,7 +74,7 @@ module sim_top();
             // dump ff
             ff_scan = 1;
             ff_dir = 0;
-            for (j=0; j<2; j=j+1) begin
+            for (j=0; j<`CHAIN_FF_WORDS; j=j+1) begin
                 ff_scan_save[i][j] = ff_sdo;
                 $display("round %d: ff scan data %d = %h", i, j, ff_sdo);
                 #10;
@@ -80,7 +84,7 @@ module sim_top();
             ram_scan = 1;
             ram_dir = 0;
             #20;
-            for (j=0; j<16; j=j+1) begin
+            for (j=0; j<`CHAIN_MEM_WORDS; j=j+1) begin
                 scan_save[i][j] = ram_sdo;
                 $display("round %d: ram scan data %d: %h", i, j, ram_sdo);
                 #10;
@@ -91,14 +95,14 @@ module sim_top();
         end
         #10;
         $display("restore checkpoint");
-        for (i=0; i<4; i=i+1) begin
+        for (i=0; i<ROUND; i=i+1) begin
             // halt
             halt = 1;
             #10;
             // load ff
             ff_scan = 1;
             ff_dir = 1;
-            for (j=0; j<2; j=j+1) begin
+            for (j=0; j<`CHAIN_FF_WORDS; j=j+1) begin
                 ff_sdi = ff_scan_save[i][j];
                 #10;
             end
@@ -106,7 +110,7 @@ module sim_top();
             // load mem
             ram_scan = 1;
             ram_dir = 1;
-            for (j=0; j<16; j=j+1) begin
+            for (j=0; j<`CHAIN_MEM_WORDS; j=j+1) begin
                 ram_sdi = scan_save[i][j];
                 #10;
             end

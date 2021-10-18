@@ -4,6 +4,8 @@
 
 module fftest();
 
+    parameter ROUND = 4;
+
     reg clk = 0, rst = 1;
     reg halt = 0;
     reg ff_scan = 0, ff_dir = 0;
@@ -41,16 +43,18 @@ module fftest();
     );
 
     integer i, j;
-    reg [63:0] scandata [3:0] [2:0];
-    reg [183:0] d_data [3:0];
+    reg [`LOAD_WIDTH-1:0] scandata [ROUND-1:0] [`CHAIN_FF_WORDS-1:0];
+    reg [183:0] d_data [ROUND-1:0];
 
     always #5 clk = ~clk;
+
+    `LOAD_DECLARE
 
     initial begin
         #30;
         rst = 0;
         $display("dump checkpoint");
-        for (i=0; i<4; i=i+1) begin
+        for (i=0; i<ROUND; i=i+1) begin
             d1 = {$random, $random};
             d2 = $random;
             d3 = $random;
@@ -61,7 +65,7 @@ module fftest();
             halt = 1;
             ff_scan = 1;
             ff_dir = 0;
-            for (j=0; j<3; j=j+1) begin
+            for (j=0; j<`CHAIN_FF_WORDS; j=j+1) begin
                 scandata[i][j] = ff_sdo;
                 $display("round %d: scan data beat %d = %h", i, j, ff_sdo);
                 #10;
@@ -75,11 +79,11 @@ module fftest();
             end
         end
         $display("restore checkpoint");
-        for (i=0; i<4; i++) begin
+        for (i=0; i<ROUND; i++) begin
             halt = 1;
             ff_scan = 1;
             ff_dir = 1;
-            for (j=0; j<3; j=j+1) begin
+            for (j=0; j<`CHAIN_FF_WORDS; j=j+1) begin
                 ff_sdi = scandata[i][j];
                 $display("round %d: scan data beat %d = %h", i, j, ff_sdi);
                 #10;
