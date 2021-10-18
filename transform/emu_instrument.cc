@@ -660,7 +660,7 @@ public:
                 f   << "    for (__load_i=0; __load_i<" << size << "; __load_i=__load_i+1) __LOAD_DUT."
                     << &name[1] << "[__load_i+" << start << "] = {";
                 for (int i = slices - 1; i >= 0; i--)
-                    f   << (i != 0 ? "," : "") << "__LOAD_MEM_DATA[__load_i*" << slices << "+" << addr + i << "]";
+                    f   << "__LOAD_MEM_DATA[__load_i*" << slices << "+" << addr + i << "]" << (i != 0 ? ", " : "");
                 f   << "}; \\\n";
             }
             addr += o.second;
