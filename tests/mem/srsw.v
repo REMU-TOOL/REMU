@@ -1,6 +1,6 @@
+`timescale 1 ns / 1 ps
+
 module srsw(
-    input                   clk,
-    input                   rst,
     input                   ren,
     input   [2:0]           raddr,
     output  [79:0]          rdata,
@@ -8,6 +8,10 @@ module srsw(
     input   [2:0]           waddr,
     input   [79:0]          wdata
 );
+
+    wire clk, rst;
+    EmuClock clock(clk);
+    EmuReset reset(rst);
 
     mem #(
         .WIDTH(80),

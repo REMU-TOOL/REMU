@@ -64,8 +64,8 @@ run-%: $(OUTPUT_DIR)/%.out
 	) 2>&1 | tee $(OUTPUT_DIR)/$*.log
 
 .SECONDARY: $(foreach N,$(TEST_USE),$(OUTPUT_DIR)/$(N).out)
-$(OUTPUT_DIR)/%.out: $$(VSIM-%-reloc) $(OUTPUT_DIR)/%.out.v
-	iverilog -Icommon -DDUMP_FILE=\"$(OUTPUT_DIR)/$*.vcd\" -o $@ $^
+$(OUTPUT_DIR)/%.out: $$(VSIM-%-reloc) $(OUTPUT_DIR)/%.out.v $(EMULIBS)
+	iverilog -Icommon -DSIMULATION -DDUMP_FILE=\"$(OUTPUT_DIR)/$*.vcd\" -o $@ $^
 
 .SECONDARY: $(foreach N,$(TEST_USE),$(OUTPUT_DIR)/$(N).out.v)
 $(OUTPUT_DIR)/%.out.v: $(TRANSFORM_LIB) $$(VSRC-%-reloc)

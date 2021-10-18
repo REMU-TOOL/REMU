@@ -1,12 +1,16 @@
+`timescale 1 ns / 1 ps
+
 module arsw(
-    input                   clk,
-    input                   rst,
     input   [5:0]           raddr,
     output  [79:0]          rdata,
     input                   wen,
     input   [5:0]           waddr,
     input   [79:0]          wdata
 );
+
+    wire clk, rst;
+    EmuClock clock(clk);
+    EmuReset reset(rst);
 
     mem #(
         .WIDTH(80),

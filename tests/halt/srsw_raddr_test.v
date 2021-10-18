@@ -1,3 +1,5 @@
+`timescale 1 ns / 1 ps
+
 `include "test.vh"
 
 module sim_top();
@@ -10,15 +12,15 @@ module sim_top();
     wire [31:0] rdata_dut, rdata_ref;
 
     \$EMU_DUT emu_dut(
-        .\$EMU$CLK      (clk),
-        .\$EMU$HALT     (halt),
-        .\$EMU$FF$SCAN  (1'd0),
-        .\$EMU$FF$SDI   (64'd0),
-        .\$EMU$FF$SDO   (),
-        .\$EMU$RAM$SCAN (1'd0),
-        .\$EMU$RAM$DIR  (1'd0),
-        .\$EMU$RAM$SDI  (64'd0),
-        .\$EMU$RAM$SDO  (),
+        .\$EMU$CLK          (clk),
+        .\$EMU$HALT         (halt),
+        .\$EMU$FF$SCAN      (1'd0),
+        .\$EMU$FF$SDI       (64'd0),
+        .\$EMU$FF$SDO       (),
+        .\$EMU$RAM$SCAN     (1'd0),
+        .\$EMU$RAM$DIR      (1'd0),
+        .\$EMU$RAM$SDI      (64'd0),
+        .\$EMU$RAM$SDO      (),
         .wen(wen),
         .waddr(waddr),
         .wdata(wdata),
@@ -28,7 +30,6 @@ module sim_top();
     );
 
     srsw_raddr ref(
-        .clk(clk & !halt),
         .wen(wen),
         .waddr(waddr),
         .wdata(wdata),
@@ -36,6 +37,8 @@ module sim_top();
         .raddr(raddr),
         .rdata(rdata_ref)
     );
+
+    always @* force ref.clock.sim_clock = clk & !halt;
 
     always #5 clk = ~clk;
     always #10 begin

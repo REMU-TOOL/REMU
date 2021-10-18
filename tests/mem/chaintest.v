@@ -1,3 +1,5 @@
+`timescale 1 ns / 1 ps
+
 `include "test.vh"
 
 module sim_top();
@@ -21,16 +23,16 @@ module sim_top();
     wire [127:0] rdata3;
 
     \$EMU_DUT emu_dut(
-        .\$EMU$CLK      (clk),
-        .\$EMU$HALT     (halt),
-        .\$EMU$FF$SCAN  (ff_scan),
-        .\$EMU$FF$SDI   (ff_dir ? ff_sdi : ff_sdo),
-        .\$EMU$FF$SDO   (ff_sdo),
-        .\$EMU$RAM$SCAN (ram_scan),
-        .\$EMU$RAM$DIR  (ram_dir),
-        .\$EMU$RAM$SDI  (ram_sdi),
-        .\$EMU$RAM$SDO  (ram_sdo),
-        .rst(rst),
+        .\$EMU$CLK          (clk),
+        .\$EMU$HALT         (halt),
+        .\$EMU$DUT$RESET    (rst),
+        .\$EMU$FF$SCAN      (ff_scan),
+        .\$EMU$FF$SDI       (ff_dir ? ff_sdi : ff_sdo),
+        .\$EMU$FF$SDO       (ff_sdo),
+        .\$EMU$RAM$SCAN     (ram_scan),
+        .\$EMU$RAM$DIR      (ram_dir),
+        .\$EMU$RAM$SDI      (ram_sdi),
+        .\$EMU$RAM$SDO      (ram_sdo),
         .ren1(ren1),
         .raddr1(raddr1),
         .rdata1(rdata1),

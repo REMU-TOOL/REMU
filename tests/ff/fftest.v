@@ -1,3 +1,5 @@
+`timescale 1 ns / 1 ps
+
 `include "test.vh"
 
 module fftest();
@@ -18,16 +20,16 @@ module fftest();
     wire [79:0] q4;
 
     \$EMU_DUT emu_dut(
-        .\$EMU$CLK      (clk),
-        .\$EMU$HALT     (halt),
-        .\$EMU$FF$SCAN  (ff_scan),
-        .\$EMU$FF$SDI   (ff_dir ? ff_sdi : ff_sdo),
-        .\$EMU$FF$SDO   (ff_sdo),
-        .\$EMU$RAM$SCAN (1'd0),
-        .\$EMU$RAM$DIR  (1'd0),
-        .\$EMU$RAM$SDI  (64'd0),
-        .\$EMU$RAM$SDO  (),
-        .rst(rst),
+        .\$EMU$CLK          (clk),
+        .\$EMU$HALT         (halt),
+        .\$EMU$DUT$RESET    (rst),
+        .\$EMU$FF$SCAN      (ff_scan),
+        .\$EMU$FF$SDI       (ff_dir ? ff_sdi : ff_sdo),
+        .\$EMU$FF$SDO       (ff_sdo),
+        .\$EMU$RAM$SCAN     (1'd0),
+        .\$EMU$RAM$DIR      (1'd0),
+        .\$EMU$RAM$SDI      (64'd0),
+        .\$EMU$RAM$SDO      (),
         .d1(d1),
         .d2(d2),
         .d3(d3),

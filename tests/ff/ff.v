@@ -1,6 +1,6 @@
+`timescale 1 ns / 1 ps
+
 module ff(
-    input clk,
-    input rst,
     input [63:0] d1,
     input [31:0] d2,
     input [7:0] d3,
@@ -10,6 +10,10 @@ module ff(
     output reg [7:0] q3,
     output reg [79:0] q4
 );
+
+    wire clk, rst;
+    EmuClock clock(clk);
+    EmuReset reset(rst);
 
     always @(posedge clk) begin
         if (rst) begin

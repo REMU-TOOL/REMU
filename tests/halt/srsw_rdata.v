@@ -1,6 +1,6 @@
+`timescale 1 ns / 1 ps
+
 module srsw_rdata(
-    input clk,
-    input rst,
     input wen,
     input [1:0] waddr,
     input [31:0] wdata,
@@ -8,6 +8,10 @@ module srsw_rdata(
     input [1:0] raddr,
     output [31:0] rdata
 );
+
+    wire clk, rst;
+    EmuClock clock(clk);
+    EmuReset reset(rst);
 
     reg [31:0] mem [3:0], o;
 

@@ -1,3 +1,5 @@
+`timescale 1 ns / 1 ps
+
 module mem #(
     parameter WIDTH = 32,
     parameter DEPTH = 32,
