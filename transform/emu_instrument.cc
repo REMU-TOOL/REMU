@@ -107,9 +107,36 @@ private:
 
     ScanChain *ff_scanchain, *mem_scanchain;
 
-    Wire *wire_clk, *wire_halt;
+    Wire *wire_clk, *wire_halt, *wire_dut_reset;
     Wire *wire_ff_scan, *wire_ff_sdi, *wire_ff_sdo;
     Wire *wire_ram_scan, *wire_ram_dir, *wire_ram_sdi, *wire_ram_sdo; // dir: 0=out 1=in
+
+    void process_emulib() {
+        std::vector<Cell *> cells_to_remove;
+        for (auto cell : module->cells()) {
+            // TODO: handle multiple clocks & resets
+            if (cell->type.c_str()[0] == '\\') {
+                Module *modref = module->design->module(cell->type);
+
+                // clock instance
+                if (modref->get_bool_attribute("\\emulib_clock")) {
+                    SigSpec c = cell->getPort("\\clock");
+                    module->connect(c, wire_clk);
+                    cells_to_remove.push_back(cell);
+                }
+
+                // reset instance
+                if (modref->get_bool_attribute("\\emulib_reset")) {
+                    SigSpec r = cell->getPort("\\reset");
+                    module->connect(r, wire_dut_reset);
+                    cells_to_remove.push_back(cell);
+                }
+            }
+        }
+        for (auto cell : cells_to_remove) {
+            module->remove(cell);
+        }
+    }
 
     void process_clock(std::vector<Cell *> &ff_cells, std::vector<Mem> &mem_cells) {
         pool<SigSpec> clocks;
@@ -173,17 +200,12 @@ private:
 
         if (clocks.empty())
             log_error("No clock found in module %s\n", log_id(module));
-
-        // fix clock connections
-        Wire *c = clocks.pop().as_wire();
-        c->port_input = false;
-        module->connect(c, wire_clk);
-        module->fixup_ports();
     }
 
     void create_ports() {
         wire_clk        = module->addWire("\\$EMU$CLK");                        wire_clk        ->port_input = true;
         wire_halt       = module->addWire("\\$EMU$HALT");                       wire_halt       ->port_input = true;
+        wire_dut_reset  = module->addWire("\\$EMU$DUT$RESET");                  wire_dut_reset  ->port_input = true;
         wire_ff_scan    = module->addWire("\\$EMU$FF$SCAN");                    wire_ff_scan    ->port_input = true;
         wire_ff_sdi     = module->addWire("\\$EMU$FF$SDI",      DATA_WIDTH);    wire_ff_sdi     ->port_input = true;
         wire_ff_sdo     = module->addWire("\\$EMU$FF$SDO",      DATA_WIDTH);    wire_ff_sdo     ->port_output = true;
@@ -596,6 +618,9 @@ public:
         // add accessor ports
         create_ports();
 
+        // replace library instances with emulation logic
+        process_emulib();
+
         // find the clock signal
         process_clock(ff_cells, mem_cells);
 
@@ -743,7 +768,6 @@ struct EmuInstrumentPass : public Pass {
 
         log_header(design, "Executing EMU_INSTRUMENT pass.\n");
 
-        
         auto modules = design->selected_modules();
         if (modules.size() != 1) {
             log_error(
