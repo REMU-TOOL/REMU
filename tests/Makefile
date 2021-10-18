@@ -70,4 +70,4 @@ $(OUTPUT_DIR)/%.out: $$(VSIM-%-reloc) $(OUTPUT_DIR)/%.out.v
 .SECONDARY: $(foreach N,$(TEST_USE),$(OUTPUT_DIR)/$(N).out.v)
 $(OUTPUT_DIR)/%.out.v: $(TRANSFORM_LIB) $$(VSRC-%-reloc)
 	mkdir -p $(OUTPUT_DIR)
-	yosys -m $(TRANSFORM_LIB) -p "tcl $(TRANSFORM_TCL) -top $(VTOP-$*) -cfg $(OUTPUT_DIR)/$*.cfg.txt" -o $@ $(VSRC-$*-reloc)
+	$(YOSYS) -m $(TRANSFORM_LIB) -p "tcl $(TRANSFORM_TCL) -top $(VTOP-$*) -cfg $(OUTPUT_DIR)/$*.cfg.txt" -o $@ $(EMULIBS) $(VSRC-$*-reloc)

@@ -3,14 +3,6 @@ include common.mk
 VSRC ?= test/test.v
 VTOP ?= mips_cpu
 
-DEBUG ?= n
-
-ifeq ($(DEBUG),y)
-YOSYS := gdb --args $(YOSYS_DIR)/yosys
-else
-YOSYS := yosys
-endif
-
 INPUT_IL := $(OUTPUT_DIR)/input.il
 OUTPUT_IL := $(OUTPUT_DIR)/output.il
 OUTPUT_V := $(OUTPUT_DIR)/output.v
@@ -32,7 +24,7 @@ $(TRANSFORM_LIB): FORCE
 .PHONY: transform
 transform: $(TRANSFORM_LIB) $(VSRC) FORCE
 	mkdir -p $(OUTPUT_DIR)
-	$(YOSYS) -m $(TRANSFORM_LIB) -p "tcl $(TRANSFORM_TCL) -top $(VTOP) -cfg $(OUTPUT_DIR)/cfg.txt -ldr $(OUTPUT_DIR)/loader.vh" -o $(OUTPUT_V) $(VSRC)
+	$(YOSYS) -m $(TRANSFORM_LIB) -p "tcl $(TRANSFORM_TCL) -top $(VTOP) -cfg $(OUTPUT_DIR)/cfg.txt -ldr $(OUTPUT_DIR)/loader.vh" -o $(OUTPUT_V) $(EMULIBS) $(VSRC)
 
 .PHONY: sim
 sim: $(SIM_BIN)
