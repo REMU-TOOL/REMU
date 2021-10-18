@@ -46,6 +46,7 @@ if {$ldr_file != ""} {
 }
 
 yosys hierarchy {*}$hierarchy_cmd
+yosys emu_keep_top
 yosys proc
 yosys flatten
 yosys opt
@@ -55,6 +56,7 @@ yosys memory_collect
 yosys opt -fast
 yosys check
 
+yosys emu_lint
 yosys emu_opt_ram
 yosys opt_clean
 yosys emu_instrument {*}$emu_instrument_cmd
