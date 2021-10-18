@@ -622,37 +622,52 @@ public:
 
         log("Writing to loader file %s\n", filename.c_str());
 
-        /*
-        f << "`define LOADER_DEFS reg [" << DATA_WIDTH - 1 << ":0] __reconstructed_ffs [" << ff_cells.size() - 1 << ":0];\n";
-        f << "`define LOADER_STMTS \\\n";
-        f << stringf("    $readmemh({`CHECKPOINT_PATH, \"/ffdata.txt\"}, __reconstructed_ffs);\\\n");
-        for (auto &ff : ff_cells) {
-            std::string addr = ff->get_string_attribute("\\accessor_addr");
-            int new_offset = 0;
-            for (auto &s : SrcInfo(ff->get_string_attribute("\\emu_orig")).info) {
-                std::string &name = std::get<0>(s);
-                int offset = std::get<1>(s), width = std::get<2>(s);
+        int addr;
+
+        f << "`define LOAD_DECLARE integer __load_i;\n";
+        f << "`define LOAD_WIDTH " << DATA_WIDTH << "\n";
+
+        f << "`define LOAD_FF(__LOAD_FF_DATA, __LOAD_DUT) \\\n";
+        addr = 0;
+        for (auto &o : ff_scanchain->src()) {
+            if (o.second == 0) break;
+            SrcInfo src(o.first);
+            int offset = 0;
+            for (auto info : src.info) {
+                const char *name = info.name.c_str();
                 if (name[0] == '\\') {
-                    f   << "    `DUT_INST." << name.substr(1)
-                        << "[" << offset + width - 1 << ":" << offset << "]"
-                        << " = __reconstructed_ffs[" << addr << "]"
-                        << "[" << new_offset + width - 1 << ":" << new_offset << "];\\\n";
+                    f   << "    __LOAD_DUT." << &name[1]
+                        << "[" << info.width + info.offset - 1 << ":" << info.offset << "] = __LOAD_FF_DATA[" << addr << "]"
+                        << "[" << info.width + offset - 1 << ":" << offset << "]; \\\n";
                 }
-                new_offset += width;
+                offset += info.width;
             }
+            addr += o.second;
         }
-
-        for (auto &mem : mem_cells) {
-            std::string name = mem.memid.str();
-            if (name[0] == '\\') {
-                f   << "    $readmemh({`CHECKPOINT_PATH, \"/mem_"
-                    << mem.cell->get_string_attribute("\\accessor_id")
-                    << ".txt\"}, `DUT_INST." << name.substr(1) << ");\\\n";
-            }
-        }
-        */
-
         f << "\n";
+        f << "`define CHAIN_FF_WORDS " << addr << "\n";
+
+        f << "`define LOAD_MEM(__LOAD_MEM_DATA, __LOAD_DUT) \\\n";
+        addr = 0;
+        for (auto &o : mem_scanchain->src()) {
+            if (o.second == 0) break;
+            std::string memid;
+            int start, size, slices;
+            std::istringstream is(o.first);
+            is >> memid >> start >> size >> slices;
+            const char *name = memid.c_str();
+            if (name[0] == '\\') {
+                f   << "    for (__load_i=0; __load_i<" << size << "; __load_i=__load_i+1) __LOAD_DUT."
+                    << &name[1] << "[__load_i+" << start << "] = {";
+                for (int i = slices - 1; i >= 0; i--)
+                    f   << (i != 0 ? "," : "") << "__LOAD_MEM_DATA[__load_i*" << slices << "+" << addr + i << "]";
+                f   << "}; \\\n";
+            }
+            addr += o.second;
+        }
+        f << "\n";
+        f << "`define CHAIN_MEM_WORDS " << addr << "\n";
+
         f.close();
     }
 };
