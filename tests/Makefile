@@ -3,7 +3,7 @@ include ../common.mk
 OUTPUT_DIR := output
 RESULT_FILE := $(OUTPUT_DIR)/result.log
 
-SUITES := halt ff mem
+SUITES := halt ff mem mips_cpu
 
 SUITE ?=
 TEST ?=
@@ -58,7 +58,7 @@ clean-result:
 
 .PHONY: run-%
 run-%: $(OUTPUT_DIR)/%.out
-	@($(abspath $<) $(SIM_FLAGS) \
+	@(stdbuf -o0 $(abspath $<) $(SIM_FLAGS) \
 	&& echo "\033[32m[PASS]\033[39m $*" >> $(RESULT_FILE) \
 	|| echo "\033[31m[FAIL]\033[39m $*" >> $(RESULT_FILE) \
 	) 2>&1 | tee $(OUTPUT_DIR)/$*.log
