@@ -3,7 +3,7 @@ include ../common.mk
 OUTPUT_DIR := output
 RESULT_FILE := $(OUTPUT_DIR)/result.log
 
-SUITES := halt ff mem mips_cpu
+SUITES := halt ff mem cpu
 
 SUITE ?=
 TEST ?=
