@@ -27,8 +27,6 @@ SUITE_USE := $(SUITE)
 endif
 
 $(foreach S,$(SUITE_USE),$(eval include $(S)/include.mk))
-$(foreach S,$(SUITE_USE),$(foreach T,$(TESTS-$(S)),$(eval VSRC-$$(S)-$$(T)-reloc := $$(foreach F,$$(VSRC-$$(S)-$$(T)),$$(S)/$$(F)))))
-$(foreach S,$(SUITE_USE),$(foreach T,$(TESTS-$(S)),$(eval VSIM-$$(S)-$$(T)-reloc := $$(foreach F,$$(VSIM-$$(S)-$$(T)),$$(S)/$$(F)))))
 
 # find all requested tests
 
@@ -64,10 +62,10 @@ run-%: $(OUTPUT_DIR)/%.out
 	) 2>&1 | tee $(OUTPUT_DIR)/$*.log
 
 .SECONDARY: $(foreach N,$(TEST_USE),$(OUTPUT_DIR)/$(N).out)
-$(OUTPUT_DIR)/%.out: $$(VSIM-%-reloc) $(OUTPUT_DIR)/%.out.v $(EMULIBS)
+$(OUTPUT_DIR)/%.out: $$(VSIM-%) $(OUTPUT_DIR)/%.out.v $(EMULIBS)
 	iverilog -Icommon -Ioutput -DSIMULATION -DLOADER_VH=\"$*.ldr.vh\" -DDUMP_FILE=\"$(OUTPUT_DIR)/$*.vcd\" -o $@ $^
 
 .SECONDARY: $(foreach N,$(TEST_USE),$(OUTPUT_DIR)/$(N).out.v)
-$(OUTPUT_DIR)/%.out.v: $(TRANSFORM_LIB) $$(VSRC-%-reloc)
+$(OUTPUT_DIR)/%.out.v: $(TRANSFORM_LIB) $$(VSRC-%)
 	mkdir -p $(OUTPUT_DIR)
-	$(YOSYS) -m $(TRANSFORM_LIB) -p "tcl $(TRANSFORM_TCL) -top $(VTOP-$*) -cfg $(OUTPUT_DIR)/$*.cfg.txt -ldr $(OUTPUT_DIR)/$*.ldr.vh" -o $@ $(EMULIBS) $(VSRC-$*-reloc)
+	$(YOSYS) -m $(TRANSFORM_LIB) -p "tcl $(TRANSFORM_TCL) -top $(VTOP-$*) -cfg $(OUTPUT_DIR)/$*.cfg.txt -ldr $(OUTPUT_DIR)/$*.ldr.vh" -o $@ $(EMULIBS) $(VSRC-$*)
