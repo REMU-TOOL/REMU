@@ -2,7 +2,7 @@
 
 `include "test.vh"
 
-module fftest();
+module sim_top();
 
     parameter ROUND = 4;
 
