@@ -60,6 +60,7 @@ yosys emu_lint
 yosys emu_opt_ram
 yosys opt_clean
 yosys emu_instrument {*}$emu_instrument_cmd
+yosys emu_remove_keep
 yosys check
 
 yosys opt

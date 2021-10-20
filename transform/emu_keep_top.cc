@@ -35,4 +35,28 @@ struct EmuKeepTopPass : public Pass {
     }
 } EmuKeepTopPass;
 
+struct EmuRemoveKeepPass : public Pass {
+    EmuRemoveKeepPass() : Pass("emu_remove_keep", "remove all keep attributes") { }
+
+    void execute(vector<string> args, Design* design) override {
+        log_header(design, "Executing EMU_REMOVE_KEEP pass.\n");
+
+        size_t argidx;
+        for (argidx = 1; argidx < args.size(); argidx++) {
+            break;
+        }
+        extra_args(args, argidx, design);
+
+        for (auto mod : design->modules()) {
+            log("Processing module %s...\n", log_id(mod));
+
+            for (auto cell : mod->selected_cells())
+                cell->set_bool_attribute(ID::keep, false);
+
+            for (auto wire : mod->selected_wires())
+                wire->set_bool_attribute(ID::keep, false);
+        }
+    }
+} EmuRemoveKeepPass;
+
 PRIVATE_NAMESPACE_END
