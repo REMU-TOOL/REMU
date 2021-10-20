@@ -13,8 +13,13 @@ struct EmuKeepTopPass : public Pass {
     EmuKeepTopPass() : Pass("emu_keep_top", "add keep attribute to cells & wires in top module") { }
 
     void execute(vector<string> args, Design* design) override {
-        (void)args;
         log_header(design, "Executing EMU_KEEP_TOP pass.\n");
+
+        size_t argidx;
+        for (argidx = 1; argidx < args.size(); argidx++) {
+            break;
+        }
+        extra_args(args, argidx, design);
 
         Module *top = design->top_module();
         if (!top)

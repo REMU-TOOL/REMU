@@ -702,6 +702,8 @@ struct EmuInstrumentPass : public Pass {
     std::string cfg_file, ldr_file;
 
     void execute(vector<string> args, Design* design) override {
+        log_header(design, "Executing EMU_INSTRUMENT pass.\n");
+
         size_t argidx;
         for (argidx = 1; argidx < args.size(); argidx++)
         {
@@ -716,8 +718,6 @@ struct EmuInstrumentPass : public Pass {
             break;
         }
         extra_args(args, argidx, design);
-
-        log_header(design, "Executing EMU_INSTRUMENT pass.\n");
 
         auto modules = design->selected_modules();
         if (modules.size() != 1) {
