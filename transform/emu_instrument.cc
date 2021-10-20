@@ -28,8 +28,8 @@ protected:
 
     ScanChainBase() : depth_(0) {}
 
-#define DEF_PROP(t, x) protected: t x##_; public: t x() { return x##_; }
-#define DEF_REF_PROP(t, x) protected: t x##_; public: t& x() { return x##_; }
+#define DEF_PROP(t, x) protected: t x##_; public: t x() const { return x##_; }
+#define DEF_REF_PROP(t, x) protected: t x##_; public: const t& x() const { return x##_; }
     DEF_PROP(Wire *, data_i)
     DEF_PROP(Wire *, data_o)
     DEF_PROP(Wire *, last_i)
@@ -51,6 +51,7 @@ protected:
 
 public:
     int &depth() { return depth_; }
+    SrcType &src() { return src_; }
 };
 
 // a whole scan chain connecting scan chain blocks
