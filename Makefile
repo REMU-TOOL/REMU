@@ -25,7 +25,7 @@ transform: $(TRANSFORM_LIB) $(VSRC) FORCE
 	$(YOSYS) -m $(TRANSFORM_LIB) -p "tcl $(TRANSFORM_TCL) -top $(VTOP) -cfg $(OUTPUT_DIR)/cfg.txt -ldr $(OUTPUT_DIR)/loader.vh" -o $(OUTPUT_V) $(EMULIBS) $(VSRC)
 
 .PHONY: test
-test:
+test: $(TRANSFORM_LIB) FORCE
 	make -C tests
 
 .PHONY: clean
