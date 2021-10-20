@@ -1,5 +1,6 @@
 `timescale 1 ns / 1 ns
 
+`include "test.vh"
 `include "emu_csr.vh"
 
 module sim_top();
@@ -54,33 +55,7 @@ module sim_top();
     reg     [31:0]  s_axilite_wdata = 0;
     wire            s_axilite_bvalid;
 
-    reg             s_axilite_emureg_arvalid = 0;
-    wire            s_axilite_emureg_arready;
-    reg     [14:0]  s_axilite_emureg_araddr = 0;
-    wire            s_axilite_emureg_rvalid;
-    wire    [63:0]  s_axilite_emureg_rdata;
-    reg             s_axilite_emureg_awvalid = 0;
-    wire            s_axilite_emureg_awready;
-    reg     [14:0]  s_axilite_emureg_awaddr = 0;
-    reg             s_axilite_emureg_wvalid = 0;
-    wire            s_axilite_emureg_wready;
-    reg     [63:0]  s_axilite_emureg_wdata = 0;
-    wire            s_axilite_emureg_bvalid;
-
-    reg             s_axilite_idealmem_arvalid = 0;
-    wire            s_axilite_idealmem_arready;
-    reg     [11:0]  s_axilite_idealmem_araddr = 0;
-    wire            s_axilite_idealmem_rvalid;
-    wire    [31:0]  s_axilite_idealmem_rdata;
-    reg             s_axilite_idealmem_awvalid = 0;
-    wire            s_axilite_idealmem_awready;
-    reg     [11:0]  s_axilite_idealmem_awaddr = 0;
-    reg             s_axilite_idealmem_wvalid = 0;
-    wire            s_axilite_idealmem_wready;
-    reg     [31:0]  s_axilite_idealmem_wdata = 0;
-    wire            s_axilite_idealmem_bvalid;
-
-    emu_top u_emu_top(
+    emu_system u_emu_system(
         .clk                        (clk),
         .resetn                     (resetn),
 
@@ -134,47 +109,7 @@ module sim_top();
         .s_axilite_wstrb            (4'b1111),
         .s_axilite_bvalid           (s_axilite_bvalid),
         .s_axilite_bready           (1'b1),
-        .s_axilite_bresp            (),
-
-        .s_axilite_emureg_arvalid   (s_axilite_emureg_arvalid),
-        .s_axilite_emureg_arready   (s_axilite_emureg_arready),
-        .s_axilite_emureg_araddr    (s_axilite_emureg_araddr),
-        .s_axilite_emureg_arprot    (3'd0),
-        .s_axilite_emureg_rvalid    (s_axilite_emureg_rvalid),
-        .s_axilite_emureg_rready    (1'b1),
-        .s_axilite_emureg_rresp     (),
-        .s_axilite_emureg_rdata     (s_axilite_emureg_rdata),
-        .s_axilite_emureg_awvalid   (s_axilite_emureg_awvalid),
-        .s_axilite_emureg_awready   (s_axilite_emureg_awready),
-        .s_axilite_emureg_awaddr    (s_axilite_emureg_awaddr),
-        .s_axilite_emureg_awprot    (3'd0),
-        .s_axilite_emureg_wvalid    (s_axilite_emureg_wvalid),
-        .s_axilite_emureg_wready    (s_axilite_emureg_wready),
-        .s_axilite_emureg_wdata     (s_axilite_emureg_wdata),
-        .s_axilite_emureg_wstrb     (8'b11111111),
-        .s_axilite_emureg_bvalid    (s_axilite_emureg_bvalid),
-        .s_axilite_emureg_bready    (1'b1),
-        .s_axilite_emureg_bresp     (),
-
-        .s_axilite_idealmem_arvalid (s_axilite_idealmem_arvalid),
-        .s_axilite_idealmem_arready (s_axilite_idealmem_arready),
-        .s_axilite_idealmem_araddr  (s_axilite_idealmem_araddr),
-        .s_axilite_idealmem_arprot  (3'd0),
-        .s_axilite_idealmem_rvalid  (s_axilite_idealmem_rvalid),
-        .s_axilite_idealmem_rready  (1'b1),
-        .s_axilite_idealmem_rresp   (),
-        .s_axilite_idealmem_rdata   (s_axilite_idealmem_rdata),
-        .s_axilite_idealmem_awvalid (s_axilite_idealmem_awvalid),
-        .s_axilite_idealmem_awready (s_axilite_idealmem_awready),
-        .s_axilite_idealmem_awaddr  (s_axilite_idealmem_awaddr),
-        .s_axilite_idealmem_awprot  (3'd0),
-        .s_axilite_idealmem_wvalid  (s_axilite_idealmem_wvalid),
-        .s_axilite_idealmem_wready  (s_axilite_idealmem_wready),
-        .s_axilite_idealmem_wdata   (s_axilite_idealmem_wdata),
-        .s_axilite_idealmem_wstrb   (4'b1111),
-        .s_axilite_idealmem_bvalid  (s_axilite_idealmem_bvalid),
-        .s_axilite_idealmem_bready  (1'b1),
-        .s_axilite_idealmem_bresp   ()
+        .s_axilite_bresp            ()
     );
 
     axi_ram #(
@@ -223,60 +158,40 @@ module sim_top();
         .s_axi_rready   (m_axi_rready)
     );
 
-    reg [31:0] emucsr_rdata = 0, idlmem_rdata = 0;
-    reg [63:0] dutreg_rdata = 0;
+    emu_top emu_ref();
+
+    wire ref_clk;
+    clock_gate ref_clk_gate(
+        .clk(clk),
+        .en(!u_emu_system.emu_halt),
+        .gclk(ref_clk)
+    );
+
+    assign emu_ref.clock.clock = ref_clk;
+    assign emu_ref.reset.reset = u_emu_system.emu_dut_reset;
+
+    reg [31:0] emucsr_rdata = 0;
 
     always @(posedge clk) begin
         if (s_axilite_arvalid && s_axilite_arready) begin
-            $display("EMUCSR RADDR %h", s_axilite_araddr);
+            //$display("EMUCSR RADDR %h", s_axilite_araddr);
             s_axilite_arvalid <= 1'b0;
         end
-        if (s_axilite_emureg_arvalid && s_axilite_emureg_arready) begin
-            $display("DUTREG RADDR %h", s_axilite_emureg_araddr);
-            s_axilite_emureg_arvalid <= 1'b0;
-        end
-        if (s_axilite_idealmem_arvalid && s_axilite_idealmem_arready) begin
-            //$display("IDLMEM RADDR %h", s_axilite_idealmem_araddr);
-            s_axilite_idealmem_arvalid <= 1'b0;
-        end
         if (s_axilite_rvalid) begin
-            $display("EMUCSR RDATA %h", s_axilite_rdata);
+            //$display("EMUCSR RDATA %h", s_axilite_rdata);
             emucsr_rdata = s_axilite_rdata;
         end
-        if (s_axilite_emureg_rvalid) begin
-            $display("DUTREG RDATA %h", s_axilite_emureg_rdata);
-            dutreg_rdata = s_axilite_emureg_rdata;
-        end
-        if (s_axilite_idealmem_rvalid) begin
-            //$display("IDLMEM RDATA %h", s_axilite_idealmem_rdata);
-            idlmem_rdata = s_axilite_idealmem_rdata;
-        end
         if (s_axilite_awvalid && s_axilite_awready) begin
-            $display("EMUCSR WADDR %h", s_axilite_awaddr);
+            //$display("EMUCSR WADDR %h", s_axilite_awaddr);
             s_axilite_awvalid <= 1'b0;
         end
-        if (s_axilite_emureg_awvalid && s_axilite_emureg_awready) begin
-            $display("DUTREG WADDR %h", s_axilite_emureg_awaddr);
-            s_axilite_emureg_awvalid <= 1'b0;
-        end
-        if (s_axilite_idealmem_awvalid && s_axilite_idealmem_awready) begin
-            //$display("IDLMEM WADDR %h", s_axilite_idealmem_awaddr);
-            s_axilite_idealmem_awvalid <= 1'b0;
-        end
         if (s_axilite_wvalid && s_axilite_wready) begin
-            $display("EMUCSR WDATA %h", s_axilite_wdata);
+            //$display("EMUCSR WDATA %h", s_axilite_wdata);
             s_axilite_wvalid <= 1'b0;
-        end
-        if (s_axilite_emureg_wvalid && s_axilite_emureg_wready) begin
-            $display("DUTREG WDATA %h", s_axilite_emureg_wdata);
-            s_axilite_emureg_wvalid <= 1'b0;
-        end
-        if (s_axilite_idealmem_wvalid && s_axilite_idealmem_wready) begin
-            //$display("IDLMEM WDATA %h", s_axilite_idealmem_wdata);
-            s_axilite_idealmem_wvalid <= 1'b0;
         end
     end
 
+    /*
     always @(posedge clk) begin
         if (m_axi_arvalid && m_axi_arready) begin
             $display("AXIRAM AR ADDR=%h BURST=%h SIZE=%h LEN=%h", m_axi_araddr, m_axi_arburst, m_axi_arsize, m_axi_arlen);
@@ -294,9 +209,11 @@ module sim_top();
             $display("AXIRAM B RESP=%h", m_axi_bresp);
         end
     end
+    */
 
-    reg [31:0] cycle_lo_save = 0, pc_save = 0;
-    reg [31:0] idealmem_save [1023:0];
+    `LOAD_DECLARE
+
+    reg [31:0] cycle_lo_save = 0;
     integer i = 0;
     reg finish = 0;
     initial begin
@@ -305,16 +222,15 @@ module sim_top();
 
         #(CYCLE*100);
 
-        $display("=== set step count to 100 ===");
+        $display("=== set step count to 3 ===");
         s_axilite_awaddr = `EMU_STEP;
         s_axilite_awvalid = 1;
-        s_axilite_wdata = 32'h00000064;
+        s_axilite_wdata = 32'h00000003;
         s_axilite_wvalid = 1;
         while (!s_axilite_bvalid) #CYCLE;
         #CYCLE;
 
         $display("=== start emulation & assert reset ===");
-        // W EMUCSR[0x0] 0x2
         s_axilite_awaddr = `EMU_STAT;
         s_axilite_awvalid = 1;
         s_axilite_wdata = 32'h00000002;
@@ -341,7 +257,6 @@ module sim_top();
         #CYCLE;
 
         $display("=== read cycle_lo ===");
-        // R EMUCSR[0x8]
         s_axilite_araddr = `EMU_CYCLE_LO;
         s_axilite_arvalid = 1;
         while (!s_axilite_rvalid) #CYCLE;
@@ -358,24 +273,15 @@ module sim_top();
 
         #(CYCLE*100);
 
-        $display("=== halt & prepare for dump ===");
-        // W EMUCSR[0x0] 0x1
+        $display("=== halt ===");
         s_axilite_awaddr = `EMU_STAT;
         s_axilite_awvalid = 1;
         s_axilite_wdata = 32'h00000001;
         s_axilite_wvalid = 1;
         while (!s_axilite_bvalid) #CYCLE;
         #CYCLE;
-        // W EMUCSR[0x4] 0x2
-        s_axilite_awaddr = `EMU_CTRL;
-        s_axilite_awvalid = 1;
-        s_axilite_wdata = 32'h00000002;
-        s_axilite_wvalid = 1;
-        while (!s_axilite_bvalid) #CYCLE;
-        #CYCLE;
 
         $display("=== read cycle_lo ===");
-        // R EMUCSR[0x8]
         s_axilite_araddr = `EMU_CYCLE_LO;
         s_axilite_arvalid = 1;
         while (!s_axilite_rvalid) #CYCLE;
@@ -383,48 +289,20 @@ module sim_top();
         $display("cycle_lo: %d", emucsr_rdata);
         cycle_lo_save = emucsr_rdata;
 
-        $display("=== read dut register ===");
-        // R DUTREG[0x0]
-        s_axilite_emureg_araddr = 0;
-        s_axilite_emureg_arvalid = 1;
-        while (!s_axilite_emureg_rvalid) #CYCLE;
-        #CYCLE;
-        pc_save = dutreg_rdata;
-
-        $display("=== read ideal mem ===");
-        for (i=0; i<1024; i=i+1) begin
-            // R IDLMEM[i]
-            s_axilite_idealmem_araddr = i*4;
-            s_axilite_idealmem_arvalid = 1;
-            while (!s_axilite_idealmem_rvalid) #CYCLE;
-            #CYCLE;
-            idealmem_save[i] = idlmem_rdata;
-        end
-
-        $display("=== start dma_wr transfer ===");
-        // W EMUCSR[0x20] 0x0
-        s_axilite_awaddr = `EMU_DMA_WR_ADDR_LO;
+        $display("=== start dma transfer ===");
+        s_axilite_awaddr = `EMU_DMA_ADDR_LO;
         s_axilite_awvalid = 1;
         s_axilite_wdata = 32'h00000000;
         s_axilite_wvalid = 1;
         while (!s_axilite_bvalid) #CYCLE;
         #CYCLE;
-        // W EMUCSR[0x24] 0x0
-        s_axilite_awaddr = `EMU_DMA_WR_ADDR_HI;
+        s_axilite_awaddr = `EMU_DMA_ADDR_HI;
         s_axilite_awvalid = 1;
         s_axilite_wdata = 32'h00000000;
         s_axilite_wvalid = 1;
         while (!s_axilite_bvalid) #CYCLE;
         #CYCLE;
-        // W EMUCSR[0x28] 0x80
-        s_axilite_awaddr = `EMU_DMA_WR_LEN;
-        s_axilite_awvalid = 1;
-        s_axilite_wdata = 32'h00000080;
-        s_axilite_wvalid = 1;
-        while (!s_axilite_bvalid) #CYCLE;
-        #CYCLE;
-        // W EMUCSR[0x2c] 0x1
-        s_axilite_awaddr = `EMU_DMA_WR_CSR;
+        s_axilite_awaddr = `EMU_DMA_CTRL;
         s_axilite_awvalid = 1;
         s_axilite_wdata = 32'h00000001;
         s_axilite_wvalid = 1;
@@ -432,16 +310,14 @@ module sim_top();
         #CYCLE;
         emucsr_rdata = 1;
         while (emucsr_rdata & 1) begin
-            #(CYCLE*10);
-            // R EMUCSR[0x2c]
-            s_axilite_araddr = `EMU_DMA_WR_CSR;
+            #(CYCLE*100);
+            s_axilite_araddr = `EMU_DMA_STAT;
             s_axilite_arvalid = 1;
             while (!s_axilite_rvalid) #CYCLE;
             #CYCLE;
         end
 
         $display("=== continue ===");
-        // W EMUCSR[0x0] 0x0
         s_axilite_awaddr = `EMU_STAT;
         s_axilite_awvalid = 1;
         s_axilite_wdata = 32'h00000000;
@@ -451,24 +327,15 @@ module sim_top();
 
         while (!finish) #CYCLE;
 
-        $display("=== read emu_stat ===");
-        // R EMUCSR[0x0]
-        s_axilite_araddr = `EMU_STAT;
-        s_axilite_arvalid = 1;
-        while (!s_axilite_rvalid) #CYCLE;
-        #CYCLE;
-
-        $display("=== prepare for load ===");
-        // W EMUCSR[0x4] 0x1
-        s_axilite_awaddr = `EMU_CTRL;
+        $display("=== halt ===");
+        s_axilite_awaddr = `EMU_STAT;
         s_axilite_awvalid = 1;
-        s_axilite_wdata = 32'h00000002;
+        s_axilite_wdata = 32'h00000001;
         s_axilite_wvalid = 1;
         while (!s_axilite_bvalid) #CYCLE;
         #CYCLE;
 
         $display("=== read cycle_lo ===");
-        // R EMUCSR[0x8]
         s_axilite_araddr = `EMU_CYCLE_LO;
         s_axilite_arvalid = 1;
         while (!s_axilite_rvalid) #CYCLE;
@@ -476,7 +343,6 @@ module sim_top();
         $display("cycle_lo: %d", emucsr_rdata);
 
         $display("=== restore cycle_lo ===");
-        // W EMUCSR[0x8]
         s_axilite_awaddr = `EMU_CYCLE_LO;
         s_axilite_awvalid = 1;
         s_axilite_wdata = cycle_lo_save;
@@ -484,71 +350,41 @@ module sim_top();
         while (!s_axilite_bvalid) #CYCLE;
         #CYCLE;
 
-        $display("=== restore dut register ===");
-        // W DUTREG[0x0]
-        s_axilite_emureg_awaddr = 0;
-        s_axilite_emureg_awvalid = 1;
-        s_axilite_emureg_wdata = pc_save;
-        s_axilite_emureg_wvalid = 1;
-        while (!s_axilite_emureg_bvalid) #CYCLE;
-        #CYCLE;
-
-        $display("=== restore ideal mem ===");
-        for (i=0; i<1024; i=i+1) begin
-            // W IDLMEM[i]
-            s_axilite_idealmem_awaddr = i*4;
-            s_axilite_idealmem_awvalid = 1;
-            s_axilite_idealmem_wdata = idealmem_save[i];
-            s_axilite_idealmem_wvalid = 1;
-            while (!s_axilite_idealmem_bvalid) #CYCLE;
-            #CYCLE;
-        end
-
-        $display("=== start dma_rd transfer ===");
-        // W EMUCSR[0x10] 0x0
-        s_axilite_awaddr = `EMU_DMA_RD_ADDR_LO;
+        $display("=== start dma transfer ===");
+        s_axilite_awaddr = `EMU_DMA_ADDR_LO;
         s_axilite_awvalid = 1;
         s_axilite_wdata = 32'h00000000;
         s_axilite_wvalid = 1;
         while (!s_axilite_bvalid) #CYCLE;
         #CYCLE;
-        // W EMUCSR[0x14] 0x0
-        s_axilite_awaddr = `EMU_DMA_RD_ADDR_HI;
+        s_axilite_awaddr = `EMU_DMA_ADDR_HI;
         s_axilite_awvalid = 1;
         s_axilite_wdata = 32'h00000000;
         s_axilite_wvalid = 1;
         while (!s_axilite_bvalid) #CYCLE;
         #CYCLE;
-        // W EMUCSR[0x18] 0x80
-        s_axilite_awaddr = `EMU_DMA_RD_LEN;
+        s_axilite_awaddr = `EMU_DMA_CTRL;
         s_axilite_awvalid = 1;
-        s_axilite_wdata = 32'h00000080;
-        s_axilite_wvalid = 1;
-        while (!s_axilite_bvalid) #CYCLE;
-        #CYCLE;
-        // W EMUCSR[0x1c] 0x1
-        s_axilite_awaddr = `EMU_DMA_RD_CSR;
-        s_axilite_awvalid = 1;
-        s_axilite_wdata = 32'h00000001;
+        s_axilite_wdata = 32'h00000003;
         s_axilite_wvalid = 1;
         while (!s_axilite_bvalid) #CYCLE;
         #CYCLE;
         emucsr_rdata = 1;
         while (emucsr_rdata & 1) begin
-            #(CYCLE*10);
-            // R EMUCSR[0x1c]
-            s_axilite_araddr = `EMU_DMA_RD_CSR;
+            #(CYCLE*100);
+            s_axilite_araddr = `EMU_DMA_STAT;
             s_axilite_arvalid = 1;
             while (!s_axilite_rvalid) #CYCLE;
             #CYCLE;
         end
 
-        #(CYCLE*100); // TODO: wait for completion flag
+        // load ref state
+        `LOAD_FF(u_axi_ram.mem, 0, emu_ref)
+        `LOAD_MEM(u_axi_ram.mem, `CHAIN_FF_WORDS, emu_ref)
 
         finish = 0;
 
         $display("=== continue ===");
-        // W EMUCSR[0x0] 0x0
         s_axilite_awaddr = `EMU_STAT;
         s_axilite_awvalid = 1;
         s_axilite_wdata = 32'h00000000;
@@ -559,37 +395,47 @@ module sim_top();
         while (!finish) #CYCLE;
 
         $display("=== read emu_stat ===");
-        // R EMUCSR[0x0]
         s_axilite_araddr = `EMU_STAT;
         s_axilite_arvalid = 1;
         while (!s_axilite_rvalid) #CYCLE;
         #CYCLE;
 
         $display("=== read cycle_lo ===");
-        // R EMUCSR[0x8]
         s_axilite_araddr = `EMU_CYCLE_LO;
         s_axilite_arvalid = 1;
         while (!s_axilite_rvalid) #CYCLE;
         #CYCLE;
         $display("cycle_lo: %d", emucsr_rdata);
 
+        $display("success");
         $finish;
     end
 
     reg [31:0] result;
-    always #CYCLE begin
-        result = u_emu_top.u_mem.mem[3];
-        if (result != 32'hffffffff && !finish) begin
-            $display("[%dns] Benchmark finished with result = %d", $time, result);
-            finish = 1;
+    always @(posedge clk) begin
+        if (resetn && !u_emu_system.emu_halt) begin
+            result = emu_ref.u_mem.mem[3];
+            if (result != 32'hffffffff && !finish) begin
+                $display("Benchmark finished with result = %d at cycle = %d", result, u_emu_system.emu_cycle);
+                finish = 1;
+            end
+            if (u_emu_system.emu_dut.\u_cpu.rf_wen !== emu_ref.u_cpu.rf_wen ||
+                u_emu_system.emu_dut.\u_cpu.rf_waddr !== emu_ref.u_cpu.rf_waddr ||
+                u_emu_system.emu_dut.\u_cpu.rf_wdata !== emu_ref.u_cpu.rf_wdata)
+            begin
+                $display("ERROR: trace mismatch at cycle = %d", u_emu_system.emu_cycle);
+                $display("DUT: wen=%h waddr=%h wdata=%h", u_emu_system.emu_dut.\u_cpu.rf_wen , u_emu_system.emu_dut.\u_cpu.rf_waddr , u_emu_system.emu_dut.\u_cpu.rf_wdata );
+                $display("REF: wen=%h waddr=%h wdata=%h", emu_ref.u_cpu.rf_wen, emu_ref.u_cpu.rf_waddr, emu_ref.u_cpu.rf_wdata);
+                $fatal;
+            end
         end
     end
 
-    initial $readmemh("test/initmem.txt", u_emu_top.u_mem.mem);
-
     initial begin
-        $dumpfile("output/dump.vcd");
-        $dumpvars();
+        $readmemh("common/initmem.txt", u_emu_system.emu_dut.\u_mem.mem );
+        $readmemh("common/initmem.txt", emu_ref.u_mem.mem);
     end
+
+    `DUMP_VCD
 
 endmodule
