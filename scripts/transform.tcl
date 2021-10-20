@@ -64,3 +64,5 @@ yosys emu_remove_keep
 yosys check
 
 yosys opt
+yosys emu_extract_mem
+yosys opt
