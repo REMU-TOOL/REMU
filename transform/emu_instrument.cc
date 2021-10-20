@@ -732,7 +732,7 @@ struct EmuInstrumentPass : public Pass {
         worker.run();
         if (!cfg_file.empty()) worker.write_config(cfg_file);
         if (!ldr_file.empty()) worker.write_loader(ldr_file);
-        design->rename(mod, "\\$EMU_DUT");
+        design->rename(mod, "\\EMU_DUT");
     }
 } InsertAccessorPass;
 

@@ -21,7 +21,7 @@ module sim_top();
     wire [7:0] q3;
     wire [79:0] q4;
 
-    \$EMU_DUT emu_dut(
+    EMU_DUT emu_dut(
         .\$EMU$CLK          (clk),
         .\$EMU$HALT         (halt),
         .\$EMU$DUT$RESET    (rst),

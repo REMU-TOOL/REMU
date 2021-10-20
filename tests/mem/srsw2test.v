@@ -20,7 +20,7 @@ module sim_top();
     reg wen = 0;
     wire [79:0] rdata;
 
-    \$EMU_DUT emu_dut(
+    EMU_DUT emu_dut(
         .\$EMU$CLK          (clk),
         .\$EMU$HALT         (halt),
         .\$EMU$DUT$RESET    (rst),

@@ -587,7 +587,7 @@ module emu_system(
         assign ff_sdi = emu_dma_direction ? m_axis_read_data_tdata : ff_sdo;
     assign ram_sdi = m_axis_read_data_tdata;
 
-    \$EMU_DUT emu_dut(
+    EMU_DUT emu_dut(
         .\$EMU$CLK          (dut_clk),
         .\$EMU$HALT         (emu_halt),
         .\$EMU$DUT$RESET    (emu_dut_reset),

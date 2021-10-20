@@ -10,7 +10,7 @@ module sim_top();
     reg [31:0] d = 0;
     wire [31:0] q_dut, q_ref;
 
-    \$EMU_DUT emu_dut(
+    EMU_DUT emu_dut(
         .\$EMU$CLK          (clk),
         .\$EMU$HALT         (halt),
         .\$EMU$DUT$RESET    (rst),

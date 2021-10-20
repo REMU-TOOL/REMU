@@ -16,7 +16,7 @@ module sim_top();
     reg [63:0] ram_sdi = 0;
     wire [63:0] ram_sdo;
 
-    \$EMU_DUT emu_dut(
+    EMU_DUT emu_dut(
         .\$EMU$CLK          (clk),
         .\$EMU$HALT         (halt),
         .\$EMU$DUT$RESET    (rst),
