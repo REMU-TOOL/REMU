@@ -627,7 +627,7 @@ public:
         f << "`define LOAD_DECLARE integer __load_i;\n";
         f << "`define LOAD_WIDTH " << DATA_WIDTH << "\n";
 
-        f << "`define LOAD_FF(__LOAD_FF_DATA, __LOAD_DUT) \\\n";
+        f << "`define LOAD_FF(__LOAD_FF_DATA, __LOAD_OFFSET, __LOAD_DUT) \\\n";
         addr = 0;
         for (auto &o : ff_scanchain->src()) {
             if (o.second == 0) break;
@@ -637,7 +637,7 @@ public:
                 const char *name = info.name.c_str();
                 if (name[0] == '\\') {
                     f   << "    __LOAD_DUT." << &name[1]
-                        << "[" << info.width + info.offset - 1 << ":" << info.offset << "] = __LOAD_FF_DATA[" << addr << "]"
+                        << "[" << info.width + info.offset - 1 << ":" << info.offset << "] = __LOAD_FF_DATA[__LOAD_OFFSET+" << addr << "]"
                         << "[" << info.width + offset - 1 << ":" << offset << "]; \\\n";
                 }
                 offset += info.width;
@@ -647,7 +647,7 @@ public:
         f << "\n";
         f << "`define CHAIN_FF_WORDS " << addr << "\n";
 
-        f << "`define LOAD_MEM(__LOAD_MEM_DATA, __LOAD_DUT) \\\n";
+        f << "`define LOAD_MEM(__LOAD_MEM_DATA, __LOAD_OFFSET, __LOAD_DUT) \\\n";
         addr = 0;
         for (auto &o : mem_scanchain->src()) {
             if (o.second == 0) break;
@@ -660,7 +660,7 @@ public:
                 f   << "    for (__load_i=0; __load_i<" << size << "; __load_i=__load_i+1) __LOAD_DUT."
                     << &name[1] << "[__load_i+" << start << "] = {";
                 for (int i = slices - 1; i >= 0; i--)
-                    f   << "__LOAD_MEM_DATA[__load_i*" << slices << "+" << addr + i << "]" << (i != 0 ? ", " : "");
+                    f   << "__LOAD_MEM_DATA[__LOAD_OFFSET+__load_i*" << slices << "+" << addr + i << "]" << (i != 0 ? ", " : "");
                 f   << "}; \\\n";
             }
             addr += o.second;

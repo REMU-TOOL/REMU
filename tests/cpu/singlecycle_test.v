@@ -128,8 +128,8 @@ module sim_top();
             #10;
             // load cycle
             cycle = cycle_save[i];
-            `LOAD_FF(ff_scan_save[i], emu_ref);
-            `LOAD_MEM(mem_scan_save[i], emu_ref);
+            `LOAD_FF(ff_scan_save[i], 0, emu_ref);
+            `LOAD_MEM(mem_scan_save[i], 0, emu_ref);
             halt = 0;
             while (!finish) #10;
             finish = 0;
