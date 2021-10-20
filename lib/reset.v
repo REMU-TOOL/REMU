@@ -8,11 +8,4 @@ module EmuReset #(
     output reset
 );
 
-`ifdef SIMULATION
-    reg sim_reset = 1;
-    initial #DURATION_NS sim_reset = 0;
-
-    assign reset = sim_reset;
-`endif
-
 endmodule

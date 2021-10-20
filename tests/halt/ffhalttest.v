@@ -32,8 +32,8 @@ module sim_top();
         .q(q_ref)
     );
 
-    always @* force ref.clock.sim_clock = clk & !halt;
-    always @* force ref.reset.sim_reset = rst;
+    assign ref.clock.clock = clk & !halt;
+    assign ref.reset.reset = rst;
 
     always #5 clk = ~clk;
     always #10 begin

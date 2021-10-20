@@ -38,7 +38,7 @@ module sim_top();
         .rdata(rdata_ref)
     );
 
-    always @* force ref.clock.sim_clock = clk & !halt;
+    assign ref.clock.clock = clk & !halt;
 
     always #5 clk = ~clk;
     always #10 begin

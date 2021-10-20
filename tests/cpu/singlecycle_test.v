@@ -31,8 +31,8 @@ module sim_top();
 
     emu_top emu_ref();
 
-    always @* force emu_ref.clock.sim_clock = clk & !halt;
-    always @* force emu_ref.reset.sim_reset = rst;
+    assign emu_ref.clock.clock = clk & !halt;
+    assign emu_ref.reset.reset = rst;
 
     integer i, j;
     reg [`LOAD_WIDTH-1:0] mem_scan_save [N_CKPT-1:0][`CHAIN_MEM_WORDS-1:0];
@@ -58,9 +58,9 @@ module sim_top();
                 emu_dut.\u_cpu.rf_waddr !== emu_ref.u_cpu.rf_waddr ||
                 emu_dut.\u_cpu.rf_wdata !== emu_ref.u_cpu.rf_wdata)
             begin
-                $display("ERROR: trace mismatch");
+                $display("ERROR: trace mismatch at cycle %d", cycle);
                 $display("DUT: wen=%h waddr=%h wdata=%h", emu_dut.\u_cpu.rf_wen , emu_dut.\u_cpu.rf_waddr , emu_dut.\u_cpu.rf_wdata );
-                $display("DUT: wen=%h waddr=%h wdata=%h", emu_ref.u_cpu.rf_wen, emu_ref.u_cpu.rf_waddr, emu_ref.u_cpu.rf_wdata);
+                $display("REF: wen=%h waddr=%h wdata=%h", emu_ref.u_cpu.rf_wen, emu_ref.u_cpu.rf_waddr, emu_ref.u_cpu.rf_wdata);
                 $fatal;
             end
             cycle <= cycle + 1;
