@@ -1,6 +1,6 @@
 include common.mk
 
-VSRC ?= tests/mips_cpu/singlecycle_top.v tests/mips_cpu/singlecycle.v
+VSRC ?= tests/common/singlecycle_top.v tests/common/singlecycle.v
 VTOP ?= emu_top
 
 OUTPUT_V := $(OUTPUT_DIR)/output.v
@@ -24,22 +24,12 @@ transform: $(TRANSFORM_LIB) $(VSRC) FORCE
 	mkdir -p $(OUTPUT_DIR)
 	$(YOSYS) -m $(TRANSFORM_LIB) -p "tcl $(TRANSFORM_TCL) -top $(VTOP) -cfg $(OUTPUT_DIR)/cfg.txt -ldr $(OUTPUT_DIR)/loader.vh" -o $(OUTPUT_V) $(EMULIBS) $(VSRC)
 
-.PHONY: sim
-sim: $(SIM_BIN)
-	STARTCYCLE=$$(((`cat checkpoint/cyclehi.txt`<<32)|`cat checkpoint/cyclelo.txt`)); \
-	$(SIM_BIN) +startcycle=$$STARTCYCLE +runcycle=1000
-
-$(SIM_BIN): $(VSRC_SIM)
-	iverilog -o $@ -I$(OUTPUT_DIR) $^
-
 .PHONY: test
-test: $(TEST_BIN)
-	$(TEST_BIN)
-
-$(TEST_BIN): $(VSRC_TEST)
-	iverilog -o $@ -I$(FPGA_DIR) $^
+test:
+	make -C tests
 
 .PHONY: clean
 clean:
 	rm -rf $(OUTPUT_DIR)
 	make -C transform clean
+	make -C tests clean
