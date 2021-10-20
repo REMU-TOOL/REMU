@@ -215,7 +215,8 @@ module emu_system(
     end
 
     wire step_trigger = emu_step != 32'd0 && emu_step_next == 32'd0;
-    assign trigger = step_trigger; // || user_trigger;
+    wire emu_dut_trig;
+    assign trigger = step_trigger || emu_dut_trig;
 
     always @(posedge clk) begin
         if (rst) begin
@@ -590,6 +591,7 @@ module emu_system(
         .\$EMU$CLK          (dut_clk),
         .\$EMU$HALT         (emu_halt),
         .\$EMU$DUT$RESET    (emu_dut_reset),
+        .\$EMU$DUT$TRIG     (emu_dut_trig),
         .\$EMU$FF$SCAN      (ff_scan_running),
         .\$EMU$FF$SDI       (ff_sdi),
         .\$EMU$FF$SDO       (ff_sdo),

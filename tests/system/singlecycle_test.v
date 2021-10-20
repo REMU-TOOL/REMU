@@ -413,12 +413,12 @@ module sim_top();
 
     reg [31:0] result;
     always @(posedge clk) begin
+        result = emu_ref.u_mem.mem[3];
+        if (result != 32'hffffffff && !finish) begin
+            $display("Benchmark finished with result = %d at cycle = %d", result, u_emu_system.emu_cycle);
+            finish = 1;
+        end
         if (resetn && !u_emu_system.emu_halt) begin
-            result = emu_ref.u_mem.mem[3];
-            if (result != 32'hffffffff && !finish) begin
-                $display("Benchmark finished with result = %d at cycle = %d", result, u_emu_system.emu_cycle);
-                finish = 1;
-            end
             if (u_emu_system.emu_dut.\u_cpu.rf_wen !== emu_ref.u_cpu.rf_wen ||
                 u_emu_system.emu_dut.\u_cpu.rf_waddr !== emu_ref.u_cpu.rf_waddr ||
                 u_emu_system.emu_dut.\u_cpu.rf_wdata !== emu_ref.u_cpu.rf_wdata)

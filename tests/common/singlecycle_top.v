@@ -2,9 +2,10 @@
 
 module emu_top();
 
-    wire clk, rst;
+    wire clk, rst, trig;
     EmuClock clock(clk);
     EmuReset reset(rst);
+    EmuTrigger trigger(trig);
 
     wire [31:0] PC;
     wire [31:0] Instruction;
@@ -39,6 +40,8 @@ module emu_top();
         .raddr2             (Address[11:2]),
         .rdata2             (Read_data)
     );
+
+    assign trig = MemWrite && Address == 32'hc;
 
 endmodule
 

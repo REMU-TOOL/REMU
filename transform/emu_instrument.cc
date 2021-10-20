@@ -106,7 +106,7 @@ private:
 
     ScanChain *ff_scanchain, *mem_scanchain;
 
-    Wire *wire_clk, *wire_halt, *wire_dut_reset;
+    Wire *wire_clk, *wire_halt, *wire_dut_reset, *wire_dut_trig;
     Wire *wire_ff_scan, *wire_ff_sdi, *wire_ff_sdo;
     Wire *wire_ram_scan, *wire_ram_dir, *wire_ram_sdi, *wire_ram_sdo; // dir: 0=out 1=in
 
@@ -130,6 +130,13 @@ private:
                     module->connect(r, wire_dut_reset);
                     cells_to_remove.push_back(cell);
                 }
+
+                // trigger instance
+                if (modref->get_bool_attribute("\\emulib_trigger")) {
+                    SigSpec t = cell->getPort("\\trigger");
+                    module->connect(wire_dut_trig, t);
+                    cells_to_remove.push_back(cell);
+                }
             }
         }
         for (auto cell : cells_to_remove) {
@@ -141,6 +148,7 @@ private:
         wire_clk        = module->addWire("\\$EMU$CLK");                        wire_clk        ->port_input = true;
         wire_halt       = module->addWire("\\$EMU$HALT");                       wire_halt       ->port_input = true;
         wire_dut_reset  = module->addWire("\\$EMU$DUT$RESET");                  wire_dut_reset  ->port_input = true;
+        wire_dut_trig   = module->addWire("\\$EMU$DUT$TRIG");                   wire_dut_trig   ->port_output = true;
         wire_ff_scan    = module->addWire("\\$EMU$FF$SCAN");                    wire_ff_scan    ->port_input = true;
         wire_ff_sdi     = module->addWire("\\$EMU$FF$SDI",      DATA_WIDTH);    wire_ff_sdi     ->port_input = true;
         wire_ff_sdo     = module->addWire("\\$EMU$FF$SDO",      DATA_WIDTH);    wire_ff_sdo     ->port_output = true;
