@@ -1,10 +1,8 @@
 *.o
 *.d
 *.so
-*.vcd
 
 tests/output/
-checkpoint/
 output/
 
 .vscode/
