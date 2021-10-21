@@ -6,17 +6,9 @@ module clock_gate(
     output gclk
 );
 
-`ifdef ULTRASCALE
-    BUFGCE #(.CE_TYPE("SYNC")) u_bufgce (
-        .O(gclk),
-        .CE(en),
-        .I(clk)
-    );
-`else
     reg en_latch;
     always @(negedge clk)
         en_latch = en;
     assign gclk = clk & en_latch;
-`endif
 
 endmodule

@@ -62,8 +62,8 @@ run-%: $(OUTPUT_DIR)/%/sim
 	) 2>&1 | tee $(OUTPUT_DIR)/$*/run.log
 
 .SECONDARY: $(foreach N,$(TEST_USE),$(OUTPUT_DIR)/$(N)/sim)
-$(OUTPUT_DIR)/%/sim: $$(VSIM-%) $(OUTPUT_DIR)/%/output.v $(EMULIBS)
-	iverilog -Icommon -I$(OUTPUT_DIR)/$* -I$(FPGA_INC) -DSIMULATION -DDUMP_FILE=\"$(OUTPUT_DIR)/$*/dump.vcd\" -s sim_top -o $@ $^
+$(OUTPUT_DIR)/%/sim: $$(VSIM-%) $(OUTPUT_DIR)/%/output.v $(EMULIBS) $(wildcard $(SIM_DIR)/*.v)
+	iverilog -Icommon -I$(OUTPUT_DIR)/$* -I$(FPGA_DIR)/rtl/include -DSIMULATION -DDUMP_FILE=\"$(OUTPUT_DIR)/$*/dump.vcd\" -s sim_top -o $@ $^
 
 .SECONDARY: $(foreach N,$(TEST_USE),$(OUTPUT_DIR)/$(N)/output.v)
 $(OUTPUT_DIR)/%/output.v: $(TRANSFORM_LIB) $$(VSRC-%)
