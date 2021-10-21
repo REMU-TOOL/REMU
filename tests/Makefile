@@ -1,6 +1,6 @@
 include ../common.mk
 
-OUTPUT_DIR := output
+OUTPUT_DIR := _output
 RESULT_FILE := $(OUTPUT_DIR)/result.log
 
 SUITES := halt ff mem cpu system
@@ -55,17 +55,17 @@ clean-result:
 .SECONDEXPANSION:
 
 .PHONY: run-%
-run-%: $(OUTPUT_DIR)/%.out
+run-%: $(OUTPUT_DIR)/%/sim
 	@(stdbuf -o0 $(abspath $<) $(SIM_FLAGS) \
 	&& echo "\033[32m[PASS]\033[39m $*" >> $(RESULT_FILE) \
 	|| echo "\033[31m[FAIL]\033[39m $*" >> $(RESULT_FILE) \
-	) 2>&1 | tee $(OUTPUT_DIR)/$*.log
+	) 2>&1 | tee $(OUTPUT_DIR)/$*/run.log
 
-.SECONDARY: $(foreach N,$(TEST_USE),$(OUTPUT_DIR)/$(N).out)
-$(OUTPUT_DIR)/%.out: $$(VSIM-%) $(OUTPUT_DIR)/%.out.v $(EMULIBS)
-	iverilog -Icommon -Ioutput -I$(FPGA_INC) -DSIMULATION -DLOADER_VH=\"$*.ldr.vh\" -DDUMP_FILE=\"$(OUTPUT_DIR)/$*.vcd\" -s sim_top -o $@ $^
+.SECONDARY: $(foreach N,$(TEST_USE),$(OUTPUT_DIR)/$(N)/sim)
+$(OUTPUT_DIR)/%/sim: $$(VSIM-%) $(OUTPUT_DIR)/%/output.v $(EMULIBS)
+	iverilog -Icommon -I$(OUTPUT_DIR)/$* -I$(FPGA_INC) -DSIMULATION -DDUMP_FILE=\"$(OUTPUT_DIR)/$*/dump.vcd\" -s sim_top -o $@ $^
 
-.SECONDARY: $(foreach N,$(TEST_USE),$(OUTPUT_DIR)/$(N).out.v)
-$(OUTPUT_DIR)/%.out.v: $(TRANSFORM_LIB) $$(VSRC-%)
-	mkdir -p $(OUTPUT_DIR)
-	$(YOSYS) -m $(TRANSFORM_LIB) -p "tcl $(TRANSFORM_TCL) -top $(VTOP-$*) -cfg $(OUTPUT_DIR)/$*.cfg.txt -ldr $(OUTPUT_DIR)/$*.ldr.vh" -o $@ $(EMULIBS) $(VSRC-$*)
+.SECONDARY: $(foreach N,$(TEST_USE),$(OUTPUT_DIR)/$(N)/output.v)
+$(OUTPUT_DIR)/%/output.v: $(TRANSFORM_LIB) $$(VSRC-%)
+	mkdir -p $(OUTPUT_DIR)/$*
+	$(YOSYS) -m $(TRANSFORM_LIB) -p "tcl $(TRANSFORM_TCL) -top $(VTOP-$*) -cfg $(OUTPUT_DIR)/$*/config.txt -ldr $(OUTPUT_DIR)/$*/loader.vh" -o $@ $(EMULIBS) $(VSRC-$*)

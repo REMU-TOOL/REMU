@@ -1,4 +1,4 @@
-`include `LOADER_VH
+`include "loader.vh"
 `include "emu_csr.vh"
 
 `timescale 1ns / 1ps

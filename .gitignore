@@ -2,7 +2,7 @@
 *.d
 *.so
 
-tests/output/
+tests/_output/
 output/
 
 .vscode/

@@ -1,4 +1,4 @@
-`include `LOADER_VH
+`include "loader.vh"
 
 `define DUMP_VCD \
     initial begin \
