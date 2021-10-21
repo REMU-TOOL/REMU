@@ -63,7 +63,7 @@ run-%: $(OUTPUT_DIR)/%.out
 
 .SECONDARY: $(foreach N,$(TEST_USE),$(OUTPUT_DIR)/$(N).out)
 $(OUTPUT_DIR)/%.out: $$(VSIM-%) $(OUTPUT_DIR)/%.out.v $(EMULIBS)
-	iverilog -Icommon -Ioutput -I$(FPGA_DIR) -DSIMULATION -DLOADER_VH=\"$*.ldr.vh\" -DDUMP_FILE=\"$(OUTPUT_DIR)/$*.vcd\" -s sim_top -o $@ $^
+	iverilog -Icommon -Ioutput -I$(FPGA_INC) -DSIMULATION -DLOADER_VH=\"$*.ldr.vh\" -DDUMP_FILE=\"$(OUTPUT_DIR)/$*.vcd\" -s sim_top -o $@ $^
 
 .SECONDARY: $(foreach N,$(TEST_USE),$(OUTPUT_DIR)/$(N).out.v)
 $(OUTPUT_DIR)/%.out.v: $(TRANSFORM_LIB) $$(VSRC-%)

@@ -5,12 +5,6 @@ VTOP ?= emu_top
 
 OUTPUT_V := $(OUTPUT_DIR)/output.v
 
-VSRC_SIM := $(VSRC) $(SIM_DIR)/top.v
-SIM_BIN := $(OUTPUT_DIR)/sim
-
-VSRC_TEST := $(OUTPUT_V) $(wildcard $(FPGA_DIR)/ip/*.v) $(FPGA_DIR)/emu_top.v test/sim.v
-TEST_BIN := $(OUTPUT_DIR)/test
-
 .PHONY: FORCE
 
 .PHONY: build
