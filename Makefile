@@ -22,8 +22,12 @@ transform: $(TRANSFORM_LIB) $(VSRC) FORCE
 test: $(TRANSFORM_LIB) FORCE
 	make -C tests
 
-.PHONY: clean
-clean:
+.PHONY: clean clean-test clean-transform
+clean: clean-test clean-transform
 	rm -rf $(OUTPUT_DIR)
-	make -C transform clean
+
+clean-test:
 	make -C tests clean
+
+ clean-transform:
+	make -C transform clean
