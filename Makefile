@@ -16,18 +16,21 @@ $(TRANSFORM_LIB): FORCE
 .PHONY: transform
 transform: $(TRANSFORM_LIB) $(VSRC) FORCE
 	mkdir -p $(OUTPUT_DIR)
-	$(YOSYS) -m $(TRANSFORM_LIB) -p "tcl $(TRANSFORM_TCL) -top $(VTOP) -cfg $(OUTPUT_DIR)/cfg.txt -ldr $(OUTPUT_DIR)/loader.vh" -o $(OUTPUT_V) $(EMULIBS) $(VSRC)
+	$(YOSYS) -m $(TRANSFORM_LIB) -p "tcl $(TRANSFORM_TCL) -top $(VTOP) -cfg $(OUTPUT_DIR)/config.txt -ldr $(OUTPUT_DIR)/loader.vh" -o $(OUTPUT_V) $(EMULIBS) $(VSRC)
 
 .PHONY: test
 test: $(TRANSFORM_LIB) FORCE
 	make -C tests
 
-.PHONY: clean clean-test clean-transform
-clean: clean-test clean-transform
-	rm -rf $(OUTPUT_DIR)
+.PHONY: clean clean-test clean-transform clean-output
+
+clean: clean-test clean-transform clean-output
 
 clean-test:
 	make -C tests clean
 
- clean-transform:
+clean-transform:
 	make -C transform clean
+
+clean-output:
+	rm -rf $(OUTPUT_DIR)
