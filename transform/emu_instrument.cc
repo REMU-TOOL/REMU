@@ -385,8 +385,6 @@ private:
                     std::string attr;
                     attr = stringf("\\emu_orig_raddr[%d]", idx);
                     if (mem.has_attribute(attr)) {
-                        int total_width = GetSize(rd.addr);
-
                         // synchronous read port inferred by raddr register cannot have reset value, but we still warn on this
                         if (rd.srst != State::S0) {
                             log_warning(
@@ -396,33 +394,12 @@ private:
                             );
                         }
 
-                        // reg [..] shadow_raddr;
-                        // wire en;
-                        // always @(posedge clk) shadow_raddr <= raddr;
-                        // assign en = ren && !halt;
-                        // assign raddr = en ? input : shadow_raddr;
-
-                        SigSpec shadow_raddr = module->addWire(EMU_NAME(shadow_raddr), total_width);
-                        SigSpec en = module->And(NEW_ID, rd.en, module->Not(NEW_ID, wire_halt));
-                        SigSpec raddr = module->Mux(NEW_ID, shadow_raddr, rd.addr, en);
-                        rd.addr = raddr;
-
-                        for (int i = 0; i < total_width; i += DATA_WIDTH) {
-                            int w = total_width - i;
-                            if (w > DATA_WIDTH) w = DATA_WIDTH;
-
-                            sdo = sdi;
-                            sdi = module->addWire(EMU_NAME(sdi), DATA_WIDTH);
-
-                            module->addDff(NEW_ID, wire_clk,
-                                module->Mux(NEW_ID, {Const(0, DATA_WIDTH - w), raddr.extract(i, w)}, sdi, wire_ff_scan), sdo);
-                            module->connect(shadow_raddr.extract(i, w), sdo.extract(0, w));
-
-                            block.depth()++;
-
-                            SrcInfo src = mem.get_string_attribute(attr);
-                            block.src().push_back({src.extract(i, w), 1});
-                        }
+                        // assign raddr = ren && !halt ? addr : addr_reg;
+                        IdString muxid = mem.get_string_attribute(attr);
+                        Cell *mux = module->cell(muxid);
+                        log_assert(mux);
+                        log_assert(mux->type == ID($mux));
+                        mux->setPort(ID::S, module->And(NEW_ID, rd.en, module->Not(NEW_ID, wire_halt)));
 
                         continue;
                     }

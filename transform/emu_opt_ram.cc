@@ -582,12 +582,18 @@ struct MemoryDffWorker
         ff.unmap_ce_srst(module);
         port.clk = ff.sig_clk;
         port.en = State::S1;
-        port.addr = ff.sig_d;
+        // Add a multiplexer to select address from ff.sig_d and ff.sig_q
+        // We'll resolve it later in emu_instrument
+        IdString muxid = NEW_ID;
+        SigSpec addr_mux = module->addWire(NEW_ID, GetSize(ff.sig_d));
+        Cell *mux = module->addMux(muxid, ff.sig_q, ff.sig_d, State::S1, addr_mux);
+        mux->set_bool_attribute(ID::keep);
+        port.addr = addr_mux;
         port.clk_enable = true;
         port.clk_polarity = ff.pol_clk;
         for (int i = 0; i < GetSize(mem.wr_ports); i++)
             port.transparency_mask[i] = true;
-        mem.set_string_attribute(stringf("\\emu_orig_raddr[%d]", idx), SrcInfo(ff.sig_q));
+        mem.set_string_attribute(stringf("\\emu_orig_raddr[%d]", idx), muxid.str());
         mem.emit();
         log("merged address FF to cell.\n");
     }
