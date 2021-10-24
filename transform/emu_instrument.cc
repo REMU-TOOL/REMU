@@ -32,6 +32,7 @@ struct ScanChainBlock {
     Wire *data_i, *data_o, *last_i, *last_o;
     int depth; // num of layers of scan registers
     std::vector<T> src;
+    ScanChainBlock(): depth(0) {}
 };
 
 // a whole scan chain connecting scan chain blocks
@@ -743,7 +744,7 @@ public:
                     f   << "__LOAD_MEM_DATA[__LOAD_OFFSET+__load_i*" << slices << "+" << addr + i << "]" << (i != 0 ? ", " : "");
                 f   << "}; \\\n";
             }
-            addr += slices;
+            addr += slices * mem.depth;
         }
         f << "\n";
         f << "`define CHAIN_MEM_WORDS " << addr << "\n";
