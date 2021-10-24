@@ -186,8 +186,8 @@ private:
 
     Module *module;
 
-    ScanChain<SrcInfo> *ff_scanchain;
-    ScanChain<MemInfo> *mem_scanchain;
+    std::vector<SrcInfo> ff_info;
+    std::vector<MemInfo> mem_info;
 
     Wire *wire_clk, *wire_halt, *wire_dut_reset, *wire_dut_trig;
     Wire *wire_ff_scan, *wire_ff_sdi, *wire_ff_sdo;
@@ -586,12 +586,7 @@ private:
 
 public:
 
-    InsertAccessorWorker(Module *mod) : module(mod), ff_scanchain(0), mem_scanchain(0) {}
-
-    ~InsertAccessorWorker() {
-        if (ff_scanchain) delete ff_scanchain;
-        if (mem_scanchain) delete mem_scanchain;
-    }
+    InsertAccessorWorker(Module *mod) : module(mod) {}
 
     void run() {
         // check if already processed
@@ -623,27 +618,30 @@ public:
         // replace library instances with emulation logic
         process_emulib();
 
-        ff_scanchain = new ScanChain<SrcInfo>(module, DATA_WIDTH);
-        mem_scanchain = new ScanChain<MemInfo>(module, DATA_WIDTH);
+        ScanChain<SrcInfo> chain_ff(module, DATA_WIDTH);
+        ScanChain<MemInfo> chain_mem(module, DATA_WIDTH);
 
         // process FFs
-        instrument_ffs(ff_cells, ff_scanchain->new_block());
-        ff_scanchain->commit_block();
+        instrument_ffs(ff_cells, chain_ff.new_block());
+        chain_ff.commit_block();
 
         // restore merged ffs in read ports
-        restore_mem_rdport_ffs(mem_cells, ff_scanchain->new_block());
-        ff_scanchain->commit_block();
+        restore_mem_rdport_ffs(mem_cells, chain_ff.new_block());
+        chain_ff.commit_block();
 
         // process mems
-        instrument_mems(mem_cells, *mem_scanchain);
+        instrument_mems(mem_cells, chain_mem);
 
-        module->connect(ff_scanchain->last_i, State::S0);
-        generate_mem_last_i(*mem_scanchain);
+        module->connect(chain_ff.last_i, State::S0);
+        generate_mem_last_i(chain_mem);
 
-        module->connect(ff_scanchain->data_i, wire_ff_sdi);
-        module->connect(wire_ff_sdo, ff_scanchain->data_o);
-        module->connect(mem_scanchain->data_i, wire_ram_sdi);
-        module->connect(wire_ram_sdo, mem_scanchain->data_o);
+        module->connect(chain_ff.data_i, wire_ff_sdi);
+        module->connect(wire_ff_sdo, chain_ff.data_o);
+        module->connect(chain_mem.data_i, wire_ram_sdi);
+        module->connect(wire_ram_sdo, chain_mem.data_o);
+
+        ff_info = chain_ff.src;
+        mem_info = chain_mem.src;
 
         // set attribute to indicate this module is processed
         module->set_bool_attribute("\\emu_instrumented");
@@ -662,7 +660,7 @@ public:
 
         int ff_addr = 0;
         json.key("ff").enter_array();
-        for (auto &src : ff_scanchain->src) {
+        for (auto &src : ff_info) {
             json.enter_object();
             json.key("addr").value(ff_addr);
             json.key("src").enter_array();
@@ -682,7 +680,7 @@ public:
 
         int mem_addr = 0;
         json.key("mem").enter_array();
-        for (auto &mem : mem_scanchain->src) {
+        for (auto &mem : mem_info) {
             int slices = (mem.width + DATA_WIDTH - 1) / DATA_WIDTH;
             json.enter_object();
             json.key("addr").value(mem_addr);
@@ -717,7 +715,7 @@ public:
 
         f << "`define LOAD_FF(__LOAD_FF_DATA, __LOAD_OFFSET, __LOAD_DUT) \\\n";
         addr = 0;
-        for (auto &src : ff_scanchain->src) {
+        for (auto &src : ff_info) {
             int offset = 0;
             for (auto info : src.info) {
                 const char *name = info.name.c_str();
@@ -735,7 +733,7 @@ public:
 
         f << "`define LOAD_MEM(__LOAD_MEM_DATA, __LOAD_OFFSET, __LOAD_DUT) \\\n";
         addr = 0;
-        for (auto &mem : mem_scanchain->src) {
+        for (auto &mem : mem_info) {
             int slices = (mem.width + DATA_WIDTH - 1) / DATA_WIDTH;
             const char *name = mem.name.c_str();
             if (name[0] == '\\') {
