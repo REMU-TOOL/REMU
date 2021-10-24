@@ -16,7 +16,7 @@ $(TRANSFORM_LIB): FORCE
 .PHONY: transform
 transform: $(TRANSFORM_LIB) $(VSRC) FORCE
 	mkdir -p $(OUTPUT_DIR)
-	$(YOSYS) -m $(TRANSFORM_LIB) -p "tcl $(TRANSFORM_TCL) -top $(VTOP) -cfg $(OUTPUT_DIR)/config.txt -ldr $(OUTPUT_DIR)/loader.vh" -o $(OUTPUT_V) $(EMULIBS) $(VSRC)
+	$(YOSYS) -m $(TRANSFORM_LIB) -p "tcl $(TRANSFORM_TCL) -top $(VTOP) -cfg $(OUTPUT_DIR)/config.json -ldr $(OUTPUT_DIR)/loader.vh" -o $(OUTPUT_V) $(EMULIBS) $(VSRC)
 
 .PHONY: test
 test: $(TRANSFORM_LIB) FORCE
