@@ -665,12 +665,15 @@ public:
             json.enter_object();
             json.key("addr").value(ff_addr);
             json.key("src").enter_array();
+            int new_off = 0;
             for (auto &c : src.info) {
                 json.enter_object();
                 json.key("name").string(c.name);
                 json.key("offset").value(c.offset);
                 json.key("width").value(c.width);
+                json.key("new_offset").value(new_off);
                 json.back();
+                new_off += c.width;
             }
             json.back();
             json.back();
