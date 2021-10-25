@@ -91,7 +91,6 @@ module emu_system(
     /*
      * AXI write descriptor status output
      */
-    wire [19:0]     m_axis_write_desc_status_len;
     wire [3:0]      m_axis_write_desc_status_error;
     wire            m_axis_write_desc_status_valid;
 
@@ -234,26 +233,24 @@ module emu_system(
     // EMU_DMA_ADDR_HI
     // EMU_DMA_STAT
     //      [0]     -> RUNNING [RO]
-    //      [31:12] -> BYTES_WRITTEN [RO]
-    //      [11:8]  -> ERROR [RO]
+    //      [7:4]   -> ERROR [RO]
     // EMU_DMA_CTRL
     //      [0]     -> START [WARL]
     //      [1]     -> DIRECTION [WARL]
 
     reg [63:0] emu_dma_addr;
     reg emu_dma_start, emu_dma_running, emu_dma_direction;
-    reg [19:0] emu_dma_bytes_written;
     reg [3:0] emu_dma_error;
     wire [31:0] emu_dma_stat, emu_dma_ctrl;
-    assign emu_dma_stat[31:12]  = emu_dma_bytes_written;
-    assign emu_dma_stat[11:8]   = emu_dma_error;
-    assign emu_dma_stat[7:1]    = 7'd0;
+    assign emu_dma_stat[31:8]   = 24'd0;
+    assign emu_dma_stat[7:4]    = emu_dma_error;
+    assign emu_dma_stat[3:1]    = 3'd0;
     assign emu_dma_stat[0]      = emu_dma_running;
     assign emu_dma_ctrl[31:2]   = 30'd0;
     assign emu_dma_ctrl[1]      = emu_dma_direction;
     assign emu_dma_ctrl[0]      = emu_dma_start;
 
-    wire [19:0] emu_dma_len     = 8 * (`CHAIN_FF_WORDS + `CHAIN_MEM_WORDS);
+    wire [27:0] emu_dma_len     = 8 * (`CHAIN_FF_WORDS + `CHAIN_MEM_WORDS);
 
     wire read_desc_fire         = s_axis_read_desc_valid && s_axis_read_desc_ready;
     wire write_desc_fire        = s_axis_write_desc_valid && s_axis_write_desc_ready;
@@ -264,7 +261,6 @@ module emu_system(
             emu_dma_start           <= 1'b0;
             emu_dma_running         <= 1'b0;
             emu_dma_direction       <= 1'b0;
-            emu_dma_bytes_written   <= 20'd0;
             emu_dma_error           <= 4'd0;
         end
         else begin
@@ -276,7 +272,6 @@ module emu_system(
                 emu_dma_error           <= m_axis_read_desc_status_error;
             end
             if (m_axis_write_desc_status_valid) begin
-                emu_dma_bytes_written   <= m_axis_write_desc_status_len;
                 emu_dma_running         <= 1'b0;
                 emu_dma_error           <= m_axis_write_desc_status_error;
             end
@@ -353,7 +348,8 @@ module emu_system(
         .AXI_DATA_WIDTH                 (64),
         .AXI_ADDR_WIDTH                 (64),
         .AXI_ID_WIDTH                   (1),
-        .AXIS_USER_ENABLE               (0)
+        .AXIS_USER_ENABLE               (0),
+        .LEN_WIDTH                      (28)
     )
     u_dma(
         .clk                            (clk),
@@ -402,7 +398,7 @@ module emu_system(
         /*
         * AXI write descriptor status output
         */
-        .m_axis_write_desc_status_len   (m_axis_write_desc_status_len),
+        .m_axis_write_desc_status_len   (),
         .m_axis_write_desc_status_tag   (),
         .m_axis_write_desc_status_id    (),
         .m_axis_write_desc_status_dest  (),
