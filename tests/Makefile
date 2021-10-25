@@ -68,4 +68,4 @@ $(OUTPUT_DIR)/%/sim: $$(VSIM-%) $(OUTPUT_DIR)/%/output.v $(EMULIBS) $(wildcard $
 .SECONDARY: $(foreach N,$(TEST_USE),$(OUTPUT_DIR)/$(N)/output.v)
 $(OUTPUT_DIR)/%/output.v: $(TRANSFORM_LIB) $$(VSRC-%)
 	mkdir -p $(OUTPUT_DIR)/$*
-	$(YOSYS) -m $(TRANSFORM_LIB) -p "tcl $(TRANSFORM_TCL) -top $(VTOP-$*) -cfg $(OUTPUT_DIR)/$*/config.json -ldr $(OUTPUT_DIR)/$*/loader.vh" -o $@ $(EMULIBS) $(VSRC-$*)
+	$(YOSYS) -m $(TRANSFORM_LIB) -p "emu_transform -top $(VTOP-$*) -cfg $(OUTPUT_DIR)/$*/config.json -ldr $(OUTPUT_DIR)/$*/loader.vh" -o $@ $(EMULIBS) $(VSRC-$*)
