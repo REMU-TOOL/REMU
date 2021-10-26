@@ -140,7 +140,7 @@ module emu_system(
         end
     end
 
-    assign s_axilite_awready    = !reg_write_addr_valid;
+    assign s_axilite_awready    = !reg_write_addr_valid && !reg_write_resp_valid;
     assign s_axilite_wready     = !reg_write_data_valid;
     assign s_axilite_bvalid     = reg_write_resp_valid;
     assign s_axilite_bresp      = reg_write_error ? 2'b10 : 2'b00;
