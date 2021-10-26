@@ -229,6 +229,9 @@ module emu_system(
         end
     end
 
+    // EMU_CKPT_SIZE
+    wire [31:0] emu_ckpt_size = 8 * (`CHAIN_FF_WORDS + `CHAIN_MEM_WORDS);
+
     // EMU_DMA_ADDR_LO
     // EMU_DMA_ADDR_HI
     // EMU_DMA_STAT
@@ -250,7 +253,7 @@ module emu_system(
     assign emu_dma_ctrl[1]      = emu_dma_direction;
     assign emu_dma_ctrl[0]      = emu_dma_start;
 
-    wire [27:0] emu_dma_len     = 8 * (`CHAIN_FF_WORDS + `CHAIN_MEM_WORDS);
+    wire [27:0] emu_dma_len     = emu_ckpt_size[27:0]; // TODO: handle overflow
 
     wire read_desc_fire         = s_axis_read_desc_valid && s_axis_read_desc_ready;
     wire write_desc_fire        = s_axis_write_desc_valid && s_axis_write_desc_ready;
@@ -306,6 +309,7 @@ module emu_system(
             `EMU_CYCLE_LO:          reg_read_data_wire = emu_cycle[31:0];
             `EMU_CYCLE_HI:          reg_read_data_wire = emu_cycle[63:32];
             `EMU_STEP:              reg_read_data_wire = emu_step;
+            `EMU_CKPT_SIZE:         reg_read_data_wire = emu_ckpt_size;
             `EMU_DMA_ADDR_LO:       reg_read_data_wire = emu_dma_addr[31:0];
             `EMU_DMA_ADDR_HI:       reg_read_data_wire = emu_dma_addr[63:32];
             `EMU_DMA_STAT:          reg_read_data_wire = emu_dma_stat;

@@ -3,6 +3,7 @@
 `define EMU_CYCLE_LO            12'h008
 `define EMU_CYCLE_HI            12'h00c
 `define EMU_STEP                12'h010
+`define EMU_CKPT_SIZE           12'h014
 `define EMU_DMA_ADDR_LO         12'h020
 `define EMU_DMA_ADDR_HI         12'h024
 `define EMU_DMA_STAT            12'h028
