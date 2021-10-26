@@ -1,6 +1,7 @@
 *.o
 *.d
 *.so
+*.out
 
 __pycache__
 
