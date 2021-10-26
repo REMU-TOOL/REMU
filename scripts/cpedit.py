@@ -3,7 +3,7 @@
 import argparse
 import json
 import math
-from typing import BinaryIO
+from typing import BinaryIO, TextIO
 
 class ChunkLoc:
     def __init__(self, addr: int, rel_off: int):
@@ -114,10 +114,19 @@ class Checkpoint:
                 data |= int.from_bytes(self._checkpoint.read(self._config.slice_bytes), 'little')
             mem.write(int.to_bytes(data, mem_bytes, 'little'))
 
+    def save_hex(self, out: TextIO):
+        self._checkpoint.seek(0)
+        for _ in range(0, self._config.total_slices):
+            data = bytearray(self._checkpoint.read(self._config.slice_bytes))
+            data.reverse()
+            out.write(data.hex())
+            out.write("\n")
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('config', help='scan chain configuration JSON file')
     parser.add_argument('checkpoint', help='checkpoint file')
+    parser.add_argument('--savehex', nargs=1, metavar=('file'), help='save checkpoint as hex file')
     parser.add_argument('--loadmem', nargs=2, metavar=('name', 'file'), action='append', default=[], help='load memory from file to checkpoint')
     parser.add_argument('--savemem', nargs=2, metavar=('name', 'file'), action='append', default=[], help='save memory from checkpoint to file')
     args = parser.parse_args()
@@ -125,6 +134,10 @@ if __name__ == '__main__':
     config = ScanChainConfig(args.config)
     cpfile = open(args.checkpoint, 'rb+')
     cp = Checkpoint(config, cpfile)
+
+    if args.savehex:
+        with open(args.savehex[0], 'w') as f:
+            cp.save_hex(f)
 
     for savemem in args.savemem:
         with open(savemem[1], 'wb') as f:
