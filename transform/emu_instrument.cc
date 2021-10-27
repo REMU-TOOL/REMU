@@ -254,7 +254,7 @@ private:
         for (auto &cell : ff_cells) {
             FfData ff(nullptr, cell);
             // TODO: avoid unmapping ce & srst to reduce overhead
-            ff.unmap_ce_srst(module);
+            ff.unmap_ce_srst();
 
             // slice signals if width > DATA_WIDTH
             int width = GetSize(ff.sig_d);
