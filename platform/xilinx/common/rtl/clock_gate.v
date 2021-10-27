@@ -6,7 +6,7 @@ module clock_gate(
     output gclk
 );
 
-    BUFGCE #(.CE_TYPE("SYNC")) u_bufgce (
+    BUFGCE u_bufgce (
         .O(gclk),
         .CE(en),
         .I(clk)
