@@ -35,7 +35,7 @@ module reconstruct();
             $finish;
         end
         if (!$value$plusargs("runcycle=%d", run_cycle)) begin
-            $display("ERROR: startcycle not specified");
+            $display("ERROR: runcycle not specified");
             $finish;
         end
         if (!$value$plusargs("checkpoint=%s", checkpoint)) begin
