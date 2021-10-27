@@ -15,6 +15,8 @@ ifeq ($(DUMP),y)
 	SIM_FLAGS += +DUMP
 endif
 
+EXTRA_INCLUDE :=
+
 # find all requested test suites
 
 ifeq ($(SUITE),)
@@ -63,7 +65,7 @@ run-%: $(OUTPUT_DIR)/%/sim
 
 .SECONDARY: $(foreach N,$(TEST_USE),$(OUTPUT_DIR)/$(N)/sim)
 $(OUTPUT_DIR)/%/sim: $$(VSIM-%) $(OUTPUT_DIR)/%/output.v $(EMULIBS) $(wildcard $(SIM_DIR)/*.v)
-	iverilog -Icommon -I$(OUTPUT_DIR)/$* -I$(FPGA_DIR)/rtl/include -DSIMULATION -DDUMP_FILE=\"$(OUTPUT_DIR)/$*/dump.vcd\" -s sim_top -o $@ $^
+	iverilog -Icommon -I$(OUTPUT_DIR)/$* $(EXTRA_INCLUDE) -DDUMP_FILE=\"$(OUTPUT_DIR)/$*/dump.vcd\" -s sim_top -o $@ $^
 
 .SECONDARY: $(foreach N,$(TEST_USE),$(OUTPUT_DIR)/$(N)/output.v)
 $(OUTPUT_DIR)/%/output.v: $(TRANSFORM_LIB) $$(VSRC-%)

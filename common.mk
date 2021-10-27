@@ -11,9 +11,10 @@ endif
 
 OUTPUT_DIR := $(ROOT_DIR)/output
 LIB_DIR := $(ROOT_DIR)/lib
-FPGA_DIR := $(ROOT_DIR)/fpga
+RTL_DIR := $(ROOT_DIR)/rtl
 SIM_DIR := $(ROOT_DIR)/sim
 
 TRANSFORM_LIB := $(ROOT_DIR)/transform/transform.so
 
 EMULIBS := $(wildcard $(LIB_DIR)/*.v)
+RTLSRCS := $(wildcard $(RTL_DIR)/ip/*.v $(RTL_DIR)/system/*.v)

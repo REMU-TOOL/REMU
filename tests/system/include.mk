@@ -1,6 +1,6 @@
 TESTS-system := singlecycle
-FPGA_SRC := $(wildcard $(FPGA_DIR)/rtl/ip/*.v $(FPGA_DIR)/rtl/system/*.v)
+EXTRA_INCLUDE += -I$(RTL_DIR)/include
 
 VSRC-system-singlecycle := common/singlecycle_top.v common/singlecycle.v
 VTOP-system-singlecycle := emu_top
-VSIM-system-singlecycle := system/singlecycle_test.v $(VSRC-system-singlecycle) $(FPGA_SRC)
+VSIM-system-singlecycle := system/singlecycle_test.v $(VSRC-system-singlecycle) $(RTLSRCS)
