@@ -91,7 +91,7 @@ class Checkpoint:
         if self._checkpoint.writable():
             self._checkpoint.seek(self._config.total_slices * self._config.slice_bytes)
             self._checkpoint.truncate()
-    
+
     def load_mem(self, name: str, mem: BinaryIO):
         mem_cfg = self._config.mem_loc(name)
         self._checkpoint.seek(mem_cfg.addr * self._config.slice_bytes)
@@ -126,25 +126,27 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('config', help='scan chain configuration JSON file')
     parser.add_argument('checkpoint', help='checkpoint file')
-    parser.add_argument('--savehex', nargs=1, metavar=('file'), help='save checkpoint as hex file')
-    parser.add_argument('--loadmem', nargs=2, metavar=('name', 'file'), action='append', default=[], help='load memory from file to checkpoint')
-    parser.add_argument('--savemem', nargs=2, metavar=('name', 'file'), action='append', default=[], help='save memory from checkpoint to file')
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('-n', '--new', action='store_true', help='create checkpoint file')
+    group.add_argument('--savehex', nargs=1, metavar=('file'), help='save checkpoint as hex file')
+    group.add_argument('--loadmem', nargs=2, metavar=('name', 'file'), help='load memory from file to checkpoint')
+    group.add_argument('--savemem', nargs=2, metavar=('name', 'file'), help='save memory from checkpoint to file')
     args = parser.parse_args()
 
     config = ScanChainConfig(args.config)
-    cpfile = open(args.checkpoint, 'rb+')
+    cpfile = open(args.checkpoint, 'wb+' if args.new else 'rb+')
     cp = Checkpoint(config, cpfile)
 
     if args.savehex:
         with open(args.savehex[0], 'w') as f:
             cp.save_hex(f)
 
-    for savemem in args.savemem:
-        with open(savemem[1], 'wb') as f:
-            cp.save_mem(savemem[0], f)
+    if args.loadmem:
+        with open(args.loadmem[1], 'rb') as f:
+            cp.load_mem(args.loadmem[0], f)
 
-    for loadmem in args.loadmem:
-        with open(loadmem[1], 'rb') as f:
-            cp.load_mem(loadmem[0], f)
+    if args.savemem:
+        with open(args.savemem[1], 'wb') as f:
+            cp.save_mem(args.savemem[0], f)
 
     cpfile.close()
