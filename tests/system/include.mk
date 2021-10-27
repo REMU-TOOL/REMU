@@ -1,5 +1,5 @@
 TESTS-system := singlecycle
-EXTRA_INCLUDE += -I$(RTL_DIR)/include
+EXTRA_INCLUDE += -I$(ROOT_DIR)/rtl/include
 
 VSRC-system-singlecycle := common/singlecycle_top.v common/singlecycle.v
 VTOP-system-singlecycle := emu_top

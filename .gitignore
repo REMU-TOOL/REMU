@@ -2,10 +2,9 @@
 *.d
 *.so
 *.out
-
 __pycache__
 
+build/
 tests/_output/
-output/
 
 .vscode/

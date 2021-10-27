@@ -1,20 +1,8 @@
 ROOT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 YOSYS_DIR := $(ROOT_DIR)/yosys
+BUILD_DIR := $(ROOT_DIR)/build
 
-DEBUG ?= n
+YOSYS := $(BUILD_DIR)/bin/yosys
 
-ifeq ($(DEBUG),y)
-YOSYS := gdb --args $(YOSYS_DIR)/yosys
-else
-YOSYS := yosys
-endif
-
-OUTPUT_DIR := $(ROOT_DIR)/output
-LIB_DIR := $(ROOT_DIR)/lib
-RTL_DIR := $(ROOT_DIR)/rtl
-SIM_DIR := $(ROOT_DIR)/sim
-
-TRANSFORM_LIB := $(ROOT_DIR)/transform/transform.so
-
-EMULIBS := $(wildcard $(LIB_DIR)/*.v)
-RTLSRCS := $(wildcard $(RTL_DIR)/ip/*.v $(RTL_DIR)/system/*.v)
+RTLSRCS := $(wildcard $(ROOT_DIR)/rtl/ip/*.v $(ROOT_DIR)/rtl/system/*.v)
+SIMSRCS := $(wildcard $(ROOT_DIR)/sim/*.v $(ROOT_DIR)/emulib/*.v)

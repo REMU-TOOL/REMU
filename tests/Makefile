@@ -64,10 +64,10 @@ run-%: $(OUTPUT_DIR)/%/sim
 	) 2>&1 | tee $(OUTPUT_DIR)/$*/run.log
 
 .SECONDARY: $(foreach N,$(TEST_USE),$(OUTPUT_DIR)/$(N)/sim)
-$(OUTPUT_DIR)/%/sim: $$(VSIM-%) $(OUTPUT_DIR)/%/output.v $(EMULIBS) $(wildcard $(SIM_DIR)/*.v)
+$(OUTPUT_DIR)/%/sim: $$(VSIM-%) $(OUTPUT_DIR)/%/output.v $(SIMSRCS)
 	iverilog -Icommon -I$(OUTPUT_DIR)/$* $(EXTRA_INCLUDE) -DDUMP_FILE=\"$(OUTPUT_DIR)/$*/dump.vcd\" -s sim_top -o $@ $^
 
 .SECONDARY: $(foreach N,$(TEST_USE),$(OUTPUT_DIR)/$(N)/output.v)
-$(OUTPUT_DIR)/%/output.v: $(TRANSFORM_LIB) $$(VSRC-%)
+$(OUTPUT_DIR)/%/output.v: $$(VSRC-%)
 	mkdir -p $(OUTPUT_DIR)/$*
-	$(YOSYS) -m $(TRANSFORM_LIB) -p "emu_transform -top $(VTOP-$*) -cfg $(OUTPUT_DIR)/$*/config.json -ldr $(OUTPUT_DIR)/$*/loader.vh" -o $@ $(EMULIBS) $(VSRC-$*)
+	$(YOSYS) -m transform -p "emu_transform -top $(VTOP-$*) -cfg $(OUTPUT_DIR)/$*/config.json -ldr $(OUTPUT_DIR)/$*/loader.vh" -o $@ $(VSRC-$*)

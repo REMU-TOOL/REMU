@@ -3,28 +3,37 @@ include common.mk
 VSRC ?= tests/common/singlecycle_top.v tests/common/singlecycle.v
 VTOP ?= emu_top
 
-OUTPUT_V := $(OUTPUT_DIR)/output.v
+OUTPUT_V := $(BUILD_DIR)/output.v
 
 .PHONY: FORCE
 
 .PHONY: build
-build: $(TRANSFORM_LIB)
-
-$(TRANSFORM_LIB): FORCE
-	make -C transform
+build: yosys transform
+	mkdir -p $(BUILD_DIR)/share/yosys/plugins
+	cp transform/transform.so $(BUILD_DIR)/share/yosys/plugins
+	cp -r emulib $(BUILD_DIR)/share/yosys/
 
 .PHONY: transform
-transform: $(TRANSFORM_LIB) $(VSRC) FORCE
-	mkdir -p $(OUTPUT_DIR)
-	$(YOSYS) -m $(TRANSFORM_LIB) -p "emu_transform -top $(VTOP) -cfg $(OUTPUT_DIR)/config.json -ldr $(OUTPUT_DIR)/loader.vh" -o $(OUTPUT_V) $(EMULIBS) $(VSRC)
+transform:
+	+make -C transform
+
+.PHONY: yosys
+yosys:
+	+make -C yosys all
+	make -C yosys PREFIX=$(BUILD_DIR) install
+
+.PHONY: run
+run: $(TRANSFORM_LIB) $(VSRC) FORCE
+	mkdir -p $(BUILD_DIR)
+	$(YOSYS) -m transform -p "emu_transform -top $(VTOP) -cfg $(BUILD_DIR)/config.json -ldr $(BUILD_DIR)/loader.vh" -o $(OUTPUT_V) $(VSRC)
 
 .PHONY: test
 test: $(TRANSFORM_LIB) FORCE
 	make -C tests
 
-.PHONY: clean clean-test clean-transform clean-output
+.PHONY: clean clean-test clean-transform clean-build clean-yosys
 
-clean: clean-test clean-transform clean-output
+clean: clean-test clean-transform clean-build clean-yosys
 
 clean-test:
 	make -C tests clean
@@ -32,5 +41,8 @@ clean-test:
 clean-transform:
 	make -C transform clean
 
-clean-output:
-	rm -rf $(OUTPUT_DIR)
+clean-build:
+	rm -rf $(BUILD_DIR)
+
+clean-yosys:
+	make -C yosys clean

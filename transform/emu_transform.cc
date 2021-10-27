@@ -20,6 +20,7 @@ struct EmuTransformPass : public Pass {
 		log("    -top <module>\n");
 		log("        use the specified module as top module\n");
 		log("\n");
+		log("    read_verilog -lib +/emulib/*.v\n");
 		log("    hierarchy -check (-top <top> | -auto-top)\n");
 		log("    emu_keep_top\n");
 		log("    proc\n");
@@ -68,6 +69,7 @@ struct EmuTransformPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+        Pass::call(design, "read_verilog -lib +/emulib/*.v");
         if (top_module.empty())
             Pass::call(design, "hierarchy -check -auto-top");
         else
