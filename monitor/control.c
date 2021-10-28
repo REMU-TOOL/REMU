@@ -11,12 +11,18 @@
 #include "physmap.h"
 #include "platform.h"
 
+uint32_t emu_checkpoint_size;
+
 static uint32_t read_emu_csr(int offset) {
     return *((volatile uint32_t *)reg_map_base + (offset >> 2));
 }
 
 static void write_emu_csr(int offset, uint32_t value) {
     *((volatile uint32_t *)reg_map_base + (offset >> 2)) = value;
+}
+
+void emu_ctrl_init() {
+    emu_checkpoint_size = read_emu_csr(EMU_CKPT_SIZE);
 }
 
 int emu_is_running() {
@@ -74,16 +80,11 @@ static void emu_dma_transfer(uint64_t dma_addr, int scan_in) {
     while (read_emu_csr(EMU_DMA_STAT) & EMU_DMA_STAT_RUNNING);
 }
 
-uint32_t emu_checkpoint_size() {
-    return read_emu_csr(EMU_CKPT_SIZE);
-}
-
 int emu_load_checkpoint(char *file) {
     int ret = 0;
     void *map = NULL;
     uint64_t dma_addr = PLAT_MEM_BASE;
     void *dma_buf = mem_map_base;
-    size_t size = emu_checkpoint_size();
     int fd = open(file, O_RDONLY);
     if (fd < 0) {
         perror("failed to open checkpoint file");
@@ -91,7 +92,7 @@ int emu_load_checkpoint(char *file) {
         goto cleanup;
     }
 
-    map = mmap(NULL, size, PROT_READ, MAP_SHARED, fd, 0);
+    map = mmap(NULL, emu_checkpoint_size, PROT_READ, MAP_SHARED, fd, 0);
     if (map == MAP_FAILED) {
         perror("failed to map checkpoint file");
         ret = errno;
@@ -99,11 +100,11 @@ int emu_load_checkpoint(char *file) {
         goto cleanup;
     }
 
-    memcpy(dma_buf, map, size);
+    memcpy(dma_buf, map, emu_checkpoint_size);
     emu_dma_transfer(dma_addr, 1);
 
 cleanup:
-    if (map) munmap(map, size);
+    if (map) munmap(map, emu_checkpoint_size);
     if (fd > 0) close(fd);
     return ret;
 }
@@ -113,7 +114,6 @@ int emu_save_checkpoint(char *file) {
     void *map = NULL;
     uint64_t dma_addr = PLAT_MEM_BASE;
     void *dma_buf = mem_map_base;
-    size_t size = emu_checkpoint_size();
     int fd = open(file, O_RDWR | O_CREAT, (mode_t)0644);
     if (fd < 0) {
         perror("failed to open checkpoint file");
@@ -121,9 +121,9 @@ int emu_save_checkpoint(char *file) {
         goto cleanup;
     }
 
-    ftruncate(fd, size);
+    ftruncate(fd, emu_checkpoint_size);
 
-    map = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    map = mmap(NULL, emu_checkpoint_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (map == MAP_FAILED) {
         perror("failed to map checkpoint file");
         ret = errno;
@@ -132,11 +132,25 @@ int emu_save_checkpoint(char *file) {
     }
 
     emu_dma_transfer(dma_addr, 0);
-    memcpy(map, dma_buf, size);
-    msync(map, size, MS_SYNC);
+    memcpy(map, dma_buf, emu_checkpoint_size);
+    msync(map, emu_checkpoint_size, MS_SYNC);
 
 cleanup:
-    if (map) munmap(map, size);
+    if (map) munmap(map, emu_checkpoint_size);
     if (fd > 0) close(fd);
     return ret;
+}
+
+void emu_load_checkpoint_binary(void *data) {
+    uint64_t dma_addr = PLAT_MEM_BASE;
+    void *dma_buf = mem_map_base;
+    memcpy(dma_buf, data, emu_checkpoint_size);
+    emu_dma_transfer(dma_addr, 1);
+}
+
+void emu_save_checkpoint_binary(void *data) {
+    uint64_t dma_addr = PLAT_MEM_BASE;
+    void *dma_buf = mem_map_base;
+    emu_dma_transfer(dma_addr, 0);
+    memcpy(data, dma_buf, emu_checkpoint_size);
 }
