@@ -7,4 +7,6 @@ __pycache__
 build/
 tests/_output/
 
+monitor/monitor
+
 .vscode/

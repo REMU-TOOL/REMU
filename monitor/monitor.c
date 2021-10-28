@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <alloca.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -9,6 +10,8 @@
 
 #include "emulator.h"
 #include "platform.h"
+
+#define SHELL_BUFSIZE 256
 
 void *mem_map_base, *reg_map_base;
 
@@ -216,12 +219,68 @@ int parse_num(const char *str, unsigned long *result) {
 	return 0;
 }
 
-void show_help(char *me) {
-    fprintf(stderr,
-        "Usage:\n"
-        "    %s <command> [<argument> ...]\n"
-        "\n"
+char *tokenize(char *next, int dry_run) {
+    int in_quote = 0, prev_backslash = 0, leading_spaces = 1, trailing_spaces = 0;
+    char *read = next, *write = next;
+    if (*next == '\0' || *next == '\n') {
+        return NULL;
+    }
+    for (;;) {
+        char c = *read++;
+        if (c == '\0' || c == '\n') {
+            if (!dry_run) *write++ = '\0';
+            read--;
+            break;
+        }
+        if (c == ' ') {
+            if (leading_spaces || trailing_spaces)
+                continue;
+            if (in_quote || prev_backslash) {
+                if (!dry_run) *write++ = c;
+                prev_backslash = 0;
+                continue;
+            }
+            if (!dry_run) *write++ = '\0';
+            trailing_spaces = 1;
+            continue;
+        }
+        leading_spaces = 0;
+        if (trailing_spaces) {
+            read--;
+            break;
+        }
+        switch (c) {
+            case '\\':
+                if (prev_backslash) {
+                    if (!dry_run) *write++ = c;
+                    prev_backslash = 0;
+                }
+                else {
+                    prev_backslash = 1;
+                }
+                break;
+            case '"':
+                if (prev_backslash) {
+                    if (!dry_run) *write++ = c;
+                    prev_backslash = 0;
+                }
+                else {
+                    in_quote = !in_quote;
+                }
+                break;
+            default:
+                if (!dry_run) *write++ = c;
+                break;
+        }
+    }
+    return read;
+}
+
+void show_help() {
+    printf(
         "Available commands:\n"
+        "    help\n"
+        "        Show this message.\n"
         "    state\n"
         "        Print emulator state (running/stopped).\n"
         "    cycle [<new_cycle>]\n"
@@ -239,31 +298,23 @@ void show_help(char *me) {
         "        load checkpoint from file <checkpoint>.\n"
         "    save <checkpoint>\n"
         "        save checkpoint to file <checkpoint>.\n"
-        "\n",
-        me
+        "\n"
     );
 }
 
-int main(int argc, char **argv) {
-    int res = 0;
-
-    if (argc == 1) {
-        show_help(argv[0]);
-        return 1;
+void run_command(int argc, char **argv) {
+    if (argc == 0 || !strcmp(argv[0], "help")) {
+        show_help();
     }
-
-    init_map();
-
-    if (!strcmp(argv[1], "state")) {
+    else if (!strcmp(argv[0], "state")) {
         printf("%s\n", emu_is_running() ? "running" : "stopped");
     }
-    else if (!strcmp(argv[1], "cycle")) {
-        if (argc >= 3) {
+    else if (!strcmp(argv[0], "cycle")) {
+        if (argc >= 2) {
             unsigned long cycle;
-            if (parse_num(argv[2], &cycle)) {
-                fprintf(stderr, "ERROR: unrecognized number %s\n", argv[2]);
-                res = 1;
-                goto cleanup;
+            if (parse_num(argv[1], &cycle)) {
+                fprintf(stderr, "ERROR: unrecognized number %s\n", argv[1]);
+                return;
             }
             emu_write_cycle(cycle);
         }
@@ -271,29 +322,26 @@ int main(int argc, char **argv) {
             printf("%lu\n", emu_read_cycle());
         }
     }
-    else if (!strcmp(argv[1], "reset")) {
+    else if (!strcmp(argv[0], "reset")) {
         unsigned long duration;
-        if (argc < 3) {
+        if (argc < 2) {
             fprintf(stderr, "ERROR: duration required\n");
-            res = 1;
-            goto cleanup;
+            return;
         }
-        if (parse_num(argv[2], &duration)) {
-            fprintf(stderr, "ERROR: unrecognized number %s\n", argv[2]);
-            res = 1;
-            goto cleanup;
+        if (parse_num(argv[1], &duration)) {
+            fprintf(stderr, "ERROR: unrecognized number %s\n", argv[1]);
+            return;
         }
         fprintf(stderr, "Step reset for %u cycles ...\n", (uint32_t)duration);
         emu_init_reset((uint32_t)duration);
         fprintf(stderr, "Cycle count is now %lu\n", emu_read_cycle());
     }
-    else if (!strcmp(argv[1], "run")) {
-        if (argc >= 3) {
+    else if (!strcmp(argv[0], "run")) {
+        if (argc >= 2) {
             unsigned long duration;
-            if (parse_num(argv[2], &duration)) {
-                fprintf(stderr, "ERROR: unrecognized number %s\n", argv[2]);
-                res = 1;
-                goto cleanup;
+            if (parse_num(argv[1], &duration)) {
+                fprintf(stderr, "ERROR: unrecognized number %s\n", argv[1]);
+                return;
             }
             fprintf(stderr, "Continue for %u cycles ...\n", (uint32_t)duration);
             emu_step_for(duration);
@@ -304,35 +352,68 @@ int main(int argc, char **argv) {
             emu_halt(0);
         }
     }
-    else if (!strcmp(argv[1], "stop")) {
+    else if (!strcmp(argv[0], "stop")) {
         fprintf(stderr, "Pause execution ...\n");
         emu_halt(1);
     }
-    else if (!strcmp(argv[1], "step")) {
+    else if (!strcmp(argv[0], "step")) {
         fprintf(stderr, "Step for 1 cycle ...\n");
         emu_step_for(1);
         fprintf(stderr, "Cycle count is now %lu\n", emu_read_cycle());
     }
-    else if (!strcmp(argv[1], "load")) {
-        if (argc < 3) {
+    else if (!strcmp(argv[0], "load")) {
+        if (argc < 2) {
             fprintf(stderr, "ERROR: checkpoint file name required\n");
-            res = 1;
-            goto cleanup;
+            return;
         }
-        fprintf(stderr, "Load checkpoint from file %s ...\n", argv[2]);
-        res = emu_load_checkpoint(argv[2]);
+        fprintf(stderr, "Load checkpoint from file %s ...\n", argv[1]);
+        printf("%d\n", emu_load_checkpoint(argv[1]));
     }
-    else if (!strcmp(argv[1], "save")) {
-        if (argc < 3) {
+    else if (!strcmp(argv[0], "save")) {
+        if (argc < 2) {
             fprintf(stderr, "ERROR: checkpoint file name required\n");
-            res = 1;
-            goto cleanup;
+            return;
         }
-        fprintf(stderr, "Save checkpoint to file %s ...\n", argv[2]);
-        res = emu_save_checkpoint(argv[2]);
+        fprintf(stderr, "Save checkpoint to file %s ...\n", argv[1]);
+        printf("%d\n", emu_save_checkpoint(argv[1]));
     }
+    else {
+        fprintf(stderr, "Unrecognized command %s. Enter 'help' for available commands.\n", argv[0]);
+    }
+}
 
-cleanup:
+void shell() {
+    char buf[SHELL_BUFSIZE];
+    while ((fprintf(stderr, "> "), fgets(buf, SHELL_BUFSIZE, stdin))) {
+        int argc = 0;
+        char **argv, *token, *next;
+        next = buf;
+        while (next = tokenize(next, 1)) {
+            argc++;
+        }
+        argv = alloca(argc * sizeof(char *));
+        argc = 0;
+        token = next = buf;
+        while (next = tokenize(next, 0)) {
+            argv[argc++] = token;
+            token = next;
+        }
+        if (strlen(argv[argc-1]) == 0) argc--;
+        run_command(argc, argv);
+    }
+}
+
+int main() {
+    int res;
+
+    setvbuf(stdout, NULL, _IOLBF, 0);
+
+    res = init_map();
+    if (res)
+        return res;
+
+    shell();
+
     fini_map();
-    return res;
+    return 0;
 }
