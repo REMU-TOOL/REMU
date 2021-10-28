@@ -35,21 +35,21 @@ run: $(VSRC) FORCE
 	mkdir -p $(BUILD_DIR)
 	$(YOSYS) -m transform -p "emu_transform -top $(VTOP) -cfg $(BUILD_DIR)/config.json -ldr $(BUILD_DIR)/loader.vh" -o $(OUTPUT_V) $(VSRC)
 
-.PHONY: clean clean-test clean-transform clean-build clean-yosys clean-monitor
+.PHONY: clean test_clean transform_clean build_clean yosys_clean monitor_clean
 
-clean: clean-build clean-yosys clean-transform clean-test clean-monitor
+clean: build_clean yosys_clean transform_clean test_clean monitor_clean
 
-clean-build:
+build_clean:
 	rm -rf $(BUILD_DIR)
 
-clean-yosys:
+yosys_clean:
 	make -C yosys clean
 
-clean-transform:
+transform_clean:
 	make -C transform clean
 
-clean-test:
+test_clean:
 	make -C tests clean
 
-clean-monitor:
+monitor_clean:
 	make -C monitor clean
