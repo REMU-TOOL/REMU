@@ -29,6 +29,14 @@ int emu_is_running() {
     return !(read_emu_csr(EMU_STAT) & EMU_STAT_HALT);
 }
 
+int emu_is_step_trig() {
+    return (read_emu_csr(EMU_STAT) & EMU_STAT_STEP_TRIG) != 0;
+}
+
+uint32_t emu_trig_stat() {
+    return read_emu_csr(EMU_TRIG_STAT);
+}
+
 void emu_halt(int halt) {
     uint32_t stat = read_emu_csr(EMU_STAT);
     if (halt)

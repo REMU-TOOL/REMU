@@ -8,6 +8,9 @@ extern uint32_t emu_checkpoint_size;
 void emu_ctrl_init();
 
 int emu_is_running();
+int emu_is_step_trig();
+uint32_t emu_trig_stat();
+
 void emu_halt(int halt);
 void emu_reset(int reset);
 

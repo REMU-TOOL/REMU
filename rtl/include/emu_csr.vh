@@ -1,5 +1,5 @@
 `define EMU_STAT                12'h000
-`define EMU_CTRL                12'h004
+`define EMU_TRIG_STAT           12'h004
 `define EMU_CYCLE_LO            12'h008
 `define EMU_CYCLE_HI            12'h00c
 `define EMU_STEP                12'h010

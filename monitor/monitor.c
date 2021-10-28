@@ -109,6 +109,8 @@ void show_help() {
         "        Show this message.\n"
         "    state\n"
         "        Print emulator state (running/stopped).\n"
+        "    trig\n"
+        "        Print activated trigger list (S=step trigger).\n"
         "    cycle [<new_cycle>]\n"
         "        Set cycle count to <new_cycle> if specified. Otherwise print current cycle count.\n"
         "    reset <duration>\n"
@@ -126,6 +128,17 @@ void show_help() {
         "        save checkpoint to STDOUT. Checkpoint size is printed in decimal before data transfer.\n"
         "\n"
     );
+}
+
+void trig() {
+    int i;
+    uint32_t trig_stat = emu_trig_stat();
+    if (emu_is_step_trig())
+        printf("S ");
+    for (i = 0; i < 32; i++)
+        if (trig_stat & (1 << i))
+            printf("%d ", i);
+    printf("\n");
 }
 
 void loadb() {
@@ -150,6 +163,9 @@ void run_command(int argc, char **argv) {
     }
     else if (!strcmp(argv[0], "state")) {
         printf("%s\n", emu_is_running() ? "running" : "stopped");
+    }
+    else if (!strcmp(argv[0], "trig")) {
+        trig();
     }
     else if (!strcmp(argv[0], "cycle")) {
         if (argc >= 2) {

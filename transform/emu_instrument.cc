@@ -184,11 +184,13 @@ class InsertAccessorWorker {
 private:
 
     const int DATA_WIDTH = 64;
+    const int TRIG_WIDTH = 32;
 
     Module *module;
 
     std::vector<SrcInfo> ff_info;
     std::vector<MemInfo> mem_info;
+    std::vector<std::string> trig_info;
 
     Wire *wire_clk, *wire_halt, *wire_dut_reset, *wire_dut_trig;
     Wire *wire_ff_scan, *wire_ff_sdi, *wire_ff_sdo;
@@ -196,6 +198,7 @@ private:
 
     void process_emulib() {
         std::vector<Cell *> cells_to_remove;
+        int trig_count = 0;
         for (auto cell : module->cells()) {
             // TODO: handle multiple clocks & resets
             if (cell->type.c_str()[0] == '\\') {
@@ -217,14 +220,23 @@ private:
 
                 // trigger instance
                 if (modref->get_bool_attribute("\\emulib_trigger")) {
+                    if (trig_count >= TRIG_WIDTH)
+                        log_error("Maximum trigger count exceeded.\n");
                     SigSpec t = cell->getPort("\\trigger");
-                    module->connect(wire_dut_trig, t);
+                    module->connect(SigSpec(wire_dut_trig).extract(trig_count), t);
+                    trig_info.push_back(cell->name.str());
                     cells_to_remove.push_back(cell);
+                    trig_count++;
                 }
             }
         }
+
         for (auto cell : cells_to_remove) {
             module->remove(cell);
+        }
+
+        while (trig_count < TRIG_WIDTH) {
+            module->connect(SigSpec(wire_dut_trig).extract(trig_count++), State::S0);
         }
     }
 
@@ -232,7 +244,7 @@ private:
         wire_clk        = module->addWire("\\$EMU$CLK");                        wire_clk        ->port_input = true;
         wire_halt       = module->addWire("\\$EMU$HALT");                       wire_halt       ->port_input = true;
         wire_dut_reset  = module->addWire("\\$EMU$DUT$RESET");                  wire_dut_reset  ->port_input = true;
-        wire_dut_trig   = module->addWire("\\$EMU$DUT$TRIG");                   wire_dut_trig   ->port_output = true;
+        wire_dut_trig   = module->addWire("\\$EMU$DUT$TRIG",    TRIG_WIDTH);    wire_dut_trig   ->port_output = true;
         wire_ff_scan    = module->addWire("\\$EMU$FF$SCAN");                    wire_ff_scan    ->port_input = true;
         wire_ff_sdi     = module->addWire("\\$EMU$FF$SDI",      DATA_WIDTH);    wire_ff_sdi     ->port_input = true;
         wire_ff_sdo     = module->addWire("\\$EMU$FF$SDO",      DATA_WIDTH);    wire_ff_sdo     ->port_output = true;
@@ -697,6 +709,17 @@ public:
         }
         json.back();
         json.key("mem_size").value(mem_addr);
+
+        int trig_addr = 0;
+        json.key("trigger").enter_array();
+        for (auto &trig : trig_info) {
+            json.enter_object();
+            json.key("addr").value(trig_addr);
+            json.key("name").string(trig);
+            json.back();
+            trig_addr++;
+        }
+        json.back();
 
         json.end();
 

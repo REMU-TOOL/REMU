@@ -145,33 +145,51 @@ module emu_system(
     assign s_axilite_bvalid     = reg_write_resp_valid;
     assign s_axilite_bresp      = reg_write_error ? 2'b10 : 2'b00;
 
+    wire step_trig;
+    wire [31:0] emu_dut_trig;
+
+    wire trigger = |{step_trig, emu_dut_trig};
+
     // EMU_STAT
     //      [0]     -> HALT
     //      [1]     -> DUT_RESET
-    // EMU_CTRL
+    //      [31]    -> STEP_TRIG [RO]
 
-    reg emu_halt, emu_dut_reset;
+    reg emu_halt, emu_dut_reset, emu_step_trig;
     wire [31:0] emu_stat, emu_ctrl;
-    assign emu_stat[31:2]   = 31'd0;
+    assign emu_stat[31]     = emu_step_trig;
+    assign emu_stat[30:2]   = 29'd0;
     assign emu_stat[1]      = emu_dut_reset;
     assign emu_stat[0]      = emu_halt;
     assign emu_ctrl         = 32'd0;
-
-    wire trigger;
 
     always @(posedge clk) begin
         if (rst) begin
             emu_halt            <= 1'b1;
             emu_dut_reset       <= 1'b1;
+            emu_step_trig       <= 1'b0;
         end
         else if (trigger) begin
             emu_halt            <= 1'b1;
+            emu_step_trig       <= step_trig;
         end
         else begin
             if (reg_do_write && reg_write_addr == `EMU_STAT) begin
                 emu_halt            <= reg_write_data[0];
                 emu_dut_reset       <= reg_write_data[1];
             end
+        end
+    end
+
+    // EMU_TRIG_STAT
+    reg [31:0] emu_trig_stat;
+
+    always @(posedge clk) begin
+        if (rst) begin
+            emu_trig_stat       <= 32'd0;
+        end
+        else if (trigger) begin
+            emu_trig_stat       <= emu_dut_trig;
         end
     end
 
@@ -213,9 +231,7 @@ module emu_system(
         end
     end
 
-    wire step_trigger = emu_step != 32'd0 && emu_step_next == 32'd0;
-    wire emu_dut_trig;
-    assign trigger = step_trigger || emu_dut_trig;
+    assign step_trig = emu_step != 32'd0 && emu_step_next == 32'd0;
 
     always @(posedge clk) begin
         if (rst) begin
@@ -305,7 +321,7 @@ module emu_system(
     always @* begin
         case (reg_read_addr)
             `EMU_STAT:              reg_read_data_wire = emu_stat;
-            `EMU_CTRL:              reg_read_data_wire = emu_ctrl;
+            `EMU_TRIG_STAT:         reg_read_data_wire = emu_trig_stat;
             `EMU_CYCLE_LO:          reg_read_data_wire = emu_cycle[31:0];
             `EMU_CYCLE_HI:          reg_read_data_wire = emu_cycle[63:32];
             `EMU_STEP:              reg_read_data_wire = emu_step;
