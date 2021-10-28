@@ -120,10 +120,6 @@ void show_help() {
         "        Pause emulation execution.\n"
         "    step\n"
         "        Synonym for \"run 1\".\n"
-        "    load <checkpoint>\n"
-        "        load checkpoint from file <checkpoint>.\n"
-        "    save <checkpoint>\n"
-        "        save checkpoint to file <checkpoint>.\n"
         "    loadb\n"
         "        load checkpoint from STDIN. Checkpoint size is printed in decimal before data transfer.\n"
         "    saveb\n"
@@ -148,10 +144,9 @@ void saveb() {
     free(data);
 }
 
-int run_command(int argc, char **argv) {
+void run_command(int argc, char **argv) {
     if (argc == 0 || !strcmp(argv[0], "help")) {
         show_help();
-        return 0;
     }
     else if (!strcmp(argv[0], "state")) {
         printf("%s\n", emu_is_running() ? "running" : "stopped");
@@ -160,9 +155,10 @@ int run_command(int argc, char **argv) {
         if (argc >= 2) {
             unsigned long cycle;
             if (parse_num(argv[1], &cycle)) {
-                return argc < 2;
+                printf("invalid argument\n");
             }
             emu_write_cycle(cycle);
+            printf("ok\n");
         }
         else {
             printf("%lu\n", emu_read_cycle());
@@ -171,50 +167,44 @@ int run_command(int argc, char **argv) {
     else if (!strcmp(argv[0], "reset")) {
         unsigned long duration;
         if (argc < 2 || parse_num(argv[1], &duration)) {
-            return EINVAL;
+            printf("invalid argument\n");
         }
         emu_init_reset((uint32_t)duration);
+        printf("ok\n");
     }
     else if (!strcmp(argv[0], "run")) {
         if (argc >= 2) {
             unsigned long duration;
             if (parse_num(argv[1], &duration)) {
-                return EINVAL;
+                printf("invalid argument\n");
             }
             emu_step_for(duration);
+            printf("ok\n");
         }
         else {
             emu_halt(0);
+            printf("ok\n");
         }
     }
     else if (!strcmp(argv[0], "stop")) {
         emu_halt(1);
+        printf("ok\n");
     }
     else if (!strcmp(argv[0], "step")) {
         emu_step_for(1);
-    }
-    else if (!strcmp(argv[0], "load")) {
-        if (argc < 2) {
-            return EINVAL;
-        }
-        return emu_load_checkpoint(argv[1]);
-    }
-    else if (!strcmp(argv[0], "save")) {
-        int res;
-        if (argc < 2) {
-            return EINVAL;
-        }
-        return emu_save_checkpoint(argv[1]);
+        printf("ok\n");
     }
     else if (!strcmp(argv[0], "loadb")) {
         loadb();
-        return 0;
+        printf("ok\n");
     }
     else if (!strcmp(argv[0], "saveb")) {
         saveb();
-        return 0;
+        printf("ok\n");
     }
-    return -1;
+    else {
+        printf("unrecognized command\n");
+    }
 }
 
 void shell() {
@@ -234,7 +224,7 @@ void shell() {
             token = next;
         }
         if (strlen(argv[argc-1]) == 0) argc--;
-        printf("%d\n", run_command(argc, argv));
+        run_command(argc, argv);
     }
 }
 
