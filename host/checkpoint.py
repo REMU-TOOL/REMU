@@ -18,7 +18,7 @@ class MemLoc:
         self.start_off = start_off
         self.slices = slices
 
-class ScanChainConfig:
+class EmulatorConfig:
     def __init__(self, config_file: str):
         config = json.load(open(config_file, 'r'))
         self._ff_to_loc:    dict[str, list[ChunkLoc]]   = {}
@@ -85,7 +85,7 @@ class ScanChainConfig:
         return self._ff_slices + self._mem_slices
 
 class Checkpoint:
-    def __init__(self, config: ScanChainConfig, checkpoint: BinaryIO):
+    def __init__(self, config: EmulatorConfig, checkpoint: BinaryIO):
         self._config = config
         self._checkpoint = checkpoint
         if self._checkpoint.writable():
@@ -133,7 +133,7 @@ if __name__ == '__main__':
     group.add_argument('--savemem', nargs=2, metavar=('name', 'file'), help='save memory from checkpoint to file')
     args = parser.parse_args()
 
-    config = ScanChainConfig(args.config)
+    config = EmulatorConfig(args.config)
     cpfile = open(args.checkpoint, 'wb+' if args.new else 'rb+')
     cp = Checkpoint(config, cpfile)
 
