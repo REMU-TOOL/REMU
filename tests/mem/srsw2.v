@@ -10,7 +10,7 @@ module srsw2(
 
     wire clk, rst;
     EmuClock clock(clk);
-    EmuReset reset(rst);
+    EmuReset reset(clk, rst);
 
     reg [79:0] mem [7:0];
     reg [2:0] raddr_reg;

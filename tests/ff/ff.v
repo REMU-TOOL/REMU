@@ -13,7 +13,7 @@ module ff(
 
     wire clk, rst;
     EmuClock clock(clk);
-    EmuReset reset(rst);
+    EmuReset reset(clk, rst);
 
     always @(posedge clk) begin
         if (rst) begin

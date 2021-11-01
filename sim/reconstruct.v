@@ -6,7 +6,7 @@ module reconstruct();
 
     parameter CYCLE = 10;
 
-    reg clk = 1, rst = 0, en = 0;
+    reg clk = 1, rst = 1, en = 0;
 
     always #(CYCLE/2) clk = ~clk;
 
@@ -22,6 +22,12 @@ module reconstruct();
             $finish;
         end
         cycle = cycle + 1;
+    end
+
+    always @(negedge clk) begin
+        if (cycle + 1 >= u_emu_top.reset.DURATION_CYCLES) begin
+            rst = 0;
+        end
     end
 
     reg [`LOAD_WIDTH-1:0] data [`CHAIN_FF_WORDS+`CHAIN_MEM_WORDS-1:0];

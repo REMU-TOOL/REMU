@@ -23,7 +23,7 @@ module chain(
 
     wire clk, rst;
     EmuClock clock(clk);
-    EmuReset reset(rst);
+    EmuReset reset(clk, rst);
 
     mem #(
         .WIDTH(32),

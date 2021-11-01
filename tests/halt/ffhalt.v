@@ -8,7 +8,7 @@ module ffhalt(
 
     wire clk, rst;
     EmuClock clock(clk);
-    EmuReset reset(rst);
+    EmuReset reset(clk, rst);
 
     always @(posedge clk) begin
         if (rst) q <= 32'd0;

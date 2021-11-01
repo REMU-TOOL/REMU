@@ -2,9 +2,10 @@
 
 (* emulib_reset *)
 module EmuReset #(
-    parameter DURATION_NS = 100
+    parameter DURATION_CYCLES = 100
 )
 (
+    input clock,
     output reset
 );
 
