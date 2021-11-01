@@ -1,7 +1,5 @@
 `timescale 1 ns / 1 ps
 
-// Coprocessor 0 Registers
-
 `define CP0_INDEX           8'b00000_000 // 0 , 0
 `define CP0_RANDOM          8'b00001_000 // 1 , 0
 `define CP0_ENTRYLO0        8'b00010_000 // 2 , 0
@@ -20,50 +18,28 @@
 `define CP0_CONFIG          8'b10000_000 // 16, 0
 `define CP0_CONFIG1         8'b10000_001 // 16, 1
 `define CP0_TAGLO           8'b11100_000 // 28, 0
-
-// TLB parameters
 `define TLB_IDXBITS         5
 `define TLB_ENTRIES         (1<<`TLB_IDXBITS)
-
-// Coprocessor 0 Register Bits
-// Index (0, 0)
 `define INDEX_P             31
 `define INDEX_INDEX         `TLB_IDXBITS-1:0
-
-// Random (1, 0)
 `define RANDOM_RANDOM       `TLB_IDXBITS-1:0
-
-// EntryLo0, EntryLo1 (2 and 3, 0)
 `define ENTRYLO_PFN         25:6
 `define ENTRYLO_C           5:3
 `define ENTRYLO_D           2
 `define ENTRYLO_V           1
 `define ENTRYLO_G           0
-
-// Context (4, 0)
 `define CONTEXT_PTEBASE     31:23
 `define CONTEXT_BADVPN2     22:4
-
-// PageMask (5, 0)
-// Note: length of mask field is set to 12
 `define PAGEMASK_MASK       24:13
-
-// Wired (6, 0)
 `define WIRED_WIRED         `TLB_IDXBITS-1:0
-
-// EntryHi (10, 0)
 `define ENTRYHI_VPN2        31:13
 `define ENTRYHI_ASID        7:0
-
-// Status (12, 0)
 `define STATUS_CU0          28
 `define STATUS_BEV          22
 `define STATUS_IM           15:8
 `define STATUS_UM           4
 `define STATUS_EXL          1
 `define STATUS_IE           0
-
-// Cause (13, 0)
 `define CAUSE_BD            31
 `define CAUSE_TI            30
 `define CAUSE_CE            29:28
@@ -72,12 +48,7 @@
 `define CAUSE_IP7_2         15:10
 `define CAUSE_IP1_0         9:8
 `define CAUSE_EXCCODE       6:2
-
-// Config (16, 0)
 `define CONFIG_K0           2:0
-
-// Exception vectors
-
 `define VEC_RESET           32'hbfc0_0000
 `define VEC_REFILL          32'h8000_0000
 `define VEC_REFILL_EXL      32'h8000_0180
@@ -91,9 +62,6 @@
 `define VEC_INTR_BEV_IV     32'hbfc0_0400
 `define VEC_OTHER           32'h8000_0180
 `define VEC_OTHER_BEV       32'hbfc0_0380
-
-// EXCCODE
-
 `define EXC_INT         5'h00
 `define EXC_MOD         5'h01
 `define EXC_TLBL        5'h02
@@ -108,22 +76,14 @@
 `define EXC_CPU         5'h0b
 `define EXC_OV          5'h0c
 `define EXC_TR          5'h0d
-
 `define EXC_WATCH       5'h17
-
 `define EXC_CACHEERR    5'h1e
-
-// instruction encoding
-
 `define GET_RS(x)       x[25:21]
 `define GET_RT(x)       x[20:16]
 `define GET_RD(x)       x[15:11]
 `define GET_SA(x)       x[10:6]
 `define GET_IMM(x)      x[15:0]
 `define GET_INDEX(x) x[25:0]
-
-// ALUop encoding
-
 `define ALU_ADD   0
 `define ALU_SUB   1
 `define ALU_AND   2
@@ -135,9 +95,6 @@
 `define ALU_SLL   8
 `define ALU_SRL   9
 `define ALU_SRA   10
-
-// Control signal indexes
-
 `define I_LB        0
 `define I_LH        1
 `define I_LWL       2
@@ -150,17 +107,13 @@
 `define I_SWL       9
 `define I_SW        10
 `define I_SWR       11
-
 `define I_MEM_R     12
 `define I_MEM_W     13
 `define I_WEX       14
 `define I_WWB       15
-
 `define I_MAX       16
-
 `define LDEC        106
 `define LDECBITS    `LDEC-1:0
-
 `define DECODED_OPS \
         op_sll,op_movft,op_srl,op_sra,op_sllv,op_srlv,op_srav, \
         op_jr,op_jalr,op_movz,op_movn,op_syscall,op_break,op_sync, \
@@ -175,141 +128,7 @@
         op_madd,op_maddu,op_mul,op_msub,op_msubu,op_clz,op_clo, \
         op_lb,op_lh,op_lwl,op_lw,op_lbu,op_lhu,op_lwr,op_sb,op_sh,op_swl,op_sw,op_swr, \
         op_cache,op_ll,op_lwc1,op_pref,op_ldc1,op_sc,op_swc1,op_sdc1
-
-// ALU module
-module alu(
-  input [31:0] A,
-  input [31:0] B,
-  input [10:0] ALUop,
-  output Overflow,
-  output CarryOut,
-  output Zero,
-  output [31:0] Result
-);
-
-  // ALUop decoder
-  wire alu_add    = ALUop[`ALU_ADD];
-  wire alu_sub    = ALUop[`ALU_SUB];
-  wire alu_and    = ALUop[`ALU_AND];
-  wire alu_or     = ALUop[`ALU_OR];
-  wire alu_xor    = ALUop[`ALU_XOR];
-  wire alu_nor    = ALUop[`ALU_NOR];
-  wire alu_slt    = ALUop[`ALU_SLT];
-  wire alu_sltu   = ALUop[`ALU_SLTU];
-  wire alu_sll    = ALUop[`ALU_SLL];
-  wire alu_srl    = ALUop[`ALU_SRL];
-  wire alu_sra    = ALUop[`ALU_SRA];
-
-  // invert B for subtractions (sub & slt)
-  wire invb = alu_sub | alu_slt | alu_sltu;
-  // select addend according to invb
-  wire [31:0] addend = invb ? (~B) : B;
-
-  // carryout flag for addition
-  wire cf;
-  // result for addition and subtraction
-  wire [31:0] add_sub_res;
-  // do addition (invb as carryin in subtraction)
-  assign {cf, add_sub_res} = A + addend + invb;
-  // calculate overflow flag
-  wire of = A[31] ^ addend[31] ^ cf ^ add_sub_res[31];
-
-  // do and operation
-  wire [31:0] and_res = A & B;
-  // do or operation
-  wire [31:0] or_res = A | B;
-  // do xor operation
-  wire [31:0] xor_res = A ^ B;
-  // do nor operation
-  wire [31:0] nor_res = ~or_res;
-  // set slt/sltu result according to subtraction result
-  wire [31:0] slt_res = (add_sub_res[31] ^ of) ? 1 : 0;
-  wire [31:0] sltu_res = (!cf) ? 1 : 0;
-  // do sll operation
-  wire [31:0] sll_res = B << A[4:0];
-  // do srl&sra operation
-  wire [64:0] sr_res_64 = {{32{alu_sra&B[31]}}, B} >> A[4:0];
-  wire [31:0] sr_res = sr_res_64[31:0]; 
-
-  // result muxer
-  wire [31:0] res =
-    {32{alu_and}} & and_res |
-    {32{alu_or}} & or_res |
-    {32{alu_xor}} & xor_res |
-    {32{alu_nor}} & nor_res |
-    {32{alu_add}} & add_sub_res |
-    {32{alu_sub}} & add_sub_res |
-    {32{alu_slt}} & slt_res |
-    {32{alu_sltu}} & sltu_res |
-    {32{alu_sll}} & sll_res |
-    {32{alu_srl}} & sr_res |
-    {32{alu_sra}} & sr_res;
-
-  // set zero flag
-  wire zf = (res == 0);
-
-  // output results
-  assign Overflow = of;
-  assign CarryOut = cf ^ invb;
-  assign Zero = zf;
-  assign Result = res;
-  
-endmodule
-
-// register file for MIPS 32
-
-module reg_file(
-	input clk,
-	input [4:0] waddr,
-	input [4:0] raddr1,
-	input [4:0] raddr2,
-	input wen,
-	input [31:0] wdata,
-	output [31:0] rdata1,
-	output [31:0] rdata2
-);
-
-  // registers (r0 excluded)
-	reg [31:0] regs [31:1];
-
-  // process read (r0 wired to 0)
-	assign rdata1 = (raddr1 == 0 ? 0 : regs[raddr1]);
-	assign rdata2 = (raddr2 == 0 ? 0 : regs[raddr2]);
-
-  // process write
-	always @(posedge clk) if (wen) regs[waddr] <= wdata;
-
-endmodule
-
 `define DATA_WIDTH 32
-
-module shifter (
-	input [`DATA_WIDTH - 1:0] A,
-	input [`DATA_WIDTH - 1:0] B,
-	input [1:0] Shiftop,
-	output [`DATA_WIDTH - 1:0] Result
-);
-
-	// TODO: Please add your logic code here
-	wire sll;
-	wire sra;
-	wire srl;
-	wire [`DATA_WIDTH - 1:0]sll_result;
-	wire [`DATA_WIDTH - 1:0]sra_result;
-	wire [`DATA_WIDTH - 1:0]srl_result;
-
-	assign sll = Shiftop == 2'b00;
-	assign sra = Shiftop == 2'b11;
-	assign srl = Shiftop == 2'b10;
-	assign sll_result = A << B[4:0];
-	assign sra_result = ($signed(A)) >>> B[4:0];
-	assign srl_result = A >> B[4:0];
-
-	assign Result = ({`DATA_WIDTH{sll}} & sll_result)
-				  | ({`DATA_WIDTH{sra}} & sra_result)
-				  | ({`DATA_WIDTH{srl}} & srl_result);
-	
-endmodule
 
 module decoder #(
     parameter integer bits = 4
@@ -343,19 +162,9 @@ module mips_cpu(
     input  [31:0] Read_data,
     output MemRead
 );
-
-    // THESE THREE SIGNALS ARE USED IN OUR TESTBENCH
-    // PLEASE DO NOT MODIFY SIGNAL NAMES
-    // AND PLEASE USE THEM TO CONNECT PORTS
-    // OF YOUR INSTANTIATION OF THE REGISTER FILE MODULE
     wire			RF_wen;
     wire [4:0]		RF_waddr;
     wire [31:0]		RF_wdata;
-
-    // TODO: PLEASE ADD YOUT CODE BELOW
-
-    // IF
-
     wire branch;
     wire [31:0] branch_pc;
     reg [31:0] pc;
@@ -368,26 +177,18 @@ module mips_cpu(
         else pc <= next_pc;
     end
 
-    // reg file
-
     wire [4:0] rf_raddr1, rf_raddr2, rf_waddr;
     wire [31:0] rf_rdata1, rf_rdata2, rf_wdata;
     wire rf_wen;
-    reg_file rf(
-       .clk         (clk),
-       .waddr      (rf_waddr),
-       .raddr1     (rf_raddr1),
-       .raddr2     (rf_raddr2),
-       .wen        (rf_wen),
-       .wdata      (rf_wdata),
-       .rdata1     (rf_rdata1),
-       .rdata2     (rf_rdata2)
-    );
+    reg [31:0] regs [31:1];
+
+    assign rf_rdata1 = (rf_raddr1 == 0 ? 0 : regs[rf_raddr1]);
+    assign rf_rdata2 = (rf_raddr2 == 0 ? 0 : regs[rf_raddr2]);
+
+    always @(posedge clk) if (rf_wen) regs[waddr] <= rf_wdata;
     assign RF_wen = rf_wen;
     assign RF_waddr = rf_waddr;
     assign RF_wdata = rf_wdata;
-
-    // ID
 
     wire [31:0] inst = Instruction;
 
@@ -517,22 +318,15 @@ module mips_cpu(
     wire [31:0] pc_branch = seq_pc + {{14{imm[15]}}, imm, 2'd0};
     wire [31:0] pc_jump = {seq_pc[31:28], `GET_INDEX(inst), 2'd0};
 
-    // EX
-
     wire [31:0] rdata1_i = rf_rdata1, rdata2_i = rf_rdata2, inst_i = inst;
 
     wire [`I_MAX-1:0] ctrl_sig;
 
-    // conditional move
     wire cond_move                = op_movz && rdata2_i == 32'd0 || op_movn && rdata2_i != 32'd0;
-    // write data to [rt] generated in ex stage
     wire inst_rt_wex              = op_addi||op_addiu||op_slti||op_sltiu||op_andi||op_ori||op_xori||op_lui||op_mfc0||op_clz||op_clo||op_sc;
-    // write data to [rt] generated in wb stage
     wire inst_rt_wwb              = ctrl_sig[`I_MEM_R];
-    // write data to [rd] generated in ex stage
     wire inst_rd_wex              = op_sll||op_srl||op_sra||op_sllv||op_srlv||op_srav||op_jr||op_jalr||op_mfhi||op_mflo||
                                     op_add||op_addu||op_sub||op_subu||op_and||op_or||op_xor||op_nor||op_slt||op_sltu||op_mul||cond_move;
-    // write data to [31] generated in ex stage
     wire inst_r31_wex             = op_bltzal||op_bgezal||op_bltzall||op_bgezall||op_jal;
     
     assign ctrl_sig[`I_LB]        = op_lb;
@@ -548,19 +342,12 @@ module mips_cpu(
     assign ctrl_sig[`I_SW]        = op_sw;
     assign ctrl_sig[`I_SWR]       = op_swr;
     
-    // load instruction
     assign ctrl_sig[`I_MEM_R]     = op_lb||op_lh||op_lwl||op_lw||op_lbu||op_lhu||op_lwr||op_ll;
-    // store instruction
     assign ctrl_sig[`I_MEM_W]     = op_sb||op_sh||op_swl||op_sw||op_swr||op_sc/*&&llbit*/;
-    // write data generated in ex stage
     assign ctrl_sig[`I_WEX]       = inst_rt_wex||inst_rd_wex||inst_r31_wex;
-    // write data generated in wb stage
     assign ctrl_sig[`I_WWB]       = inst_rt_wwb;
-    // imm is sign-extended
     wire imm_is_sx  = !(op_andi||op_ori||op_xori);
-    // alu operand a is sa
     wire alu_a_sa   = op_sll||op_srl||op_sra;
-    // alu operand b is imm
     wire alu_b_imm  = op_addi||op_addiu||op_slti||op_sltiu||op_andi||op_ori||op_xori||ctrl_sig[`I_MEM_R]||ctrl_sig[`I_MEM_W];
     wire do_link    = op_jal||op_jalr||op_bgezal||op_bltzal||op_bgezall||op_bltzall;
     wire exc_on_of  = op_add || op_sub || op_addi;
@@ -579,13 +366,10 @@ module mips_cpu(
                      | {5{inst_rd_wex}}                 & `GET_RD(inst_i)
                      | {5{inst_r31_wex}}                & 5'd31;
 
-    // imm extension
-    //wire [15:0] imm = `GET_IMM(inst_i);
     wire [31:0] imm_sx = {{16{imm[15]}}, imm};
     wire [31:0] imm_zx = {16'd0, imm};
     wire [31:0] imm_32 = imm_is_sx ? imm_sx : imm_zx;
-    
-    // ALU operation
+
     wire [10:0] alu_op;
     assign alu_op[`ALU_ADD]   = op_add||op_addu||op_addi||op_addiu;
     assign alu_op[`ALU_SUB]   = op_sub||op_subu;
@@ -598,25 +382,63 @@ module mips_cpu(
     assign alu_op[`ALU_SLL]   = op_sll||op_sllv;
     assign alu_op[`ALU_SRL]   = op_srl||op_srlv;
     assign alu_op[`ALU_SRA]   = op_sra||op_srav;
-    
-    // ALU module
+
     wire [31:0] alu_a, alu_b, alu_res_wire;
     wire alu_of;
-    alu alu_instance(
-        .A          (alu_a),
-        .B          (alu_b),
-        .ALUop      (alu_op),
-        .CarryOut   (),
-        .Overflow   (alu_of),
-        .Zero       (),
-        .Result     (alu_res_wire)
-    );
 
-    // select operand sources
+    wire [10:0] ALUop = alu_op;
+    wire [31:0] A = alu_a, B = alu_b;
+    wire alu_add    = ALUop[`ALU_ADD];
+    wire alu_sub    = ALUop[`ALU_SUB];
+    wire alu_and    = ALUop[`ALU_AND];
+    wire alu_or     = ALUop[`ALU_OR];
+    wire alu_xor    = ALUop[`ALU_XOR];
+    wire alu_nor    = ALUop[`ALU_NOR];
+    wire alu_slt    = ALUop[`ALU_SLT];
+    wire alu_sltu   = ALUop[`ALU_SLTU];
+    wire alu_sll    = ALUop[`ALU_SLL];
+    wire alu_srl    = ALUop[`ALU_SRL];
+    wire alu_sra    = ALUop[`ALU_SRA];
+
+    wire invb = alu_sub | alu_slt | alu_sltu;
+    wire [31:0] addend = invb ? (~B) : B;
+
+    wire cf;
+    wire [31:0] add_sub_res;
+    assign {cf, add_sub_res} = A + addend + invb;
+    wire of = A[31] ^ addend[31] ^ cf ^ add_sub_res[31];
+
+    wire [31:0] and_res = A & B;
+    wire [31:0] or_res = A | B;
+    wire [31:0] xor_res = A ^ B;
+    wire [31:0] nor_res = ~or_res;
+    wire [31:0] slt_res = (add_sub_res[31] ^ of) ? 1 : 0;
+    wire [31:0] sltu_res = (!cf) ? 1 : 0;
+    wire [31:0] sll_res = B << A[4:0];
+    wire [64:0] sr_res_64 = {{32{alu_sra&B[31]}}, B} >> A[4:0];
+    wire [31:0] sr_res = sr_res_64[31:0]; 
+
+    wire [31:0] res =
+    {32{alu_and}} & and_res |
+    {32{alu_or}} & or_res |
+    {32{alu_xor}} & xor_res |
+    {32{alu_nor}} & nor_res |
+    {32{alu_add}} & add_sub_res |
+    {32{alu_sub}} & add_sub_res |
+    {32{alu_slt}} & slt_res |
+    {32{alu_sltu}} & sltu_res |
+    {32{alu_sll}} & sll_res |
+    {32{alu_srl}} & sr_res |
+    {32{alu_sra}} & sr_res;
+
+    wire zf = (res == 0);
+
+    assign alu_of = of;
+    assign alu_res_wire = res;
+
     assign alu_a = alu_a_sa ? {27'd0, `GET_SA(inst_i)} : rdata1_i;
     assign alu_b = alu_b_imm ? imm_32 : rdata2_i;
 
-    // branch test
     wire branch_taken   = (do_bne && (rdata1_i != rdata2_i))
                        || (do_beq && (rdata1_i == rdata2_i))
                        || (do_bgez && !rdata1_i[31])
@@ -638,15 +460,13 @@ module mips_cpu(
     wire mem_read = ctrl_sig[`I_MEM_R]; // && !mem_adel;
     wire mem_write = ctrl_sig[`I_MEM_W]; // && !mem_ades;
 
-    // mem write mask
     wire [3:0] data_wstrb =
         {4{op_sw||op_sc}} & 4'b1111 |
         {4{op_sh}} & (4'b0011 << mem_byte_offset) |
         {4{op_sb}} & (4'b0001 << mem_byte_offset) |
         {4{op_swl}} & (4'b1111 >> mem_byte_offsetn) |
         {4{op_swr}} & (4'b1111 << mem_byte_offset);
-    
-    // mem write data
+
     wire [31:0] data_wdata =
         {32{op_sw||op_sc}} & rdata2_i |
         {32{op_sh}} & {rdata2_i[15:0], rdata2_i[15:0]} |
@@ -665,12 +485,9 @@ module mips_cpu(
     assign Write_data = data_wdata;
     assign Write_strb = data_wstrb;
 
-    // WB
-
     wire [`I_MAX-1:0] ctrl_i = ctrl_sig;
 
     wire [31:0] data_rdata = Read_data;
-    // process length & extension for read
     wire [7:0] mem_rdata_b = data_rdata >> (8 * mem_byte_offset);
     wire [15:0] mem_rdata_h = data_rdata >> (8 * mem_byte_offset);
     wire [31:0] mem_rdata_b_sx, mem_rdata_b_zx, mem_rdata_h_sx, mem_rdata_h_zx;
@@ -686,13 +503,11 @@ module mips_cpu(
     wire [31:0] mem_rdata_h_res =
     {32{ctrl_i[`I_LH]}} & mem_rdata_h_sx |
     {32{ctrl_i[`I_LHU]}} & mem_rdata_h_zx;
-    
-    // mem read mask
+
     wire [31:0] mem_rmask =
     {32{ctrl_i[`I_LW]||ctrl_i[`I_LH]||ctrl_i[`I_LHU]||ctrl_i[`I_LB]||ctrl_i[`I_LBU]}} & 32'hffffffff |
     {32{ctrl_i[`I_LWL]}} & (32'hffffffff << (8 * mem_byte_offsetn)) |
     {32{ctrl_i[`I_LWR]}} & (32'hffffffff >> (8 * mem_byte_offset));
-    // mem read data
     wire [31:0] memdata = rdata2_i & ~mem_rmask |
     {32{ctrl_i[`I_LW]}} & data_rdata |
     {32{ctrl_i[`I_LH]||ctrl_i[`I_LHU]}} & mem_rdata_h_res |
