@@ -21,10 +21,6 @@ static void write_emu_csr(int offset, uint32_t value) {
     *((volatile uint32_t *)reg_map_base + (offset >> 2)) = value;
 }
 
-void emu_ctrl_init() {
-    emu_checkpoint_size = read_emu_csr(EMU_CKPT_SIZE);
-}
-
 int emu_is_running() {
     return !(read_emu_csr(EMU_STAT) & EMU_STAT_HALT);
 }
@@ -161,4 +157,9 @@ void emu_save_checkpoint_binary(void *data) {
     void *dma_buf = mem_map_base;
     emu_dma_transfer(dma_addr, 0);
     memcpy(data, dma_buf, emu_checkpoint_size);
+}
+
+void emu_ctrl_init() {
+    emu_halt(1);
+    emu_checkpoint_size = read_emu_csr(EMU_CKPT_SIZE);
 }

@@ -102,39 +102,11 @@ char *tokenize(char *next, int dry_run) {
     return read;
 }
 
-void show_help() {
-    printf(
-        "Available commands:\n"
-        "    help\n"
-        "        Show this message.\n"
-        "    state\n"
-        "        Print emulator state (running/stopped).\n"
-        "    trig\n"
-        "        Print activated trigger list (S=step trigger).\n"
-        "    cycle [<new_cycle>]\n"
-        "        Set cycle count to <new_cycle> if specified. Otherwise print current cycle count.\n"
-        "    reset <duration>\n"
-        "        Perform initial reset sequence where reset is held for <duration> cycles.\n"
-        "        Note this command also resets cycle count.\n"
-        "    run [<duration>]\n"
-        "        Continue emulation execution. Run for <duration> cycles and stop if specified.\n"
-        "    stop\n"
-        "        Pause emulation execution.\n"
-        "    step\n"
-        "        Synonym for \"run 1\".\n"
-        "    loadb\n"
-        "        load checkpoint from STDIN. Checkpoint size is printed in decimal before data transfer.\n"
-        "    saveb\n"
-        "        save checkpoint to STDOUT. Checkpoint size is printed in decimal before data transfer.\n"
-        "\n"
-    );
-}
-
 void trig() {
     int i;
     uint32_t trig_stat = emu_trig_stat();
     if (emu_is_step_trig())
-        printf("S ");
+        printf("-1 ");
     for (i = 0; i < 32; i++)
         if (trig_stat & (1 << i))
             printf("%d ", i);
@@ -158,27 +130,19 @@ void saveb() {
 }
 
 void run_command(int argc, char **argv) {
-    if (argc == 0 || !strcmp(argv[0], "help")) {
-        show_help();
-    }
-    else if (!strcmp(argv[0], "state")) {
-        printf("%s\n", emu_is_running() ? "running" : "stopped");
-    }
-    else if (!strcmp(argv[0], "trig")) {
+    if (!strcmp(argv[0], "trig")) {
         trig();
     }
     else if (!strcmp(argv[0], "cycle")) {
-        if (argc >= 2) {
-            unsigned long cycle;
-            if (parse_num(argv[1], &cycle)) {
-                printf("invalid argument\n");
-            }
-            emu_write_cycle(cycle);
-            printf("ok\n");
+        printf("%lu\n", emu_read_cycle());
+    }
+    else if (!strcmp(argv[0], "set_cycle")) {
+        unsigned long cycle;
+        if (argc < 2 || parse_num(argv[1], &cycle)) {
+            printf("invalid argument\n");
         }
-        else {
-            printf("%lu\n", emu_read_cycle());
-        }
+        emu_write_cycle(cycle);
+        printf("ok\n");
     }
     else if (!strcmp(argv[0], "reset")) {
         unsigned long duration;
@@ -189,25 +153,11 @@ void run_command(int argc, char **argv) {
         printf("ok\n");
     }
     else if (!strcmp(argv[0], "run")) {
-        if (argc >= 2) {
-            unsigned long duration;
-            if (parse_num(argv[1], &duration)) {
-                printf("invalid argument\n");
-            }
-            emu_step_for(duration);
-            printf("ok\n");
+        unsigned long duration;
+        if (argc < 2 || parse_num(argv[1], &duration)) {
+            printf("invalid argument\n");
         }
-        else {
-            emu_halt(0);
-            printf("ok\n");
-        }
-    }
-    else if (!strcmp(argv[0], "stop")) {
-        emu_halt(1);
-        printf("ok\n");
-    }
-    else if (!strcmp(argv[0], "step")) {
-        emu_step_for(1);
+        emu_step_for(duration);
         printf("ok\n");
     }
     else if (!strcmp(argv[0], "loadb")) {
@@ -216,7 +166,6 @@ void run_command(int argc, char **argv) {
     }
     else if (!strcmp(argv[0], "saveb")) {
         saveb();
-        printf("ok\n");
     }
     else {
         printf("unrecognized command\n");
@@ -225,7 +174,7 @@ void run_command(int argc, char **argv) {
 
 void shell() {
     char buf[SHELL_BUFSIZE];
-    while ((fprintf(stderr, "> "), fgets(buf, SHELL_BUFSIZE, stdin))) {
+    while (fgets(buf, SHELL_BUFSIZE, stdin)) {
         int argc = 0;
         char **argv, *token, *next;
         next = buf;
@@ -247,7 +196,7 @@ void shell() {
 int main() {
     int res;
 
-    setvbuf(stdout, NULL, _IOLBF, 0);
+    setvbuf(stdout, NULL, _IONBF, 0);
 
     res = init_map();
     if (res)
