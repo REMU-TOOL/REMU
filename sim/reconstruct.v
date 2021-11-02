@@ -25,7 +25,7 @@ module reconstruct();
     end
 
     always @(negedge clk) begin
-        if (cycle + 1 >= u_emu_top.reset.DURATION_CYCLES) begin
+        if (cycle >= u_emu_top.reset.DURATION_CYCLES) begin
             rst = 0;
         end
     end
