@@ -81,10 +81,11 @@ class Emulator:
     def __run(self):
         self.__run_flag = True
         while self.__run_flag:
+            cycle = self.__mon.cycle()
             if len(self.__event_list) == 0:
-                self.__event_list.append(EmulatorEvent(0xffffffff, None, None))
+                self.__event_list.append(EmulatorEvent(cycle + 0xffffffff, None, None))
             new_cycle = self.__event_list[0].cycle
-            delta = new_cycle - self.__mon.cycle()
+            delta = new_cycle - cycle
             if self.__dry_run:
                 self.__mon.set_cycle(new_cycle)
             else:
