@@ -1,7 +1,8 @@
 import os
-import argparse
 import math
 import bisect
+import re
+from glob import glob
 from .config import EmulatorConfig
 from typing import BinaryIO, TextIO
 
@@ -63,9 +64,18 @@ class CheckpointManager:
         os.makedirs(store_path, exist_ok=True)
         self.__config = config
         self.__cycle_list = []
+        self.__find_ckpts()
+
+    def __find_ckpts(self):
+        for name in glob(self.__path + '/*.ckpt.bin'):
+            m = re.search(r'/([0-9]+)\.ckpt\.bin', name)
+            if m:
+                cycle = int(m.group(1))
+                if not cycle in self.__cycle_list:
+                    bisect.insort(self.__cycle_list, cycle)
 
     def __ckpt_name(self, cycle: int):
-        return self.__path + "%020d.ckpt.bin" % cycle
+        return self.__path + "/%020d.ckpt.bin" % cycle
 
     def recent_saved_cycle(self, cycle: int):
         i = bisect.bisect_right(self.__cycle_list, cycle)

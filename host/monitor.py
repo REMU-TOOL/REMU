@@ -58,8 +58,8 @@ class Monitor(MonitorBase):
         else:
             return False
 
-    def reset(self, cycles: int):
-        self.writeline('reset %d' % cycles)
+    def reset(self, value: int):
+        self.writeline('reset %d' % value)
         s = self.readline()
         if s == 'ok':
             return True

@@ -145,11 +145,11 @@ void run_command(int argc, char **argv) {
         printf("ok\n");
     }
     else if (!strcmp(argv[0], "reset")) {
-        unsigned long duration;
-        if (argc < 2 || parse_num(argv[1], &duration)) {
+        unsigned long value;
+        if (argc < 2 || parse_num(argv[1], &value)) {
             printf("invalid argument\n");
         }
-        emu_init_reset((uint32_t)duration);
+        emu_reset((int)value);
         printf("ok\n");
     }
     else if (!strcmp(argv[0], "run")) {
