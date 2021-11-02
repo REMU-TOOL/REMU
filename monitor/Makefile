@@ -1,7 +1,19 @@
-CROSS_COMPILE ?= aarch64-linux-gnu-
+VENDOR ?=
+PLAT ?=
+
+ifeq ($(VENDOR),)
+$(error VENDOR is not specified)
+endif
+
+ifeq ($(PLAT),)
+$(error PLAT is not specified)
+endif
+
+include ../platform/$(VENDOR)/$(PLAT)/monitor/include.mk
+
 CC := $(CROSS_COMPILE)gcc
 LD := $(CROSS_COMPILE)gcc
-CFLAGS := -MD -MP
+CFLAGS := -MD -MP -I ../platform/$(VENDOR)/$(PLAT)/monitor
 LDFLAGS :=
 
 SRCS := $(wildcard *.c)
