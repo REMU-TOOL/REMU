@@ -64,7 +64,7 @@ run-%: $(OUTPUT_DIR)/%/sim
 	) 2>&1 | tee $(OUTPUT_DIR)/$*/run.log
 
 .SECONDARY: $(foreach N,$(TEST_USE),$(OUTPUT_DIR)/$(N)/sim)
-$(OUTPUT_DIR)/%/sim: $$(VSIM-%) $(OUTPUT_DIR)/%/output.v $(SIMSRCS)
+$(OUTPUT_DIR)/%/sim: $$(VSIM-%) $(OUTPUT_DIR)/%/output.v $(EMULIBS) $(SIMSRCS)
 	iverilog -Icommon -I$(OUTPUT_DIR)/$* $(EXTRA_INCLUDE) -DDUMP_FILE=\"$(OUTPUT_DIR)/$*/dump.vcd\" -s sim_top -o $@ $^
 
 .SECONDARY: $(foreach N,$(TEST_USE),$(OUTPUT_DIR)/$(N)/output.v)

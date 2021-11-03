@@ -17,6 +17,15 @@ std::string EmuIDGen(std::string file, int line, std::string function, std::stri
     return IDGen(s.str());
 }
 
+IdString UniqueCellID(Module *module, std::string prefix) {
+    int i = 0;
+    IdString id;
+    do {
+        id = prefix + stringf("%d", i++);
+    } while (module->cell(id));
+    return id;
+}
+
 #define EMU_NAME(x) (EmuIDGen(__FILE__, __LINE__, __FUNCTION__, #x))
 
 struct MemInfo {
@@ -196,6 +205,8 @@ private:
     Wire *wire_ff_scan, *wire_ff_sdi, *wire_ff_sdo;
     Wire *wire_ram_scan, *wire_ram_dir, *wire_ram_sdi, *wire_ram_sdo; // dir: 0=out 1=in
 
+    Wire *wire_dut_clk;
+
     void process_emulib() {
         std::vector<Cell *> cells_to_remove;
         int trig_count = 0;
@@ -253,100 +264,81 @@ private:
         wire_ram_sdi    = module->addWire("\\$EMU$RAM$SDI",     DATA_WIDTH);    wire_ram_sdi    ->port_input = true;
         wire_ram_sdo    = module->addWire("\\$EMU$RAM$SDO",     DATA_WIDTH);    wire_ram_sdo    ->port_output = true;
 
+        wire_dut_clk    = module->addWire("\\$EMU$DUT$CLK");
+        Cell *gate = module->addCell(UniqueCellID(module, "\\ClockGate"), "\\ClockGate");
+        gate->setPort("\\CLK", wire_clk);
+        gate->setPort("\\EN", module->Or(NEW_ID, module->Not(NEW_ID, wire_halt), wire_ff_scan));
+        gate->setPort("\\GCLK", wire_dut_clk);
+
         module->fixup_ports();
     }
 
     void instrument_ffs(std::vector<Cell *> &ff_cells, ScanChainBlock<SrcInfo> &block) {
-        SigSpec sdi, sdo;
-        sdi = block.data_o;
+        SigSpec halt_n = module->Not(NEW_ID, wire_halt);
 
-        // break FFs into signals for packing
-        int total_width = 0;
-        std::map<int, std::queue<SigSig>> ff_sigs; // width -> {(D, Q)}
+        // process clock, reset, enable signals and insert sdi
+        // Original:
+        // always @(posedge clk)
+        //   if (srst)
+        //     q <= SRST_VAL;
+        //   else if (ce)
+        //     q <= d;
+        // Instrumented:
+        // always @(posedge gated_clk)
+        //   if (srst && !halt)
+        //     q <= SRST_VAL;
+        //   else if (ce || se)
+        //     q <= se ? sdi : d;
+
+        std::vector<Cell *> ff_cells_new;
+        SigSig sdi_q_list;
+
         for (auto &cell : ff_cells) {
             FfData ff(nullptr, cell);
-            // TODO: avoid unmapping ce & srst to reduce overhead
-            ff.unmap_ce_srst();
-
-            // slice signals if width > DATA_WIDTH
-            int width = GetSize(ff.sig_d);
-            for (int i = 0; i < width; i += DATA_WIDTH) {
-                int slice = width - i;
-                slice = slice > DATA_WIDTH ? DATA_WIDTH : slice;
-                SigSpec d = ff.sig_d.extract(i, slice);
-                SigSpec q = ff.sig_q.extract(i, slice);
-                ff_sigs[slice].push({d, q});
+            ff.sig_clk = wire_dut_clk;
+            if (!ff.pol_srst) {
+                ff.sig_srst = module->Not(NEW_ID, ff.sig_srst);
+                ff.pol_srst = true;
             }
-            total_width += width;
-
-            module->remove(cell);
+            ff.sig_srst = module->And(NEW_ID, ff.sig_srst, halt_n);
+            if (!ff.pol_ce) {
+                ff.sig_ce = module->Not(NEW_ID, ff.sig_ce);
+                ff.pol_ce = true;
+            }
+            ff.sig_ce = module->Or(NEW_ID, ff.sig_ce, wire_ff_scan);
+            SigSpec sdi = module->addWire(EMU_NAME(sdi), GetSize(ff.sig_d));
+            ff.sig_d = module->Mux(NEW_ID, ff.sig_d, sdi, wire_ff_scan);
+            sdi_q_list.first.append(sdi);
+            sdi_q_list.second.append(ff.sig_q);
+            ff_cells_new.push_back(ff.emit());
         }
-        ff_cells.clear();
-        log("Total width of FFs: %d\n", total_width);
+        ff_cells.empty();
+        ff_cells.insert(ff_cells.begin(), ff_cells_new.begin(), ff_cells_new.end());
 
-        // pack new FFs
-        int total_packed_width = 0;
-        for (auto kv = ff_sigs.rbegin(); kv != ff_sigs.rend(); ++kv) {
-            while (!kv->second.empty()) {
-                SigSig ff = kv->second.front(); kv->second.pop();
-                int packed = kv->first;
+        // pad to align data width
+        int r = GetSize(sdi_q_list.first) % DATA_WIDTH;
+        if (r) {
+            int pad = DATA_WIDTH - r;
+            Wire *d = module->addWire(NEW_ID, pad);
+            Wire *q = module->addWire(NEW_ID, pad);
+            module->addDff(NEW_ID, wire_dut_clk, d, q);
+            sdi_q_list.first.append(d);
+            sdi_q_list.second.append(q);
+        }
 
-                //log("current: %d\n", packed);
-                while (packed < DATA_WIDTH) {    
-                    //log("packed: %d\n", packed);
-                    int i;
-                    // pick another FF to pack (try complement size first)
-                    for (i = DATA_WIDTH; i > 0; i--) {
-                        int w = i - packed;
-                        if (w <= 0) w += DATA_WIDTH;
-                        //log("w: %d(%d)\n", w, kv->first);
-                        if (ff_sigs.find(w) != ff_sigs.end() && !ff_sigs[w].empty()) {
-                            SigSig pick = ff_sigs[w].front(); ff_sigs[w].pop();
-                            ff.first.append(pick.first);
-                            ff.second.append(pick.second);
-                            packed += w;
-                            break;
-                        }
-                    }
-                    // no more FFs to pack, stop
-                    if (i == 0) break;
-                }
-                //log("final size: %d\n", packed);
-
-                // slice if oversized
-                if (packed > DATA_WIDTH) {
-                    int w = packed - DATA_WIDTH;
-
-                    ff_sigs[w].push(SigSig(
-                        ff.first.extract(DATA_WIDTH, w),
-                        ff.second.extract(DATA_WIDTH, w)
-                    ));
-
-                    ff.first = ff.first.extract(0, DATA_WIDTH);
-                    ff.second = ff.second.extract(0, DATA_WIDTH);
-                }
-
-                sdo = sdi;
-                sdi = module->addWire(EMU_NAME(scandata), DATA_WIDTH);
-
-                // create instrumented FF
-                // always @(posedge clk)
-                //   if (!halt || se)
-                //     q <= se ? sdi : d;
-                Cell *new_ff = module->addDffe(NEW_ID, wire_clk,
-                    module->Or(NEW_ID, module->Not(NEW_ID, wire_halt), wire_ff_scan),
-                    module->Mux(NEW_ID, {Const(0, DATA_WIDTH - packed), ff.first}, sdi, wire_ff_scan), sdo);
-                ff_cells.push_back(new_ff);
-                module->connect(ff.second, sdo.extract(0, packed));
-
-                block.depth++;
-                block.src.push_back(SrcInfo(ff.second));
-
-                total_packed_width += GetSize(ff.first);
-            }
+        // build scan chain
+        int size = GetSize(sdi_q_list.first);
+        SigSpec sdi, sdo;
+        sdi = block.data_o;
+        for (int i = 0; i < size; i += DATA_WIDTH) {
+            sdo = sdi;
+            sdi = sdi_q_list.first.extract(i, DATA_WIDTH);
+            SigSpec q = sdi_q_list.second.extract(i, DATA_WIDTH);
+            module->connect(sdo, q);
+            block.depth++;
+            block.src.push_back(SrcInfo(q));
         }
         module->connect(block.data_i, sdi);
-        log("Total width of FFs after packing: %d\n", total_packed_width);
     }
 
     void instrument_mems(std::vector<Mem> &mem_cells, ScanChain<MemInfo> &chain) {

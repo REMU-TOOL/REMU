@@ -7,8 +7,9 @@ module ClockGate(
 );
 
     reg en_latch;
-    always @(negedge CLK)
-        en_latch = EN;
+    always @(CLK or EN)
+        if (~CLK)
+            en_latch = EN;
     assign GCLK = CLK & en_latch;
 
 endmodule
