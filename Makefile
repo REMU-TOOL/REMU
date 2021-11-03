@@ -63,6 +63,10 @@ reconstruct:
 	python3 -m host --dump $(STARTCYCLE) --dumpfile $(DESIGN_BUILD_DIR)/$(STARTCYCLE).hex $(DESIGN_BUILD_DIR)/config.json $(HOST) $(PORT) /tmp/ckpt
 	$(DESIGN_SIM_BIN) +startcycle=$(STARTCYCLE) +runcycle=$(RUNCYCLE) +checkpoint=$(DESIGN_BUILD_DIR)/$(STARTCYCLE).hex +dumpfile=$(DESIGN_BUILD_DIR)/dump.vcd
 
+viewvcd:
+	$(if $(DESIGN),,$(error DESIGN is not specified))
+	gtkwave $(DESIGN_BUILD_DIR)/dump.vcd
+
 $(DESIGN_OUTPUT_V): $(VSRC)
 	mkdir -p $(DESIGN_BUILD_DIR)
 	$(YOSYS) -m transform -p "emu_transform -top $(VTOP) -cfg $(DESIGN_BUILD_DIR)/config.json -ldr $(DESIGN_BUILD_DIR)/loader.vh" -o $@ $^
