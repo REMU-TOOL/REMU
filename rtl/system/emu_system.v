@@ -488,10 +488,10 @@ module emu_system(
     // DUT & scan logic
 
     wire dut_clk, dut_clk_en;
-    clock_gate dut_clk_gate(
-        .clk(clk),
-        .en(dut_clk_en),
-        .gclk(dut_clk)
+    ClockGate dut_clk_gate(
+        .CLK(clk),
+        .EN(dut_clk_en),
+        .GCLK(dut_clk)
     );
 
     // operation sequence

@@ -161,10 +161,10 @@ module sim_top();
     emu_top emu_ref();
 
     wire ref_clk;
-    clock_gate ref_clk_gate(
-        .clk(clk),
-        .en(!u_emu_system.emu_halt),
-        .gclk(ref_clk)
+    ClockGate ref_clk_gate(
+        .CLK(clk),
+        .EN(!u_emu_system.emu_halt),
+        .GCLK(ref_clk)
     );
 
     assign emu_ref.clock.clock = ref_clk;
