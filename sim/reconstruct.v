@@ -30,7 +30,7 @@ module reconstruct();
         end
     end
 
-    reg [`LOAD_WIDTH-1:0] data [`CHAIN_FF_WORDS+`CHAIN_MEM_WORDS-1:0];
+    reg [`LOAD_WIDTH-1:0] data [0:`CHAIN_FF_WORDS+`CHAIN_MEM_WORDS-1];
     reg [1023:0] checkpoint, dumpfile;
 
     `LOAD_DECLARE
