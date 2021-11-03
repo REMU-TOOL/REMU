@@ -85,6 +85,7 @@ build: yosys transform
 	mkdir -p $(BUILD_DIR)/share/yosys/plugins
 	cp transform/transform.so $(BUILD_DIR)/share/yosys/plugins
 	cp -r emulib $(BUILD_DIR)/share/yosys/
+	cp yosys/yosys $(BUILD_DIR)/bin/yosys-debug
 
 .PHONY: yosys
 yosys:
