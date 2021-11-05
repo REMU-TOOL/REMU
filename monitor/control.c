@@ -22,7 +22,7 @@ static void write_emu_csr(int offset, uint32_t value) {
 }
 
 int emu_is_running() {
-    return !(read_emu_csr(EMU_STAT) & EMU_STAT_HALT);
+    return !(read_emu_csr(EMU_STAT) & EMU_STAT_PAUSE);
 }
 
 int emu_is_step_trig() {
@@ -33,12 +33,12 @@ uint32_t emu_trig_stat() {
     return read_emu_csr(EMU_TRIG_STAT);
 }
 
-void emu_halt(int halt) {
+void emu_pause(int pause) {
     uint32_t stat = read_emu_csr(EMU_STAT);
-    if (halt)
-        stat |= EMU_STAT_HALT;
+    if (pause)
+        stat |= EMU_STAT_PAUSE;
     else
-        stat &= ~EMU_STAT_HALT;
+        stat &= ~EMU_STAT_PAUSE;
     write_emu_csr(EMU_STAT, stat);
 }
 
@@ -62,12 +62,12 @@ void emu_write_cycle(uint64_t cycle) {
 
 void emu_step_for(uint32_t duration) {
     write_emu_csr(EMU_STEP, duration);
-    emu_halt(0);
-    while (!(read_emu_csr(EMU_STAT) & EMU_STAT_HALT));
+    emu_pause(0);
+    while (!(read_emu_csr(EMU_STAT) & EMU_STAT_PAUSE));
 }
 
 void emu_init_reset(uint32_t duration) {
-    emu_halt(1);
+    emu_pause(1);
     emu_write_cycle(0);
     emu_reset(1);
     emu_step_for(duration);
@@ -160,6 +160,6 @@ void emu_save_checkpoint_binary(void *data) {
 }
 
 void emu_ctrl_init() {
-    emu_halt(1);
+    emu_pause(1);
     emu_checkpoint_size = read_emu_csr(EMU_CKPT_SIZE);
 }

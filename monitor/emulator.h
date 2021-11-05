@@ -9,7 +9,7 @@
 #define EMU_DMA_STAT            0x028
 #define EMU_DMA_CTRL            0x02c
 
-#define EMU_STAT_HALT           (1 << 0)
+#define EMU_STAT_PAUSE          (1 << 0)
 #define EMU_STAT_DUT_RESET      (1 << 1)
 #define EMU_STAT_STEP_TRIG      (1 << 31)
 #define EMU_DMA_STAT_RUNNING    (1 << 0)

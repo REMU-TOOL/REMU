@@ -11,7 +11,7 @@ int emu_is_running();
 int emu_is_step_trig();
 uint32_t emu_trig_stat();
 
-void emu_halt(int halt);
+void emu_pause(int pause);
 void emu_reset(int reset);
 
 uint64_t emu_read_cycle();

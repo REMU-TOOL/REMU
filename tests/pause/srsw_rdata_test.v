@@ -5,7 +5,7 @@
 module sim_top();
 
     reg clk = 0, rst = 1;
-    reg halt = 0;
+    reg pause = 0;
     reg wen = 0, ren = 0;
     reg [1:0] waddr = 0, raddr = 0;
     reg [31:0] wdata = 0;
@@ -13,7 +13,7 @@ module sim_top();
 
     EMU_DUT emu_dut(
         .\$EMU$CLK          (clk),
-        .\$EMU$HALT         (halt),
+        .\$EMU$PAUSE        (pause),
         .\$EMU$DUT$RESET    (rst),
         .\$EMU$FF$SCAN      (1'd0),
         .\$EMU$FF$SDI       (64'd0),
@@ -39,13 +39,13 @@ module sim_top();
         .rdata(rdata_ref)
     );
 
-    assign ref.clock.clock = clk & !halt;
+    assign ref.clock.clock = clk & !pause;
     assign ref.reset.reset = rst;
 
     always #5 clk = ~clk;
     always #10 begin
         rst = $random;
-        halt = $random;
+        pause = $random;
         wen = $random;
         waddr = $random;
         wdata = $random;
@@ -54,8 +54,8 @@ module sim_top();
     end
 
     always #10 begin
-        $display("%dns: halt=%h rst=%h wen=%h waddr=%h wdata=%h ren=%h raddr=%h rdata_dut=%h rdata_ref=%h",
-            $time, halt, rst, wen, waddr, wdata, ren, raddr, rdata_dut, rdata_ref);
+        $display("%dns: pause=%h rst=%h wen=%h waddr=%h wdata=%h ren=%h raddr=%h rdata_dut=%h rdata_ref=%h",
+            $time, pause, rst, wen, waddr, wdata, ren, raddr, rdata_dut, rdata_ref);
         if (rdata_dut !== rdata_ref) begin
             $display("ERROR: data mismatch");
             $fatal;

@@ -7,7 +7,7 @@ module sim_top();
     parameter ROUND = 4;
 
     reg clk = 0, rst = 1;
-    reg halt = 0;
+    reg pause = 0;
     reg ff_scan = 0, ff_dir = 0;
     reg [63:0] ff_sdi = 0;
     wire [63:0] ff_sdo;
@@ -23,7 +23,7 @@ module sim_top();
 
     EMU_DUT emu_dut(
         .\$EMU$CLK          (clk),
-        .\$EMU$HALT         (halt),
+        .\$EMU$PAUSE        (pause),
         .\$EMU$DUT$RESET    (rst),
         .\$EMU$FF$SCAN      (ff_scan),
         .\$EMU$FF$SDI       (ff_dir ? ff_sdi : ff_sdo),
@@ -62,7 +62,7 @@ module sim_top();
             $display("round %d: d1=%h d2=%h d3=%h d4=%h", i, d1, d2, d3, d4);
             d_data[i] = {d1, d2, d3, d4};
             #10;
-            halt = 1;
+            pause = 1;
             ff_scan = 1;
             ff_dir = 0;
             for (j=0; j<`CHAIN_FF_WORDS; j=j+1) begin
@@ -71,7 +71,7 @@ module sim_top();
                 #10;
             end
             ff_scan = 0;
-            halt = 0;
+            pause = 0;
             $display("round %d: q1=%h q2=%h q3=%h q4=%h", i, q1, q2, q3, q4);
             if (d_data[i] !== {q1, q2, q3, q4}) begin
                 $display("ERROR: data mismatch while dumping");
@@ -80,7 +80,7 @@ module sim_top();
         end
         $display("restore checkpoint");
         for (i=0; i<ROUND; i++) begin
-            halt = 1;
+            pause = 1;
             ff_scan = 1;
             ff_dir = 1;
             for (j=0; j<`CHAIN_FF_WORDS; j=j+1) begin

@@ -151,31 +151,31 @@ module emu_system(
     wire trigger = |{step_trig, emu_dut_trig};
 
     // EMU_STAT
-    //      [0]     -> HALT
+    //      [0]     -> PAUSE
     //      [1]     -> DUT_RESET
     //      [31]    -> STEP_TRIG [RO]
 
-    reg emu_halt, emu_dut_reset, emu_step_trig;
+    reg emu_pause, emu_dut_reset, emu_step_trig;
     wire [31:0] emu_stat, emu_ctrl;
     assign emu_stat[31]     = emu_step_trig;
     assign emu_stat[30:2]   = 29'd0;
     assign emu_stat[1]      = emu_dut_reset;
-    assign emu_stat[0]      = emu_halt;
+    assign emu_stat[0]      = emu_pause;
     assign emu_ctrl         = 32'd0;
 
     always @(posedge clk) begin
         if (rst) begin
-            emu_halt            <= 1'b1;
+            emu_pause           <= 1'b1;
             emu_dut_reset       <= 1'b1;
             emu_step_trig       <= 1'b0;
         end
         else if (trigger) begin
-            emu_halt            <= 1'b1;
+            emu_pause           <= 1'b1;
             emu_step_trig       <= step_trig;
         end
         else begin
             if (reg_do_write && reg_write_addr == `EMU_STAT) begin
-                emu_halt            <= reg_write_data[0];
+                emu_pause           <= reg_write_data[0];
                 emu_dut_reset       <= reg_write_data[1];
             end
         end
@@ -202,7 +202,7 @@ module emu_system(
         if (rst) begin
             emu_cycle <= 64'd0;
         end
-        else if (!emu_halt) begin
+        else if (!emu_pause) begin
             emu_cycle <= emu_cycle + 64'd1;
         end
         else begin
@@ -220,7 +220,7 @@ module emu_system(
     reg [31:0] emu_step, emu_step_next;
 
     always @* begin
-        if (emu_halt) begin
+        if (emu_pause) begin
             emu_step_next = emu_step;
         end
         else if (emu_step != 32'd0) begin
@@ -605,7 +605,7 @@ module emu_system(
 
     EMU_DUT emu_dut(
         .\$EMU$CLK          (dut_clk),
-        .\$EMU$HALT         (emu_halt),
+        .\$EMU$PAUSE        (emu_pause),
         .\$EMU$DUT$RESET    (emu_dut_reset),
         .\$EMU$DUT$TRIG     (emu_dut_trig),
         .\$EMU$FF$SCAN      (ff_scan_running),

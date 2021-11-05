@@ -1,6 +1,6 @@
 `timescale 1 ns / 1 ps
 
-module ffhalt(
+module ffpause(
     input en,
     input [31:0] d,
     output reg [31:0] q

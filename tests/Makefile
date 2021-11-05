@@ -3,7 +3,7 @@ include ../common.mk
 OUTPUT_DIR := _output
 RESULT_FILE := $(OUTPUT_DIR)/result.log
 
-SUITES := halt ff mem cpu system
+SUITES := pause ff mem cpu system
 
 SUITE ?=
 TEST ?=

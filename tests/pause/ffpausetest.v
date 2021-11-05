@@ -5,14 +5,14 @@
 module sim_top();
 
     reg clk = 0, rst = 1;
-    reg halt = 0;
+    reg pause = 0;
     reg en = 1;
     reg [31:0] d = 0;
     wire [31:0] q_dut, q_ref;
 
     EMU_DUT emu_dut(
         .\$EMU$CLK          (clk),
-        .\$EMU$HALT         (halt),
+        .\$EMU$PAUSE        (pause),
         .\$EMU$DUT$RESET    (rst),
         .\$EMU$FF$SCAN      (1'd0),
         .\$EMU$FF$SDI       (64'd0),
@@ -26,25 +26,25 @@ module sim_top();
         .q(q_dut)
     );
 
-    ffhalt ref(
+    ffpause ref(
         .en(en),
         .d(d),
         .q(q_ref)
     );
 
-    assign ref.clock.clock = clk & !halt;
+    assign ref.clock.clock = clk & !pause;
     assign ref.reset.reset = rst;
 
     always #5 clk = ~clk;
     always #10 begin
         rst = $random;
-        halt = $random;
+        pause = $random;
         en = $random;
         d = $random;
     end
 
     always #10 begin
-        $display("%dns: halt=%h rst=%h en=%h d=%h q_dut=%h q_ref=%h", $time, halt, rst, en, d, q_dut, q_ref);
+        $display("%dns: pause=%h rst=%h en=%h d=%h q_dut=%h q_ref=%h", $time, pause, rst, en, d, q_dut, q_ref);
         if (q_dut !== q_ref) begin
             $display("ERROR: data mismatch");
             $fatal;

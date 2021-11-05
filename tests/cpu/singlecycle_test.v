@@ -8,7 +8,7 @@ module sim_top();
     parameter CKPT_PERIOD = 200;
 
     reg clk = 0, rst = 1;
-    reg halt = 0;
+    reg pause = 0;
     reg ff_scan = 0, ff_dir = 0;
     reg [63:0] ff_sdi = 0;
     wire [63:0] ff_sdo;
@@ -18,7 +18,7 @@ module sim_top();
 
     EMU_DUT emu_dut(
         .\$EMU$CLK          (clk),
-        .\$EMU$HALT         (halt),
+        .\$EMU$PAUSE        (pause),
         .\$EMU$DUT$RESET    (rst),
         .\$EMU$FF$SCAN      (ff_scan),
         .\$EMU$FF$SDI       (ff_dir ? ff_sdi : ff_sdo),
@@ -31,7 +31,7 @@ module sim_top();
 
     emu_top emu_ref();
 
-    assign emu_ref.clock.clock = clk & !halt;
+    assign emu_ref.clock.clock = clk & !pause;
     assign emu_ref.reset.reset = rst;
 
     integer i, j;
@@ -48,7 +48,7 @@ module sim_top();
     reg [31:0] result;
 
     always @(posedge clk) begin
-        if (!halt) begin
+        if (!pause) begin
             result = emu_ref.u_mem.mem[3];
             if (result != 32'hffffffff && !finish) begin
                 $display("Benchmark finished with result = %d at cycle %d", result, cycle);
@@ -76,7 +76,7 @@ module sim_top();
         for (i=0; i<N_CKPT; i=i+1) begin
             #(CKPT_PERIOD*10);
             $display("checkpoint %d at cycle %d", i, cycle);
-            halt = 1;
+            pause = 1;
             #10;
             // dump ff
             ff_scan = 1;
@@ -98,7 +98,7 @@ module sim_top();
             // save cycle
             cycle_save[i] = cycle;
             #10;
-            halt = 0;
+            pause = 0;
         end
         while (!finish) #10;
         finish = 0;
@@ -106,7 +106,7 @@ module sim_top();
         // restore checkpoints
         for (i=0; i<N_CKPT; i=i+1) begin
             $display("restore checkpoint", i);
-            halt = 1;
+            pause = 1;
             #10;
             // load ff
             ff_scan = 1;
@@ -130,7 +130,7 @@ module sim_top();
             cycle = cycle_save[i];
             `LOAD_FF(ff_scan_save[i], 0, emu_ref);
             `LOAD_MEM(mem_scan_save[i], 0, emu_ref);
-            halt = 0;
+            pause = 0;
             while (!finish) #10;
             finish = 0;
             if (cycle != finish_cycle) begin

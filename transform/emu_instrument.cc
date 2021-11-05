@@ -201,7 +201,7 @@ private:
     std::vector<MemInfo> mem_info;
     std::vector<std::string> trig_info;
 
-    Wire *wire_clk, *wire_halt, *wire_dut_reset, *wire_dut_trig;
+    Wire *wire_clk, *wire_pause, *wire_dut_reset, *wire_dut_trig;
     Wire *wire_ff_scan, *wire_ff_sdi, *wire_ff_sdo;
     Wire *wire_ram_scan, *wire_ram_dir, *wire_ram_sdi, *wire_ram_sdo; // dir: 0=out 1=in
 
@@ -253,7 +253,7 @@ private:
 
     void create_ports() {
         wire_clk        = module->addWire("\\$EMU$CLK");                        wire_clk        ->port_input = true;
-        wire_halt       = module->addWire("\\$EMU$HALT");                       wire_halt       ->port_input = true;
+        wire_pause      = module->addWire("\\$EMU$PAUSE");                      wire_pause      ->port_input = true;
         wire_dut_reset  = module->addWire("\\$EMU$DUT$RESET");                  wire_dut_reset  ->port_input = true;
         wire_dut_trig   = module->addWire("\\$EMU$DUT$TRIG",    TRIG_WIDTH);    wire_dut_trig   ->port_output = true;
         wire_ff_scan    = module->addWire("\\$EMU$FF$SCAN");                    wire_ff_scan    ->port_input = true;
@@ -267,14 +267,14 @@ private:
         wire_dut_clk    = module->addWire("\\$EMU$DUT$CLK");
         Cell *gate = module->addCell(UniqueCellID(module, "\\ClockGate"), "\\ClockGate");
         gate->setPort("\\CLK", wire_clk);
-        gate->setPort("\\EN", module->Or(NEW_ID, module->Not(NEW_ID, wire_halt), wire_ff_scan));
+        gate->setPort("\\EN", module->Or(NEW_ID, module->Not(NEW_ID, wire_pause), wire_ff_scan));
         gate->setPort("\\GCLK", wire_dut_clk);
 
         module->fixup_ports();
     }
 
     void instrument_ffs(std::vector<Cell *> &ff_cells, ScanChainBlock<SrcInfo> &block) {
-        SigSpec halt_n = module->Not(NEW_ID, wire_halt);
+        SigSpec pause_n = module->Not(NEW_ID, wire_pause);
 
         // process clock, reset, enable signals and insert sdi
         // Original:
@@ -285,7 +285,7 @@ private:
         //     q <= d;
         // Instrumented:
         // always @(posedge gated_clk)
-        //   if (srst && !halt)
+        //   if (srst && !pause)
         //     q <= SRST_VAL;
         //   else if (ce || se)
         //     q <= se ? sdi : d;
@@ -300,7 +300,7 @@ private:
                 ff.sig_srst = module->Not(NEW_ID, ff.sig_srst);
                 ff.pol_srst = true;
             }
-            ff.sig_srst = module->And(NEW_ID, ff.sig_srst, halt_n);
+            ff.sig_srst = module->And(NEW_ID, ff.sig_srst, pause_n);
             if (!ff.pol_ce) {
                 ff.sig_ce = module->Not(NEW_ID, ff.sig_ce);
                 ff.pol_ce = true;
@@ -420,27 +420,27 @@ private:
             module->connect(se, module->Or(NEW_ID, wire_ram_dir, module->Not(NEW_ID, inc)));
             module->connect(we, module->And(NEW_ID, wire_ram_dir, inc));
 
-            // add halt signal to ports
+            // add pause signal to ports
             for (auto &wr : mem.wr_ports) {
-                wr.en = module->Mux(NEW_ID, wr.en, Const(0, GetSize(wr.en)), wire_halt);
+                wr.en = module->Mux(NEW_ID, wr.en, Const(0, GetSize(wr.en)), wire_pause);
             }
 
             // add accessor to write port 0
             auto &wr = mem.wr_ports[0];
-            wr.en = module->Mux(NEW_ID, wr.en, SigSpec(we, mem.width), wire_halt);
+            wr.en = module->Mux(NEW_ID, wr.en, SigSpec(we, mem.width), wire_pause);
             if (abits > 0)
-                wr.addr = module->Mux(NEW_ID, wr.addr, addr, wire_halt);
-            wr.data = module->Mux(NEW_ID, wr.data, wdata, wire_halt);
+                wr.addr = module->Mux(NEW_ID, wr.addr, addr, wire_pause);
+            wr.data = module->Mux(NEW_ID, wr.data, wdata, wire_pause);
 
             // add accessor to read port 0
             auto &rd = mem.rd_ports[0];
             if (abits > 0) {
-                // do not use halt signal to select address input here
-                // because we need to restore raddr before halt is deasserted to preserve output data
+                // do not use pause signal to select address input here
+                // because we need to restore raddr before pause is deasserted to preserve output data
                 rd.addr = module->Mux(NEW_ID, rd.addr, module->Mux(NEW_ID, addr, addr_next, inc), wire_ram_scan);
             }
             if (rd.clk_enable) {
-                rd.en = module->Or(NEW_ID, rd.en, wire_halt);
+                rd.en = module->Or(NEW_ID, rd.en, wire_pause);
                 module->connect(rdata, rd.data);
             }
             else {
@@ -485,12 +485,12 @@ private:
                             );
                         }
 
-                        // assign raddr = ren && !halt ? addr : addr_reg;
+                        // assign raddr = ren && !pause ? addr : addr_reg;
                         IdString muxid = mem.get_string_attribute(attr);
                         Cell *mux = module->cell(muxid);
                         log_assert(mux);
                         log_assert(mux->type == ID($mux));
-                        mux->setPort(ID::S, module->And(NEW_ID, rd.en, module->Not(NEW_ID, wire_halt)));
+                        mux->setPort(ID::S, module->And(NEW_ID, rd.en, module->Not(NEW_ID, wire_pause)));
 
                         continue;
                     }
@@ -502,20 +502,20 @@ private:
                         // reg [..] shadow_rdata;
                         // reg en;
                         // always @(posedge clk) begin
-                        //   if (rrst && !halt) shadow_rdata <= RSTVAL;
+                        //   if (rrst && !pause) shadow_rdata <= RSTVAL;
                         //   else shadow_rdata <= output;
                         // end
-                        // always @(posedge clk) en <= ren && !halt;
+                        // always @(posedge clk) en <= ren && !pause;
                         // assign output = en ? rdata : shadow_rdata;
 
                         SigSpec rst = rd.srst;
                         if (rd.ce_over_srst)
                             rst = module->And(NEW_ID, rst, rd.en);
-                        rst = module->And(NEW_ID, rst, module->Not(NEW_ID, wire_halt));
+                        rst = module->And(NEW_ID, rst, module->Not(NEW_ID, wire_pause));
 
                         SigSpec shadow_rdata = module->addWire(EMU_NAME(shadow_rdata), total_width);
                         SigSpec en = module->addWire(EMU_NAME(shadow_rdata_en));
-                        SigSpec en_d = module->And(NEW_ID, rd.en, module->Not(NEW_ID, wire_halt));
+                        SigSpec en_d = module->And(NEW_ID, rd.en, module->Not(NEW_ID, wire_pause));
                         module->addDff(NEW_ID, wire_clk, en_d, en);
                         SigSpec rdata = module->addWire(EMU_NAME(rdata), total_width);
                         SigSpec output = rd.data;

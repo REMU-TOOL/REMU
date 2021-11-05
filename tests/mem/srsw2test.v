@@ -7,7 +7,7 @@ module sim_top();
     parameter ROUND = 4;
 
     reg clk = 0, rst = 1;
-    reg halt = 0;
+    reg pause = 0;
     reg ff_scan = 0, ff_dir = 0;
     reg [63:0] ff_sdi = 0;
     wire [63:0] ff_sdo;
@@ -22,7 +22,7 @@ module sim_top();
 
     EMU_DUT emu_dut(
         .\$EMU$CLK          (clk),
-        .\$EMU$HALT         (halt),
+        .\$EMU$PAUSE        (pause),
         .\$EMU$DUT$RESET    (rst),
         .\$EMU$FF$SCAN      (ff_scan),
         .\$EMU$FF$SDI       (ff_dir ? ff_sdi : ff_sdo),
@@ -68,8 +68,8 @@ module sim_top();
             #10;
             rdata_save[i] = rdata;
             $display("round %d: rdata=%h", i, rdata);
-            // halt
-            halt = 1;
+            // pause
+            pause = 1;
             #10;
             // dump ff
             ff_scan = 1;
@@ -91,13 +91,13 @@ module sim_top();
             end
             ram_scan = 0;
             #10;
-            halt = 0;
+            pause = 0;
         end
         #10;
         $display("restore checkpoint");
         for (i=0; i<ROUND; i=i+1) begin
-            // halt
-            halt = 1;
+            // pause
+            pause = 1;
             #10;
             // load ff
             ff_scan = 1;
@@ -117,7 +117,7 @@ module sim_top();
             #10;
             ram_scan = 0;
             #10;
-            halt = 0;
+            pause = 0;
             // compare rdata register
             $display("round %d: rdata=%h", i, rdata);
             if (rdata !== rdata_save[i]) begin

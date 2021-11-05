@@ -163,7 +163,7 @@ module sim_top();
     wire ref_clk;
     ClockGate ref_clk_gate(
         .CLK(clk),
-        .EN(!u_emu_system.emu_halt),
+        .EN(!u_emu_system.emu_pause),
         .GCLK(ref_clk)
     );
 
@@ -273,7 +273,7 @@ module sim_top();
 
         #(CYCLE*100);
 
-        $display("=== halt ===");
+        $display("=== pause ===");
         s_axilite_awaddr = `EMU_STAT;
         s_axilite_awvalid = 1;
         s_axilite_wdata = 32'h00000001;
@@ -327,7 +327,7 @@ module sim_top();
 
         while (!finish) #CYCLE;
 
-        $display("=== halt ===");
+        $display("=== pause ===");
         s_axilite_awaddr = `EMU_STAT;
         s_axilite_awvalid = 1;
         s_axilite_wdata = 32'h00000001;
@@ -418,7 +418,7 @@ module sim_top();
             $display("Benchmark finished with result = %d at cycle = %d", result, u_emu_system.emu_cycle);
             finish = 1;
         end
-        if (resetn && !u_emu_system.emu_halt) begin
+        if (resetn && !u_emu_system.emu_pause) begin
             if (u_emu_system.emu_dut.\u_cpu.rf_wen !== emu_ref.u_cpu.rf_wen ||
                 u_emu_system.emu_dut.\u_cpu.rf_waddr !== emu_ref.u_cpu.rf_waddr ||
                 u_emu_system.emu_dut.\u_cpu.rf_wdata !== emu_ref.u_cpu.rf_wdata)
