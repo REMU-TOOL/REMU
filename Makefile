@@ -93,7 +93,7 @@ yosys:
 	make -C yosys PREFIX=$(BUILD_DIR) install
 
 .PHONY: transform
-transform:
+transform: yosys
 	+make -C transform
 
 .PHONY: test
