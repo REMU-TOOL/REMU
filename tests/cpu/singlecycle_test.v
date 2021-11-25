@@ -4,8 +4,8 @@
 
 module sim_top();
 
-    parameter N_CKPT = 5;
-    parameter CKPT_PERIOD = 200;
+    parameter N_CKPT = 2;
+    parameter CKPT_PERIOD = 500;
 
     reg clk = 0, rst = 1;
     reg pause = 0;
