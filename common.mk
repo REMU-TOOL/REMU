@@ -1,11 +1,10 @@
 ROOT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 YOSYS_DIR := $(ROOT_DIR)/yosys
-BUILD_DIR := $(ROOT_DIR)/build
 
 ifeq ($(DEBUG),y)
-YOSYS := gdb --args $(BUILD_DIR)/bin/yosys-debug
+YOSYS := gdb --args $(YOSYS_DIR)/yosys
 else
-YOSYS := $(BUILD_DIR)/bin/yosys
+YOSYS := $(YOSYS_DIR)/yosys
 endif
 
 RTLSRCS := $(wildcard $(ROOT_DIR)/rtl/ip/*.v $(ROOT_DIR)/rtl/system/*.v)

@@ -16,5 +16,5 @@ endif
 
 .PHONY: build
 build:
-	mkdir -p ../../build/design/$(DESIGN)/vivado_out
+	mkdir -p ../../design/build/$(DESIGN)/vivado_out
 	$(VIVADO) $(VIVADO_FLAGS) -source common/scripts/mk.tcl -tclargs "$(PLAT)" "$(DESIGN)"

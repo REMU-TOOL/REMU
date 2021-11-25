@@ -7,7 +7,7 @@ __pycache__
 
 .config
 
-build/
+design/build/
 tests/_output/
 
 monitor/platform.h

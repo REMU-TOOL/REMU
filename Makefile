@@ -27,7 +27,8 @@ config-platform:
 DESIGN ?=
 VTOP ?= emu_top
 
-DESIGN_BUILD_DIR := build/design/$(DESIGN)
+DESIGN_BUILD_ROOT := design/build
+DESIGN_BUILD_DIR := $(DESIGN_BUILD_ROOT)/$(DESIGN)
 VSRC := $(wildcard design/$(DESIGN)/*.v)
 
 DESIGN_OUTPUT_V := $(DESIGN_BUILD_DIR)/output.v
@@ -40,7 +41,7 @@ ifeq ($(DESIGN),)
 design:
 	$(error No design specified)
 design_clean:
-	$(error No design specified)
+	rm -rf $(DESIGN_BUILD_ROOT)
 else
 design: $(DESIGN_SIM_BIN) .platform-flow
 design_clean:
@@ -82,15 +83,13 @@ $(DESIGN_SIM_BIN): $(SIMSRCS) $(VSRC) | $(DESIGN_OUTPUT_V)
 
 .PHONY: build
 build: yosys transform
-	mkdir -p $(BUILD_DIR)/share/yosys/plugins
-	cp transform/transform.so $(BUILD_DIR)/share/yosys/plugins
-	cp -r emulib $(BUILD_DIR)/share/yosys/
-	cp yosys/yosys $(BUILD_DIR)/bin/yosys-debug
+	mkdir -p $(YOSYS_DIR)/share/plugins
+	cp -f transform/transform.so $(YOSYS_DIR)/share/plugins
+	cp -rf emulib $(YOSYS_DIR)/share/
 
 .PHONY: yosys
 yosys:
 	+make -C yosys all
-	make -C yosys PREFIX=$(BUILD_DIR) install
 
 .PHONY: transform
 transform: yosys
@@ -107,9 +106,6 @@ monitor:
 .PHONY: clean test_clean transform_clean build_clean yosys_clean monitor_clean
 
 clean: build_clean yosys_clean transform_clean test_clean monitor_clean
-
-build_clean:
-	rm -rf $(BUILD_DIR)
 
 yosys_clean:
 	make -C yosys clean

@@ -6,7 +6,7 @@ if { $argc != 2 } {
 set plat    [lindex $argv 0]
 set design  [lindex $argv 1]
 
-set design_dir ../../build/design/${design}
+set design_dir ../../design/build/${design}
 
 source ${plat}/scripts/board.tcl
 
