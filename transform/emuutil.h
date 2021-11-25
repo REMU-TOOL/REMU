@@ -5,16 +5,6 @@
 
 namespace EmuUtil {
 
-    class LogicBuilder {
-    protected:
-        Yosys::Module *module;
-
-    public:
-        LogicBuilder(Yosys::Module *mod) : module(mod) {}
-
-        virtual void run() {}
-    };
-
     struct SrcInfoChunk {
         std::string name;
         int offset;
@@ -34,6 +24,52 @@ namespace EmuUtil {
         SrcInfo(std::string);
         operator std::string();
         SrcInfo extract(int offset, int length);
+    };
+
+    class JsonWriter {
+        std::ostream &os;
+        std::vector<std::pair<char, bool>> stack;
+        bool after_key;
+
+        inline void indent() {
+            os << std::string(stack.size() * 4, ' ');
+        }
+
+        inline void comma_and_newline() {
+            if (!stack.back().second) {
+                stack.back().second = true;
+            }
+            else {
+                os << ",\n";
+            }
+        }
+
+        inline void value_preoutput() {
+            if (!after_key) {
+                comma_and_newline();
+                indent();
+            }
+        }
+
+    public:
+
+        JsonWriter &key(const std::string &key);
+        JsonWriter &string(const std::string &str);
+
+        template <typename T> inline JsonWriter &value(const T &value) {
+            value_preoutput();
+            os << value;
+            after_key = false;
+            return *this;
+        }
+
+        JsonWriter &enter_array();
+        JsonWriter &enter_object();
+        JsonWriter &back();
+        void end();
+
+        JsonWriter(std::ostream &os);
+        ~JsonWriter();
     };
 
     struct {
