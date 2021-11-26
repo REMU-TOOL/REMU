@@ -1,8 +1,3 @@
-include ../common.mk
-
-OUTPUT_DIR := _output
-RESULT_FILE := $(OUTPUT_DIR)/result.log
-
 SUITES := pause ff mem cpu system
 
 SUITE ?=
@@ -15,59 +10,48 @@ ifeq ($(DUMP),y)
 	SIM_FLAGS += +DUMP
 endif
 
-EXTRA_INCLUDE :=
-
 # find all requested test suites
 
 ifeq ($(SUITE),)
-SUITE_USE := $(SUITES)
+SUITE := $(SUITES)
 else
 $(foreach S,$(SUITE),$(if $(filter $(S),$(SUITES)),, \
 $(error Suite $(S) not found) \
 ))
-SUITE_USE := $(SUITE)
 endif
-
-$(foreach S,$(SUITE_USE),$(eval include $(S)/include.mk))
 
 # find all requested tests
 
 ifeq ($(TEST),)
-TEST_USE := $(foreach S,$(SUITE_USE),$(foreach T,$(TESTS-$(S)),$(S)-$(T)))
+TEST_MK := $(foreach S,$(SUITE),$(wildcard $(S)/*.mk))
 else
-$(foreach S,$(SUITE_USE),$(foreach T,$(TEST),$(if $(filter $(T),$(TESTS-$(S))),, \
+$(foreach S,$(SUITE),$(foreach T,$(TEST),$(if $(wildcard $(S)/$(T).mk),, \
 $(error Test $(T) not found in suite $(S)) \
 )))
-TEST_USE := $(foreach S,$(SUITE_USE),$(foreach T,$(TEST),$(S)-$(T)))
+TEST_MK := $(foreach S,$(SUITE),$(foreach T,$(TEST),$(S)/$(T).mk))
 endif
+TEST_LOG := $(patsubst %.mk,%.log,$(TEST_MK))
+
+.PHONY: FORCE
+
+RESULT_FILE := result.log
 
 .PHONY: test
-test: clean-result $(foreach N,$(TEST_USE),run-$(N))
+test: clean-result $(TEST_LOG)
 	@cat $(RESULT_FILE)
 	@test -z "`grep FAIL $(RESULT_FILE)`"
 
 .PHONY: clean
-clean:
-	rm -rf $(OUTPUT_DIR)
+clean: clean-result
+	rm -f $(TEST_LOG)
+	@$(foreach T,$(TEST_MK),make -C $(dir $(T)) -f $(notdir $(T)) clean; )
 
 .PHONY: clean-result
 clean-result:
 	rm -f $(RESULT_FILE)
 
-.SECONDEXPANSION:
-
-.PHONY: run-%
-run-%: $(OUTPUT_DIR)/%/sim
-	@(stdbuf -o0 $(abspath $<) $(SIM_FLAGS) \
+%.log: %.mk FORCE
+	@(stdbuf -o0 make -C $(dir $(<)) -f $(notdir $(<)) \
 	&& echo "\033[32m[PASS]\033[39m $*" >> $(RESULT_FILE) \
 	|| echo "\033[31m[FAIL]\033[39m $*" >> $(RESULT_FILE) \
-	) 2>&1 | tee $(OUTPUT_DIR)/$*/run.log
-
-.SECONDARY: $(foreach N,$(TEST_USE),$(OUTPUT_DIR)/$(N)/sim)
-$(OUTPUT_DIR)/%/sim: $$(VSIM-%) $(OUTPUT_DIR)/%/output.v $(SIMSRCS)
-	iverilog -Icommon -I$(OUTPUT_DIR)/$* $(EXTRA_INCLUDE) -DDUMP_FILE=\"$(OUTPUT_DIR)/$*/dump.vcd\" -s sim_top -o $@ $^
-
-.SECONDARY: $(foreach N,$(TEST_USE),$(OUTPUT_DIR)/$(N)/output.v)
-$(OUTPUT_DIR)/%/output.v: $$(VSRC-%)
-	mkdir -p $(OUTPUT_DIR)/$*
-	$(YOSYS) -m transform -p "emu_transform -top $(VTOP-$*) -cfg $(OUTPUT_DIR)/$*/config.json -ldr $(OUTPUT_DIR)/$*/loader.vh" -o $@ $(VSRC-$*)
+	) 2>&1 | tee $@

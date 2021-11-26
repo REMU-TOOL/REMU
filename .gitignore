@@ -2,13 +2,14 @@
 *.d
 *.so
 *.out
+*.log
+*.build
 __pycache__
 .Xil
 
 .config
 
 design/build/
-tests/_output/
 
 monitor/platform.h
 monitor/monitor

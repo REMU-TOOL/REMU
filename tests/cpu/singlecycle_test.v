@@ -68,8 +68,8 @@ module sim_top();
     end
 
     initial begin
-        $readmemh("common/initmem.txt", emu_dut.\u_mem.mem .\u_mem.mem );
-        $readmemh("common/initmem.txt", emu_ref.u_mem.mem);
+        $readmemh("../common/initmem.txt", emu_dut.\u_mem.mem .\u_mem.mem );
+        $readmemh("../common/initmem.txt", emu_ref.u_mem.mem);
         #30;
         rst = 0;
         // dump checkpoints at different time
