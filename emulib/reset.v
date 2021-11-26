@@ -11,13 +11,22 @@ module EmuReset #(
 
 `ifndef EMULIB_TEST
 
-    integer cnt = 0;
-    reg reset_gen = 1;
+    integer cnt;
+    reg reset_gen = DURATION_CYCLES > 0;
 
-    always @(negedge clk) begin
+    // workaround to access current cycle count
+    initial begin
+        if ($value$plusargs("startcycle=%d", cnt)) begin
+            if (cnt >= DURATION_CYCLES) reset_gen = 0;
+        end
+        else begin
+            cnt = 0;
+        end
+    end
+
+    always @(posedge clock) begin
         cnt = cnt + 1;
-        if (cnt >= DURATION_CYCLES)
-            reset_gen = 0;
+        if (cnt >= DURATION_CYCLES) reset_gen <= 0;
     end
 
     assign reset = reset_gen;

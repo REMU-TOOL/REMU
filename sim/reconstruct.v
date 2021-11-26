@@ -4,30 +4,18 @@
 
 module reconstruct();
 
-    parameter CYCLE = 10;
-
-    reg clk = 1, rst = 1, en = 0;
-
-    always #(CYCLE/2) clk = ~clk;
-
     emu_top u_emu_top();
 
-    assign u_emu_top.clock.clock = clk & en;
-    assign u_emu_top.reset.reset = rst;
-
     reg [63:0] start_cycle, run_cycle, cycle;
+
+    // TODO: remove use of clock signal
+    wire clk = u_emu_top.clock.clock;
 
     always @(posedge clk) begin
         if (cycle >= start_cycle + run_cycle) begin
             $finish;
         end
         cycle = cycle + 1;
-    end
-
-    always @(negedge clk) begin
-        if (cycle >= u_emu_top.reset.DURATION_CYCLES) begin
-            rst = 0;
-        end
     end
 
     reg [`LOAD_WIDTH-1:0] data [0:`CHAIN_FF_WORDS+`CHAIN_MEM_WORDS-1];
@@ -58,8 +46,6 @@ module reconstruct();
         cycle = start_cycle;
         $dumpfile(dumpfile);
         $dumpvars();
-        #(CYCLE/2);
-        en = 1;
     end
 
 endmodule
