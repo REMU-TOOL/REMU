@@ -11,7 +11,7 @@ module EmuReset #(
 
 `ifndef EMULIB_TEST
 
-    integer cnt;
+    reg [63:0] cnt;
     reg reset_gen = DURATION_CYCLES > 0;
 
     // workaround to access current cycle count
