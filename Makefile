@@ -43,7 +43,7 @@ design:
 design_clean:
 	rm -rf $(DESIGN_BUILD_ROOT)
 else
-design: $(DESIGN_SIM_BIN) .platform-flow
+design: .platform-flow
 design_clean:
 	rm -rf $(DESIGN_BUILD_DIR)
 endif
@@ -55,7 +55,7 @@ launch:
 	rm -rf /tmp/ckpt
 	python3 -m host $(LOADMEM) $(DESIGN_BUILD_DIR)/config.json $(HOST) $(PORT) /tmp/ckpt
 
-reconstruct:
+reconstruct: $(DESIGN_SIM_BIN)
 	$(if $(DESIGN),,$(error DESIGN is not specified))
 	$(if $(HOST),,$(error HOST is not specified))
 	$(if $(PORT),,$(error PORT is not specified))
