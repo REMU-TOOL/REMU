@@ -24,7 +24,7 @@ class EmulatorMain:
         self.__dumpfile = args.dumpfile
 
     def run(self):
-        if self.__dump:
+        if self.__dump != None:
             self.__emu.rewind(self.__dump)
             self.__emu.save(self.__dumpfile)
         else:
