@@ -9,4 +9,19 @@ module EmuReset #(
     output reset
 );
 
+`ifndef EMULIB_TEST
+
+    integer cnt = 0;
+    reg reset_gen = 1;
+
+    always @(negedge clk) begin
+        cnt = cnt + 1;
+        if (cnt >= DURATION_CYCLES)
+            reset_gen = 0;
+    end
+
+    assign reset = reset_gen;
+
+`endif
+
 endmodule

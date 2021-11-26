@@ -5,10 +5,6 @@ YOSYS ?= $(ROOT_DIR)/yosys/yosys
 
 SIM_FLAGS ?=
 
-BUILD_SRCS :=
-SIM_SRCS :=
-SIM_INCLUDE_PATH :=
-
 # Test-specific parameters
 BUILD_TOP 	:= emu_top
 BUILD_SRCS 	+= $(ROOT_DIR)/design/example_singlecycle/emu_top.v
@@ -26,6 +22,8 @@ DUMP_FILE 	:= $(BUILD_DIR)/dump.vcd
 
 SIM_SRCS	+= $(OUTPUT_FILE)
 SIM_SRCS 	+= $(wildcard $(ROOT_DIR)/sim/*.v $(ROOT_DIR)/emulib/*.v)
+
+EXTRA_IVFLAGS += -DEMULIB_TEST
 
 run:
 	mkdir -p $(BUILD_DIR)
