@@ -9,7 +9,7 @@ module EmuClock #(
     output clock
 );
 
-`ifndef EMULIB_TEST
+`ifdef RECONSTRUCT
 
     reg clock_gen = 0;
 

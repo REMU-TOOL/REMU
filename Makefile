@@ -73,7 +73,7 @@ $(DESIGN_OUTPUT_V): $(VSRC)
 	$(YOSYS) -m transform -p "emu_transform -top $(VTOP) -cfg $(DESIGN_BUILD_DIR)/config.json -ldr $(DESIGN_BUILD_DIR)/loader.vh" -o $@ $^
 
 $(DESIGN_SIM_BIN): $(SIMSRCS) $(VSRC) | $(DESIGN_OUTPUT_V)
-	iverilog -I$(DESIGN_BUILD_DIR) -s reconstruct -o $@ $^
+	iverilog -I$(DESIGN_BUILD_DIR) -DRECONSTRUCT -s reconstruct -o $@ $^
 
 .PHONY: .platform-flow
 .platform-flow: $(DESIGN_OUTPUT_V)

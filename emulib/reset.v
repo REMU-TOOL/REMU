@@ -9,7 +9,7 @@ module EmuReset #(
     output reset
 );
 
-`ifndef EMULIB_TEST
+`ifdef RECONSTRUCT
 
     reg [63:0] cnt;
     reg reset_gen = DURATION_CYCLES > 0;
