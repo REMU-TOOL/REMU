@@ -542,7 +542,7 @@ struct MemoryDffWorker
                 log("    Write port %d: non-transparent.\n", pi);
             }
         }
-        mem.set_string_attribute(stringf("\\emu_orig_rdata[%d]", idx), SrcInfo(ff.sig_q));
+        mem.set_string_attribute(stringf("\\emu_orig_rdata[%d]", idx), FfInfo(ff.sig_q));
         mem.emit();
     }
 

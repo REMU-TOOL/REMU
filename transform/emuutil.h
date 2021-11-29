@@ -2,28 +2,40 @@
 #define _EMUUTIL_H_
 
 #include "kernel/yosys.h"
+#include "kernel/mem.h"
 
 namespace EmuUtil {
 
-    struct SrcInfoChunk {
-        std::string name;
+    std::string verilog_id(const std::string &name);
+    std::string verilog_hier_name(const std::vector<std::string> &hier);
+
+    struct FfInfoChunk {
+        std::vector<std::string> name;
         int offset;
         int width;
-        SrcInfoChunk(std::string n, int o, int w) : name(n), offset(o), width(w) {}
-        SrcInfoChunk(Yosys::SigChunk c)
-            : name(c.is_wire() ? c.wire->name.str() : ""), offset(c.offset), width(c.width) {}
-        SrcInfoChunk extract(int offset, int length) {
-            return SrcInfoChunk(name, this->offset + offset, length);
+        FfInfoChunk(std::vector<std::string> &n, int o, int w) : name(n), offset(o), width(w) {}
+        FfInfoChunk extract(int offset, int length) {
+            return FfInfoChunk(name, this->offset + offset, length);
         }
     };
 
-    struct SrcInfo {
-        std::vector<SrcInfoChunk> info;
-        SrcInfo() {}
-        SrcInfo(Yosys::SigSpec);
-        SrcInfo(std::string);
+    struct FfInfo {
+        std::vector<FfInfoChunk> info;
+        FfInfo() {}
+        FfInfo(Yosys::SigSpec);
+        FfInfo(std::string);
         operator std::string();
-        SrcInfo extract(int offset, int length);
+        FfInfo extract(int offset, int length);
+    };
+
+    struct MemInfo {
+        std::vector<std::string> name;
+        int depth;
+        int mem_width;
+        int mem_depth;
+        int mem_start_offset;
+        MemInfo() {}
+        MemInfo(Yosys::Mem &mem, int depth);
     };
 
     class JsonWriter {

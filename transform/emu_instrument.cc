@@ -28,13 +28,6 @@ IdString UniqueCellID(Module *module, std::string prefix) {
 
 #define EMU_NAME(x) (EmuIDGen(__FILE__, __LINE__, __FUNCTION__, #x))
 
-struct MemInfo {
-    std::string name;
-    int width;
-    int depth;
-    int start_offset;
-};
-
 // scan chain building block
 template <typename T>
 struct ScanChainBlock {
@@ -94,7 +87,7 @@ private:
 
     Module *module;
 
-    std::vector<SrcInfo> ff_info;
+    std::vector<FfInfo> ff_info;
     std::vector<MemInfo> mem_info;
     std::vector<std::string> trig_info;
 
@@ -170,7 +163,7 @@ private:
         module->fixup_ports();
     }
 
-    void instrument_ffs(std::vector<Cell *> &ff_cells, ScanChainBlock<SrcInfo> &block) {
+    void instrument_ffs(std::vector<Cell *> &ff_cells, ScanChainBlock<FfInfo> &block) {
         SigSpec pause_n = module->Not(NEW_ID, wire_pause);
 
         // process clock, reset, enable signals and insert sdi
@@ -233,7 +226,7 @@ private:
             SigSpec q = sdi_q_list.second.extract(i, DATA_WIDTH);
             module->connect(sdo, q);
             block.depth++;
-            block.src.push_back(SrcInfo(q));
+            block.src.push_back(FfInfo(q));
         }
         module->connect(block.data_i, sdi);
     }
@@ -351,18 +344,14 @@ private:
             mem.emit();
 
             // record source info for reconstruction
-            MemInfo info;
-            info.name = mem.cell->name.str();
-            info.width = mem.width;
-            info.depth = mem.size;
-            info.start_offset = mem.start_offset;
+            MemInfo info(mem, slices * mem.size);
             block.src.push_back(info);
 
             chain.commit_block();
         }
     }
 
-    void restore_mem_rdport_ffs(std::vector<Mem> &mem_cells, ScanChainBlock<SrcInfo> &block) {
+    void restore_mem_rdport_ffs(std::vector<Mem> &mem_cells, ScanChainBlock<FfInfo> &block) {
         SigSpec sdi, sdo;
         sdi = block.data_o;
 
@@ -433,7 +422,7 @@ private:
 
                             block.depth++;
 
-                            SrcInfo src = mem.get_string_attribute(attr);
+                            FfInfo src = mem.get_string_attribute(attr);
                             block.src.push_back(src.extract(i, w));
                         }
 
@@ -520,7 +509,7 @@ public:
         // replace library instances with emulation logic
         process_emulib();
 
-        ScanChain<SrcInfo> chain_ff(module, DATA_WIDTH);
+        ScanChain<FfInfo> chain_ff(module, DATA_WIDTH);
         ScanChain<MemInfo> chain_mem(module, DATA_WIDTH);
 
         // process FFs
@@ -569,7 +558,10 @@ public:
             int new_off = 0;
             for (auto &c : src.info) {
                 json.enter_object();
-                json.key("name").string(c.name);
+                json.key("name").enter_array();
+                for (auto &s : c.name)
+                    json.string(s);
+                json.back();
                 json.key("offset").value(c.offset);
                 json.key("width").value(c.width);
                 json.key("new_offset").value(new_off);
@@ -586,15 +578,17 @@ public:
         int mem_addr = 0;
         json.key("mem").enter_array();
         for (auto &mem : mem_info) {
-            int slices = (mem.width + DATA_WIDTH - 1) / DATA_WIDTH;
             json.enter_object();
             json.key("addr").value(mem_addr);
-            json.key("name").string(mem.name);
-            json.key("width").value(mem.width);
-            json.key("depth").value(mem.depth);
-            json.key("start_offset").value(mem.start_offset);
+            json.key("name").enter_array();
+                for (auto &s : mem.name)
+                    json.string(s);
+                json.back();
+            json.key("width").value(mem.mem_width);
+            json.key("depth").value(mem.mem_depth);
+            json.key("start_offset").value(mem.mem_start_offset);
             json.back();
-            mem_addr += slices * mem.depth;
+            mem_addr += mem.depth;
         }
         json.back();
         json.key("mem_size").value(mem_addr);
@@ -634,12 +628,10 @@ public:
         for (auto &src : ff_info) {
             int offset = 0;
             for (auto info : src.info) {
-                const char *name = info.name.c_str();
-                if (name[0] == '\\') {
-                    f   << "    __LOAD_DUT." << &name[1]
-                        << "[" << info.width + info.offset - 1 << ":" << info.offset << "] = __LOAD_FF_DATA[__LOAD_OFFSET+" << addr << "]"
-                        << "[" << info.width + offset - 1 << ":" << offset << "]; \\\n";
-                }
+                std::string name = verilog_hier_name(info.name);
+                f   << "    __LOAD_DUT." << name
+                    << "[" << info.width + info.offset - 1 << ":" << info.offset << "] = __LOAD_FF_DATA[__LOAD_OFFSET+" << addr << "]"
+                    << "[" << info.width + offset - 1 << ":" << offset << "]; \\\n";
                 offset += info.width;
             }
             addr++;
@@ -650,16 +642,14 @@ public:
         f << "`define LOAD_MEM(__LOAD_MEM_DATA, __LOAD_OFFSET, __LOAD_DUT) \\\n";
         addr = 0;
         for (auto &mem : mem_info) {
-            int slices = (mem.width + DATA_WIDTH - 1) / DATA_WIDTH;
-            const char *name = mem.name.c_str();
-            if (name[0] == '\\') {
-                f   << "    for (__load_i=0; __load_i<" << mem.depth << "; __load_i=__load_i+1) __LOAD_DUT."
-                    << &name[1] << "[__load_i+" << mem.start_offset << "] = {";
-                for (int i = slices - 1; i >= 0; i--)
-                    f   << "__LOAD_MEM_DATA[__LOAD_OFFSET+__load_i*" << slices << "+" << addr + i << "]" << (i != 0 ? ", " : "");
-                f   << "}; \\\n";
-            }
-            addr += slices * mem.depth;
+            int slices = (mem.mem_width + DATA_WIDTH - 1) / DATA_WIDTH;
+            std::string name = verilog_hier_name(mem.name);
+            f   << "    for (__load_i=0; __load_i<" << mem.mem_depth << "; __load_i=__load_i+1) __LOAD_DUT."
+                << name << "[__load_i+" << mem.mem_start_offset << "] = {";
+            for (int i = slices - 1; i >= 0; i--)
+                f   << "__LOAD_MEM_DATA[__LOAD_OFFSET+__load_i*" << slices << "+" << addr + i << "]" << (i != 0 ? ", " : "");
+            f   << "}; \\\n";
+            addr += slices * mem.mem_depth;
         }
         f << "\n";
         f << "`define CHAIN_MEM_WORDS " << addr << "\n";
