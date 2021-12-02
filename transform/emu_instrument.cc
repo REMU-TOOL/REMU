@@ -1,40 +1,23 @@
 #include "kernel/yosys.h"
 #include "kernel/ff.h"
 #include "kernel/mem.h"
+#include "kernel/utils.h"
 
 #include <queue>
 
-#include "emuutil.h"
+#include "emu.h"
 
-using namespace EmuUtil;
+using namespace Emu;
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
-
-std::string EmuIDGen(std::string file, int line, std::string function, std::string name) {
-    std::ostringstream s;
-    s << "\\$EMUGEN." << name << "$" << file << ":" << line << "@" << function << "#";
-    return IDGen(s.str());
-}
-
-IdString UniqueCellID(Module *module, std::string prefix) {
-    int i = 0;
-    IdString id;
-    do {
-        id = prefix + stringf("%d", i++);
-    } while (module->cell(id));
-    return id;
-}
-
-#define EMU_NAME(x) (EmuIDGen(__FILE__, __LINE__, __FUNCTION__, #x))
 
 // scan chain building block
 template <typename T>
 struct ScanChainBlock {
     Wire *data_i, *data_o, *last_i, *last_o;
-    int depth; // num of layers of scan registers
     std::vector<T> src;
-    ScanChainBlock(): depth(0) {}
+    ScanChainBlock() {}
 };
 
 // a whole scan chain connecting scan chain blocks
@@ -69,7 +52,6 @@ struct ScanChain : public ScanChainBlock<T> {
     void commit_block() {
         log_assert(active_block != 0);
 
-        this->depth += active_block->depth;
         this->src.insert(this->src.end(), active_block->src.begin(), active_block->src.end());
 
         delete active_block;
@@ -82,89 +64,41 @@ class InsertAccessorWorker {
 
 private:
 
-    const int DATA_WIDTH = 64;
-    const int TRIG_WIDTH = 32;
-
     Module *module;
+    Database &database;
 
-    std::vector<FfInfo> ff_info;
-    std::vector<MemInfo> mem_info;
-    std::vector<std::string> trig_info;
+    Wire *wire_clk;
+    Wire *wire_ff_scan, *wire_ff_data_i, *wire_ff_data_o;
+    Wire *wire_ram_scan, *wire_ram_dir, *wire_ram_data_i, *wire_ram_data_o, *wire_ram_last_i, *wire_ram_last_o; // dir: 0=out 1=in
 
-    Wire *wire_clk, *wire_pause, *wire_dut_reset, *wire_dut_trig;
-    Wire *wire_ff_scan, *wire_ff_sdi, *wire_ff_sdo;
-    Wire *wire_ram_scan, *wire_ram_dir, *wire_ram_sdi, *wire_ram_sdo; // dir: 0=out 1=in
-
-    Wire *wire_dut_clk;
-
-    void process_emulib() {
-        std::vector<Cell *> cells_to_remove;
-        int trig_count = 0;
-        for (auto cell : module->cells()) {
-            // TODO: handle multiple clocks & resets
-            if (cell->type.c_str()[0] == '\\') {
-                Module *modref = module->design->module(cell->type);
-
-                // clock instance
-                if (modref->get_bool_attribute("\\emulib_clock")) {
-                    SigSpec c = cell->getPort("\\clock");
-                    module->connect(c, wire_clk);
-                    cells_to_remove.push_back(cell);
-                }
-
-                // reset instance
-                if (modref->get_bool_attribute("\\emulib_reset")) {
-                    SigSpec r = cell->getPort("\\reset");
-                    module->connect(r, wire_dut_reset);
-                    cells_to_remove.push_back(cell);
-                }
-
-                // trigger instance
-                if (modref->get_bool_attribute("\\emulib_trigger")) {
-                    if (trig_count >= TRIG_WIDTH)
-                        log_error("Maximum trigger count exceeded.\n");
-                    SigSpec t = cell->getPort("\\trigger");
-                    module->connect(SigSpec(wire_dut_trig).extract(trig_count), t);
-                    trig_info.push_back(cell->name.str());
-                    cells_to_remove.push_back(cell);
-                    trig_count++;
-                }
-            }
-        }
-
-        for (auto cell : cells_to_remove) {
-            module->remove(cell);
-        }
-
-        while (trig_count < TRIG_WIDTH) {
-            module->connect(SigSpec(wire_dut_trig).extract(trig_count++), State::S0);
-        }
-    }
+    SigSpec wire_scan; // staging
 
     void create_ports() {
-        wire_clk        = module->addWire("\\$EMU$CLK");                        wire_clk        ->port_input = true;
-        wire_pause      = module->addWire("\\$EMU$PAUSE");                      wire_pause      ->port_input = true;
-        wire_dut_reset  = module->addWire("\\$EMU$DUT$RESET");                  wire_dut_reset  ->port_input = true;
-        wire_dut_trig   = module->addWire("\\$EMU$DUT$TRIG",    TRIG_WIDTH);    wire_dut_trig   ->port_output = true;
-        wire_ff_scan    = module->addWire("\\$EMU$FF$SCAN");                    wire_ff_scan    ->port_input = true;
-        wire_ff_sdi     = module->addWire("\\$EMU$FF$SDI",      DATA_WIDTH);    wire_ff_sdi     ->port_input = true;
-        wire_ff_sdo     = module->addWire("\\$EMU$FF$SDO",      DATA_WIDTH);    wire_ff_sdo     ->port_output = true;
-        wire_ram_scan   = module->addWire("\\$EMU$RAM$SCAN");                   wire_ram_scan   ->port_input = true;
-        wire_ram_dir    = module->addWire("\\$EMU$RAM$DIR");                    wire_ram_dir    ->port_input = true;
-        wire_ram_sdi    = module->addWire("\\$EMU$RAM$SDI",     DATA_WIDTH);    wire_ram_sdi    ->port_input = true;
-        wire_ram_sdo    = module->addWire("\\$EMU$RAM$SDO",     DATA_WIDTH);    wire_ram_sdo    ->port_output = true;
+        wire_clk        = module->addWire(PortClk);                         wire_clk        ->port_input = true;
+        wire_ff_scan    = module->addWire(PortFfScanEn);                    wire_ff_scan    ->port_input = true;
+        wire_ff_data_i  = module->addWire(PortFfDataIn,    DATA_WIDTH);     wire_ff_data_i  ->port_input = true;
+        wire_ff_data_o  = module->addWire(PortFfDataOut,   DATA_WIDTH);     wire_ff_data_o  ->port_output = true;
+        wire_ram_scan   = module->addWire(PortRamScanEn);                   wire_ram_scan   ->port_input = true;
+        wire_ram_dir    = module->addWire(PortRamScanDir);                  wire_ram_dir    ->port_input = true;
+        wire_ram_data_i = module->addWire(PortRamDataIn,   DATA_WIDTH);     wire_ram_data_i ->port_input = true;
+        wire_ram_data_o = module->addWire(PortRamDataOut,  DATA_WIDTH);     wire_ram_data_o ->port_output = true;
+        wire_ram_last_i = module->addWire(PortRamLastIn);                   wire_ram_last_i ->port_input = true;
+        wire_ram_last_o = module->addWire(PortRamLastOut);                  wire_ram_last_o ->port_output = true;
 
+        /* TODO: move to emu_system
         wire_dut_clk    = module->addWire("\\$EMU$DUT$CLK");
         Cell *gate = module->addCell(UniqueCellID(module, "\\ClockGate"), "\\ClockGate");
         gate->setPort("\\CLK", wire_clk);
         gate->setPort("\\EN", module->Or(NEW_ID, module->Not(NEW_ID, wire_pause), wire_ff_scan));
         gate->setPort("\\GCLK", wire_dut_clk);
+        */
+
+        wire_scan = module->Or(NEW_ID, wire_ff_scan, wire_ram_scan);
 
         module->fixup_ports();
     }
 
     void instrument_ffs(std::vector<Cell *> &ff_cells, ScanChainBlock<FfInfo> &block) {
-        SigSpec pause_n = module->Not(NEW_ID, wire_pause);
 
         // process clock, reset, enable signals and insert sdi
         // Original:
@@ -175,7 +109,7 @@ private:
         //     q <= d;
         // Instrumented:
         // always @(posedge gated_clk)
-        //   if (srst && !pause)
+        //   if (srst && !se)
         //     q <= SRST_VAL;
         //   else if (ce || se)
         //     q <= se ? sdi : d;
@@ -185,18 +119,23 @@ private:
 
         for (auto &cell : ff_cells) {
             FfData ff(nullptr, cell);
-            ff.sig_clk = wire_dut_clk;
             if (!ff.pol_srst) {
                 ff.sig_srst = module->Not(NEW_ID, ff.sig_srst);
                 ff.pol_srst = true;
             }
-            ff.sig_srst = module->And(NEW_ID, ff.sig_srst, pause_n);
+            ff.sig_srst = module->And(NEW_ID, ff.sig_srst, module->Not(NEW_ID, wire_scan));
+            if (!ff.has_ce) {
+                ff.sig_ce = State::S1;
+                ff.has_ce = true;
+                ff.pol_ce = true;
+            }
             if (!ff.pol_ce) {
                 ff.sig_ce = module->Not(NEW_ID, ff.sig_ce);
                 ff.pol_ce = true;
             }
             ff.sig_ce = module->Or(NEW_ID, ff.sig_ce, wire_ff_scan);
-            SigSpec sdi = module->addWire(EMU_NAME(sdi), GetSize(ff.sig_d));
+            ff.sig_ce = module->And(NEW_ID, ff.sig_ce, module->Not(NEW_ID, wire_ram_scan)); // staging
+            SigSpec sdi = module->addWire(NEW_ID, GetSize(ff.sig_d));
             ff.sig_d = module->Mux(NEW_ID, ff.sig_d, sdi, wire_ff_scan);
             sdi_q_list.first.append(sdi);
             sdi_q_list.second.append(ff.sig_q);
@@ -211,13 +150,14 @@ private:
             int pad = DATA_WIDTH - r;
             Wire *d = module->addWire(NEW_ID, pad);
             Wire *q = module->addWire(NEW_ID, pad);
-            module->addDff(NEW_ID, wire_dut_clk, d, q);
+            module->addDff(NEW_ID, wire_clk, d, q);
             sdi_q_list.first.append(d);
             sdi_q_list.second.append(q);
         }
 
         // build scan chain
         int size = GetSize(sdi_q_list.first);
+        int depth = 0;
         SigSpec sdi, sdo;
         sdi = block.data_o;
         for (int i = 0; i < size; i += DATA_WIDTH) {
@@ -225,10 +165,10 @@ private:
             sdi = sdi_q_list.first.extract(i, DATA_WIDTH);
             SigSpec q = sdi_q_list.second.extract(i, DATA_WIDTH);
             module->connect(sdo, q);
-            block.depth++;
+            depth++;
             block.src.push_back(FfInfo(q));
         }
-        module->connect(block.data_i, sdi);
+        module->connect(sdi, block.data_i);
     }
 
     void instrument_mems(std::vector<Mem> &mem_cells, ScanChain<MemInfo> &chain) {
@@ -240,7 +180,7 @@ private:
             const int abits = ceil_log2(last_addr);
             const int slices = (mem.width + DATA_WIDTH - 1) / DATA_WIDTH;
 
-            SigSpec inc = module->addWire(EMU_NAME(inc));
+            SigSpec inc = module->addWire(NEW_ID);
 
             // address generator
             // reg [..] addr;
@@ -248,7 +188,7 @@ private:
             // always @(posedge clk)
             //   if (!scan) addr <= 0;
             //   else if (inc) addr <= addr_next;
-            SigSpec addr = module->addWire(EMU_NAME(addr), abits);
+            SigSpec addr = module->addWire(NEW_ID, abits);
             SigSpec addr_next = module->Add(NEW_ID, addr, Const(1, abits));
             module->addSdffe(NEW_ID, wire_clk, inc, module->Not(NEW_ID, wire_ram_scan),
                 addr_next, addr, Const(init_addr, abits));
@@ -260,7 +200,7 @@ private:
             // always @(posedge clk)
             //   if (!scan) scnt <= 0;
             //   else scnt <= {scnt[slices-2:0], inc && !addr_is_last};
-            SigSpec scnt = module->addWire(EMU_NAME(scnt), slices);
+            SigSpec scnt = module->addWire(NEW_ID, slices);
             module->addSdff(NEW_ID, wire_clk, module->Not(NEW_ID, wire_ram_scan), 
                 {scnt.extract(0, slices-1), module->And(NEW_ID, inc, module->Not(NEW_ID, addr_is_last))},
                 scnt, Const(0, slices));
@@ -278,10 +218,10 @@ private:
             // assign inc = scnt[slices-1] || last_i;
             module->connect(inc, module->Or(NEW_ID, scnt_msb, block.last_i));
 
-            SigSpec se = module->addWire(EMU_NAME(se));
-            SigSpec we = module->addWire(EMU_NAME(we));
-            SigSpec rdata = module->addWire(EMU_NAME(rdata), mem.width);
-            SigSpec wdata = module->addWire(EMU_NAME(wdata), mem.width);
+            SigSpec se = module->addWire(NEW_ID);
+            SigSpec we = module->addWire(NEW_ID);
+            SigSpec rdata = module->addWire(NEW_ID, mem.width);
+            SigSpec wdata = module->addWire(NEW_ID, mem.width);
 
             // create scan chain registers
             SigSpec sdi, sdo;
@@ -292,7 +232,7 @@ private:
                 if (len > DATA_WIDTH) len = DATA_WIDTH;
 
                 sdo = sdi;
-                sdi = module->addWire(EMU_NAME(scan_data), DATA_WIDTH);
+                sdi = module->addWire(NEW_ID, DATA_WIDTH);
 
                 // always @(posedge clk)
                 //   r <= se ? sdi : rdata[off+:len];
@@ -303,7 +243,6 @@ private:
                 module->connect(wdata.extract(off, len), sdo.extract(0, len));
             }
             module->connect(block.data_i, sdi);
-            block.depth = slices;
 
             // assign se = dir || !inc;
             // assign we = dir && inc;
@@ -312,15 +251,15 @@ private:
 
             // add pause signal to ports
             for (auto &wr : mem.wr_ports) {
-                wr.en = module->Mux(NEW_ID, wr.en, Const(0, GetSize(wr.en)), wire_pause);
+                wr.en = module->Mux(NEW_ID, wr.en, Const(0, GetSize(wr.en)), wire_ram_scan);
             }
 
             // add accessor to write port 0
             auto &wr = mem.wr_ports[0];
-            wr.en = module->Mux(NEW_ID, wr.en, SigSpec(we, mem.width), wire_pause);
+            wr.en = module->Mux(NEW_ID, wr.en, SigSpec(we, mem.width), wire_scan);
             if (abits > 0)
-                wr.addr = module->Mux(NEW_ID, wr.addr, addr, wire_pause);
-            wr.data = module->Mux(NEW_ID, wr.data, wdata, wire_pause);
+                wr.addr = module->Mux(NEW_ID, wr.addr, addr, wire_scan);
+            wr.data = module->Mux(NEW_ID, wr.data, wdata, wire_scan);
 
             // add accessor to read port 0
             auto &rd = mem.rd_ports[0];
@@ -330,12 +269,12 @@ private:
                 rd.addr = module->Mux(NEW_ID, rd.addr, module->Mux(NEW_ID, addr, addr_next, inc), wire_ram_scan);
             }
             if (rd.clk_enable) {
-                rd.en = module->Or(NEW_ID, rd.en, wire_pause);
+                rd.en = module->Or(NEW_ID, rd.en, wire_ram_scan);
                 module->connect(rdata, rd.data);
             }
             else {
                 // delay 1 cycle for asynchronous read ports
-                SigSpec rdata_reg = module->addWire(EMU_NAME(rdata_reg), mem.width);
+                SigSpec rdata_reg = module->addWire(NEW_ID, mem.width);
                 module->addDff(NEW_ID, wire_clk, rd.data, rdata_reg);
                 module->connect(rdata, rdata_reg);
             }
@@ -344,17 +283,84 @@ private:
             mem.emit();
 
             // record source info for reconstruction
-            MemInfo info(mem, slices * mem.size);
+            MemInfo info(mem, slices);
             block.src.push_back(info);
 
             chain.commit_block();
         }
     }
 
-    void restore_mem_rdport_ffs(std::vector<Mem> &mem_cells, ScanChainBlock<FfInfo> &block) {
+    void add_shadow_rdata(MemRd &rd, FfInfo &src, ScanChainBlock<FfInfo> &block) {
+        int total_width = GetSize(rd.data);
+
+        // wire dut_en_r = measure_clk(clk, dut_clk);
+        // reg scan_n_r, ren_r;
+        // always @(posedge clk) scan_n_r <= !scan;
+        // always @(posedge clk) ren_r <= ren;
+        // wire run_r = dut_en_r && scan_n_r;
+        // wire en = ren_r && run_r;
+        // reg [..] shadow_rdata;
+        // assign output = en ? rdata : shadow_rdata;
+        // always @(posedge clk) begin
+        //   if (rst && run_r) shadow_rdata <= RSTVAL;
+        //   else shadow_rdata <= output;
+        // end
+
+        SigSpec dut_en_r = measure_clk(module, wire_clk, rd.clk);
+
+        SigSpec scan_n_r = module->addWire(NEW_ID);
+        module->addDff(NEW_ID, wire_clk, module->Not(NEW_ID, wire_scan), scan_n_r);
+        SigSpec run_r = module->And(NEW_ID, dut_en_r, scan_n_r);
+
+        SigSpec ren_r = module->addWire(NEW_ID);
+        module->addDff(NEW_ID, wire_clk, rd.en, ren_r);
+        SigSpec en = module->And(NEW_ID, ren_r, run_r);
+
+        SigSpec rst = rd.srst;
+        if (rd.ce_over_srst)
+            rst = module->And(NEW_ID, rst, rd.en);
+        rst = module->And(NEW_ID, rst, run_r);
+
+        SigSpec shadow_rdata = module->addWire(NEW_ID, total_width);
+        SigSpec rdata = module->addWire(NEW_ID, total_width);
+        SigSpec output = rd.data;
+        module->connect(output, module->Mux(NEW_ID, shadow_rdata, rdata, en));
+        rd.data = rdata;
+
+        SigSig sdi_q_list;
+        sdi_q_list.first = module->addWire(NEW_ID, total_width);
+        sdi_q_list.second = shadow_rdata;
+        module->addSdff(NEW_ID, wire_clk, rst,
+            module->Mux(NEW_ID, output, sdi_q_list.first, wire_ff_scan),
+            shadow_rdata, rd.srst_value);
+
+        // pad to align data width
+        int r = GetSize(sdi_q_list.first) % DATA_WIDTH;
+        if (r) {
+            int pad = DATA_WIDTH - r;
+            Wire *d = module->addWire(NEW_ID, pad);
+            Wire *q = module->addWire(NEW_ID, pad);
+            module->addDff(NEW_ID, wire_clk, d, q);
+            sdi_q_list.first.append(d);
+            sdi_q_list.second.append(q);
+        }
+
+        // build scan chain
         SigSpec sdi, sdo;
         sdi = block.data_o;
+        for (int i = 0; i < total_width; i += DATA_WIDTH) {
+            int w = total_width - i;
+            if (w > DATA_WIDTH) w = DATA_WIDTH;
+            sdo = sdi;
+            sdi = sdi_q_list.first.extract(i, DATA_WIDTH);
+            SigSpec q = sdi_q_list.second.extract(i, DATA_WIDTH);
+            module->connect(sdo, q);
+            block.src.push_back(src.extract(i, w));
+        }
+        module->connect(sdi, block.data_i);
+    }
 
+    void restore_mem_rdport_ffs(std::vector<Mem> &mem_cells, ScanChain<FfInfo> &chain_ff) {
         for (auto &mem : mem_cells) {
             for (int idx = 0; idx < GetSize(mem.rd_ports); idx++) {
                 auto &rd = mem.rd_ports[idx];
@@ -371,61 +377,20 @@ private:
                             );
                         }
 
-                        // assign raddr = ren && !pause ? addr : addr_reg;
-                        IdString muxid = mem.get_string_attribute(attr);
-                        Cell *mux = module->cell(muxid);
-                        log_assert(mux);
-                        log_assert(mux->type == ID($mux));
-                        mux->setPort(ID::S, module->And(NEW_ID, rd.en, module->Not(NEW_ID, wire_pause)));
-
+                        Wire *dummy = module->addWire(NEW_ID, GetSize(rd.data));
+                        FfInfo src(dummy);
+                        auto &block = chain_ff.new_block();
+                        add_shadow_rdata(rd, src, block);
+                        chain_ff.commit_block();
                         continue;
                     }
 
                     attr = stringf("\\emu_orig_rdata[%d]", idx);
                     if (mem.has_attribute(attr)) {
-                        int total_width = GetSize(rd.data);
-
-                        // reg [..] shadow_rdata;
-                        // reg en;
-                        // always @(posedge clk) begin
-                        //   if (rrst && !pause) shadow_rdata <= RSTVAL;
-                        //   else shadow_rdata <= output;
-                        // end
-                        // always @(posedge clk) en <= ren && !pause;
-                        // assign output = en ? rdata : shadow_rdata;
-
-                        SigSpec rst = rd.srst;
-                        if (rd.ce_over_srst)
-                            rst = module->And(NEW_ID, rst, rd.en);
-                        rst = module->And(NEW_ID, rst, module->Not(NEW_ID, wire_pause));
-
-                        SigSpec shadow_rdata = module->addWire(EMU_NAME(shadow_rdata), total_width);
-                        SigSpec en = module->addWire(EMU_NAME(shadow_rdata_en));
-                        SigSpec en_d = module->And(NEW_ID, rd.en, module->Not(NEW_ID, wire_pause));
-                        module->addDff(NEW_ID, wire_clk, en_d, en);
-                        SigSpec rdata = module->addWire(EMU_NAME(rdata), total_width);
-                        SigSpec output = rd.data;
-                        module->connect(output, module->Mux(NEW_ID, shadow_rdata, rdata, en));
-                        rd.data = rdata;
-
-                        for (int i = 0; i < total_width; i += DATA_WIDTH) {
-                            int w = total_width - i;
-                            if (w > DATA_WIDTH) w = DATA_WIDTH;
-
-                            sdo = sdi;
-                            sdi = module->addWire(EMU_NAME(sdi), DATA_WIDTH);
-
-                            module->addSdff(NEW_ID, wire_clk, rst,
-                                module->Mux(NEW_ID, {Const(0, DATA_WIDTH - w), output.extract(i, w)}, sdi, wire_ff_scan), sdo,
-                                rd.srst_value.extract(i, DATA_WIDTH));
-                            module->connect(shadow_rdata.extract(i, w), sdo.extract(0, w));
-
-                            block.depth++;
-
-                            FfInfo src = mem.get_string_attribute(attr);
-                            block.src.push_back(src.extract(i, w));
-                        }
-
+                        FfInfo src = mem.get_string_attribute(attr);
+                        auto &block = chain_ff.new_block();
+                        add_shadow_rdata(rd, src, block);
+                        chain_ff.commit_block();
                         continue;
                     }
 
@@ -436,62 +401,57 @@ private:
                 }
             }
         }
-        module->connect(block.data_i, sdi);
     }
 
-    void generate_mem_last_i(ScanChain<MemInfo> &chain) {
-        const int cntbits = ceil_log2(chain.depth + 1);
+    void instrument_hier_cells(std::vector<Cell *> &hier_cells, ScanChain<FfInfo> &chain_ff, ScanChain<MemInfo> &chain_mem) {
+        for (auto &cell : hier_cells) {
+            Module *target = module->design->module(cell->type);
+            if (!target->get_bool_attribute(AttrInstrumented))
+                continue;
 
-        // generate last_i signal for mem scan chain
-        // delay 1 cycle for scan-out mode to prepare raddr
+            auto &block_ff = chain_ff.new_block();
+            auto &block_mem = chain_mem.new_block();
 
-        // reg [..] cnt;
-        // wire full = cnt == chain.depth;
-        // always @(posedge clk)
-        //   if (!scan)
-        //     cnt <= 0;
-        //   else if (!full)
-        //     cnt <= cnt + 1;
-        // reg scan_r;
-        // always @(posedge clk) scan_r <= scan;
-        // wire ok = dir ? full : scan_r;
-        // reg ok_r;
-        // always @(posedge clk)
-        //    ok_r <= ok;
-        // assign last_i = ok && !ok_r;
+            cell->setPort(PortClk,          wire_clk);
+            cell->setPort(PortFfScanEn,     wire_ff_scan);
+            cell->setPort(PortFfDataIn,     block_ff.data_i);
+            cell->setPort(PortFfDataOut,    block_ff.data_o);
+            cell->setPort(PortRamScanEn,    wire_ram_scan);
+            cell->setPort(PortRamScanDir,   wire_ram_dir);
+            cell->setPort(PortRamDataIn,    block_mem.data_i);
+            cell->setPort(PortRamDataOut,   block_mem.data_o);
+            cell->setPort(PortRamLastIn,    block_mem.last_i);
+            cell->setPort(PortRamLastOut,   block_mem.last_o);
 
-        SigSpec cnt = module->addWire(EMU_NAME(cnt), cntbits);
-        SigSpec full = module->Eq(NEW_ID, cnt, Const(chain.depth, cntbits));
-        module->addSdffe(NEW_ID, wire_clk, module->Not(NEW_ID, full), module->Not(NEW_ID, wire_ram_scan),
-            module->Add(NEW_ID, cnt, Const(1, cntbits)), cnt, Const(0, cntbits)); 
+            auto &target_data = database.scanchain.at(cell->type);
+            for (auto &src : target_data.ff)
+                block_ff.src.push_back(src.nest(cell));
+            for (auto &src : target_data.mem)
+                block_mem.src.push_back(src.nest(cell));
 
-        SigSpec scan_r = module->addWire(EMU_NAME(scan_r));
-        module->addDff(NEW_ID, wire_clk, wire_ram_scan, scan_r);
-
-        SigSpec ok = module->Mux(NEW_ID, scan_r, full, wire_ram_dir);
-        SigSpec ok_r = module->addWire(EMU_NAME(ok_r));
-        module->addDff(NEW_ID, wire_clk, ok, ok_r);
-
-        module->connect(chain.last_i, module->And(NEW_ID, ok, module->Not(NEW_ID, ok_r)));
+            chain_ff.commit_block();
+            chain_mem.commit_block();
+        }
     }
 
 public:
 
-    InsertAccessorWorker(Module *mod) : module(mod) {}
+    InsertAccessorWorker(Module *mod, Database &db) : module(mod), database(db) {}
 
     void run() {
         // check if already processed
-        if (module->get_bool_attribute("\\emu_instrumented")) {
+        if (module->get_bool_attribute(AttrInstrumented)) {
             log_warning("Module %s is already processed by emu_instrument\n", log_id(module));
             return;
         }
 
-        // search for all FFs
-        std::vector<Cell *> ff_cells;
-        for (auto cell : module->cells())
-            if (module->design->selected(module, cell) && RTLIL::builtin_ff_cell_types().count(cell->type))
-                if (!cell->get_bool_attribute("\\emu_internal"))
-                    ff_cells.push_back(cell);
+        // search for all FF cells & hierarchical cells
+        std::vector<Cell *> ff_cells, hier_cells;
+        for (auto cell : module->selected_cells())
+            if (RTLIL::builtin_ff_cell_types().count(cell->type))
+                ff_cells.push_back(cell);
+            else if (module->design->has(cell->type))
+                hier_cells.push_back(cell);
 
         // get mem cells
         std::vector<Mem> mem_cells = Mem::get_selected_memories(module);
@@ -506,9 +466,6 @@ public:
         // add accessor ports
         create_ports();
 
-        // replace library instances with emulation logic
-        process_emulib();
-
         ScanChain<FfInfo> chain_ff(module, DATA_WIDTH);
         ScanChain<MemInfo> chain_mem(module, DATA_WIDTH);
 
@@ -517,144 +474,27 @@ public:
         chain_ff.commit_block();
 
         // restore merged ffs in read ports
-        restore_mem_rdport_ffs(mem_cells, chain_ff.new_block());
-        chain_ff.commit_block();
+        restore_mem_rdport_ffs(mem_cells, chain_ff);
 
         // process mems
         instrument_mems(mem_cells, chain_mem);
 
+        // connect scan chains in hierarchical cells
+        instrument_hier_cells(hier_cells, chain_ff, chain_mem);
+
         module->connect(chain_ff.last_i, State::S0);
-        generate_mem_last_i(chain_mem);
 
-        module->connect(chain_ff.data_i, wire_ff_sdi);
-        module->connect(wire_ff_sdo, chain_ff.data_o);
-        module->connect(chain_mem.data_i, wire_ram_sdi);
-        module->connect(wire_ram_sdo, chain_mem.data_o);
+        module->connect(chain_ff.data_i, wire_ff_data_i);
+        module->connect(wire_ff_data_o, chain_ff.data_o);
+        module->connect(chain_mem.data_i, wire_ram_data_i);
+        module->connect(wire_ram_data_o, chain_mem.data_o);
+        module->connect(chain_mem.last_i, wire_ram_last_i);
+        module->connect(wire_ram_last_o, chain_mem.last_o);
 
-        ff_info = chain_ff.src;
-        mem_info = chain_mem.src;
+        database.scanchain[module->name] = ScanChainData(chain_ff.src, chain_mem.src);
 
         // set attribute to indicate this module is processed
-        module->set_bool_attribute("\\emu_instrumented");
-    }
-
-    void write_config(std::string filename) {
-        std::ofstream f;
-        f.open(filename.c_str(), std::ofstream::trunc);
-        if (f.fail()) {
-            log_error("Can't open file `%s' for writing: %s\n", filename.c_str(), strerror(errno));
-        }
-
-        JsonWriter json(f);
-
-        json.key("width").value(DATA_WIDTH);
-
-        int ff_addr = 0;
-        json.key("ff").enter_array();
-        for (auto &src : ff_info) {
-            json.enter_object();
-            json.key("addr").value(ff_addr);
-            json.key("src").enter_array();
-            int new_off = 0;
-            for (auto &c : src.info) {
-                json.enter_object();
-                json.key("name").enter_array();
-                for (auto &s : c.name)
-                    json.string(s);
-                json.back();
-                json.key("offset").value(c.offset);
-                json.key("width").value(c.width);
-                json.key("new_offset").value(new_off);
-                json.back();
-                new_off += c.width;
-            }
-            json.back();
-            json.back();
-            ff_addr++;
-        }
-        json.back();
-        json.key("ff_size").value(ff_addr);
-
-        int mem_addr = 0;
-        json.key("mem").enter_array();
-        for (auto &mem : mem_info) {
-            json.enter_object();
-            json.key("addr").value(mem_addr);
-            json.key("name").enter_array();
-                for (auto &s : mem.name)
-                    json.string(s);
-                json.back();
-            json.key("width").value(mem.mem_width);
-            json.key("depth").value(mem.mem_depth);
-            json.key("start_offset").value(mem.mem_start_offset);
-            json.back();
-            mem_addr += mem.depth;
-        }
-        json.back();
-        json.key("mem_size").value(mem_addr);
-
-        int trig_addr = 0;
-        json.key("trigger").enter_array();
-        for (auto &trig : trig_info) {
-            json.enter_object();
-            json.key("addr").value(trig_addr);
-            json.key("name").string(trig);
-            json.back();
-            trig_addr++;
-        }
-        json.back();
-
-        json.end();
-
-        f.close();
-    }
-
-    void write_loader(std::string filename) {
-        std::ofstream f;
-        f.open(filename.c_str(), std::ofstream::trunc);
-        if (f.fail()) {
-            log_error("Can't open file `%s' for writing: %s\n", filename.c_str(), strerror(errno));
-        }
-
-        log("Writing to loader file %s\n", filename.c_str());
-
-        int addr;
-
-        f << "`define LOAD_DECLARE integer __load_i;\n";
-        f << "`define LOAD_WIDTH " << DATA_WIDTH << "\n";
-
-        f << "`define LOAD_FF(__LOAD_FF_DATA, __LOAD_OFFSET, __LOAD_DUT) \\\n";
-        addr = 0;
-        for (auto &src : ff_info) {
-            int offset = 0;
-            for (auto info : src.info) {
-                std::string name = verilog_hier_name(info.name);
-                f   << "    __LOAD_DUT." << name
-                    << "[" << info.width + info.offset - 1 << ":" << info.offset << "] = __LOAD_FF_DATA[__LOAD_OFFSET+" << addr << "]"
-                    << "[" << info.width + offset - 1 << ":" << offset << "]; \\\n";
-                offset += info.width;
-            }
-            addr++;
-        }
-        f << "\n";
-        f << "`define CHAIN_FF_WORDS " << addr << "\n";
-
-        f << "`define LOAD_MEM(__LOAD_MEM_DATA, __LOAD_OFFSET, __LOAD_DUT) \\\n";
-        addr = 0;
-        for (auto &mem : mem_info) {
-            int slices = (mem.mem_width + DATA_WIDTH - 1) / DATA_WIDTH;
-            std::string name = verilog_hier_name(mem.name);
-            f   << "    for (__load_i=0; __load_i<" << mem.mem_depth << "; __load_i=__load_i+1) __LOAD_DUT."
-                << name << "[__load_i+" << mem.mem_start_offset << "] = {";
-            for (int i = slices - 1; i >= 0; i--)
-                f   << "__LOAD_MEM_DATA[__LOAD_OFFSET+__load_i*" << slices << "+" << addr + i << "]" << (i != 0 ? ", " : "");
-            f   << "}; \\\n";
-            addr += slices * mem.mem_depth;
-        }
-        f << "\n";
-        f << "`define CHAIN_MEM_WORDS " << addr << "\n";
-
-        f.close();
+        module->set_bool_attribute(AttrInstrumented);
     }
 };
 
@@ -669,48 +509,49 @@ struct EmuInstrumentPass : public Pass {
         log("\n");
         log("This command inserts accessors to FFs and mems for an FPGA emulator.\n");
         log("\n");
-        log("    -cfg <file>\n");
-        log("        write generated configuration to the specified file\n");
-        log("    -ldr <file>\n");
-        log("        write generated simulation loader to the specified file\n");
+        log("    -db <database>\n");
+        log("        specify the emulation database or the default one will be used.\n");
         log("\n");
     }
-
-    std::string cfg_file, ldr_file;
 
     void execute(vector<string> args, Design* design) override {
         log_header(design, "Executing EMU_INSTRUMENT pass.\n");
 
+        std::string db_name;
+
         size_t argidx;
         for (argidx = 1; argidx < args.size(); argidx++)
         {
-            if (args[argidx] == "-cfg" && argidx+1 < args.size()) {
-                cfg_file = args[++argidx];
-                continue;
-            }
-            if (args[argidx] == "-ldr" && argidx+1 < args.size()) {
-                ldr_file = args[++argidx];
+            if (args[argidx] == "-db" && argidx+1 < args.size()) {
+                db_name = args[++argidx];
                 continue;
             }
             break;
         }
         extra_args(args, argidx, design);
 
-        auto modules = design->selected_modules();
-        if (modules.size() != 1) {
-            log_error(
-                "Exactly 1 selected module required.\n"
-                "Run flatten first to convert design hierarchy to a flattened module\n");
+        Database &db = Database::databases[db_name];
+
+        TopoSort<RTLIL::Module*, IdString::compare_ptr_by_name<RTLIL::Module>> topo_modules;
+        for (auto &mod : design->selected_modules()) {
+            topo_modules.node(mod);
+            for (auto &cell : mod->selected_cells()) {
+                Module *tpl = design->module(cell->type);
+                if (tpl && design->selected_module(tpl)) {
+                    topo_modules.edge(tpl, mod);
+                }
+            }
         }
 
-        auto &mod = modules.front();
-        log("Processing module %s\n", mod->name.c_str());
-        InsertAccessorWorker worker(mod);
-        worker.run();
-        if (!cfg_file.empty()) worker.write_config(cfg_file);
-        if (!ldr_file.empty()) worker.write_loader(ldr_file);
-        design->rename(mod, "\\EMU_DUT");
+		if (!topo_modules.sort())
+			log_error("Recursive instantiation detected.\n");
+
+        for (auto &mod : topo_modules.sorted) {
+            log("Processing module %s\n", mod->name.c_str());
+            InsertAccessorWorker worker(mod, db);
+            worker.run();
+        }
     }
-} InsertAccessorPass;
+} EmuInstrumentPass;
 
 PRIVATE_NAMESPACE_END

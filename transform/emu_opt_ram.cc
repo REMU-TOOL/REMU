@@ -26,12 +26,12 @@
 #include "kernel/ff.h"
 #include "kernel/ffmerge.h"
 
-#include "emuutil.h"
+#include "emu.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-using namespace EmuUtil;
+using namespace Emu;
 
 struct MuxData {
     int base_idx;
@@ -590,18 +590,16 @@ struct MemoryDffWorker
         ff.unmap_ce_srst();
         port.clk = ff.sig_clk;
         port.en = State::S1;
-        // Add a multiplexer to select address from ff.sig_d and ff.sig_q
-        // We'll resolve it later in emu_instrument
-        IdString muxid = NEW_ID;
-        SigSpec addr_mux = module->addWire(NEW_ID, GetSize(ff.sig_d));
-        Cell *mux = module->addMux(muxid, ff.sig_q, ff.sig_d, State::S1, addr_mux);
-        mux->set_bool_attribute(ID::keep);
-        port.addr = addr_mux;
+        // Add a wire to keep address FF from being optimized.
+        SigSpec wire_keep = module->addWire(NEW_ID, GetSize(ff.sig_d));
+        module->connect(wire_keep, ff.sig_q);
+        module->set_bool_attribute(ID::keep);
+        port.addr = ff.sig_d;
         port.clk_enable = true;
         port.clk_polarity = ff.pol_clk;
         for (int i = 0; i < GetSize(mem.wr_ports); i++)
             port.transparency_mask[i] = true;
-        mem.set_string_attribute(stringf("\\emu_orig_raddr[%d]", idx), muxid.str());
+        mem.set_string_attribute(stringf("\\emu_orig_raddr[%d]", idx), FfInfo(ff.sig_q));
         mem.emit();
         log("merged address FF to cell.\n");
     }

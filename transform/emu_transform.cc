@@ -20,6 +20,7 @@ struct EmuTransformPass : public Pass {
 		log("    -top <module>\n");
 		log("        use the specified module as top module\n");
 		log("\n");
+		log("    emu_database reset\n");
 		log("    read_verilog -lib +/emulib/*.v\n");
 		log("    hierarchy -check (-top <top> | -auto-top)\n");
 		log("    emu_keep_top\n");
@@ -35,7 +36,11 @@ struct EmuTransformPass : public Pass {
 		log("    emu_lint\n");
 		log("    emu_opt_ram\n");
 		log("    opt_clean\n");
-		log("    emu_instrument [-cfg <file>] [-ldr <file>]\n");
+		log("    emu_process_lib\n");
+		log("    emu_instrument\n");
+		log("    emu_package\n");
+		log("    emu_database write_config -top -file <cfg> (if -cfg)\n");
+		log("    emu_database write_loader -top -file <ldr> (if -cfg)\n");
 		log("    emu_remove_keep\n");
 		log("    check\n");
 		log("    opt\n");
@@ -69,6 +74,8 @@ struct EmuTransformPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+        Pass::call(design, "emu_database reset");
+
         Pass::call(design, "read_verilog -lib +/emulib/*.v");
         if (top_module.empty())
             Pass::call(design, "hierarchy -check -auto-top");
@@ -87,12 +94,13 @@ struct EmuTransformPass : public Pass {
         Pass::call(design, "emu_lint");
         Pass::call(design, "emu_opt_ram");
         Pass::call(design, "opt_clean");
-        std::string emu_instrument = "emu_instrument";
+        Pass::call(design, "emu_process_lib");
+        Pass::call(design, "emu_instrument");
+        Pass::call(design, "emu_package");
         if (!cfg_file.empty())
-            emu_instrument += " -cfg " + cfg_file;
+            Pass::call(design, "emu_database write_config -top -file " + cfg_file);
         if (!ldr_file.empty())
-            emu_instrument += " -ldr " + ldr_file;
-        Pass::call(design, emu_instrument);
+            Pass::call(design, "emu_database write_loader -top -file " + ldr_file);
         Pass::call(design, "emu_remove_keep");
         Pass::call(design, "check");
 

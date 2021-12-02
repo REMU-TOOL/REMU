@@ -1,9 +1,22 @@
-#include "emuutil.h"
+#include "emu.h"
 #include <cctype>
 
 USING_YOSYS_NAMESPACE
 
-namespace EmuUtil {
+namespace Emu {
+
+std::map<std::string, Database> Database::databases;
+
+bool is_public_id(IdString id) {
+    return id[0] == '\\';
+}
+
+std::string str_id(IdString id) {
+    if (is_public_id(id))
+        return id.str().substr(1);
+    else
+        return id.str();
+}
 
 std::string verilog_id(const std::string &name) {
     const pool<std::string> keywords = {
@@ -76,32 +89,27 @@ std::string verilog_hier_name(const std::vector<std::string> &hier) {
 }
 
 FfInfo::FfInfo(SigSpec sig) {
-    for (auto &c : sig.chunks()) {
-        if (c.is_wire() && (c.wire->has_attribute(ID::hdlname) || c.wire->name[0] == '\\')) {
-            std::vector<std::string> name;
-            if (c.wire->has_attribute(ID::hdlname))
-                name = c.wire->get_hdlname_attribute();
-            else
-                name.push_back(c.wire->name.str().substr(1));
-            info.push_back(FfInfoChunk(name, c.offset, c.width));
-        }
-    }
+    for (auto &c : sig.chunks())
+        if (c.is_wire())
+            info.push_back(FfInfoChunk(get_hier_name(c.wire), is_public_id(c.wire->name), c.offset, c.width));
 }
 
 FfInfo::FfInfo(std::string str) {
     std::istringstream s(str);
     std::vector<std::string> name;
-    int offset, width;
     int name_size;
+    bool is_public;
+    int offset, width;
     while (s >> name_size) {
         while (name_size--) {
             std::string n;
             s >> n;
             name.push_back(n);
         }
+        s >> is_public;
         s >> offset;
         s >> width;
-        info.push_back(FfInfoChunk(name, offset, width));
+        info.push_back(FfInfoChunk(name, is_public, offset, width));
     }
 }
 
@@ -118,7 +126,7 @@ FfInfo::operator std::string() {
         s << c.name.size() << " ";
         for (auto &n : c.name)
             s << n << " ";
-        s << c.offset << " " << c.width;
+        s << c.is_public << " " << c.offset << " " << c.width;
     }
     return s.str();
 }
@@ -153,17 +161,45 @@ FfInfo FfInfo::extract(int offset, int length) {
     return res;
 }
 
-MemInfo::MemInfo(Yosys::Mem &mem, int depth) {
-    if (mem.has_attribute(ID::hdlname))
-        name = mem.get_hdlname_attribute();
-    else if (mem.cell->name[0] == '\\')
-        name.push_back(mem.cell->name.str().substr(1));
-    else
-        name.push_back(mem.cell->name.str());
-    this->depth = depth;
+FfInfo FfInfo::nest(Cell *parent) {
+    FfInfo res = *this;
+    std::vector<std::string> hier = get_hier_name(parent);
+    bool is_public = is_public_id(parent->name);
+    for (auto &c : res.info) {
+        c.name.insert(c.name.begin(), hier.begin(), hier.end());
+        c.is_public &= is_public;
+    }
+    return res;
+}
+
+MemInfo::MemInfo(Yosys::Mem &mem, int slices) {
+    name = get_hier_name(mem.cell);
+    is_public = is_public_id(mem.cell->name);
+    this->depth = mem.size * slices;
+    this->slices = slices;
     mem_width = mem.width;
     mem_depth = mem.size;
     mem_start_offset = mem.start_offset;
+}
+
+MemInfo MemInfo::nest(Cell *parent) {
+    MemInfo res = *this;
+    std::vector<std::string> hier = get_hier_name(parent);
+    res.name.insert(res.name.begin(), hier.begin(), hier.end());
+    res.is_public &= is_public_id(parent->name);
+    return res;
+}
+
+EmulibData EmulibData::nest(Cell *parent) {
+    EmulibData res = *this;
+    std::vector<std::string> hier = get_hier_name(parent);
+    for (auto &c : clk)
+        c.name.insert(c.name.begin(), hier.begin(), hier.end());
+    for (auto &r : rst)
+        r.name.insert(r.name.begin(), hier.begin(), hier.end());
+    for (auto &t : trig)
+        t.name.insert(t.name.begin(), hier.begin(), hier.end());
+    return res;
 }
 
 JsonWriter &JsonWriter::key(const std::string &key) {
@@ -229,4 +265,14 @@ JsonWriter::~JsonWriter() {
     end();
 }
 
-}; // namespace EmuUtil
+SigSpec measure_clk(Module *module, SigSpec clk, SigSpec gated_clk) {
+    Wire *a = module->addWire(NEW_ID);
+    Wire *b = module->addWire(NEW_ID);
+    a->attributes[ID::init] = Const(0, 1);
+    b->attributes[ID::init] = Const(1, 1);
+    module->addDff(NEW_ID, clk, b, a); // reg a
+    module->addDff(NEW_ID, gated_clk, module->Not(NEW_ID, b), b); // reg b
+    return module->Xor(NEW_ID, a, b);
+}
+
+} // namespace EmuUtil

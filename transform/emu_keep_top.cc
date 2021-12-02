@@ -2,9 +2,9 @@
 #include "kernel/ff.h"
 #include "kernel/mem.h"
 
-#include "emuutil.h"
+#include "emu.h"
 
-using namespace EmuUtil;
+using namespace Emu;
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
