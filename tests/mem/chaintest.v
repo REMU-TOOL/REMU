@@ -24,14 +24,19 @@ module sim_top();
     wire [63:0] rdata2;
     wire [127:0] rdata3;
 
-    wire dut_clk;
+    wire dut_ff_clk, dut_ram_clk;
 
-    ClockGate dut_gate(
+    ClockGate dut_ff_gate(
         .CLK(clk),
-        .EN(!pause || ff_scan || ram_scan),
-        .GCLK(dut_clk)
+        .EN(!pause || ff_scan),
+        .GCLK(dut_ff_clk)
     );
 
+    ClockGate dut_ram_gate(
+        .CLK(clk),
+        .EN(!pause || ram_scan),
+        .GCLK(dut_ram_clk)
+    );
     EMU_DUT emu_dut(
         .\$EMU$CLK          (clk),
         .\$EMU$FF$SE        (ff_scan),
@@ -41,7 +46,8 @@ module sim_top();
         .\$EMU$RAM$SD       (ram_dir),
         .\$EMU$RAM$DI       (ram_sdi),
         .\$EMU$RAM$DO       (ram_sdo),
-        .\$EMU$DUT$CLK      (dut_clk),
+        .\$EMU$DUT$FF$CLK   (dut_ff_clk),
+        .\$EMU$DUT$RAM$CLK  (dut_ram_clk),
         .\$EMU$DUT$RST      (rst),
         .ren1(ren1),
         .raddr1(raddr1),

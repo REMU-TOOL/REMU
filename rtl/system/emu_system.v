@@ -494,11 +494,18 @@ module emu_system(
         .GCLK(emu_clk)
     );
 
-    wire emu_dut_clk, emu_dut_clk_en;
-    ClockGate dut_clk_gate(
+    wire emu_dut_ff_clk, emu_dut_ff_clk_en;
+    ClockGate dut_ff_clk_gate(
         .CLK(clk),
-        .EN(emu_dut_clk_en),
-        .GCLK(emu_dut_clk)
+        .EN(emu_dut_ff_clk_en),
+        .GCLK(emu_dut_ff_clk)
+    );
+
+    wire emu_dut_ram_clk, emu_dut_ram_clk_en;
+    ClockGate dut_ram_clk_gate(
+        .CLK(clk),
+        .EN(emu_dut_ram_clk_en),
+        .GCLK(emu_dut_ram_clk)
     );
 
     // operation sequence
@@ -619,7 +626,8 @@ module emu_system(
         .\$EMU$RAM$SD       (emu_dma_direction),
         .\$EMU$RAM$DI       (ram_sdi),
         .\$EMU$RAM$DO       (ram_sdo),
-        .\$EMU$DUT$CLK      (emu_dut_clk), // TODO: width
+        .\$EMU$DUT$FF$CLK   (emu_dut_ff_clk), // TODO: width
+        .\$EMU$DUT$RAM$CLK  (emu_dut_ram_clk), // TODO: width
         .\$EMU$DUT$RST      (emu_dut_rst), // TODO: width
         .\$EMU$DUT$TRIG     (emu_dut_trig) // TODO: width
     );
@@ -631,6 +639,7 @@ module emu_system(
 
     wire scan_stall = scan_running && (emu_dma_direction ? !m_axis_read_data_tvalid : !s_axis_write_data_tready);
     assign emu_clk_en = !scan_stall;
-    assign emu_dut_clk_en = emu_clk_en && (!emu_pause || ff_scan_running || ram_scan_sig);
+    assign emu_dut_ff_clk_en = emu_clk_en && (!emu_pause || ff_scan_running);
+    assign emu_dut_ram_clk_en = emu_clk_en && (!emu_pause || ram_scan_sig);
 
 endmodule
