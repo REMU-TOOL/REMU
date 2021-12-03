@@ -155,18 +155,18 @@ module emu_system(
     //      [1]     -> DUT_RESET
     //      [31]    -> STEP_TRIG [RO]
 
-    reg emu_pause, emu_dut_reset, emu_step_trig;
+    reg emu_pause, emu_dut_rst, emu_step_trig;
     wire [31:0] emu_stat, emu_ctrl;
     assign emu_stat[31]     = emu_step_trig;
     assign emu_stat[30:2]   = 29'd0;
-    assign emu_stat[1]      = emu_dut_reset;
+    assign emu_stat[1]      = emu_dut_rst;
     assign emu_stat[0]      = emu_pause;
     assign emu_ctrl         = 32'd0;
 
     always @(posedge clk) begin
         if (rst) begin
             emu_pause           <= 1'b1;
-            emu_dut_reset       <= 1'b1;
+            emu_dut_rst       <= 1'b1;
             emu_step_trig       <= 1'b0;
         end
         else if (trigger) begin
@@ -176,7 +176,7 @@ module emu_system(
         else begin
             if (reg_do_write && reg_write_addr == `EMU_STAT) begin
                 emu_pause           <= reg_write_data[0];
-                emu_dut_reset       <= reg_write_data[1];
+                emu_dut_rst       <= reg_write_data[1];
             end
         end
     end
@@ -487,11 +487,18 @@ module emu_system(
 
     // DUT & scan logic
 
-    wire dut_clk, dut_clk_en;
+    wire emu_clk, emu_clk_en;
+    ClockGate clk_gate(
+        .CLK(clk),
+        .EN(emu_clk_en),
+        .GCLK(emu_clk)
+    );
+
+    wire emu_dut_clk, emu_dut_clk_en;
     ClockGate dut_clk_gate(
         .CLK(clk),
-        .EN(dut_clk_en),
-        .GCLK(dut_clk)
+        .EN(emu_dut_clk_en),
+        .GCLK(emu_dut_clk)
     );
 
     // operation sequence
@@ -541,7 +548,7 @@ module emu_system(
     wire ff_scan_last   = (ff_scan_start || ff_scan_running) && ff_scan_cnt == `CHAIN_FF_WORDS;
 
     reg [1:0] ram_scan_wait;
-    always @(posedge dut_clk) begin
+    always @(posedge emu_clk) begin
         if (rst)
             ram_scan_wait <= 2'd0;
         else
@@ -552,7 +559,7 @@ module emu_system(
     wire ram_scan_start = emu_dma_direction ? ff_scan_last : ram_scan_wait[1];
     wire ram_scan_last  = (ram_scan_start || ram_scan_running) && ram_scan_cnt == `CHAIN_MEM_WORDS;
 
-    always @(posedge dut_clk) begin
+    always @(posedge emu_clk) begin
         if (rst)
             ff_scan_running <= 1'b0;
         else if (ff_scan_last)
@@ -561,7 +568,7 @@ module emu_system(
             ff_scan_running <= 1'b1;
     end
 
-    always @(posedge dut_clk) begin
+    always @(posedge emu_clk) begin
         if (rst)
             ram_scan_running <= 1'b0;
         else if (ram_scan_last)
@@ -570,7 +577,7 @@ module emu_system(
             ram_scan_running <= 1'b1;
     end
 
-    always @(posedge dut_clk) begin
+    always @(posedge emu_clk) begin
         if (rst)
             ram_scan_sig <= 1'b0;
         else if (ram_scan_last)
@@ -579,7 +586,7 @@ module emu_system(
             ram_scan_sig <= 1'b1;
     end
 
-    always @(posedge dut_clk) begin
+    always @(posedge emu_clk) begin
         if (rst)
             ff_scan_cnt <= 0;
         else if (ff_scan_last)
@@ -588,7 +595,7 @@ module emu_system(
             ff_scan_cnt <= ff_scan_cnt + 1;
     end
 
-    always @(posedge dut_clk) begin
+    always @(posedge emu_clk) begin
         if (rst)
             ram_scan_cnt <= 0;
         else if (ram_scan_last)
@@ -604,17 +611,17 @@ module emu_system(
     assign ram_sdi = m_axis_read_data_tdata;
 
     EMU_DUT emu_dut(
-        .\$EMU$CLK          (dut_clk),
-        .\$EMU$PAUSE        (emu_pause),
-        .\$EMU$DUT$RESET    (emu_dut_reset),
-        .\$EMU$DUT$TRIG     (emu_dut_trig),
-        .\$EMU$FF$SCAN      (ff_scan_running),
-        .\$EMU$FF$SDI       (ff_sdi),
-        .\$EMU$FF$SDO       (ff_sdo),
-        .\$EMU$RAM$SCAN     (ram_scan_sig),
-        .\$EMU$RAM$DIR      (emu_dma_direction),
-        .\$EMU$RAM$SDI      (ram_sdi),
-        .\$EMU$RAM$SDO      (ram_sdo)
+        .\$EMU$CLK          (emu_clk),
+        .\$EMU$FF$SE        (ff_scan_running),
+        .\$EMU$FF$DI        (ff_sdi),
+        .\$EMU$FF$DO        (ff_sdo),
+        .\$EMU$RAM$SE       (ram_scan_sig),
+        .\$EMU$RAM$SD       (emu_dma_direction),
+        .\$EMU$RAM$DI       (ram_sdi),
+        .\$EMU$RAM$DO       (ram_sdo),
+        .\$EMU$DUT$CLK      (emu_dut_clk), // TODO: width
+        .\$EMU$DUT$RST      (emu_dut_rst), // TODO: width
+        .\$EMU$DUT$TRIG     (emu_dut_trig) // TODO: width
     );
 
     assign m_axis_read_data_tready  = emu_dma_direction && scan_running;
@@ -623,6 +630,7 @@ module emu_system(
     assign s_axis_write_data_tdata  = {64{ff_scan_running}} & ff_sdo | {64{ram_scan_running}} & ram_sdo;
 
     wire scan_stall = scan_running && (emu_dma_direction ? !m_axis_read_data_tvalid : !s_axis_write_data_tready);
-    assign dut_clk_en = !scan_stall;
+    assign emu_clk_en = !scan_stall;
+    assign emu_dut_clk_en = emu_clk_en && (!emu_pause || ff_scan_running || ram_scan_sig);
 
 endmodule
