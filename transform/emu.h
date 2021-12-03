@@ -20,13 +20,15 @@ const char
     PortRamDataOut  [] = "\\$EMU$RAM$DO",
     PortRamLastIn   [] = "\\$EMU$RAM$LI",
     PortRamLastOut  [] = "\\$EMU$RAM$LO",
-    PortDutClk      [] = "\\$EMU$DUT$CLK",
+    PortDutFfClk    [] = "\\$EMU$DUT$FF$CLK",
+    PortDutRamClk   [] = "\\$EMU$DUT$RAM$CLK",
     PortDutRst      [] = "\\$EMU$DUT$RST",
     PortDutTrig     [] = "\\$EMU$DUT$TRIG";
 
 const char
-    AttrInstrumented    [] = "\\emu_instrumented",
-    AttrLibProcessed    [] = "\\emu_lib_processed";
+    AttrInstrumented        [] = "\\emu_instrumented",
+    AttrLibProcessed        [] = "\\emu_lib_processed",
+    AttrClkPortRewritten    [] = "\\emu_clk_port_rewritten";
 
 template <typename T>
 inline void unused(T &var) { (void)var; }

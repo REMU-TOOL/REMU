@@ -71,8 +71,6 @@ private:
     Wire *wire_ff_scan, *wire_ff_data_i, *wire_ff_data_o;
     Wire *wire_ram_scan, *wire_ram_dir, *wire_ram_data_i, *wire_ram_data_o, *wire_ram_last_i, *wire_ram_last_o; // dir: 0=out 1=in
 
-    SigSpec wire_scan; // staging
-
     void create_ports() {
         wire_clk        = module->addWire(PortClk);                         wire_clk        ->port_input = true;
         wire_ff_scan    = module->addWire(PortFfScanEn);                    wire_ff_scan    ->port_input = true;
@@ -92,8 +90,6 @@ private:
         gate->setPort("\\EN", module->Or(NEW_ID, module->Not(NEW_ID, wire_pause), wire_ff_scan));
         gate->setPort("\\GCLK", wire_dut_clk);
         */
-
-        wire_scan = module->Or(NEW_ID, wire_ff_scan, wire_ram_scan);
 
         module->fixup_ports();
     }
@@ -123,7 +119,7 @@ private:
                 ff.sig_srst = module->Not(NEW_ID, ff.sig_srst);
                 ff.pol_srst = true;
             }
-            ff.sig_srst = module->And(NEW_ID, ff.sig_srst, module->Not(NEW_ID, wire_scan));
+            ff.sig_srst = module->And(NEW_ID, ff.sig_srst, module->Not(NEW_ID, wire_ff_scan));
             if (!ff.has_ce) {
                 ff.sig_ce = State::S1;
                 ff.has_ce = true;
@@ -134,7 +130,6 @@ private:
                 ff.pol_ce = true;
             }
             ff.sig_ce = module->Or(NEW_ID, ff.sig_ce, wire_ff_scan);
-            ff.sig_ce = module->And(NEW_ID, ff.sig_ce, module->Not(NEW_ID, wire_ram_scan)); // staging
             SigSpec sdi = module->addWire(NEW_ID, GetSize(ff.sig_d));
             ff.sig_d = module->Mux(NEW_ID, ff.sig_d, sdi, wire_ff_scan);
             sdi_q_list.first.append(sdi);
@@ -256,10 +251,10 @@ private:
 
             // add accessor to write port 0
             auto &wr = mem.wr_ports[0];
-            wr.en = module->Mux(NEW_ID, wr.en, SigSpec(we, mem.width), wire_scan);
+            wr.en = module->Mux(NEW_ID, wr.en, SigSpec(we, mem.width), wire_ram_scan);
             if (abits > 0)
-                wr.addr = module->Mux(NEW_ID, wr.addr, addr, wire_scan);
-            wr.data = module->Mux(NEW_ID, wr.data, wdata, wire_scan);
+                wr.addr = module->Mux(NEW_ID, wr.addr, addr, wire_ram_scan);
+            wr.data = module->Mux(NEW_ID, wr.data, wdata, wire_ram_scan);
 
             // add accessor to read port 0
             auto &rd = mem.rd_ports[0];
@@ -293,9 +288,9 @@ private:
     void add_shadow_rdata(MemRd &rd, FfInfo &src, ScanChainBlock<FfInfo> &block) {
         int total_width = GetSize(rd.data);
 
-        // wire dut_en_r = measure_clk(clk, dut_clk);
+        // wire dut_en_r = measure_clk(clk, ram_clk);
         // reg scan_n_r, ren_r;
-        // always @(posedge clk) scan_n_r <= !scan;
+        // always @(posedge clk) scan_n_r <= !ram_scan;
         // always @(posedge clk) ren_r <= ren;
         // wire run_r = dut_en_r && scan_n_r;
         // wire en = ren_r && run_r;
@@ -303,13 +298,13 @@ private:
         // assign output = en ? rdata : shadow_rdata;
         // always @(posedge clk) begin
         //   if (rst && run_r) shadow_rdata <= RSTVAL;
-        //   else shadow_rdata <= output;
+        //   else if (run_r || ff_scan) shadow_rdata <= ff_scan ? sdi : output;
         // end
 
         SigSpec dut_en_r = measure_clk(module, wire_clk, rd.clk);
 
         SigSpec scan_n_r = module->addWire(NEW_ID);
-        module->addDff(NEW_ID, wire_clk, module->Not(NEW_ID, wire_scan), scan_n_r);
+        module->addDff(NEW_ID, wire_clk, module->Not(NEW_ID, wire_ram_scan), scan_n_r);
         SigSpec run_r = module->And(NEW_ID, dut_en_r, scan_n_r);
 
         SigSpec ren_r = module->addWire(NEW_ID);
@@ -330,7 +325,9 @@ private:
         SigSig sdi_q_list;
         sdi_q_list.first = module->addWire(NEW_ID, total_width);
         sdi_q_list.second = shadow_rdata;
-        module->addSdff(NEW_ID, wire_clk, rst,
+        module->addSdffe(NEW_ID, wire_clk,
+            module->Or(NEW_ID, run_r, wire_ff_scan),
+            rst,
             module->Mux(NEW_ID, output, sdi_q_list.first, wire_ff_scan),
             shadow_rdata, rd.srst_value);
 
@@ -444,6 +441,9 @@ public:
             log_warning("Module %s is already processed by emu_instrument\n", log_id(module));
             return;
         }
+
+        if (!module->get_bool_attribute(AttrLibProcessed))
+            log_error("Module %s is not processed by emu_process_lib. Run emu_process_lib first.\n", log_id(module));
 
         // search for all FF cells & hierarchical cells
         std::vector<Cell *> ff_cells, hier_cells;
