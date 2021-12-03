@@ -140,7 +140,8 @@ struct WriteConfigWorker : public EmuDatabaseWorker {
 struct WriteLoaderWorker : public EmuDatabaseWorker {
     void operator()(std::string db_name, std::string top_name, std::ostream &os) override {
         Database &database = Database::databases.at(db_name);
-        ScanChainData &data = database.scanchain.at(top_name);
+        ScanChainData &scanchain = database.scanchain.at(top_name);
+        EmulibData &emulib = database.emulib.at(top_name);
 
         int addr;
 
@@ -149,7 +150,7 @@ struct WriteLoaderWorker : public EmuDatabaseWorker {
 
         os << "`define LOAD_FF(__LOAD_FF_DATA, __LOAD_OFFSET, __LOAD_DUT) \\\n";
         addr = 0;
-        for (auto &src : data.ff) {
+        for (auto &src : scanchain.ff) {
             int offset = 0;
             for (auto info : src.info) {
                 if (!info.is_public)
@@ -167,7 +168,7 @@ struct WriteLoaderWorker : public EmuDatabaseWorker {
 
         os << "`define LOAD_MEM(__LOAD_MEM_DATA, __LOAD_OFFSET, __LOAD_DUT) \\\n";
         addr = 0;
-        for (auto &mem : data.mem) {
+        for (auto &mem : scanchain.mem) {
             if (!mem.is_public)
                 continue;
             std::string name = verilog_hier_name(mem.name);
@@ -180,6 +181,10 @@ struct WriteLoaderWorker : public EmuDatabaseWorker {
         }
         os << "\n";
         os << "`define CHAIN_MEM_WORDS " << addr << "\n";
+
+        os << "`define DUT_CLK_COUNT " << emulib.clk.size() << "\n";
+        os << "`define DUT_RST_COUNT " << emulib.rst.size() << "\n";
+        os << "`define DUT_TRIG_COUNT " << emulib.trig.size() << "\n";
     }
 } WriteLoaderWorker;
 
