@@ -16,22 +16,38 @@ module sim_top();
     reg [63:0] ram_sdi = 0;
     wire [63:0] ram_sdo;
 
+    wire dut_clk;
+
+    ClockGate dut_gate(
+        .CLK(clk),
+        .EN(!pause || ff_scan || ram_scan),
+        .GCLK(dut_clk)
+    );
+
     EMU_DUT emu_dut(
         .\$EMU$CLK          (clk),
-        .\$EMU$PAUSE        (pause),
-        .\$EMU$DUT$RESET    (rst),
-        .\$EMU$FF$SCAN      (ff_scan),
-        .\$EMU$FF$SDI       (ff_dir ? ff_sdi : ff_sdo),
-        .\$EMU$FF$SDO       (ff_sdo),
-        .\$EMU$RAM$SCAN     (ram_scan),
-        .\$EMU$RAM$DIR      (ram_dir),
-        .\$EMU$RAM$SDI      (ram_sdi),
-        .\$EMU$RAM$SDO      (ram_sdo)
+        .\$EMU$FF$SE        (ff_scan),
+        .\$EMU$FF$DI        (ff_dir ? ff_sdi : ff_sdo),
+        .\$EMU$FF$DO        (ff_sdo),
+        .\$EMU$RAM$SE       (ram_scan),
+        .\$EMU$RAM$SD       (ram_dir),
+        .\$EMU$RAM$DI       (ram_sdi),
+        .\$EMU$RAM$DO       (ram_sdo),
+        .\$EMU$DUT$CLK      (dut_clk),
+        .\$EMU$DUT$RST      (rst)
+    );
+
+    wire ref_clk;
+
+    ClockGate ref_gate(
+        .CLK(clk),
+        .EN(!pause),
+        .GCLK(ref_clk)
     );
 
     emu_top emu_ref();
 
-    assign emu_ref.clock.clock = clk & !pause;
+    assign emu_ref.clock.clock = ref_clk;
     assign emu_ref.reset.reset = rst;
 
     integer i, j;

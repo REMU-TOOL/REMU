@@ -168,7 +168,7 @@ module sim_top();
     );
 
     assign emu_ref.clock.clock = ref_clk;
-    assign emu_ref.reset.reset = u_emu_system.emu_dut_reset;
+    assign emu_ref.reset.reset = u_emu_system.emu_dut_rst;
 
     reg [31:0] emucsr_rdata = 0;
 

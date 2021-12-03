@@ -51,7 +51,7 @@ clean-result:
 	rm -f $(RESULT_FILE)
 
 %.log: %.mk FORCE
-	@(stdbuf -o0 make -C $(dir $(<)) -f $(notdir $(<)) \
+	@(stdbuf -o0 make -C $(dir $(<)) -f $(notdir $(<)) SIM_FLAGS="$(SIM_FLAGS)" \
 	&& echo "\033[32m[PASS]\033[39m $*" >> $(RESULT_FILE) \
 	|| echo "\033[31m[FAIL]\033[39m $*" >> $(RESULT_FILE) \
 	) 2>&1 | tee $@
