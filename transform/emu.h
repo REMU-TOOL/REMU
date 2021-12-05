@@ -26,6 +26,7 @@ const char
     PortDutTrig     [] = "\\$EMU$DUT$TRIG";
 
 const char
+    AttrNoScanchain         [] = "\\emu_no_scanchain",
     AttrInstrumented        [] = "\\emu_instrumented",
     AttrLibProcessed        [] = "\\emu_lib_processed",
     AttrClkPortRewritten    [] = "\\emu_clk_port_rewritten";

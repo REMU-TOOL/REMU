@@ -114,6 +114,10 @@ private:
         SigSig sdi_q_list;
 
         for (auto &cell : ff_cells) {
+            // ignore cells with emu_no_scachain attribute
+            if (cell->has_attribute(AttrNoScanchain))
+                continue;
+
             FfData ff(nullptr, cell);
             if (!ff.pol_srst) {
                 ff.sig_srst = module->Not(NEW_ID, ff.sig_srst);
@@ -129,6 +133,7 @@ private:
                 ff.sig_ce = module->Not(NEW_ID, ff.sig_ce);
                 ff.pol_ce = true;
             }
+
             ff.sig_ce = module->Or(NEW_ID, ff.sig_ce, wire_ff_scan);
             SigSpec sdi = module->addWire(NEW_ID, GetSize(ff.sig_d));
             ff.sig_d = module->Mux(NEW_ID, ff.sig_d, sdi, wire_ff_scan);
@@ -168,6 +173,10 @@ private:
 
     void instrument_mems(std::vector<Mem> &mem_cells, ScanChain<MemInfo> &chain) {
         for (auto &mem : mem_cells) {
+            // ignore cells with emu_no_scanchain attribute
+            if (mem.has_attribute(AttrNoScanchain))
+                continue;
+
             auto &block = chain.new_block();
 
             const int init_addr = mem.start_offset;
