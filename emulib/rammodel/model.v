@@ -1,0 +1,212 @@
+`timescale 1ns / 1ps
+
+`include "axi.vh"
+
+module rammodel_simple #(
+    parameter   ADDR_WIDTH              = 32,
+    parameter   DATA_WIDTH              = 64,
+    parameter   ID_WIDTH                = 4
+)(
+    input                       clk,
+    input                       resetn,
+
+    `AXI4_SLAVE_IF              (s_dut,     ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
+    `AXI4_MASTER_IF             (m_dram,    ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
+
+    input                       pause,
+    output                      pause_ok,
+    input                       resume,
+    output                      resume_ok,
+
+    output                      dut_stall
+);
+
+    `AXI4_WIRE(from_dut, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+
+    ready_valid_stall_s #(
+        .DATA_WIDTH(`AXI4_AW_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
+    )
+    s_dut_stall_aw (
+        .s_valid    (s_dut_awvalid),
+        .s_ready    (s_dut_awready),
+        .s_data     (`AXI4_AW_PAYLOAD(s_dut)),
+        .m_valid    (from_dut_awvalid),
+        .m_ready    (from_dut_awready),
+        .m_data     (`AXI4_AW_PAYLOAD(from_dut)),
+        .stall      (dut_stall)
+    );
+
+    ready_valid_stall_s #(
+        .DATA_WIDTH(`AXI4_W_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
+    )
+    s_dut_stall_w (
+        .s_valid    (s_dut_wvalid),
+        .s_ready    (s_dut_wready),
+        .s_data     (`AXI4_W_PAYLOAD(s_dut)),
+        .m_valid    (from_dut_wvalid),
+        .m_ready    (from_dut_wready),
+        .m_data     (`AXI4_W_PAYLOAD(from_dut)),
+        .stall      (dut_stall)
+    );
+
+    ready_valid_stall_m #(
+        .DATA_WIDTH(`AXI4_B_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
+    )
+    s_dut_stall_b (
+        .m_valid    (s_dut_bvalid),
+        .m_ready    (s_dut_bready),
+        .m_data     (`AXI4_B_PAYLOAD(s_dut)),
+        .s_valid    (from_dut_bvalid),
+        .s_ready    (from_dut_bready),
+        .s_data     (`AXI4_B_PAYLOAD(from_dut)),
+        .stall      (dut_stall)
+    );
+
+    ready_valid_stall_s #(
+        .DATA_WIDTH(`AXI4_AR_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
+    )
+    s_dut_stall_ar (
+        .s_valid    (s_dut_arvalid),
+        .s_ready    (s_dut_arready),
+        .s_data     (`AXI4_AR_PAYLOAD(s_dut)),
+        .m_valid    (from_dut_arvalid),
+        .m_ready    (from_dut_arready),
+        .m_data     (`AXI4_AR_PAYLOAD(from_dut)),
+        .stall      (dut_stall)
+    );
+
+    ready_valid_stall_m #(
+        .DATA_WIDTH(`AXI4_R_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
+    )
+    s_dut_stall_r (
+        .m_valid    (s_dut_rvalid),
+        .m_ready    (s_dut_rready),
+        .m_data     (`AXI4_R_PAYLOAD(s_dut)),
+        .s_valid    (from_dut_rvalid),
+        .s_ready    (from_dut_rready),
+        .s_data     (`AXI4_R_PAYLOAD(from_dut)),
+        .stall      (dut_stall)
+    );
+
+    `AXI4_WIRE(to_timing_model,     ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_WIRE(to_data_model,       ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+
+    ready_valid_fork #(
+        .DATA_WIDTH(`AXI4_AW_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
+    )
+    from_dut_fork_aw (
+        .s_valid    (from_dut_awvalid),
+        .s_ready    (from_dut_awready),
+        .s_data     (`AXI4_AW_PAYLOAD(from_dut)),
+        .m1_valid   (to_timing_model_awvalid),
+        .m1_ready   (to_timing_model_awready),
+        .m1_data    (`AXI4_AW_PAYLOAD(to_timing_model)),
+        .m2_valid   (to_data_model_awvalid),
+        .m2_ready   (to_data_model_awready),
+        .m2_data    (`AXI4_AW_PAYLOAD(to_data_model))
+    );
+
+    ready_valid_fork #(
+        .DATA_WIDTH(`AXI4_W_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
+    )
+    from_dut_fork_w (
+        .s_valid    (from_dut_wvalid),
+        .s_ready    (from_dut_wready),
+        .s_data     (`AXI4_W_PAYLOAD(from_dut)),
+        .m1_valid   (to_timing_model_wvalid),
+        .m1_ready   (to_timing_model_wready),
+        .m1_data    (`AXI4_W_PAYLOAD(to_timing_model)),
+        .m2_valid   (to_data_model_wvalid),
+        .m2_ready   (to_data_model_wready),
+        .m2_data    (`AXI4_W_PAYLOAD(to_data_model))
+    );
+
+    ready_valid_fork #(
+        .DATA_WIDTH(`AXI4_AR_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
+    )
+    from_dut_fork_ar (
+        .s_valid    (from_dut_arvalid),
+        .s_ready    (from_dut_arready),
+        .s_data     (`AXI4_AR_PAYLOAD(from_dut)),
+        .m1_valid   (to_timing_model_arvalid),
+        .m1_ready   (to_timing_model_arready),
+        .m1_data    (`AXI4_AR_PAYLOAD(to_timing_model)),
+        .m2_valid   (to_data_model_arvalid),
+        .m2_ready   (to_data_model_arready),
+        .m2_data    (`AXI4_AR_PAYLOAD(to_data_model))
+    );
+
+    assign from_dut_bvalid              = to_timing_model_bvalid;
+    assign to_data_model_bready         = to_timing_model_bvalid && from_dut_bready;
+    assign `AXI4_B_PAYLOAD(from_dut)    = `AXI4_B_PAYLOAD(to_data_model);
+
+    assign from_dut_rvalid              = to_timing_model_rvalid;
+    assign to_data_model_rready         = to_timing_model_rvalid && from_dut_rready;
+    assign `AXI4_R_PAYLOAD(from_dut)    = `AXI4_R_PAYLOAD(to_data_model);
+
+    rammodel_simple_timing_model #(
+        .ADDR_WIDTH (ADDR_WIDTH)
+    )
+    timing_model (
+        .clk        (clk),
+        .resetn     (resetn),
+        .arvalid    (to_timing_model_arvalid),
+        .arready    (to_timing_model_arready),
+        .araddr     (to_timing_model_araddr),
+        .arlen      (to_timing_model_arlen),
+        .arsize     (to_timing_model_arsize),
+        .arburst    (to_timing_model_arburst),
+        .rvalid     (to_timing_model_rvalid),
+        .rready     (to_timing_model_rready),
+        .awvalid    (to_timing_model_awvalid),
+        .awready    (to_timing_model_awready),
+        .awaddr     (to_timing_model_awaddr),
+        .awlen      (to_timing_model_awlen),
+        .awsize     (to_timing_model_awsize),
+        .awburst    (to_timing_model_awburst),
+        .wvalid     (to_timing_model_wvalid),
+        .wready     (to_timing_model_wready),
+        .wlast      (to_timing_model_wlast),
+        .bvalid     (to_timing_model_bvalid),
+        .bready     (to_timing_model_bready),
+        .stall      (dut_stall)
+    );
+
+    assign to_timing_model_bready = from_dut_bready;
+    assign to_timing_model_rready = from_dut_rready;
+
+    assign dut_stall =  pause ||
+                        to_timing_model_bvalid && !to_data_model_bvalid ||
+                        to_timing_model_rvalid && !to_data_model_rvalid;
+
+    `AXI4_WIRE(from_gate, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+
+    rammodel_axi_txn_gate #(
+        .ADDR_WIDTH (ADDR_WIDTH),
+        .DATA_WIDTH (DATA_WIDTH),
+        .ID_WIDTH   (ID_WIDTH)
+    )
+    u_gate (
+        .clk            (clk),
+        .resetn         (resetn),
+        `AXI4_CONNECT   (s, to_data_model),
+        `AXI4_CONNECT   (m, from_gate),
+        .pause          (pause),
+        .pause_ok       (pause_ok),
+        .resume         (resume),
+        .resume_ok      (resume_ok)
+    );
+
+    axi_register_slice #(
+        .ADDR_WIDTH (ADDR_WIDTH),
+        .DATA_WIDTH (DATA_WIDTH),
+        .ID_WIDTH   (ID_WIDTH)
+    )
+    u_reg_slice (
+        .clk            (clk),
+        .resetn         (resetn),
+        `AXI4_CONNECT   (s, from_gate),
+        `AXI4_CONNECT   (m, m_dram)
+    );
+
+endmodule
