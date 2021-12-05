@@ -2,7 +2,7 @@
 
 (* emulib_clock *)
 module EmuClock #(
-    parameter CYCLE_PERIOD_NS = 10,
+    parameter CYCLE_PERIOD_NS = 10, // TODO: change to ps
     parameter PHASE_SHIFT_NS = 0
 )
 (

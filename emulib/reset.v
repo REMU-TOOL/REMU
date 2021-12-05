@@ -2,10 +2,10 @@
 
 (* emulib_reset *)
 module EmuReset #(
-    parameter DURATION_CYCLES = 100
+    parameter DURATION_CYCLES = 100 // TODO: revert to absolute time
 )
 (
-    input clock,
+    input clock, // TODO: remove
     output reset
 );
 
