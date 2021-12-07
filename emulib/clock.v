@@ -1,6 +1,6 @@
 `timescale 1 ns / 1 ps
 
-(* emulib_clock *)
+(* emulib_component = "clock" *)
 module EmuClock #(
     parameter CYCLE_PERIOD_NS = 10, // TODO: change to ps
     parameter PHASE_SHIFT_NS = 0

@@ -68,12 +68,13 @@ void process_emulib(Module *module, Database &db) {
     EmulibData &emulib = db.emulib[module->name];
 
     for (auto cell : module->cells()) {
-        // TODO: handle multiple clocks & resets
-        if (cell->type.c_str()[0] == '\\') {
-            Module *target = module->design->module(cell->type);
+        Module *target = module->design->module(cell->type);
+
+        if (target) {
+            std::string component = target->get_string_attribute(AttrEmulibComponent);
 
             // clock instance
-            if (target->get_bool_attribute("\\emulib_clock")) {
+            if (component == "clock") {
                 Wire *ff_clk = module->addWire(NEW_ID);
                 Wire *mem_clk = module->addWire(NEW_ID);
                 SigBit orig_clk = cell->getPort("\\clock")[0];
@@ -89,7 +90,7 @@ void process_emulib(Module *module, Database &db) {
             }
 
             // reset instance
-            if (target->get_bool_attribute("\\emulib_reset")) {
+            if (component == "reset") {
                 reset_sigs.append(cell->getPort("\\reset"));
                 DutRstInfo info;
                 info.name = get_hier_name(cell);
@@ -99,7 +100,7 @@ void process_emulib(Module *module, Database &db) {
             }
 
             // trigger instance
-            if (target->get_bool_attribute("\\emulib_trigger")) {
+            if (component == "trigger") {
                 trig_sigs.append(cell->getPort("\\trigger"));
                 DutTrigInfo info;
                 info.name = get_hier_name(cell);

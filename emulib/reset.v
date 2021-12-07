@@ -1,6 +1,6 @@
 `timescale 1 ns / 1 ps
 
-(* emulib_reset *)
+(* emulib_component = "reset" *)
 module EmuReset #(
     parameter DURATION_CYCLES = 100 // TODO: revert to absolute time
 )

@@ -1,6 +1,6 @@
 `timescale 1 ns / 1 ps
 
-(* emulib_trigger *)
+(* emulib_component = "trigger" *)
 module EmuTrigger(
     input trigger
 );
