@@ -85,6 +85,7 @@ $(DESIGN_SIM_BIN): $(SIMSRCS) $(VSRC) | $(DESIGN_OUTPUT_V)
 build: yosys transform
 	mkdir -p $(YOSYS_DIR)/share/plugins
 	cp -f transform/transform.so $(YOSYS_DIR)/share/plugins
+	rm -rf $(YOSYS_DIR)/share/emulib
 	cp -rf emulib $(YOSYS_DIR)/share/
 
 .PHONY: yosys
