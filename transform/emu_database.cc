@@ -77,57 +77,31 @@ struct WriteConfigWorker : public EmuDatabaseWorker {
         json.back();
 
         json.key("emulib").enter_array();
-        for (auto &it : database.emulib) {
-            if (!top_name.empty() && it.first != top_name)
+        for (auto &data : database.emulib) {
+            if (!top_name.empty() && data.first != top_name)
                 continue;
 
             json.enter_object();
-            json.key("module").string(str_id(it.first));
+            json.key("module").string(str_id(data.first));
 
-            int clk_addr = 0;
-            json.key("clock").enter_array();
-            for (auto &clk : it.second.clk) {
-                json.enter_object();
-                json.key("addr").value(clk_addr);
-                json.key("name").enter_array();
-                for (auto &s : clk.name)
-                    json.string(s);
+            for (auto &section : data.second) {
+                int addr = 0;
+                json.key(section.first).enter_array();
+                for (auto &info : section.second) {
+                    json.enter_object();
+                    json.key("addr").value(addr);
+                    json.key("name").enter_array();
+                    for (auto &s : info.name)
+                        json.string(s);
+                    json.back();
+                    for (auto &attr : info.attrs) {
+                        json.key(attr.first).value(attr.second);
+                    }
+                    json.back();
+                    addr++;
+                }
                 json.back();
-                json.key("cycle_ps").value(clk.cycle_ps);
-                json.key("phase_ps").value(clk.phase_ps);
-                json.back();
-                clk_addr++;
             }
-            json.back();
-
-            int rst_addr = 0;
-            json.key("reset").enter_array();
-            for (auto &rst : it.second.rst) {
-                json.enter_object();
-                json.key("addr").value(rst_addr);
-                json.key("name").enter_array();
-                for (auto &s : rst.name)
-                    json.string(s);
-                json.back();
-                json.key("duration_ns").value(rst.duration_ns);
-                json.back();
-                rst_addr++;
-            }
-            json.back();
-
-            int trig_addr = 0;
-            json.key("trigger").enter_array();
-            for (auto &trig : it.second.trig) {
-                json.enter_object();
-                json.key("addr").value(trig_addr);
-                json.key("name").enter_array();
-                for (auto &s : trig.name)
-                    json.string(s);
-                json.back();
-                json.back();
-                trig_addr++;
-            }
-            json.back();
 
             json.back();
         }
@@ -141,7 +115,6 @@ struct WriteLoaderWorker : public EmuDatabaseWorker {
     void operator()(std::string db_name, std::string top_name, std::ostream &os) override {
         Database &database = Database::databases.at(db_name);
         ScanChainData &scanchain = database.scanchain.at(top_name);
-        EmulibData &emulib = database.emulib.at(top_name);
 
         int addr;
 
@@ -181,10 +154,6 @@ struct WriteLoaderWorker : public EmuDatabaseWorker {
         }
         os << "\n";
         os << "`define CHAIN_MEM_WORDS " << addr << "\n";
-
-        os << "`define DUT_CLK_COUNT " << emulib.clk.size() << "\n";
-        os << "`define DUT_RST_COUNT " << emulib.rst.size() << "\n";
-        os << "`define DUT_TRIG_COUNT " << emulib.trig.size() << "\n";
     }
 } WriteLoaderWorker;
 

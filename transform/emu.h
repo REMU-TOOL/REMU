@@ -102,27 +102,19 @@ struct ScanChainData {
     }
 };
 
-struct DutClkInfo {
+struct EmulibCellInfo {
     HierName name;
-    int cycle_ps;
-    int phase_ps;
+    std::map<std::string, int> attrs;
+
+    inline EmulibCellInfo nest(Yosys::Cell *parent) const {
+        EmulibCellInfo res = std::move(*this);
+        std::vector<std::string> hier = get_hier_name(parent);
+        res.name.insert(res.name.begin(), hier.begin(), hier.end());
+        return res;
+    }
 };
 
-struct DutRstInfo {
-    HierName name;
-    int duration_ns;
-};
-
-struct DutTrigInfo {
-    HierName name;
-};
-
-struct EmulibData {
-    std::vector<DutClkInfo> clk;
-    std::vector<DutRstInfo> rst;
-    std::vector<DutTrigInfo> trig;
-    EmulibData nest(Yosys::Cell *parent);
-};
+typedef std::map<std::string, std::vector<EmulibCellInfo>> EmulibData;
 
 struct Database {
     Yosys::dict<Yosys::IdString, ScanChainData> scanchain; // per-module

@@ -55,113 +55,243 @@ void rewrite_clock(Module *module, SigBit orig_clk, SigBit ff_clk, SigBit mem_cl
     }
 }
 
-void process_emulib(Module *module, Database &db) {
-    // check if already processed
-    if (module->get_bool_attribute(AttrLibProcessed)) {
-        log_warning("Module %s is already processed by emu_process_lib\n", log_id(module));
-        return;
-    }
+struct HandlerContext {
+    Module *module;
+    Database &db;
+    EmulibData &emulib;
 
-    std::vector<Cell *> cells_to_remove;
-    SigSpec ff_clk_sigs, mem_clk_sigs, reset_sigs, trig_sigs;
+    SigSpec ff_clk;
+    SigSpec mem_clk;
+    SigSpec rst;
+    SigSpec trig;
 
-    EmulibData &emulib = db.emulib[module->name];
+    std::map<std::string, SigSpec> internal_sigs;
 
-    for (auto cell : module->cells()) {
-        Module *target = module->design->module(cell->type);
+    HandlerContext(Module *module, Database &db)
+        : module(module), db(db), emulib(db.emulib[module->name]) {}
+};
 
-        if (target) {
-            std::string component = target->get_string_attribute(AttrEmulibComponent);
+class EmulibHandler {
+    static std::map<std::string, EmulibHandler *> handler_map;
 
-            // clock instance
-            if (component == "clock") {
-                Wire *ff_clk = module->addWire(NEW_ID);
-                Wire *mem_clk = module->addWire(NEW_ID);
-                SigBit orig_clk = cell->getPort("\\clock")[0];
-                rewrite_clock(module, orig_clk, ff_clk, mem_clk);
-                ff_clk_sigs.append(ff_clk);
-                mem_clk_sigs.append(mem_clk);
-                DutClkInfo info;
-                info.name = get_hier_name(cell);
-                info.cycle_ps = 0; // TODO
-                info.phase_ps = 0; // TODO
-                emulib.clk.push_back(info);
-                cells_to_remove.push_back(cell);
-            }
+public:
 
-            // reset instance
-            if (component == "reset") {
-                reset_sigs.append(cell->getPort("\\reset"));
-                DutRstInfo info;
-                info.name = get_hier_name(cell);
-                info.duration_ns = 0; // TODO
-                emulib.rst.push_back(info);
-                cells_to_remove.push_back(cell);
-            }
+    // return true to remove the cell
+    virtual bool process_cell(HandlerContext &ctxt, Cell *cell) = 0;
+    virtual void process_submodule(HandlerContext &ctxt, Cell *cell, Module *target) = 0;
+    virtual void finalize(HandlerContext &ctxt) = 0;
 
-            // trigger instance
-            if (component == "trigger") {
-                trig_sigs.append(cell->getPort("\\trigger"));
-                DutTrigInfo info;
-                info.name = get_hier_name(cell);
-                emulib.trig.push_back(info);
-                cells_to_remove.push_back(cell);
-            }
-        }
-    }
+    EmulibHandler(std::string component);
 
-    for (auto &cell : cells_to_remove)
-        module->remove(cell);
+    static EmulibHandler &get(std::string component);
+    static void process_submodule_all(HandlerContext &ctxt, Cell *cell, Module *target);
+    static void finalize_all(HandlerContext &ctxt);
+};
 
-    // process submodules
+std::map<std::string, EmulibHandler *> EmulibHandler::handler_map;
 
-    for (auto &cell : module->selected_cells()) {
-        Module *target = module->design->module(cell->type);
-        if (target && target->get_bool_attribute(AttrLibProcessed)) {
-            EmulibData target_emulib = db.emulib.at(target->name).nest(cell);
+EmulibHandler::EmulibHandler(std::string component) {
+    if (handler_map.find(component) != handler_map.end())
+        log_error("EmulibHandler: component %s is already registered\n", component.c_str());
 
-            Wire *sub_ff_clk = module->addWire(NEW_ID, GetSize(target_emulib.clk));
-            cell->setPort(PortDutFfClk, sub_ff_clk);
-            ff_clk_sigs.append(sub_ff_clk);
-            Wire *sub_mem_clk = module->addWire(NEW_ID, GetSize(target_emulib.clk));
-            cell->setPort(PortDutRamClk, sub_mem_clk);
-            mem_clk_sigs.append(sub_mem_clk);
-            emulib.clk.insert(emulib.clk.end(), target_emulib.clk.begin(), target_emulib.clk.end());
-
-            Wire *sub_reset = module->addWire(NEW_ID, GetSize(target_emulib.rst));
-            cell->setPort(PortDutRst, sub_reset);
-            reset_sigs.append(sub_reset);
-            emulib.rst.insert(emulib.rst.end(), target_emulib.rst.begin(), target_emulib.rst.end());
-
-            Wire *sub_trig = module->addWire(NEW_ID, GetSize(target_emulib.trig));
-            cell->setPort(PortDutTrig, sub_trig);
-            trig_sigs.append(sub_trig);
-            emulib.trig.insert(emulib.trig.end(), target_emulib.trig.begin(), target_emulib.trig.end());
-        }
-    }
-
-    // add ports & connect signals
-
-    Wire *ff_clk_wire = module->addWire(PortDutFfClk, GetSize(ff_clk_sigs));
-    ff_clk_wire->port_input = true;
-    module->connect(ff_clk_sigs, ff_clk_wire);
-
-    Wire *mem_clk_wire = module->addWire(PortDutRamClk, GetSize(mem_clk_sigs));
-    mem_clk_wire->port_input = true;
-    module->connect(mem_clk_sigs, mem_clk_wire);
-
-    Wire *reset_wire = module->addWire(PortDutRst, GetSize(reset_sigs));
-    reset_wire->port_input = true;
-    module->connect(reset_sigs, reset_wire);
-
-    Wire *trig_wire = module->addWire(PortDutTrig, GetSize(trig_sigs));
-    trig_wire->port_output = true;
-    module->connect(trig_wire, trig_sigs);
-
-    module->fixup_ports();
-
-    module->set_bool_attribute(AttrLibProcessed);
+    handler_map[component] = this;
 }
+
+EmulibHandler &EmulibHandler::get(std::string component) {
+    try {
+        return *handler_map.at(component);
+    }
+    catch (std::out_of_range &x) {
+        log_error("EmulibHandler: undefined component %s\n", component.c_str());
+    }
+}
+
+void EmulibHandler::process_submodule_all(HandlerContext &ctxt, Cell *cell, Module *target) {
+    for (auto it : handler_map) {
+        it.second->process_submodule(ctxt, cell, target);
+    }
+}
+
+void EmulibHandler::finalize_all(HandlerContext &ctxt) {
+    for (auto it : handler_map) {
+        it.second->finalize(ctxt);
+    }
+}
+
+struct ClockHandler : public EmulibHandler {
+    ClockHandler() : EmulibHandler("clock") {}
+
+    virtual bool process_cell(HandlerContext &ctxt, Cell *cell) override {
+        Wire *ff_clk = ctxt.module->addWire(NEW_ID);
+        Wire *mem_clk = ctxt.module->addWire(NEW_ID);
+        SigBit orig_clk = cell->getPort("\\clock")[0];
+        rewrite_clock(ctxt.module, orig_clk, ff_clk, mem_clk);
+        ctxt.ff_clk.append(ff_clk);
+        ctxt.mem_clk.append(mem_clk);
+
+        EmulibCellInfo info;
+        info.name = get_hier_name(cell);
+        info.attrs["cycle_ps"] = 0; // TODO
+        info.attrs["phase_ps"] = 0; // TODO
+        ctxt.emulib["clock"].push_back(info);
+
+        return true;
+    }
+
+    virtual void process_submodule(HandlerContext &ctxt, Cell *cell, Module *target) override {
+        const EmulibData &target_data = ctxt.db.emulib.at(target->name);
+
+        Wire *ff_clk = ctxt.module->addWire(NEW_ID, GetSize(target_data.at("clock")));
+        cell->setPort(PortDutFfClk, ff_clk);
+        ctxt.ff_clk.append(ff_clk);
+
+        Wire *mem_clk = ctxt.module->addWire(NEW_ID, GetSize(target_data.at("clock")));
+        cell->setPort(PortDutRamClk, mem_clk);
+        ctxt.mem_clk.append(mem_clk);
+
+        for (auto it : target_data.at("clock")) {
+            it.nest(cell);
+            ctxt.emulib["clock"].push_back(it);
+        }
+    }
+
+    virtual void finalize(HandlerContext &ctxt) override {
+        Wire *ff_clk_wire = ctxt.module->addWire(PortDutFfClk, GetSize(ctxt.ff_clk));
+        ff_clk_wire->port_input = true;
+        ctxt.module->connect(ctxt.ff_clk, ff_clk_wire);
+
+        Wire *mem_clk_wire = ctxt.module->addWire(PortDutRamClk, GetSize(ctxt.mem_clk));
+        mem_clk_wire->port_input = true;
+        ctxt.module->connect(ctxt.mem_clk, mem_clk_wire);
+
+        ctxt.module->fixup_ports();
+    }
+
+} ClockHandler;
+
+struct ResetHandler : public EmulibHandler {
+    ResetHandler() : EmulibHandler("reset") {}
+
+    virtual bool process_cell(HandlerContext &ctxt, Cell *cell) override {
+        ctxt.rst.append(cell->getPort("\\reset"));
+
+        EmulibCellInfo info;
+        info.name = get_hier_name(cell);
+        info.attrs["duration_ns"] = 0; // TODO
+        ctxt.emulib["reset"].push_back(info);
+
+        return true;
+    }
+
+    virtual void process_submodule(HandlerContext &ctxt, Cell *cell, Module *target) override {
+        EmulibData target_data = ctxt.db.emulib.at(target->name);
+        
+        Wire *reset = ctxt.module->addWire(NEW_ID, GetSize(target_data.at("reset")));
+        cell->setPort(PortDutRst, reset);
+        ctxt.rst.append(reset);
+
+        for (auto it : target_data.at("reset")) {
+            it.nest(cell);
+            ctxt.emulib["reset"].push_back(it);
+        }
+    }
+
+    virtual void finalize(HandlerContext &ctxt) override {
+        Wire *reset_wire = ctxt.module->addWire(PortDutRst, GetSize(ctxt.rst));
+        reset_wire->port_input = true;
+        ctxt.module->connect(ctxt.rst, reset_wire);
+        ctxt.module->fixup_ports();
+    }
+
+} ResetHandler;
+
+struct TrigHandler : public EmulibHandler {
+    TrigHandler() : EmulibHandler("trigger") {}
+
+    virtual bool process_cell(HandlerContext &ctxt, Cell *cell) override {
+        ctxt.trig.append(cell->getPort("\\trigger"));
+
+        EmulibCellInfo info;
+        info.name = get_hier_name(cell);
+        ctxt.emulib["trigger"].push_back(info);
+
+        return true;
+    }
+
+    virtual void process_submodule(HandlerContext &ctxt, Cell *cell, Module *target) override {
+        EmulibData target_data = ctxt.db.emulib.at(target->name);
+
+        Wire *trig = ctxt.module->addWire(NEW_ID, GetSize(target_data.at("trigger")));
+        cell->setPort(PortDutTrig, trig);
+        ctxt.trig.append(trig);
+
+        for (auto it : target_data.at("trigger")) {
+            it.nest(cell);
+            ctxt.emulib["trigger"].push_back(it);
+        }
+    }
+
+    virtual void finalize(HandlerContext &ctxt) override {
+        Wire *trig_wire = ctxt.module->addWire(PortDutTrig, GetSize(ctxt.trig));
+        trig_wire->port_output = true;
+        ctxt.module->connect(trig_wire, ctxt.trig);
+        ctxt.module->fixup_ports();
+    }
+
+} TrigHandler;
+
+struct ProcessLibWorker {
+
+    Module *module;
+    Database &db;
+
+    ProcessLibWorker(Module *module, Database &db) : module(module), db(db) {}
+
+    void run() {
+        // check if already processed
+        if (module->get_bool_attribute(AttrLibProcessed)) {
+            log_warning("Module %s is already processed by emu_process_lib\n", log_id(module));
+            return;
+        }
+
+        HandlerContext ctxt(module, db);
+
+        std::vector<Cell *> cells_to_remove;
+
+        for (auto cell : module->cells()) {
+            Module *target = module->design->module(cell->type);
+
+            if (target) {
+                std::string component = target->get_string_attribute(AttrEmulibComponent);
+                if (!component.empty()) {
+                    log("Processing cell %s.%s (%s) ...\n", log_id(module), log_id(cell), component.c_str());
+                    if (EmulibHandler::get(component).process_cell(ctxt, cell))
+                        cells_to_remove.push_back(cell);
+                }
+            }
+        }
+
+        for (auto &cell : cells_to_remove)
+            module->remove(cell);
+
+        // process submodules
+
+        for (auto &cell : module->selected_cells()) {
+            Module *target = module->design->module(cell->type);
+            if (target && target->get_bool_attribute(AttrLibProcessed)) {
+                log("Processing submodule %s.%s (%s) ...\n", log_id(module), log_id(cell), log_id(target));
+                EmulibHandler::process_submodule_all(ctxt, cell, target);
+            }
+        }
+
+        // add ports & connect signals
+
+        EmulibHandler::finalize_all(ctxt);
+
+        module->set_bool_attribute(AttrLibProcessed);
+    }
+
+};
 
 struct EmuProcessLibPass : public Pass {
     EmuProcessLibPass() : Pass("emu_process_lib", "process emulation libraries in design") { }
@@ -213,7 +343,8 @@ struct EmuProcessLibPass : public Pass {
 
         for (auto &mod : topo_modules.sorted) {
             log("Processing module %s\n", mod->name.c_str());
-            process_emulib(mod, db);
+            ProcessLibWorker worker(mod, db);
+            worker.run();
         }
     }
 } EmuProcessLibPass;

@@ -190,18 +190,6 @@ MemInfo MemInfo::nest(Cell *parent) {
     return res;
 }
 
-EmulibData EmulibData::nest(Cell *parent) {
-    EmulibData res = *this;
-    std::vector<std::string> hier = get_hier_name(parent);
-    for (auto &c : clk)
-        c.name.insert(c.name.begin(), hier.begin(), hier.end());
-    for (auto &r : rst)
-        r.name.insert(r.name.begin(), hier.begin(), hier.end());
-    for (auto &t : trig)
-        t.name.insert(t.name.begin(), hier.begin(), hier.end());
-    return res;
-}
-
 JsonWriter &JsonWriter::key(const std::string &key) {
     comma_and_newline();
     indent();
