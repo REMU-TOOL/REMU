@@ -16,10 +16,10 @@ module rammodel_axi_txn_gate #(
     `AXI4_SLAVE_IF              (s, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
     `AXI4_MASTER_IF             (m, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
 
-    input                       pause,
-    output                      pause_ok,
-    input                       resume,
-    output                      resume_ok
+    input                       up_req,
+    input                       down_req,
+    output                      up,
+    output                      down
 );
 
     wire s_arfire   = s_arvalid && s_arready;
@@ -39,14 +39,14 @@ module rammodel_axi_txn_gate #(
     always @(posedge clk) begin
         if (!resetn)
             arvalid <= 1'b0;
-        else if (s_axi_txn_allowed && s_arfire)
+        else if (s_arfire)
             arvalid <= 1'b1;
-        else if (s_axi_txn_allowed && s_rfire && s_rlast)
+        else if (s_rfire && s_rlast)
             arvalid <= 1'b0;
     end
 
     always @(posedge clk)
-        if (s_axi_txn_allowed && s_arfire)
+        if (s_arfire)
             ar_payload <= `AXI4_AR_PAYLOAD(s);
 
     reg awvalid;
@@ -55,20 +55,20 @@ module rammodel_axi_txn_gate #(
     always @(posedge clk) begin
         if (!resetn)
             awvalid <= 1'b0;
-        else if (s_axi_txn_allowed && s_awfire)
+        else if (s_awfire)
             awvalid <= 1'b1;
-        else if (s_axi_txn_allowed && s_bfire)
+        else if (s_bfire)
             awvalid <= 1'b0;
     end
 
     always @(posedge clk)
-        if (s_axi_txn_allowed && s_awfire)
+        if (s_awfire)
             aw_payload <= `AXI4_AW_PAYLOAD(s);
 
     reg [7:0] awlen;
 
     always @(posedge clk)
-        if (s_axi_txn_allowed && s_awfire)
+        if (s_awfire)
             awlen <= s_awlen;
 
     localparam [0:0]
@@ -98,25 +98,22 @@ module rammodel_axi_txn_gate #(
             w_state <= w_state_next;
     end
 
-    localparam [2:0]
-        NORMAL  = 3'd0, // Normal working mode
-        ABORT   = 3'd1, // To terminate unfinished transactions
-        HOLD    = 3'd2, // Pause state
-        RESUME  = 3'd3, // To restart previous transactions and proceed to interrupted point
-        READY   = 3'd4; // To wait for synchronization before continuing emulation
+    localparam [1:0]
+        UP              = 2'd0,
+        UP_PENDING      = 2'd1,
+        DOWN            = 2'd2,
+        DOWN_PENDING    = 2'd3;
 
-    (* emu_no_scanchain *) reg [2:0] ctrl_state, ctrl_state_next;
+    (* emu_no_scanchain *) reg [1:0] ctrl_state, ctrl_state_next;
 
     always @(posedge clk) begin
         if (!resetn)
-            ctrl_state <= NORMAL;
+            ctrl_state <= UP;
         else
             ctrl_state <= ctrl_state_next;
     end
 
-    wire s_axi_txn_allowed  = ctrl_state == NORMAL && !pause;
-    wire abort_resume       = ctrl_state == ABORT || ctrl_state == RESUME;
-    wire pause_trig         = ctrl_state == NORMAL && pause;
+    wire pending            = ctrl_state == UP_PENDING || ctrl_state == DOWN_PENDING;
 
     (* emu_no_scanchain *) reg [7:0] wlen;
 
@@ -173,14 +170,14 @@ module rammodel_axi_txn_gate #(
     always @(posedge clk) begin
         if (!resetn)
             r_pos_save <= 8'd0;
-        else if (pause_trig)
+        else if (ctrl_state == UP && down_req)
             r_pos_save <= r_pos;
     end
 
     always @(posedge clk) begin
         if (!resetn)
             w_pos_save <= 8'd0;
-        else if (pause_trig)
+        else if (ctrl_state == UP && down_req)
             w_pos_save <= w_pos;
     end
 
@@ -225,33 +222,28 @@ module rammodel_axi_txn_gate #(
 
     always @* begin
         case (ctrl_state)
-            NORMAL:
-                if (pause)
-                    ctrl_state_next = (r_state == DO_AR && w_state == DO_AW ? HOLD : ABORT);
+            UP:
+                if (down_req)
+                    ctrl_state_next = (r_state == DO_AR && w_state == DO_AW ? DOWN : DOWN_PENDING);
                 else
-                    ctrl_state_next = NORMAL;
-            ABORT:
+                    ctrl_state_next = UP;
+            DOWN_PENDING:
                 if (m_rfire && m_rlast || m_bfire)
-                    ctrl_state_next = HOLD;
+                    ctrl_state_next = DOWN;
                 else
-                    ctrl_state_next = ABORT;
-            HOLD:
-                if (resume)
-                    ctrl_state_next = arvalid || awvalid ? RESUME : READY;
+                    ctrl_state_next = DOWN_PENDING;
+            DOWN:
+                if (up_req)
+                    ctrl_state_next = (arvalid || awvalid) ? UP_PENDING : UP;
                 else
-                    ctrl_state_next = HOLD;
-            RESUME:
+                    ctrl_state_next = DOWN;
+            UP_PENDING:
                 if (arvalid && r_pos_next == r_pos_save || awvalid && w_pos_next == w_pos_save)
-                    ctrl_state_next = READY;
+                    ctrl_state_next = UP;
                 else
-                    ctrl_state_next = RESUME;
-            READY:
-                if (resume)
-                    ctrl_state_next = READY;
-                else
-                    ctrl_state_next = NORMAL;
+                    ctrl_state_next = UP_PENDING;
             default:
-                ctrl_state_next = NORMAL;
+                ctrl_state_next = UP;
         endcase
     end
 
@@ -267,19 +259,19 @@ module rammodel_axi_txn_gate #(
     assign s_bid        = m_bid;
     assign s_bresp      = m_bresp;
 
-    assign m_arvalid    = r_state == DO_AR && w_state == DO_AW && (s_arvalid && s_axi_txn_allowed || arvalid && abort_resume);
+    assign m_arvalid    = r_state == DO_AR && w_state == DO_AW && (s_arvalid || arvalid && pending);
     assign `AXI4_AR_PAYLOAD(m) = arvalid ? ar_payload : `AXI4_AR_PAYLOAD(s);
-    assign m_rready     = r_state == DO_R && (s_rready && s_axi_txn_allowed || abort_resume);
-    assign m_awvalid    = r_state == DO_AR && w_state == DO_AW && (!s_arvalid && s_awvalid && s_axi_txn_allowed || awvalid && abort_resume);
+    assign m_rready     = r_state == DO_R && (s_rready || pending);
+    assign m_awvalid    = r_state == DO_AR && w_state == DO_AW && (!s_arvalid && s_awvalid || awvalid && pending);
     assign `AXI4_AW_PAYLOAD(m) = awvalid ? aw_payload : `AXI4_AW_PAYLOAD(s);
-    assign m_wvalid     = w_state == DO_W && (s_wvalid && s_axi_txn_allowed || abort_resume);
+    assign m_wvalid     = w_state == DO_W && (s_wvalid || pending);
     assign m_wdata      = s_wdata;
-    assign m_wstrb      = ctrl_state == NORMAL ? s_wstrb : {(DATA_WIDTH/8){1'b0}};
+    assign m_wstrb      = ctrl_state == UP ? s_wstrb : {(DATA_WIDTH/8){1'b0}};
     assign m_wlast      = wlen == awlen;
-    assign m_bready     = w_state == DO_B && (s_bready && s_axi_txn_allowed || abort_resume);
+    assign m_bready     = w_state == DO_B && (s_bready || pending);
 
-    assign pause_ok     = ctrl_state == HOLD;
-    assign resume_ok    = ctrl_state == READY;
+    assign up           = ctrl_state == UP;
+    assign down         = ctrl_state == DOWN;
 
 `ifdef FORMAL
 

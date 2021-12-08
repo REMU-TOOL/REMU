@@ -14,9 +14,11 @@ module rammodel_simple #(
     `AXI4_MASTER_IF             (m_dram,    ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
 
     input                       pause,
-    output                      pause_ok,
-    input                       resume,
-    output                      resume_ok,
+
+    input                       up_req,
+    input                       down_req,
+    output                      up,
+    output                      down,
 
     output                      dut_stall
 );
@@ -191,10 +193,10 @@ module rammodel_simple #(
         .resetn         (resetn),
         `AXI4_CONNECT   (s, to_data_model),
         `AXI4_CONNECT   (m, from_gate),
-        .pause          (pause),
-        .pause_ok       (pause_ok),
-        .resume         (resume),
-        .resume_ok      (resume_ok)
+        .up_req         (up_req),
+        .down_req       (down_req),
+        .up             (up),
+        .down           (down)
     );
 
     axi_register_slice #(
