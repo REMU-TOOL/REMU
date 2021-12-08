@@ -52,7 +52,7 @@ struct EmuTransformPass : public Pass {
 	{
 		std::string cfg_file, ldr_file, top_module;
 
-		log_header(design, "Executing PROC pass (convert processes to netlists).\n");
+		log_header(design, "Executing EMU_TRANSFORM pass.\n");
 		log_push();
 
         size_t argidx;
@@ -77,6 +77,7 @@ struct EmuTransformPass : public Pass {
         Pass::call(design, "emu_database reset");
 
         Pass::call(design, "read_verilog -lib +/emulib/*.v");
+
         if (top_module.empty())
             Pass::call(design, "hierarchy -check -auto-top");
         else

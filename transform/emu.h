@@ -27,6 +27,7 @@ const char
 
 const char
     AttrEmulibComponent     [] = "\\emulib_component",
+    AttrInternalSig         [] = "\\emu_internal_sig",
     AttrNoScanchain         [] = "\\emu_no_scanchain",
     AttrInstrumented        [] = "\\emu_instrumented",
     AttrLibProcessed        [] = "\\emu_lib_processed",

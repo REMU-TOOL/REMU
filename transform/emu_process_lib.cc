@@ -240,6 +240,167 @@ struct TrigHandler : public EmulibHandler {
 
 } TrigHandler;
 
+struct ModelHandler : public EmulibHandler {
+    std::string model;
+
+    ModelHandler(std::string model) : EmulibHandler(model), model(model) {}
+
+    Module *load_model(Design *design, dict<RTLIL::IdString, RTLIL::Const> &parameters) {
+        IdString modname = "\\" + model;
+        if (design->has(modname))
+            design->remove(design->module(modname));
+
+        Design *new_design = new Design;
+
+        log_header(new_design, "Loading model %s ...\n", model.c_str());
+        log_push();
+
+        Pass::call(new_design, stringf("read_verilog +/emulib/%s/*.v", model.c_str()));
+
+        log_header(new_design, "Deriving module with given parameters ...\n");
+        log_push();
+
+        Module *original_module = new_design->module(modname);
+        if (!original_module)
+            log_error("Module %s is not found\n", model.c_str());
+
+        IdString derived_modname = original_module->derive(new_design, parameters);
+        Module *derived_module = new_design->module(derived_modname);
+        derived_module->set_bool_attribute(ID::top);
+
+        log_pop();
+
+        Pass::call(new_design, "hierarchy");
+        Pass::call(new_design, "proc");
+        Pass::call(new_design, "flatten");
+        Pass::call(new_design, "opt");
+        Pass::call(new_design, "wreduce");
+        Pass::call(new_design, "memory_share");
+        Pass::call(new_design, "memory_collect");
+        Pass::call(new_design, "opt -fast");
+        Pass::call(new_design, "emu_opt_ram");
+        Pass::call(new_design, "opt_clean");
+
+        log_pop();
+
+        if (GetSize(new_design->modules()) != 1)
+            log_error("Multiple modules detected in model implementation after processing\n");
+
+        Module *top_module = new_design->top_module();
+        Module *copy = top_module->clone();
+        copy->name = modname;
+        copy->design = design;
+        copy->attributes.erase(ID::top);
+        design->add(copy);
+
+        delete new_design;
+
+        return copy;
+    }
+
+    // name -> direction (output=true)
+    const dict<std::string, bool> internal_sigs = {
+        {"clock",           false},
+        {"reset",           false},
+        {"pause",           false},
+        {"up_req",          false},
+        {"down_req",        false},
+        {"up_stat",         true},
+        {"down_stat",       true},
+        {"stall",           true},
+        {"dram_awvalid",    true},
+        {"dram_awready",    false},
+        {"dram_awaddr",     true},
+        {"dram_awid",       true},
+        {"dram_awlen",      true},
+        {"dram_awsize",     true},
+        {"dram_awburst",    true},
+        {"dram_wvalid",     true},
+        {"dram_wready",     false},
+        {"dram_wdata",      true},
+        {"dram_wstrb",      true},
+        {"dram_wlast",      true},
+        {"dram_bvalid",     false},
+        {"dram_bready",     true},
+        {"dram_bid",        false},
+        {"dram_arvalid",    true},
+        {"dram_arready",    false},
+        {"dram_araddr",     true},
+        {"dram_arid",       true},
+        {"dram_arlen",      true},
+        {"dram_arsize",     true},
+        {"dram_arburst",    true},
+        {"dram_rvalid",     false},
+        {"dram_rready",     true},
+        {"dram_rdata",      false},
+        {"dram_rid",        false},
+        {"dram_rlast",      false},
+    };
+
+    void process_internal_sigs(Module *module) {
+        std::vector<std::pair<Wire *, std::string>> wires;
+
+        for (auto &wire : module->selected_wires()) {
+            std::string signame = wire->get_string_attribute(AttrInternalSig);
+            if (!signame.empty()) {
+                wires.push_back({wire, signame});
+            }
+        }
+
+        for (auto &it : wires) {
+            module->rename(it.first, "\\$EMU$INTERNAL$" + it.second);
+            try {
+                bool dir = internal_sigs.at(it.second);
+                if (dir)
+                    it.first->port_output = true;
+                else
+                    it.first->port_input = true;
+            }
+            catch (std::out_of_range) {
+                log_error("Undefined signal name %s\n", it.second.c_str());
+            }
+        }
+
+        module->fixup_ports();
+    }
+
+    virtual bool process_cell(HandlerContext &ctxt, Cell *cell) override {
+        Module *module = ctxt.module;
+        Design *design = module->design;
+
+        // Load model implementation
+        auto &parameters = cell->parameters;
+        Module *model_module = load_model(design, parameters);
+
+        // Flatten this cell
+        RTLIL::Selection selection(false);
+        selection.select(module, cell);
+        Pass::call_on_selection(design, selection, "flatten");
+        design->remove(model_module);
+
+        // Process internal signals
+        process_internal_sigs(module);
+
+        return false;
+    }
+
+    virtual void process_submodule(HandlerContext &ctxt, Cell *cell, Module *target) override {
+        // TODO
+        static_cast<void>(ctxt);
+        static_cast<void>(cell);
+        static_cast<void>(target);
+    }
+
+    virtual void finalize(HandlerContext &ctxt) override {
+        // TODO
+        static_cast<void>(ctxt);
+    }
+};
+
+struct RAMModelHandler : public ModelHandler {
+    RAMModelHandler() : ModelHandler("rammodel") {}
+} RAMModelHandler;
+
 struct ProcessLibWorker {
 
     Module *module;
@@ -256,23 +417,23 @@ struct ProcessLibWorker {
 
         HandlerContext ctxt(module, db);
 
-        std::vector<Cell *> cells_to_remove;
+        std::vector<std::pair<Cell *, std::string>> cells;
 
-        for (auto cell : module->cells()) {
+        for (auto &cell : module->selected_cells()) {
             Module *target = module->design->module(cell->type);
 
             if (target) {
                 std::string component = target->get_string_attribute(AttrEmulibComponent);
-                if (!component.empty()) {
-                    log("Processing cell %s.%s (%s) ...\n", log_id(module), log_id(cell), component.c_str());
-                    if (EmulibHandler::get(component).process_cell(ctxt, cell))
-                        cells_to_remove.push_back(cell);
-                }
+                if (!component.empty()) 
+                    cells.push_back({cell, component});
             }
         }
 
-        for (auto &cell : cells_to_remove)
-            module->remove(cell);
+        for (auto &it : cells) {
+            log("Processing cell %s.%s (%s) ...\n", log_id(module), log_id(it.first), it.second.c_str());
+            if (EmulibHandler::get(it.second).process_cell(ctxt, it.first))
+                module->remove(it.first);
+        }
 
         // process submodules
 
@@ -311,6 +472,7 @@ struct EmuProcessLibPass : public Pass {
 
     void execute(vector<string> args, Design* design) override {
         log_header(design, "Executing EMU_PROCESS_LIB pass.\n");
+        log_push();
 
         std::string db_name;
 
@@ -346,6 +508,8 @@ struct EmuProcessLibPass : public Pass {
             ProcessLibWorker worker(mod, db);
             worker.run();
         }
+
+        log_pop();
     }
 } EmuProcessLibPass;
 
