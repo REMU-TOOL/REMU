@@ -1,7 +1,6 @@
-NAME := $(patsubst %.mk,%,$(notdir $(lastword $(MAKEFILE_LIST))))
-ROOT_DIR := ../..
+include ../../common.mk
 
-YOSYS ?= $(ROOT_DIR)/yosys/yosys
+NAME := $(patsubst %.mk,%,$(notdir $(lastword $(MAKEFILE_LIST))))
 
 SIM_FLAGS ?=
 
@@ -19,7 +18,7 @@ SIM_BIN 	:= $(BUILD_DIR)/sim
 DUMP_FILE 	:= $(BUILD_DIR)/dump.vcd
 
 SIM_SRCS	+= $(OUTPUT_FILE)
-SIM_SRCS 	+= $(wildcard $(ROOT_DIR)/sim/*.v $(ROOT_DIR)/emulib/stub/*.v)
+SIM_SRCS 	+= $(SIMSRCS)
 
 EXTRA_IVFLAGS += -DEMULIB_TEST
 

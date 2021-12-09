@@ -1,7 +1,6 @@
-NAME := $(patsubst %.mk,%,$(notdir $(lastword $(MAKEFILE_LIST))))
-ROOT_DIR := ../..
+include ../../common.mk
 
-YOSYS ?= $(ROOT_DIR)/yosys/yosys
+NAME := $(patsubst %.mk,%,$(notdir $(lastword $(MAKEFILE_LIST))))
 
 SIM_FLAGS ?=
 
@@ -12,8 +11,8 @@ BUILD_SRCS 	+= $(ROOT_DIR)/design/example_singlecycle/mips_cpu.v
 SIM_TOP 	:= sim_top
 SIM_SRCS 	+= $(BUILD_SRCS)
 SIM_SRCS 	+= singlecycle_test.v
-SIM_SRCS	+= $(wildcard $(ROOT_DIR)/rtl/ip/*.v $(ROOT_DIR)/rtl/system/*.v)
-EXTRA_IVFLAGS += -I$(ROOT_DIR)/rtl/include
+SIM_SRCS	+= $(RTLSRCS)
+EXTRA_IVFLAGS += -I$(ROOT_DIR)/emulib/include
 
 BUILD_DIR 	:= $(NAME).build
 OUTPUT_FILE := $(BUILD_DIR)/output.v
@@ -23,7 +22,7 @@ SIM_BIN 	:= $(BUILD_DIR)/sim
 DUMP_FILE 	:= $(BUILD_DIR)/dump.vcd
 
 SIM_SRCS	+= $(OUTPUT_FILE)
-SIM_SRCS 	+= $(wildcard $(ROOT_DIR)/sim/*.v $(ROOT_DIR)/emulib/stub/*.v)
+SIM_SRCS 	+= $(SIMSRCS)
 
 EXTRA_IVFLAGS += -DEMULIB_TEST
 
