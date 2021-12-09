@@ -65,11 +65,9 @@ const char
 bool is_public_id(Yosys::IdString id);
 std::string str_id(Yosys::IdString id);
 
-typedef std::vector<std::string> HierName;
-
 template <typename T>
-HierName get_hier_name(T *obj) {
-    HierName hier;
+std::vector<std::string> get_hier_name(T *obj) {
+    std::vector<std::string> hier;
     if (obj->has_attribute(Yosys::ID::hdlname))
         hier = obj->get_hdlname_attribute();
     else
@@ -78,10 +76,10 @@ HierName get_hier_name(T *obj) {
 }
 
 std::string verilog_id(const std::string &name);
-std::string verilog_hier_name(const HierName &hier);
+std::string verilog_hier_name(const std::vector<std::string> &hier);
 
 struct FfInfoChunk {
-    HierName name;
+    std::vector<std::string> name;
     bool is_public;
     int offset;
     int width;
@@ -105,7 +103,7 @@ struct FfInfo {
 };
 
 struct MemInfo {
-    HierName name;
+    std::vector<std::string> name;
     bool is_public;
     int depth;
     int slices;
@@ -131,7 +129,7 @@ struct ScanChainData {
 };
 
 struct EmulibCellInfo {
-    HierName name;
+    std::vector<std::string> name;
     std::map<std::string, int> attrs;
 
     inline EmulibCellInfo nest(Yosys::Cell *parent) const {
