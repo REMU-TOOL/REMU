@@ -255,7 +255,15 @@ struct ModelHandler : public EmulibHandler {
         log_header(new_design, "Loading model %s ...\n", model.c_str());
         log_push();
 
-        Pass::call(new_design, stringf("read_verilog +/emulib/%s/*.v", model.c_str()));
+        std::string share_dirname = proc_share_dirname();
+        std::vector<std::string> read_verilog_argv = {
+            "read_verilog",
+            "-I",
+            share_dirname + "emulib",
+            share_dirname + "emulib/" + model + "/*.v"
+        };
+
+        Pass::call(new_design, read_verilog_argv);
 
         log_header(new_design, "Deriving module with given parameters ...\n");
         log_push();
