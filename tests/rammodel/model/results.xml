@@ -1,0 +1,6 @@
+<testsuites name="results">
+  <testsuite name="all" package="all">
+    <property name="random_seed" value="1639044510" />
+    <testcase name="run_test" classname="test_model" file="/home/free/workspace/emulator/tests/rammodel/model/test_model.py" lineno="45" time="92.86615037918091" sim_time_ns="2679180.001" ratio_time="28849.90914408173" />
+  </testsuite>
+</testsuites>

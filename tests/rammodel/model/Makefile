@@ -5,17 +5,14 @@ DUMP ?= n
 
 TOPLEVEL_LANG := verilog
 
-EMULIB_DIR := $(PWD)/../../../emulib
-
-VERILOG_SOURCES += $(ROOT_DIR)/emulib/model/rammodel/axi_txn_gate.v
-VERILOG_SOURCES += $(ROOT_DIR)/emulib/model/rammodel/ready_valid_stall.v
-VERILOG_SOURCES += $(PWD)/axi_txn_gate_test.v
+VERILOG_SOURCES += $(wildcard $(ROOT_DIR)/emulib/model/rammodel/*.v)
+VERILOG_SOURCES += $(PWD)/test.v
 
 COMPILE_ARGS += -I$(ROOT_DIR)/emulib/include
 
-TOPLEVEL = rammodel_axi_txn_gate_sim_wrapper
+TOPLEVEL = rammodel_test
 
-MODULE = test_axi_txn_gate
+MODULE = test_model
 
 DUMPFILE := $(MODULE).vcd
 COMPILE_ARGS += -DDUMPFILE=\"$(DUMPFILE)\"
