@@ -6,6 +6,7 @@
 *.build
 __pycache__
 .Xil
+sim_build
 
 .config
 
