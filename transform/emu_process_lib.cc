@@ -259,8 +259,8 @@ struct ModelHandler : public EmulibHandler {
         std::vector<std::string> read_verilog_argv = {
             "read_verilog",
             "-I",
-            share_dirname + "emulib",
-            share_dirname + "emulib/" + model + "/*.v"
+            share_dirname + "emulib/include",
+            share_dirname + "emulib/model/" + model + "/*.v"
         };
 
         Pass::call(new_design, read_verilog_argv);

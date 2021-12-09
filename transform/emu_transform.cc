@@ -76,7 +76,7 @@ struct EmuTransformPass : public Pass {
 
         Pass::call(design, "emu_database reset");
 
-        Pass::call(design, "read_verilog -lib +/emulib/*.v");
+        Pass::call(design, "read_verilog -lib +/emulib/stub/*.v");
 
         if (top_module.empty())
             Pass::call(design, "hierarchy -check -auto-top");

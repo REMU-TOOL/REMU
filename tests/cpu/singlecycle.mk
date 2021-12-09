@@ -21,7 +21,7 @@ SIM_BIN 	:= $(BUILD_DIR)/sim
 DUMP_FILE 	:= $(BUILD_DIR)/dump.vcd
 
 SIM_SRCS	+= $(OUTPUT_FILE)
-SIM_SRCS 	+= $(wildcard $(ROOT_DIR)/sim/*.v $(ROOT_DIR)/emulib/*.v)
+SIM_SRCS 	+= $(wildcard $(ROOT_DIR)/sim/*.v $(ROOT_DIR)/emulib/stub/*.v)
 
 EXTRA_IVFLAGS += -DEMULIB_TEST
 
