@@ -298,70 +298,64 @@ struct ModelHandler : public EmulibHandler {
         return copy;
     }
 
-    // name -> direction (output=true)
-    const dict<std::string, bool> internal_sigs = {
-        {"clock",           false},
-        {"reset",           false},
-        {"pause",           false},
-        {"up_req",          false},
-        {"down_req",        false},
-        {"up_stat",         true},
-        {"down_stat",       true},
-        {"stall",           true},
-        {"dram_awvalid",    true},
-        {"dram_awready",    false},
-        {"dram_awaddr",     true},
-        {"dram_awid",       true},
-        {"dram_awlen",      true},
-        {"dram_awsize",     true},
-        {"dram_awburst",    true},
-        {"dram_wvalid",     true},
-        {"dram_wready",     false},
-        {"dram_wdata",      true},
-        {"dram_wstrb",      true},
-        {"dram_wlast",      true},
-        {"dram_bvalid",     false},
-        {"dram_bready",     true},
-        {"dram_bid",        false},
-        {"dram_arvalid",    true},
-        {"dram_arready",    false},
-        {"dram_araddr",     true},
-        {"dram_arid",       true},
-        {"dram_arlen",      true},
-        {"dram_arsize",     true},
-        {"dram_arburst",    true},
-        {"dram_rvalid",     false},
-        {"dram_rready",     true},
-        {"dram_rdata",      false},
-        {"dram_rid",        false},
-        {"dram_rlast",      false},
+    enum InternalSigProp {
+        InputAppend,
+        InputShare,
+        OutputAppend,
+        OutputAndReduce,
+        OutputOrReduce,
     };
 
-    void process_internal_sigs(Module *module) {
+    // name -> direction (output=true)
+    const dict<std::string, InternalSigProp> internal_sig_list = {
+        {"CLOCK",           InputShare},
+        {"RESET",           InputShare},
+        {"PAUSE",           InputShare},
+        {"UP_REQ",          InputShare},
+        {"DOWN_REQ",        InputShare},
+        {"UP_STAT",         OutputAndReduce},
+        {"DOWN_STAT",       OutputAndReduce},
+        {"STALL",           OutputOrReduce},
+        {"DRAM_AWVALID",    OutputAppend},
+        {"DRAM_AWREADY",    InputAppend},
+        {"DRAM_AWADDR",     OutputAppend},
+        {"DRAM_AWID",       OutputAppend},
+        {"DRAM_AWLEN",      OutputAppend},
+        {"DRAM_AWSIZE",     OutputAppend},
+        {"DRAM_AWBURST",    OutputAppend},
+        {"DRAM_WVALID",     OutputAppend},
+        {"DRAM_WREADY",     InputAppend},
+        {"DRAM_WDATA",      OutputAppend},
+        {"DRAM_WSTRB",      OutputAppend},
+        {"DRAM_WLAST",      OutputAppend},
+        {"DRAM_BVALID",     InputAppend},
+        {"DRAM_BREADY",     OutputAppend},
+        {"DRAM_BID",        InputAppend},
+        {"DRAM_ARVALID",    OutputAppend},
+        {"DRAM_ARREADY",    InputAppend},
+        {"DRAM_ARADDR",     OutputAppend},
+        {"DRAM_ARID",       OutputAppend},
+        {"DRAM_ARLEN",      OutputAppend},
+        {"DRAM_ARSIZE",     OutputAppend},
+        {"DRAM_ARBURST",    OutputAppend},
+        {"DRAM_RVALID",     InputAppend},
+        {"DRAM_RREADY",     OutputAppend},
+        {"DRAM_RDATA",      InputAppend},
+        {"DRAM_RID",        InputAppend},
+        {"DRAM_RLAST",      InputAppend},
+    };
+
+    void process_internal_sigs(HandlerContext &ctxt) {
         std::vector<std::pair<Wire *, std::string>> wires;
 
-        for (auto &wire : module->selected_wires()) {
+        for (auto &wire : ctxt.module->selected_wires()) {
             std::string signame = wire->get_string_attribute(AttrInternalSig);
             if (!signame.empty()) {
-                wires.push_back({wire, signame});
+                if (internal_sig_list.find(signame) == internal_sig_list.end())
+                    log_error("Undefined signal name %s\n", signame.c_str());
+                ctxt.internal_sigs[signame].append(wire);
             }
         }
-
-        for (auto &it : wires) {
-            module->rename(it.first, "\\$EMU$INTERNAL$" + it.second);
-            try {
-                bool dir = internal_sigs.at(it.second);
-                if (dir)
-                    it.first->port_output = true;
-                else
-                    it.first->port_input = true;
-            }
-            catch (std::out_of_range) {
-                log_error("Undefined signal name %s\n", it.second.c_str());
-            }
-        }
-
-        module->fixup_ports();
     }
 
     virtual bool process_cell(HandlerContext &ctxt, Cell *cell) override {
@@ -379,7 +373,7 @@ struct ModelHandler : public EmulibHandler {
         design->remove(model_module);
 
         // Process internal signals
-        process_internal_sigs(module);
+        process_internal_sigs(ctxt);
 
         return false;
     }
@@ -392,8 +386,43 @@ struct ModelHandler : public EmulibHandler {
     }
 
     virtual void finalize(HandlerContext &ctxt) override {
-        // TODO
-        static_cast<void>(ctxt);
+        for (auto &it : internal_sig_list) {
+            IdString wirename = "\\$EMU$INTERNAL$" + it.first;
+            Wire *wire = nullptr;
+            SigSpec &sig = ctxt.internal_sigs[it.first];
+            switch (it.second) {
+                case InputAppend:
+                    wire = ctxt.module->addWire(wirename, GetSize(sig));
+                    wire->port_input = true;
+                    ctxt.module->connect(sig, wire);
+                    break;
+                case InputShare:
+                    wire = ctxt.module->addWire(wirename);
+                    wire->port_input = true;
+                    for (SigBit &bit : sig)
+                        ctxt.module->connect(bit, wire);
+                    break;
+                case OutputAppend:
+                    wire = ctxt.module->addWire(wirename, GetSize(sig));
+                    wire->port_output = true;
+                    ctxt.module->connect(wire, sig);
+                    break;
+                case OutputAndReduce:
+                    sig.append(State::S1);
+                    wire = ctxt.module->addWire(wirename);
+                    wire->port_output = true;
+                    ctxt.module->connect(wire, ctxt.module->ReduceAnd(NEW_ID, sig));
+                    break;
+                case OutputOrReduce:
+                    sig.append(State::S0);
+                    wire = ctxt.module->addWire(wirename);
+                    wire->port_output = true;
+                    ctxt.module->connect(wire, ctxt.module->ReduceOr(NEW_ID, sig));
+                    break;
+            }
+        }
+
+        ctxt.module->fixup_ports();
     }
 };
 

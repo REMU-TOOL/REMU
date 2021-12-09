@@ -26,15 +26,36 @@ const char
     PortDutTrig     [] = "\\$EMU$DUT$TRIG";
 
 const char
-    AttrEmulibComponent     [] = "\\emulib_component",
-    AttrInternalSig         [] = "\\emu_internal_sig",
-    AttrNoScanchain         [] = "\\emu_no_scanchain",
-    AttrInstrumented        [] = "\\emu_instrumented",
-    AttrLibProcessed        [] = "\\emu_lib_processed",
-    AttrClkPortRewritten    [] = "\\emu_clk_port_rewritten";
 
-template <typename T>
-inline void unused(T &var) { (void)var; }
+    // Usage: specified in emulib stub modules to indicate the component name.
+    // Type: string
+    // Compatible: module (emulib stubs)
+    AttrEmulibComponent     [] = "\\emulib_component",
+
+    // Usage: specified in model implementation to indicate internal signals.
+    // Type: string
+    // Compatible: wire
+    AttrInternalSig         [] = "\\emu_internal_sig",
+
+    // Usage: specified in model implementation to avoid scan chain insertion.
+    // Type: bool
+    // Compatible: cell
+    AttrNoScanchain         [] = "\\emu_no_scanchain",
+
+    // Usage: specified by emu_instrument to indicate completion of the pass.
+    // Type: bool
+    // Compatible: module
+    AttrInstrumented        [] = "\\emu_instrumented",
+
+    // Usage: specified by emu_process_lib to indicate completion of the pass.
+    // Type: bool
+    // Compatible: module
+    AttrLibProcessed        [] = "\\emu_lib_processed",
+
+    // Usage: specified by emu_process_lib to indicate rewritten clock ports.
+    // Type: bool
+    // Compatible: wire (clock ports)
+    AttrClkPortRewritten    [] = "\\emu_clk_port_rewritten";
 
 bool is_public_id(Yosys::IdString id);
 std::string str_id(Yosys::IdString id);
