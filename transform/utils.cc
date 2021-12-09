@@ -90,26 +90,30 @@ std::string verilog_hier_name(const std::vector<std::string> &hier) {
 
 FfInfo::FfInfo(SigSpec sig) {
     for (auto &c : sig.chunks())
-        if (c.is_wire())
-            info.push_back(FfInfoChunk(get_hier_name(c.wire), is_public_id(c.wire->name), c.offset, c.width));
+        if (c.is_wire()) {
+            FfInfoChunk chunk;
+            chunk.name = get_hier_name(c.wire);
+            chunk.is_public = is_public_id(c.wire->name) && !c.wire->get_bool_attribute(AttrModel);
+            chunk.offset = c.offset;
+            chunk.width = c.width;
+            info.push_back(chunk);
+        }
 }
 
 FfInfo::FfInfo(std::string str) {
     std::istringstream s(str);
-    std::vector<std::string> name;
+    FfInfoChunk chunk;
     int name_size;
-    bool is_public;
-    int offset, width;
     while (s >> name_size) {
         while (name_size--) {
             std::string n;
             s >> n;
-            name.push_back(n);
+            chunk.name.push_back(n);
         }
-        s >> is_public;
-        s >> offset;
-        s >> width;
-        info.push_back(FfInfoChunk(name, is_public, offset, width));
+        s >> chunk.is_public;
+        s >> chunk.offset;
+        s >> chunk.width;
+        info.push_back(chunk);
     }
 }
 

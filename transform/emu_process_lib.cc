@@ -293,6 +293,14 @@ struct ModelHandler : public EmulibHandler {
         copy->attributes.erase(ID::top);
         design->add(copy);
 
+        for (auto cell : copy->cells()) {
+            cell->set_bool_attribute(AttrModel);
+        }
+
+        for (auto wire : copy->wires()) {
+            wire->set_bool_attribute(AttrModel);
+        }
+
         delete new_design;
 
         return copy;

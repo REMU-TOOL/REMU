@@ -42,6 +42,11 @@ const char
     // Compatible: cell
     AttrNoScanchain         [] = "\\emu_no_scanchain",
 
+    // Usage: specified by emu_process_lib to indicate cells & wires loaded from model implementation.
+    // Type: bool
+    // Compatible: cell, wire
+    AttrModel               [] = "\\emu_model",
+
     // Usage: specified by emu_instrument to indicate completion of the pass.
     // Type: bool
     // Compatible: module
@@ -81,10 +86,11 @@ struct FfInfoChunk {
     int offset;
     int width;
     FfInfoChunk() {}
-    FfInfoChunk(HierName name, bool is_public, int offset, int width)
-        : name(name), is_public(is_public), offset(offset), width(width) {}
     FfInfoChunk extract(int offset, int length) {
-        return FfInfoChunk(name, is_public, this->offset + offset, length);
+        FfInfoChunk res = *this;
+        res.offset += offset;
+        res.width = length;
+        return res;
     }
 };
 
