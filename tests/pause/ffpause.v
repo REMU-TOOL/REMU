@@ -8,7 +8,7 @@ module ffpause(
 
     wire clk, rst;
     EmuClock clock(clk);
-    EmuReset reset(clk, rst);
+    EmuReset reset(rst);
 
     always @(posedge clk) begin
         if (rst) q <= 32'd0;

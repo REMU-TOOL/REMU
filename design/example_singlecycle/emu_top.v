@@ -4,7 +4,7 @@ module emu_top();
 
     wire clk, rst, trig;
     EmuClock clock(clk);
-    EmuReset reset(clk, rst);
+    EmuReset reset(rst);
     EmuTrigger trigger(trig);
 
     wire [31:0] PC;

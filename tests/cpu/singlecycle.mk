@@ -1,6 +1,6 @@
-include ../../common.mk
-
 NAME := $(patsubst %.mk,%,$(notdir $(lastword $(MAKEFILE_LIST))))
+
+include ../../common.mk
 
 SIM_FLAGS ?=
 

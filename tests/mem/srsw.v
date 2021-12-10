@@ -11,7 +11,7 @@ module srsw(
 
     wire clk, rst;
     EmuClock clock(clk);
-    EmuReset reset(clk, rst);
+    EmuReset reset(rst);
 
     mem #(
         .WIDTH(80),

@@ -131,8 +131,8 @@ struct ClockHandler : public EmulibHandler {
 
         EmulibCellInfo info;
         info.name = get_hier_name(cell);
-        info.attrs["cycle_ps"] = 0; // TODO
-        info.attrs["phase_ps"] = 0; // TODO
+        info.attrs["cycle_ps"] = cell->getParam("\\CYCLE_PERIOD_PS").as_int();
+        info.attrs["phase_ps"] = cell->getParam("\\PHASE_SHIFT_PS").as_int();
         ctxt.emulib["clock"].push_back(info);
 
         return true;
@@ -177,7 +177,7 @@ struct ResetHandler : public EmulibHandler {
 
         EmulibCellInfo info;
         info.name = get_hier_name(cell);
-        info.attrs["duration_ns"] = 0; // TODO
+        info.attrs["duration_ns"] = cell->getParam("\\DURATION_NS").as_int();
         ctxt.emulib["reset"].push_back(info);
 
         return true;
@@ -462,22 +462,23 @@ struct ProcessLibWorker {
 
         HandlerContext ctxt(module, db);
 
-        std::vector<std::pair<Cell *, std::string>> cells;
+        std::vector<Cell *> cells_to_remove;
 
         for (auto &cell : module->selected_cells()) {
             Module *target = module->design->module(cell->type);
 
             if (target) {
                 std::string component = target->get_string_attribute(AttrEmulibComponent);
-                if (!component.empty()) 
-                    cells.push_back({cell, component});
+                if (!component.empty()) {
+                    log("Processing cell %s.%s (%s) ...\n", log_id(module), log_id(cell), component.c_str());
+                    if (EmulibHandler::get(component).process_cell(ctxt, cell))
+                        cells_to_remove.push_back(cell);
+                }
             }
         }
 
-        for (auto &it : cells) {
-            log("Processing cell %s.%s (%s) ...\n", log_id(module), log_id(it.first), it.second.c_str());
-            if (EmulibHandler::get(it.second).process_cell(ctxt, it.first))
-                module->remove(it.first);
+        for (auto &it : cells_to_remove) {
+                module->remove(it);
         }
 
         // process submodules

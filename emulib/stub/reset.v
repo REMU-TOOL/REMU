@@ -2,31 +2,28 @@
 
 (* emulib_component = "reset" *)
 module EmuReset #(
-    parameter DURATION_CYCLES = 100 // TODO: revert to absolute time
+    parameter DURATION_NS = 20
 )
 (
-    input clock, // TODO: remove
     output reset
 );
 
 `ifdef RECONSTRUCT
 
-    reg [63:0] cnt;
-    reg reset_gen = DURATION_CYCLES > 0;
+    reg [63:0] starttime;
+    reg reset_gen = DURATION_NS > 0;
 
-    // workaround to access current cycle count
     initial begin
-        if ($value$plusargs("startcycle=%d", cnt)) begin
-            if (cnt >= DURATION_CYCLES) reset_gen = 0;
+        if (!$value$plusargs("starttime=%d", starttime)) begin
+            starttime = 0;
+        end
+        if (starttime >= DURATION_NS) begin
+            reset_gen = 0;
         end
         else begin
-            cnt = 0;
+            #(DURATION_NS - starttime);
+            reset_gen <= 0;
         end
-    end
-
-    always @(posedge clock) begin
-        cnt = cnt + 1;
-        if (cnt >= DURATION_CYCLES) reset_gen <= 0;
     end
 
     assign reset = reset_gen;

@@ -11,7 +11,7 @@ module srsw_rdata(
 
     wire clk, rst;
     EmuClock clock(clk);
-    EmuReset reset(clk, rst);
+    EmuReset reset(rst);
 
     reg [31:0] mem [3:0], o;
 

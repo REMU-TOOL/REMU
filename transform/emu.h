@@ -133,7 +133,7 @@ struct EmulibCellInfo {
     std::map<std::string, int> attrs;
 
     inline EmulibCellInfo nest(Yosys::Cell *parent) const {
-        EmulibCellInfo res = std::move(*this);
+        EmulibCellInfo res = *this;
         std::vector<std::string> hier = get_hier_name(parent);
         res.name.insert(res.name.begin(), hier.begin(), hier.end());
         return res;
