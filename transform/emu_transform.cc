@@ -3,8 +3,8 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct EmuTransformPass : public Pass {
-	EmuTransformPass() : Pass("emu_transform", "transform design for emulation") { }
+struct EmuTransformPass : public ScriptPass {
+	EmuTransformPass() : ScriptPass("emu_transform", "transform design for emulation") { }
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -20,38 +20,15 @@ struct EmuTransformPass : public Pass {
 		log("    -top <module>\n");
 		log("        use the specified module as top module\n");
 		log("\n");
-		log("    emu_database reset\n");
-		log("    read_verilog -lib +/emulib/*.v\n");
-		log("    hierarchy -check (-top <top> | -auto-top)\n");
-		log("    emu_keep_top\n");
-		log("    proc\n");
-		log("    flatten\n");
-		log("    opt\n");
-		log("    wreduce\n");
-		log("    memory_share\n");
-		log("    memory_collect\n");
-		log("    opt -fast\n");
-		log("    check\n");
-		log("    opt_expr -keepdc\n");
-		log("    emu_check\n");
-		log("    emu_opt_ram\n");
-		log("    opt_clean\n");
-		log("    emu_process_lib\n");
-		log("    emu_instrument\n");
-		log("    emu_package\n");
-		log("    emu_database write_config -top -file <cfg> (if -cfg)\n");
-		log("    emu_database write_loader -top -file <ldr> (if -cfg)\n");
-		log("    emu_remove_keep\n");
-		log("    check\n");
-		log("    opt\n");
-		log("    emu_extract_mem\n");
-		log("    opt\n");
+		log("The following commands will be executed:\n");
+		help_script();
 		log("\n");
 	}
+
+	std::string cfg_file, ldr_file, top_module;
+
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		std::string cfg_file, ldr_file, top_module;
-
 		log_header(design, "Executing EMU_TRANSFORM pass.\n");
 		log_push();
 
@@ -74,42 +51,61 @@ struct EmuTransformPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-        Pass::call(design, "emu_database reset");
-
-        Pass::call(design, "read_verilog -lib +/emulib/stub/*.v");
-
-        if (top_module.empty())
-            Pass::call(design, "hierarchy -check -auto-top");
-        else
-            Pass::call(design, "hierarchy -check -top " + top_module);
-        Pass::call(design, "emu_keep_top");
-        Pass::call(design, "proc");
-        Pass::call(design, "flatten");
-        Pass::call(design, "opt");
-        Pass::call(design, "wreduce");
-        Pass::call(design, "memory_share");
-        Pass::call(design, "memory_collect");
-        Pass::call(design, "opt -fast");
-        Pass::call(design, "check");
-
-        Pass::call(design, "emu_check");
-        Pass::call(design, "emu_opt_ram");
-        Pass::call(design, "opt_clean");
-        Pass::call(design, "emu_process_lib");
-        Pass::call(design, "emu_instrument");
-        Pass::call(design, "emu_package");
-        if (!cfg_file.empty())
-            Pass::call(design, "emu_database write_config -top -file " + cfg_file);
-        if (!ldr_file.empty())
-            Pass::call(design, "emu_database write_loader -top -file " + ldr_file);
-        Pass::call(design, "emu_remove_keep");
-        Pass::call(design, "check");
-
-        Pass::call(design, "opt");
-        Pass::call(design, "emu_extract_mem");
-        Pass::call(design, "opt");
+		run_script(design);
 
 		log_pop();
+	}
+
+	void script() override {
+
+        run("emu_database reset");
+
+        run("read_verilog -lib +/emulib/stub/*.v");
+
+		if (help_mode) {
+			run("hierarchy -check {-top <top> | -auto-top}");
+		}
+		else {
+			if (top_module.empty())
+				run("hierarchy -check -auto-top");
+			else
+				run("hierarchy -check -top " + top_module);
+		}
+
+        run("emu_keep_top");
+        run("proc");
+        run("flatten");
+        run("opt");
+        run("wreduce");
+        run("memory_share");
+        run("memory_collect");
+        run("opt -fast");
+        run("check");
+
+        run("emu_check");
+        run("emu_opt_ram");
+        run("opt_clean");
+        run("emu_process_lib");
+        run("emu_instrument");
+        run("emu_package");
+
+		if (help_mode)
+			run("emu_database write_config -top -file <file> (if -cfg)");
+		else if (!cfg_file.empty())
+            run("emu_database write_config -top -file " + cfg_file);
+
+		if (help_mode)
+			run("emu_database write_loader -top -file <file> (if -ldr)");
+        if (!ldr_file.empty())
+            run("emu_database write_loader -top -file " + ldr_file);
+
+        run("emu_remove_keep");
+        run("check");
+
+        run("opt");
+        run("emu_extract_mem");
+        run("opt");
+
 	}
 
 } EmuTransformPass;
