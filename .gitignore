@@ -3,11 +3,13 @@
 *.so
 *.out
 *.log
+*.vcd
 *.build
 __pycache__
 .Xil
 sim_build
 
+results.xml
 .config
 
 design/build/
