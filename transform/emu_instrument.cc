@@ -114,11 +114,16 @@ private:
         SigSig sdi_q_list;
 
         for (auto &cell : ff_cells) {
-            // ignore cells with emu_no_scachain attribute
-            if (cell->has_attribute(AttrNoScanchain))
-                continue;
-
             FfData ff(nullptr, cell);
+
+            // ignore FFs with emu_no_scachain attribute
+            Wire *reg = ff.sig_q.is_wire() ? ff.sig_q.as_wire() : nullptr;
+            if (reg && reg->has_attribute(AttrNoScanchain)) {
+                log("Ignoring FF %s.%s\n", log_id(module), log_id(reg));
+                ff_cells_new.push_back(cell);
+                continue;
+            }
+
             if (!ff.pol_srst) {
                 ff.sig_srst = module->Not(NEW_ID, ff.sig_srst);
                 ff.pol_srst = true;
@@ -174,8 +179,10 @@ private:
     void instrument_mems(std::vector<Mem> &mem_cells, ScanChain<MemInfo> &chain) {
         for (auto &mem : mem_cells) {
             // ignore cells with emu_no_scanchain attribute
-            if (mem.has_attribute(AttrNoScanchain))
+            if (mem.has_attribute(AttrNoScanchain)) {
+                log("Ignoring memory %s.%s\n", log_id(module), log_id(mem.cell));
                 continue;
+            }
 
             auto &block = chain.new_block();
 
