@@ -9,7 +9,7 @@ using namespace Emu;
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-void lint_check(Module *module) {
+void emu_check(Module *module) {
 
     // RTLIL processes & memories are not accepted
     if (module->has_processes_warn() || module->has_memories_warn())
@@ -49,17 +49,17 @@ void lint_check(Module *module) {
     }
 }
 
-struct EmuLintPass : public Pass {
-    EmuLintPass() : Pass("emu_lint", "do design lint check for an emulation transformation") { }
+struct EmuCheckPass : public Pass {
+    EmuCheckPass() : Pass("emu_check", "do design check for an emulation transformation") { }
 
     void execute(vector<string> args, Design* design) override {
         (void)args;
-        log_header(design, "Executing EMU_LINT pass.\n");
+        log_header(design, "Executing EMU_CHECK pass.\n");
 
         auto modules = design->selected_modules();
         for (auto module : modules) {
             log("Checking module %s...\n", log_id(module));
-            lint_check(module);
+            emu_check(module);
         }
     }
 } EmuLintPass;

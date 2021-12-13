@@ -33,7 +33,7 @@ struct EmuTransformPass : public Pass {
 		log("    opt -fast\n");
 		log("    check\n");
 		log("    opt_expr -keepdc\n");
-		log("    emu_lint\n");
+		log("    emu_check\n");
 		log("    emu_opt_ram\n");
 		log("    opt_clean\n");
 		log("    emu_process_lib\n");
@@ -92,7 +92,7 @@ struct EmuTransformPass : public Pass {
         Pass::call(design, "opt -fast");
         Pass::call(design, "check");
 
-        Pass::call(design, "emu_lint");
+        Pass::call(design, "emu_check");
         Pass::call(design, "emu_opt_ram");
         Pass::call(design, "opt_clean");
         Pass::call(design, "emu_process_lib");
