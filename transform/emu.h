@@ -39,7 +39,7 @@ const char
 
     // Usage: specified in model implementation to avoid scan chain insertion.
     // Type: bool
-    // Compatible: cell
+    // Compatible: cell, wire
     AttrNoScanchain         [] = "\\emu_no_scanchain",
 
     // Usage: specified by emu_process_lib to indicate cells & wires loaded from model implementation.

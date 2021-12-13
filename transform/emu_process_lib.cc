@@ -280,6 +280,7 @@ struct ModelHandler : public EmulibHandler {
 
         Pass::call(new_design, "hierarchy");
         Pass::call(new_design, "proc");
+        Pass::call(new_design, "emu_prop_attr -a emu_no_scanchain");
         Pass::call(new_design, "flatten");
         Pass::call(new_design, "opt");
         Pass::call(new_design, "wreduce");
