@@ -432,7 +432,7 @@ module sim_top();
     end
 
     initial begin
-        $readmemh("../common/initmem.txt", u_emu_system.emu_dut.\u_mem.mem .\u_mem.mem );
+        $readmemh("../common/initmem.txt", u_emu_system.emu_dut.\EMU_DUT_u_mem.mem .\u_mem.mem );
         $readmemh("../common/initmem.txt", emu_ref.u_mem.mem);
     end
 

@@ -472,6 +472,13 @@ public:
         // get mem cells
         std::vector<Mem> mem_cells = Mem::get_selected_memories(module);
 
+        // add submod attribute to mem cells so that each of them is finally in a separate module
+        for (auto &mem : mem_cells) {
+            std::string name = mem.memid.str();
+            mem.set_string_attribute(ID::submod, name[0] == '\\' ? name.substr(1) : name);
+            mem.emit();
+        }
+
         // exclude mem cells without write ports (ROM)
         for (auto it = mem_cells.begin(); it != mem_cells.end(); )
             if (it->wr_ports.size() == 0)

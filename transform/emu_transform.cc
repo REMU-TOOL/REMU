@@ -103,7 +103,7 @@ struct EmuTransformPass : public ScriptPass {
         run("check");
 
         run("opt");
-        run("emu_extract_mem");
+        run("submod");
         run("opt");
 
 	}
