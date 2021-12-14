@@ -94,6 +94,7 @@ struct EmuPropAttrPass : public Pass {
                     if (attrs.count(attr.first))
                         attrs_to_prop[attr.first] = attr.second;
                 }
+                attrs_to_prop.sort();
 
                 if (attrs_to_prop.size() == 0)
                     continue;
