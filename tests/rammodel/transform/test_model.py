@@ -60,19 +60,17 @@ class TB:
         self.dut._log.info("save begin")
         self.dut.ff_scan.value = 1
         self.dut.ff_dir.value = 0
-        await RisingEdge(self.dut.clk)
         for _ in range(self.ff_size):
-            ff_data.append(self.dut.ff_sdo.value)
             await RisingEdge(self.dut.clk)
+            ff_data.append(self.dut.ff_sdo.value)
         self.dut.ff_scan.value = 0
         self.dut.ram_scan.value = 1
         self.dut.ram_dir.value = 0
         await RisingEdge(self.dut.clk)
         await RisingEdge(self.dut.clk)
-        await RisingEdge(self.dut.clk)
         for _ in range(self.mem_size):
-            ram_data.append(self.dut.ram_sdo.value)
             await RisingEdge(self.dut.clk)
+            ram_data.append(self.dut.ram_sdo.value)
         self.dut.ram_scan.value = 0
         await RisingEdge(self.dut.clk)
         self.dut._log.info("save end")
