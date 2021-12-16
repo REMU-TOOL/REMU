@@ -3,9 +3,11 @@
 `include "axi.vh"
 
 module rammodel_simple #(
-    parameter   ADDR_WIDTH              = 32,
-    parameter   DATA_WIDTH              = 64,
-    parameter   ID_WIDTH                = 4
+    parameter   ADDR_WIDTH      = 32,
+    parameter   DATA_WIDTH      = 64,
+    parameter   ID_WIDTH        = 4,
+    parameter   R_DELAY         = 25,
+    parameter   W_DELAY         = 3
 )(
     input                       clk,
     input                       resetn,
@@ -95,7 +97,9 @@ module rammodel_simple #(
     assign `AXI4_R_PAYLOAD(from_dut)    = `AXI4_R_PAYLOAD(to_data_model);
 
     rammodel_simple_timing_model #(
-        .ADDR_WIDTH (ADDR_WIDTH)
+        .ADDR_WIDTH (ADDR_WIDTH),
+        .R_DELAY    (R_DELAY),
+        .W_DELAY    (W_DELAY)
     )
     timing_model (
         .clk        (clk),
