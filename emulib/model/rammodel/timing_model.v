@@ -37,7 +37,7 @@ module rammodel_simple_timing_model #(
 );
 
     reg [7:0] rlen;
-    reg r, aw, w;
+    reg ar, aw, w;
 
     reg [15:0] rcnt, wcnt;
 
@@ -54,12 +54,12 @@ module rammodel_simple_timing_model #(
 
     always @(posedge clk) begin
         if (!resetn)
-            r <= 1'b0;
+            ar <= 1'b0;
         else if (!stall) begin
             if (arvalid && arready)
-                r <= 1'b1;
-            else if (rlen == 7'd0)
-                r <= 1'b0;
+                ar <= 1'b1;
+            else if (rvalid && rready && rlen == 7'd0)
+                ar <= 1'b0;
         end
     end
 
@@ -108,7 +108,7 @@ module rammodel_simple_timing_model #(
     end
 
     assign arready  = 1'b1;
-    assign rvalid   = r && rcnt == 16'd0;
+    assign rvalid   = ar && rcnt == 16'd0;
     assign awready  = 1'b1;
     assign wready   = 1'b1;
     assign bvalid   = aw && w && wcnt == 16'd0;
