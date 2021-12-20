@@ -144,7 +144,9 @@ module rammodel #(
     rammodel_simple #(
         .ADDR_WIDTH (ADDR_WIDTH),
         .DATA_WIDTH (DATA_WIDTH),
-        .ID_WIDTH   (ID_WIDTH)
+        .ID_WIDTH   (ID_WIDTH),
+        .R_DELAY    (R_DELAY),
+        .W_DELAY    (W_DELAY)
     )
     u_rammodel (
         .clk            (model_clk),
