@@ -4,6 +4,8 @@
 *.out
 *.log
 *.vcd
+*.fst
+*.fst.hier
 *.build
 __pycache__
 .Xil
