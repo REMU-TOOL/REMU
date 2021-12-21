@@ -78,13 +78,11 @@ public:
 
     // return true to remove the cell
     virtual bool process_cell(HandlerContext &ctxt, Cell *cell) = 0;
-    virtual void process_submodule(HandlerContext &ctxt, Cell *cell, Module *target) = 0;
     virtual void finalize(HandlerContext &ctxt) = 0;
 
     EmulibHandler(std::string component);
 
     static EmulibHandler &get(std::string component);
-    static void process_submodule_all(HandlerContext &ctxt, Cell *cell, Module *target);
     static void finalize_all(HandlerContext &ctxt);
 };
 
@@ -103,12 +101,6 @@ EmulibHandler &EmulibHandler::get(std::string component) {
     }
     catch (std::out_of_range &x) {
         log_error("EmulibHandler: undefined component %s\n", component.c_str());
-    }
-}
-
-void EmulibHandler::process_submodule_all(HandlerContext &ctxt, Cell *cell, Module *target) {
-    for (auto it : handler_map) {
-        it.second->process_submodule(ctxt, cell, target);
     }
 }
 
@@ -138,23 +130,6 @@ struct ClockHandler : public EmulibHandler {
         return true;
     }
 
-    virtual void process_submodule(HandlerContext &ctxt, Cell *cell, Module *target) override {
-        const EmulibData &target_data = ctxt.db.emulib.at(target->name);
-
-        Wire *ff_clk = ctxt.module->addWire(NEW_ID, GetSize(target_data.at("clock")));
-        cell->setPort(emu_get_port_id(target, PortDutFfClk), ff_clk);
-        ctxt.ff_clk.append(ff_clk);
-
-        Wire *mem_clk = ctxt.module->addWire(NEW_ID, GetSize(target_data.at("clock")));
-        cell->setPort(emu_get_port_id(target, PortDutRamClk), mem_clk);
-        ctxt.mem_clk.append(mem_clk);
-
-        for (auto it : target_data.at("clock")) {
-            it.nest(cell);
-            ctxt.emulib["clock"].push_back(it);
-        }
-    }
-
     virtual void finalize(HandlerContext &ctxt) override {
         Wire *ff_clk_wire = emu_create_port(ctxt.module, PortDutFfClk, GetSize(ctxt.ff_clk), false);
         ctxt.module->connect(ctxt.ff_clk, ff_clk_wire);
@@ -181,19 +156,6 @@ struct ResetHandler : public EmulibHandler {
         return true;
     }
 
-    virtual void process_submodule(HandlerContext &ctxt, Cell *cell, Module *target) override {
-        EmulibData target_data = ctxt.db.emulib.at(target->name);
-        
-        Wire *reset = ctxt.module->addWire(NEW_ID, GetSize(target_data.at("reset")));
-        cell->setPort(emu_get_port_id(target, PortDutRst), reset);
-        ctxt.rst.append(reset);
-
-        for (auto it : target_data.at("reset")) {
-            it.nest(cell);
-            ctxt.emulib["reset"].push_back(it);
-        }
-    }
-
     virtual void finalize(HandlerContext &ctxt) override {
         Wire *reset_wire = emu_create_port(ctxt.module, PortDutRst, GetSize(ctxt.rst), false);
         ctxt.module->connect(ctxt.rst, reset_wire);
@@ -213,19 +175,6 @@ struct TrigHandler : public EmulibHandler {
         ctxt.emulib["trigger"].push_back(info);
 
         return true;
-    }
-
-    virtual void process_submodule(HandlerContext &ctxt, Cell *cell, Module *target) override {
-        EmulibData target_data = ctxt.db.emulib.at(target->name);
-
-        Wire *trig = ctxt.module->addWire(NEW_ID, GetSize(target_data.at("trigger")));
-        cell->setPort(emu_get_port_id(target, PortDutTrig), trig);
-        ctxt.trig.append(trig);
-
-        for (auto it : target_data.at("trigger")) {
-            it.nest(cell);
-            ctxt.emulib["trigger"].push_back(it);
-        }
     }
 
     virtual void finalize(HandlerContext &ctxt) override {
@@ -391,13 +340,6 @@ struct ModelHandler : public EmulibHandler {
         return false;
     }
 
-    virtual void process_submodule(HandlerContext &ctxt, Cell *cell, Module *target) override {
-        // TODO
-        static_cast<void>(ctxt);
-        static_cast<void>(cell);
-        static_cast<void>(target);
-    }
-
     virtual void finalize(HandlerContext &ctxt) override {
         for (auto &it : internal_sig_list) {
             IdString wirename = "\\EMU_INTERNAL_" + it.first;
@@ -484,17 +426,7 @@ struct ProcessLibWorker {
         }
 
         for (auto &it : cells_to_remove) {
-                module->remove(it);
-        }
-
-        // process submodules
-
-        for (auto &cell : module->selected_cells()) {
-            Module *target = module->design->module(cell->type);
-            if (target && target->get_bool_attribute(AttrLibProcessed)) {
-                log("Processing submodule %s.%s (%s) ...\n", log_id(module), log_id(cell), log_id(target));
-                EmulibHandler::process_submodule_all(ctxt, cell, target);
-            }
+            module->remove(it);
         }
 
         // add ports & connect signals
@@ -541,25 +473,13 @@ struct EmuProcessLibPass : public Pass {
 
         Database &db = Database::databases[db_name];
 
-        TopoSort<RTLIL::Module*, IdString::compare_ptr_by_name<RTLIL::Module>> topo_modules;
-        for (auto &mod : design->selected_modules()) {
-            topo_modules.node(mod);
-            for (auto &cell : mod->selected_cells()) {
-                Module *tpl = design->module(cell->type);
-                if (tpl && design->selected_module(tpl)) {
-                    topo_modules.edge(tpl, mod);
-                }
-            }
-        }
+        Module *top = design->top_module();
+		if (!top)
+			log_error("No top module found.\n");
 
-		if (!topo_modules.sort())
-			log_error("Recursive instantiation detected.\n");
-
-        for (auto &mod : topo_modules.sorted) {
-            log("Processing module %s\n", mod->name.c_str());
-            ProcessLibWorker worker(mod, db);
-            worker.run();
-        }
+        log("Processing module %s\n", top->name.c_str());
+        ProcessLibWorker worker(top, db);
+        worker.run();
 
         log_pop();
     }

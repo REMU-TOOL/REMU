@@ -408,37 +408,6 @@ private:
         }
     }
 
-    void instrument_hier_cells(std::vector<Cell *> &hier_cells, ScanChain<FfInfo> &chain_ff, ScanChain<MemInfo> &chain_mem) {
-        for (auto &cell : hier_cells) {
-            Module *target = module->design->module(cell->type);
-            if (!target->get_bool_attribute(AttrInstrumented))
-                continue;
-
-            auto &block_ff = chain_ff.new_block();
-            auto &block_mem = chain_mem.new_block();
-
-            cell->setPort(emu_get_port_id(target,   PortClk         ),  wire_clk        );
-            cell->setPort(emu_get_port_id(target,   PortFfScanEn    ),  wire_ff_scan    );
-            cell->setPort(emu_get_port_id(target,   PortFfDataIn    ),  block_ff.data_i );
-            cell->setPort(emu_get_port_id(target,   PortFfDataOut   ),  block_ff.data_o );
-            cell->setPort(emu_get_port_id(target,   PortRamScanEn   ),  wire_ram_scan   );
-            cell->setPort(emu_get_port_id(target,   PortRamScanDir  ),  wire_ram_dir    );
-            cell->setPort(emu_get_port_id(target,   PortRamDataIn   ),  block_mem.data_i);
-            cell->setPort(emu_get_port_id(target,   PortRamDataOut  ),  block_mem.data_o);
-            cell->setPort(emu_get_port_id(target,   PortRamLastIn   ),  block_mem.last_i);
-            cell->setPort(emu_get_port_id(target,   PortRamLastOut  ),  block_mem.last_o);
-
-            auto &target_data = database.scanchain.at(cell->type);
-            for (auto &src : target_data.ff)
-                block_ff.src.push_back(src.nest(cell));
-            for (auto &src : target_data.mem)
-                block_mem.src.push_back(src.nest(cell));
-
-            chain_ff.commit_block();
-            chain_mem.commit_block();
-        }
-    }
-
 public:
 
     InsertAccessorWorker(Module *mod, Database &db) : module(mod), database(db) {}
@@ -494,9 +463,6 @@ public:
         // process mems
         instrument_mems(mem_cells, chain_mem);
 
-        // connect scan chains in hierarchical cells
-        instrument_hier_cells(hier_cells, chain_ff, chain_mem);
-
         module->connect(chain_ff.last_i, State::S0);
 
         module->connect(chain_ff.data_i, wire_ff_data_i);
@@ -547,25 +513,13 @@ struct EmuInstrumentPass : public Pass {
 
         Database &db = Database::databases[db_name];
 
-        TopoSort<RTLIL::Module*, IdString::compare_ptr_by_name<RTLIL::Module>> topo_modules;
-        for (auto &mod : design->selected_modules()) {
-            topo_modules.node(mod);
-            for (auto &cell : mod->selected_cells()) {
-                Module *tpl = design->module(cell->type);
-                if (tpl && design->selected_module(tpl)) {
-                    topo_modules.edge(tpl, mod);
-                }
-            }
-        }
+        Module *top = design->top_module();
+		if (!top)
+			log_error("No top module found.\n");
 
-		if (!topo_modules.sort())
-			log_error("Recursive instantiation detected.\n");
-
-        for (auto &mod : topo_modules.sorted) {
-            log("Processing module %s\n", mod->name.c_str());
-            InsertAccessorWorker worker(mod, db);
-            worker.run();
-        }
+        log("Processing module %s\n", top->name.c_str());
+        InsertAccessorWorker worker(top, db);
+        worker.run();
     }
 } EmuInstrumentPass;
 
