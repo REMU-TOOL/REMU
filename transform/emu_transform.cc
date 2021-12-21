@@ -72,7 +72,7 @@ struct EmuTransformPass : public ScriptPass {
 				run("hierarchy -check -top " + top_module);
 		}
 
-        run("emu_keep_top");
+        run("emu_preproc_attr");
         run("proc");
         run("flatten");
         run("opt");
@@ -99,7 +99,7 @@ struct EmuTransformPass : public ScriptPass {
         if (!ldr_file.empty())
             run("emu_database write_loader -top -file " + ldr_file);
 
-        run("emu_remove_keep");
+        run("emu_postproc_attr");
         run("check");
 
         run("opt");

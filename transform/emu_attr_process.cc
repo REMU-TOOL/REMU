@@ -1,4 +1,6 @@
 #include "kernel/yosys.h"
+#include "kernel/ff.h"
+#include "kernel/mem.h"
 
 #include "emu.h"
 
@@ -6,6 +8,70 @@ using namespace Emu;
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
+
+struct EmuPreprocAttrPass : public Pass {
+    EmuPreprocAttrPass() : Pass("emu_preproc_attr", "add keep attribute to cells & wires in top module") { }
+
+    void execute(vector<string> args, Design* design) override {
+        log_header(design, "Executing EMU_PREPROC_ATTR pass.\n");
+
+        size_t argidx;
+        for (argidx = 1; argidx < args.size(); argidx++) {
+            break;
+        }
+        extra_args(args, argidx, design);
+
+        Module *top = design->top_module();
+        if (!top)
+            log_error("No top module found");
+        
+        log("Processing module %s...\n", log_id(top));
+
+        for (auto cell : top->selected_cells())
+            cell->set_bool_attribute(ID::keep);
+
+        for (auto wire : top->selected_wires())
+            wire->set_bool_attribute(ID::keep);
+
+        for (auto module : design->modules()) {
+            if (module->get_bool_attribute(ID::keep_hierarchy)) {
+                module->set_bool_attribute(ID::keep_hierarchy, false);
+                log_warning("Removing keep_hierarchy attribute on %s\n", log_id(top));
+            }
+
+            for (auto cell : module->selected_cells()) {
+                if (cell->get_bool_attribute(ID::keep_hierarchy)) {
+                    cell->set_bool_attribute(ID::keep_hierarchy, false);
+                    log_warning("Removing keep_hierarchy attribute on %s.%s\n", log_id(top), log_id(cell));
+                }
+            }
+        }
+    }
+} EmuPreprocAttrPass;
+
+struct EmuPostprocAttrPass : public Pass {
+    EmuPostprocAttrPass() : Pass("emu_postproc_attr", "remove all keep attributes") { }
+
+    void execute(vector<string> args, Design* design) override {
+        log_header(design, "Executing EMU_POSTPROC_ATTR pass.\n");
+
+        size_t argidx;
+        for (argidx = 1; argidx < args.size(); argidx++) {
+            break;
+        }
+        extra_args(args, argidx, design);
+
+        for (auto mod : design->modules()) {
+            log("Processing module %s...\n", log_id(mod));
+
+            for (auto cell : mod->selected_cells())
+                cell->set_bool_attribute(ID::keep, false);
+
+            for (auto wire : mod->selected_wires())
+                wire->set_bool_attribute(ID::keep, false);
+        }
+    }
+} EmuPostprocAttrPass;
 
 struct EmuPropAttrPass : public Pass {
     EmuPropAttrPass() : Pass("emu_prop_attr", "propagate specified attributes to submodule") { }
