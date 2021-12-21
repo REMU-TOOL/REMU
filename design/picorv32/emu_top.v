@@ -42,9 +42,7 @@ module emu_top();
     picorv32_axi #(
 		.COMPRESSED_ISA(1),
 		.ENABLE_FAST_MUL(1),
-		.ENABLE_DIV(1),
-		.PROGADDR_RESET('h10000),
-		.STACKADDR('h10000)
+		.ENABLE_DIV(1)
 	) dut (
 		.clk            (clk            ),
 		.resetn         (!rst           ),

@@ -8,7 +8,6 @@ means.
 */
 
 SECTIONS {
-	. = 0x10000;
 	.text : {
 		start*(.text);
 		*(.text .text.*);
