@@ -472,7 +472,7 @@ public:
         module->connect(chain_mem.last_i, wire_ram_last_i);
         module->connect(wire_ram_last_o, chain_mem.last_o);
 
-        database.scanchain[module->name] = ScanChainData(chain_ff.src, chain_mem.src);
+        database.scanchain = ScanChainData(chain_ff.src, chain_mem.src);
 
         // set attribute to indicate this module is processed
         module->set_bool_attribute(AttrInstrumented);

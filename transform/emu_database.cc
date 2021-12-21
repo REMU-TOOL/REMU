@@ -8,104 +8,82 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct EmuDatabaseWorker {
-    virtual void operator()(std::string db_name, std::string top_name, std::ostream &os) = 0;
+    virtual void operator()(std::string db_name, std::ostream &os) = 0;
 };
 
 struct WriteConfigWorker : public EmuDatabaseWorker {
-    void operator()(std::string db_name, std::string top_name, std::ostream &os) override {
+    void operator()(std::string db_name, std::ostream &os) override {
         Database &database = Database::databases.at(db_name);
+        EmulibData &emulib = database.emulib;
+        ScanChainData &scanchain = database.scanchain;
         JsonWriter json(os);
 
         json.key("width").value(DATA_WIDTH);
 
-        json.key("scanchain").enter_array();
-        for (auto &it : database.scanchain) {
-            if (!top_name.empty() && it.first != top_name)
-                continue;
-
+        int ff_addr = 0;
+        json.key("ff").enter_array();
+        for (auto &src : scanchain.ff) {
             json.enter_object();
-            json.key("module").string(str_id(it.first));
-
-            int ff_addr = 0;
-            json.key("ff").enter_array();
-            for (auto &src : it.second.ff) {
+            json.key("addr").value(ff_addr);
+            json.key("src").enter_array();
+            int new_off = 0;
+            for (auto &c : src.info) {
                 json.enter_object();
-                json.key("addr").value(ff_addr);
-                json.key("src").enter_array();
-                int new_off = 0;
-                for (auto &c : src.info) {
-                    json.enter_object();
-                    json.key("name").enter_array();
-                    for (auto &s : c.name)
-                        json.string(s);
-                    json.back();
-                    json.key("is_public").value(c.is_public);
-                    json.key("offset").value(c.offset);
-                    json.key("width").value(c.width);
-                    json.key("new_offset").value(new_off);
-                    json.back();
-                    new_off += c.width;
-                }
-                json.back();
-                json.back();
-                ff_addr++;
-            }
-            json.back();
-            json.key("ff_size").value(ff_addr);
-
-            int mem_addr = 0;
-            json.key("mem").enter_array();
-            for (auto &mem : it.second.mem) {
-                json.enter_object();
-                json.key("addr").value(mem_addr);
                 json.key("name").enter_array();
-                for (auto &s : mem.name)
+                for (auto &s : c.name)
                     json.string(s);
                 json.back();
-                json.key("is_public").value(mem.is_public);
-                json.key("width").value(mem.mem_width);
-                json.key("depth").value(mem.mem_depth);
-                json.key("start_offset").value(mem.mem_start_offset);
+                json.key("is_public").value(c.is_public);
+                json.key("offset").value(c.offset);
+                json.key("width").value(c.width);
+                json.key("new_offset").value(new_off);
                 json.back();
-                mem_addr += mem.depth;
+                new_off += c.width;
             }
             json.back();
-            json.key("mem_size").value(mem_addr);
-
             json.back();
+            ff_addr++;
         }
         json.back();
+        json.key("ff_size").value(ff_addr);
 
-        json.key("emulib").enter_array();
-        for (auto &data : database.emulib) {
-            if (!top_name.empty() && data.first != top_name)
-                continue;
-
+        int mem_addr = 0;
+        json.key("mem").enter_array();
+        for (auto &mem : scanchain.mem) {
             json.enter_object();
-            json.key("module").string(str_id(data.first));
+            json.key("addr").value(mem_addr);
+            json.key("name").enter_array();
+            for (auto &s : mem.name)
+                json.string(s);
+            json.back();
+            json.key("is_public").value(mem.is_public);
+            json.key("width").value(mem.mem_width);
+            json.key("depth").value(mem.mem_depth);
+            json.key("start_offset").value(mem.mem_start_offset);
+            json.back();
+            mem_addr += mem.depth;
+        }
+        json.back();
+        json.key("mem_size").value(mem_addr);
 
-            for (auto &section : data.second) {
-                int addr = 0;
-                json.key(section.first).enter_array();
-                for (auto &info : section.second) {
-                    json.enter_object();
-                    json.key("addr").value(addr);
-                    json.key("name").enter_array();
-                    for (auto &s : info.name)
-                        json.string(s);
-                    json.back();
-                    for (auto &attr : info.attrs) {
-                        json.key(attr.first).value(attr.second);
-                    }
-                    json.back();
-                    addr++;
+        for (auto &section : emulib) {
+            int addr = 0;
+            json.key(section.first).enter_array();
+            for (auto &info : section.second) {
+                json.enter_object();
+                json.key("addr").value(addr);
+                json.key("name").enter_array();
+                for (auto &s : info.name)
+                    json.string(s);
+                json.back();
+                for (auto &attr : info.attrs) {
+                    json.key(attr.first).value(attr.second);
                 }
                 json.back();
+                addr++;
             }
-
             json.back();
         }
-        json.back();
 
         json.end();
     }
@@ -128,9 +106,9 @@ std::string simple_hier_name(const std::vector<std::string> &hier) {
 }
 
 struct WriteLoaderWorker : public EmuDatabaseWorker {
-    void operator()(std::string db_name, std::string top_name, std::ostream &os) override {
+    void operator()(std::string db_name, std::ostream &os) override {
         Database &database = Database::databases.at(db_name);
-        ScanChainData &scanchain = database.scanchain.at(top_name);
+        ScanChainData &scanchain = database.scanchain;
 
         int addr;
 
@@ -188,7 +166,7 @@ struct EmuDatabasePass : public Pass {
         log("    write_config\n");
         log("        write configuration in JSON format to the specified file.\n");
         log("    write_loader\n");
-        log("        write loader code to the specified file (implies -top).\n");
+        log("        write loader code to the specified file.\n");
         log("    reset\n");
         log("        clean the specified database.\n");
         log("\n");
@@ -197,8 +175,6 @@ struct EmuDatabasePass : public Pass {
         log("        specify the emulation database or the default one will be used.\n");
         log("    -file <filename>\n");
         log("        write to specified file (otherwise STDOUT).\n");
-        log("    -top\n");
-        log("        write information in top module only.\n");
         log("\n");
     }
 
@@ -208,7 +184,6 @@ struct EmuDatabasePass : public Pass {
         std::string cmd;
         std::string db_name;
         std::string file_name;
-        bool top = false;
 
         if (args.size() < 2)
             return;
@@ -224,10 +199,6 @@ struct EmuDatabasePass : public Pass {
             }
             if (args[argidx] == "-file" && argidx+1 < args.size()) {
                 file_name = args[++argidx];
-                continue;
-            }
-            if (args[argidx] == "-top") {
-                top = true;
                 continue;
             }
             break;
@@ -247,23 +218,8 @@ struct EmuDatabasePass : public Pass {
         if (cmdlist.find(cmd) == cmdlist.end())
             log_error("Invalid command %s", cmd.c_str());
 
-        if (cmd == "write_loader")
-            top = true;
-
         if (Database::databases.find(db_name) == Database::databases.end())
             log_error("Database not found\n");
-
-        // find top module
-        std::string top_name;
-        if (top) {
-            top_name = Database::databases.at(db_name).top_name;
-            if (top_name.empty()) {
-                Module *top_module = design->top_module();
-                if (!top_module)
-                    log_error("No top module found\n");
-                top_name = top_module->name.str();
-            }
-        }
 
         auto &worker = cmdlist.at(cmd);
 
@@ -274,11 +230,11 @@ struct EmuDatabasePass : public Pass {
                 log_error("Can't open file `%s' for writing: %s\n", file_name.c_str(), strerror(errno));
             }
             log("Writing to file `%s'\n", file_name.c_str());
-            worker(db_name, top_name, f);
+            worker(db_name, f);
             f.close();
         }
         else {
-            worker(db_name, top_name, std::cout);
+            worker(db_name, std::cout);
         }
     }
 

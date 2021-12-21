@@ -68,7 +68,7 @@ struct HandlerContext {
     std::map<std::string, SigSpec> internal_sigs;
 
     HandlerContext(Module *module, Database &db)
-        : module(module), db(db), emulib(db.emulib[module->name]) {}
+        : module(module), db(db), emulib(db.emulib) {}
 };
 
 class EmulibHandler {

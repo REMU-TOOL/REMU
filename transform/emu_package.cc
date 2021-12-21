@@ -46,7 +46,7 @@ struct PackageWorker {
     }
 
     void operator()(Database &db, Module* top) {
-        ScanChainData &scanchain = db.scanchain.at(top->name.str());
+        ScanChainData &scanchain = db.scanchain;
 
         Wire *wire_clk        = top->wire(PortClk);
         Wire *wire_ram_scan   = top->wire(PortRamScanEn);
@@ -111,8 +111,7 @@ struct EmuPackagePass : public Pass {
 
         PackageWorker(db, top);
 
-        // rename top module & save original name
-        db.top_name = top->name.str();
+        // rename top module
         design->rename(top, "\\EMU_DUT");
     }
 } EmuPackagePass;

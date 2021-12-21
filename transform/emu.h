@@ -148,9 +148,8 @@ struct EmulibCellInfo {
 typedef std::map<std::string, std::vector<EmulibCellInfo>> EmulibData;
 
 struct Database {
-    Yosys::dict<Yosys::IdString, ScanChainData> scanchain; // per-module
-    Yosys::dict<Yosys::IdString, EmulibData> emulib; // per-module
-    std::string top_name;
+    ScanChainData scanchain;
+    EmulibData emulib;
 
     static std::map<std::string, Database> databases;
 };

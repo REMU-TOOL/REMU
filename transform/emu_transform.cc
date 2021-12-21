@@ -90,14 +90,14 @@ struct EmuTransformPass : public ScriptPass {
         run("emu_package");
 
 		if (help_mode)
-			run("emu_database write_config -top -file <file> (if -cfg)");
+			run("emu_database write_config -file <file> (if -cfg)");
 		else if (!cfg_file.empty())
-            run("emu_database write_config -top -file " + cfg_file);
+            run("emu_database write_config -file " + cfg_file);
 
 		if (help_mode)
-			run("emu_database write_loader -top -file <file> (if -ldr)");
+			run("emu_database write_loader -file <file> (if -ldr)");
         if (!ldr_file.empty())
-            run("emu_database write_loader -top -file " + ldr_file);
+            run("emu_database write_loader -file " + ldr_file);
 
         run("emu_postproc_attr");
         run("check");
