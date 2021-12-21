@@ -17,8 +17,8 @@ class TB:
         self.axi_master = AxiMaster(AxiBus.from_prefix(dut, 's_axi'), dut.dut_clk, dut.resetn, reset_active_level=False)
         self.axi_ram = AxiRam(AxiBus.from_prefix(dut, 'm_axi'), dut.clk, dut.resetn, reset_active_level=False, size=0x1000)
         self.config = json.load(open(CONFIG_FILE, 'r'))
-        self.ff_size = self.config['scanchain'][0]['ff_size']
-        self.mem_size = self.config['scanchain'][0]['mem_size']
+        self.ff_size = self.config['ff_size']
+        self.mem_size = self.config['mem_size']
 
     async def do_reset(self):
         self.dut._log.info("resetn asserted")

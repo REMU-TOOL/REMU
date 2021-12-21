@@ -13,8 +13,8 @@ class TB:
         cocotb.fork(Clock(dut.clk, 10, units='ns').start())
         with open(CONFIG_FILE, 'r') as f:
             self.config = json.load(f)
-        self.ff_size = self.config['scanchain'][0]['ff_size']
-        self.mem_size = self.config['scanchain'][0]['mem_size']
+        self.ff_size = self.config['ff_size']
+        self.mem_size = self.config['mem_size']
 
     async def do_reset(self):
         self.dut._log.info("resetn asserted")
