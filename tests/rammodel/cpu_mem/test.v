@@ -38,40 +38,6 @@ module test(
 
 );
 
-    always @(posedge clk)
-        if (!resetn)
-            count <= 64'd0;
-        else if (count_write)
-            count <= count_wdata;
-        else if (!pause)
-            count <= count + 64'd1;
-
-    reg [63:0] step, step_next;
-
-    always @(posedge clk)
-        if (!resetn)
-            step <= 64'd0;
-        else
-            step <= step_next;
-
-    always @*
-        if (step_write)
-            step_next = step_wdata;
-        else if (step == 64'd0)
-            step_next = 64'd0;
-        else if (!pause)
-            step_next = step - 64'd1;
-
-    assign step_trig = step != 64'd0 && step_next == 64'd0;
-
-    always @(posedge clk)
-        if (!resetn)
-            pause <= 1'b0;
-        else if (trig || step_trig || do_pause)
-            pause <= 1'b1;
-        else if (do_resume)
-            pause <= 1'b0;
-
     //reg clk = 0, rst = 1;
     wire rst = !resetn;
     //reg pause = 0;
@@ -279,5 +245,39 @@ module test(
     end
 
     initial $readmemh("../../../design/picorv32/baremetal.hex", mem);
+
+    always @(posedge clk)
+        if (!resetn)
+            count <= 64'd0;
+        else if (count_write)
+            count <= count_wdata;
+        else if (dut_clk_en)
+            count <= count + 64'd1;
+
+    reg [63:0] step, step_next;
+
+    always @(posedge clk)
+        if (!resetn)
+            step <= 64'd0;
+        else
+            step <= step_next;
+
+    always @*
+        if (step_write)
+            step_next = step_wdata;
+        else if (step == 64'd0)
+            step_next = 64'd0;
+        else if (dut_clk_en)
+            step_next = step - 64'd1;
+
+    assign step_trig = step != 64'd0 && step_next == 64'd0;
+
+    always @(posedge clk)
+        if (!resetn)
+            pause <= 1'b0;
+        else if (trig || step_trig || do_pause)
+            pause <= 1'b1;
+        else if (do_resume)
+            pause <= 1'b0;
 
 endmodule
