@@ -69,9 +69,9 @@ module emu_top();
     rammodel #(
         .ADDR_WIDTH     (32),
         .DATA_WIDTH     (32),
-        .ID_WIDTH       (1)/*,
+        .ID_WIDTH       (1),
         .R_DELAY        (0),
-        .W_DELAY        (0)*/
+        .W_DELAY        (0)
     )
     u_rammodel (
         .aclk           (clk),

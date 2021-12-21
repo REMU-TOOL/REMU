@@ -145,7 +145,7 @@ async def run_test(dut):
     await tb.do_pause()
     await tb.do_count_write(0)
     while True:
-        await tb.do_step_write(random.randint(2000, 20000))
+        await tb.do_step_write(random.randint(2000, 5000))
         await tb.do_resume()
         await RisingEdge(dut.pause)
         await RisingEdge(dut.clk)
