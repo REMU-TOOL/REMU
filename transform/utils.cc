@@ -7,6 +7,29 @@ namespace Emu {
 
 std::map<std::string, Database> Database::databases;
 
+Wire *emu_create_port(Module *module, IdString name, int width, bool output) {
+    if (module->has_attribute(name))
+        return nullptr;
+
+    Wire *port = module->addWire(module->uniquify(name), width);
+    if (output)
+        port->port_output = true;
+    else
+        port->port_input = true;
+
+    module->set_string_attribute(name, port->name.str());
+
+    return port;
+}
+
+Wire *emu_get_port(Module *module, IdString name) {
+    return module->wire(module->get_string_attribute(name));
+}
+
+IdString emu_get_port_id(Module *module, IdString name) {
+    return module->get_string_attribute(name);
+}
+
 bool is_public_id(IdString id) {
     return id[0] == '\\';
 }

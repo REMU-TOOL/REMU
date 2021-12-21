@@ -142,11 +142,11 @@ struct ClockHandler : public EmulibHandler {
         const EmulibData &target_data = ctxt.db.emulib.at(target->name);
 
         Wire *ff_clk = ctxt.module->addWire(NEW_ID, GetSize(target_data.at("clock")));
-        cell->setPort(PortDutFfClk, ff_clk);
+        cell->setPort(emu_get_port_id(target, PortDutFfClk), ff_clk);
         ctxt.ff_clk.append(ff_clk);
 
         Wire *mem_clk = ctxt.module->addWire(NEW_ID, GetSize(target_data.at("clock")));
-        cell->setPort(PortDutRamClk, mem_clk);
+        cell->setPort(emu_get_port_id(target, PortDutRamClk), mem_clk);
         ctxt.mem_clk.append(mem_clk);
 
         for (auto it : target_data.at("clock")) {
@@ -156,12 +156,10 @@ struct ClockHandler : public EmulibHandler {
     }
 
     virtual void finalize(HandlerContext &ctxt) override {
-        Wire *ff_clk_wire = ctxt.module->addWire(PortDutFfClk, GetSize(ctxt.ff_clk));
-        ff_clk_wire->port_input = true;
+        Wire *ff_clk_wire = emu_create_port(ctxt.module, PortDutFfClk, GetSize(ctxt.ff_clk), false);
         ctxt.module->connect(ctxt.ff_clk, ff_clk_wire);
 
-        Wire *mem_clk_wire = ctxt.module->addWire(PortDutRamClk, GetSize(ctxt.mem_clk));
-        mem_clk_wire->port_input = true;
+        Wire *mem_clk_wire = emu_create_port(ctxt.module, PortDutRamClk, GetSize(ctxt.mem_clk), false);
         ctxt.module->connect(ctxt.mem_clk, mem_clk_wire);
 
         ctxt.module->fixup_ports();
@@ -187,7 +185,7 @@ struct ResetHandler : public EmulibHandler {
         EmulibData target_data = ctxt.db.emulib.at(target->name);
         
         Wire *reset = ctxt.module->addWire(NEW_ID, GetSize(target_data.at("reset")));
-        cell->setPort(PortDutRst, reset);
+        cell->setPort(emu_get_port_id(target, PortDutRst), reset);
         ctxt.rst.append(reset);
 
         for (auto it : target_data.at("reset")) {
@@ -197,8 +195,7 @@ struct ResetHandler : public EmulibHandler {
     }
 
     virtual void finalize(HandlerContext &ctxt) override {
-        Wire *reset_wire = ctxt.module->addWire(PortDutRst, GetSize(ctxt.rst));
-        reset_wire->port_input = true;
+        Wire *reset_wire = emu_create_port(ctxt.module, PortDutRst, GetSize(ctxt.rst), false);
         ctxt.module->connect(ctxt.rst, reset_wire);
         ctxt.module->fixup_ports();
     }
@@ -222,7 +219,7 @@ struct TrigHandler : public EmulibHandler {
         EmulibData target_data = ctxt.db.emulib.at(target->name);
 
         Wire *trig = ctxt.module->addWire(NEW_ID, GetSize(target_data.at("trigger")));
-        cell->setPort(PortDutTrig, trig);
+        cell->setPort(emu_get_port_id(target, PortDutTrig), trig);
         ctxt.trig.append(trig);
 
         for (auto it : target_data.at("trigger")) {
@@ -232,8 +229,7 @@ struct TrigHandler : public EmulibHandler {
     }
 
     virtual void finalize(HandlerContext &ctxt) override {
-        Wire *trig_wire = ctxt.module->addWire(PortDutTrig, GetSize(ctxt.trig));
-        trig_wire->port_output = true;
+        Wire *trig_wire = emu_create_port(ctxt.module, PortDutTrig, GetSize(ctxt.trig), true);
         ctxt.module->connect(trig_wire, ctxt.trig);
         ctxt.module->fixup_ports();
     }
@@ -404,36 +400,31 @@ struct ModelHandler : public EmulibHandler {
 
     virtual void finalize(HandlerContext &ctxt) override {
         for (auto &it : internal_sig_list) {
-            IdString wirename = "\\$EMU$INTERNAL$" + it.first;
+            IdString wirename = "\\EMU_INTERNAL_" + it.first;
             Wire *wire = nullptr;
             SigSpec &sig = ctxt.internal_sigs[it.first];
             switch (it.second) {
                 case InputAppend:
-                    wire = ctxt.module->addWire(wirename, GetSize(sig));
-                    wire->port_input = true;
+                    wire = emu_create_port(ctxt.module, wirename, GetSize(sig), false);
                     ctxt.module->connect(sig, wire);
                     break;
                 case InputShare:
-                    wire = ctxt.module->addWire(wirename);
-                    wire->port_input = true;
+                    wire = emu_create_port(ctxt.module, wirename, 1, false);
                     for (SigBit &bit : sig)
                         ctxt.module->connect(bit, wire);
                     break;
                 case OutputAppend:
-                    wire = ctxt.module->addWire(wirename, GetSize(sig));
-                    wire->port_output = true;
+                    wire = emu_create_port(ctxt.module, wirename, GetSize(sig), true);
                     ctxt.module->connect(wire, sig);
                     break;
                 case OutputAndReduce:
                     sig.append(State::S1);
-                    wire = ctxt.module->addWire(wirename);
-                    wire->port_output = true;
+                    wire = emu_create_port(ctxt.module, wirename, 1, true);
                     ctxt.module->connect(wire, ctxt.module->ReduceAnd(NEW_ID, sig));
                     break;
                 case OutputOrReduce:
                     sig.append(State::S0);
-                    wire = ctxt.module->addWire(wirename);
-                    wire->port_output = true;
+                    wire = emu_create_port(ctxt.module, wirename, 1, true);
                     ctxt.module->connect(wire, ctxt.module->ReduceOr(NEW_ID, sig));
                     break;
             }
@@ -445,6 +436,20 @@ struct ModelHandler : public EmulibHandler {
 
 struct RAMModelHandler : public ModelHandler {
     RAMModelHandler() : ModelHandler("rammodel") {}
+
+    virtual bool process_cell(HandlerContext &ctxt, Cell *cell) override {
+        EmulibCellInfo info;
+        info.name = get_hier_name(cell);
+        info.attrs["addr_width"]    = cell->getParam("\\ADDR_WIDTH").as_int();
+        info.attrs["data_width"]    = cell->getParam("\\DATA_WIDTH").as_int();
+        info.attrs["id_width"]      = cell->getParam("\\ID_WIDTH").as_int();
+        ctxt.emulib["rammodel"].push_back(info);
+
+        ModelHandler::process_cell(ctxt, cell);
+
+        return false;
+    }
+
 } RAMModelHandler;
 
 struct ProcessLibWorker {

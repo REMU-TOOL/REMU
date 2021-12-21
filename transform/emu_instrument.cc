@@ -72,24 +72,16 @@ private:
     Wire *wire_ram_scan, *wire_ram_dir, *wire_ram_data_i, *wire_ram_data_o, *wire_ram_last_i, *wire_ram_last_o; // dir: 0=out 1=in
 
     void create_ports() {
-        wire_clk        = module->addWire(PortClk);                         wire_clk        ->port_input = true;
-        wire_ff_scan    = module->addWire(PortFfScanEn);                    wire_ff_scan    ->port_input = true;
-        wire_ff_data_i  = module->addWire(PortFfDataIn,    DATA_WIDTH);     wire_ff_data_i  ->port_input = true;
-        wire_ff_data_o  = module->addWire(PortFfDataOut,   DATA_WIDTH);     wire_ff_data_o  ->port_output = true;
-        wire_ram_scan   = module->addWire(PortRamScanEn);                   wire_ram_scan   ->port_input = true;
-        wire_ram_dir    = module->addWire(PortRamScanDir);                  wire_ram_dir    ->port_input = true;
-        wire_ram_data_i = module->addWire(PortRamDataIn,   DATA_WIDTH);     wire_ram_data_i ->port_input = true;
-        wire_ram_data_o = module->addWire(PortRamDataOut,  DATA_WIDTH);     wire_ram_data_o ->port_output = true;
-        wire_ram_last_i = module->addWire(PortRamLastIn);                   wire_ram_last_i ->port_input = true;
-        wire_ram_last_o = module->addWire(PortRamLastOut);                  wire_ram_last_o ->port_output = true;
-
-        /* TODO: move to emu_system
-        wire_dut_clk    = module->addWire("\\$EMU$DUT$CLK");
-        Cell *gate = module->addCell(UniqueCellID(module, "\\ClockGate"), "\\ClockGate");
-        gate->setPort("\\CLK", wire_clk);
-        gate->setPort("\\EN", module->Or(NEW_ID, module->Not(NEW_ID, wire_pause), wire_ff_scan));
-        gate->setPort("\\GCLK", wire_dut_clk);
-        */
+        wire_clk        = emu_create_port(module,   PortClk,        1,          false   );
+        wire_ff_scan    = emu_create_port(module,   PortFfScanEn,   1,          false   );
+        wire_ff_data_i  = emu_create_port(module,   PortFfDataIn,   DATA_WIDTH, false   );
+        wire_ff_data_o  = emu_create_port(module,   PortFfDataOut,  DATA_WIDTH, true    );
+        wire_ram_scan   = emu_create_port(module,   PortRamScanEn,  1,          false   );
+        wire_ram_dir    = emu_create_port(module,   PortRamScanDir, 1,          false   );
+        wire_ram_data_i = emu_create_port(module,   PortRamDataIn,  DATA_WIDTH, false   );
+        wire_ram_data_o = emu_create_port(module,   PortRamDataOut, DATA_WIDTH, true    );
+        wire_ram_last_i = emu_create_port(module,   PortRamLastIn,  1,          false   );
+        wire_ram_last_o = emu_create_port(module,   PortRamLastOut, 1,          true    );
 
         module->fixup_ports();
     }
@@ -425,16 +417,16 @@ private:
             auto &block_ff = chain_ff.new_block();
             auto &block_mem = chain_mem.new_block();
 
-            cell->setPort(PortClk,          wire_clk);
-            cell->setPort(PortFfScanEn,     wire_ff_scan);
-            cell->setPort(PortFfDataIn,     block_ff.data_i);
-            cell->setPort(PortFfDataOut,    block_ff.data_o);
-            cell->setPort(PortRamScanEn,    wire_ram_scan);
-            cell->setPort(PortRamScanDir,   wire_ram_dir);
-            cell->setPort(PortRamDataIn,    block_mem.data_i);
-            cell->setPort(PortRamDataOut,   block_mem.data_o);
-            cell->setPort(PortRamLastIn,    block_mem.last_i);
-            cell->setPort(PortRamLastOut,   block_mem.last_o);
+            cell->setPort(emu_get_port_id(target,   PortClk         ),  wire_clk        );
+            cell->setPort(emu_get_port_id(target,   PortFfScanEn    ),  wire_ff_scan    );
+            cell->setPort(emu_get_port_id(target,   PortFfDataIn    ),  block_ff.data_i );
+            cell->setPort(emu_get_port_id(target,   PortFfDataOut   ),  block_ff.data_o );
+            cell->setPort(emu_get_port_id(target,   PortRamScanEn   ),  wire_ram_scan   );
+            cell->setPort(emu_get_port_id(target,   PortRamScanDir  ),  wire_ram_dir    );
+            cell->setPort(emu_get_port_id(target,   PortRamDataIn   ),  block_mem.data_i);
+            cell->setPort(emu_get_port_id(target,   PortRamDataOut  ),  block_mem.data_o);
+            cell->setPort(emu_get_port_id(target,   PortRamLastIn   ),  block_mem.last_i);
+            cell->setPort(emu_get_port_id(target,   PortRamLastOut  ),  block_mem.last_o);
 
             auto &target_data = database.scanchain.at(cell->type);
             for (auto &src : target_data.ff)
