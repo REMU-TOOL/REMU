@@ -175,7 +175,7 @@ module test(
         .\$EMU$INTERNAL$DRAM_RLAST      (1'b1)
     );
 
-    reg [7:0] mem [0:256*1024-1];
+    reg [7:0] mem [0:64*1024-1];
 
     reg [31:0] reg_write_addr;
     reg [31:0] reg_write_data;

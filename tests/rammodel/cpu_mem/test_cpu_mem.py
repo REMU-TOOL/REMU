@@ -140,13 +140,12 @@ async def run_test(dut):
         dut.mem.value = mem
         await tb.do_up()
 
-    period = 20000
     checkpoints = []
     trig_cycle = 0
     await tb.do_pause()
     await tb.do_count_write(0)
     while True:
-        await tb.do_step_write(period)
+        await tb.do_step_write(random.randint(2000, 20000))
         await tb.do_resume()
         await RisingEdge(dut.pause)
         await RisingEdge(dut.clk)
@@ -162,6 +161,7 @@ async def run_test(dut):
     for checkpoint in checkpoints:
         dut._log.info("load checkpoint")
         await load_checkpoint(checkpoint)
+        dut._log.info("checkpoint cycle = %d", dut.count.value)
         await tb.do_resume()
         await RisingEdge(dut.pause)
         await RisingEdge(dut.clk)
