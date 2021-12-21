@@ -65,7 +65,7 @@ struct HandlerContext {
     SigSpec rst;
     SigSpec trig;
 
-    std::map<std::string, SigSpec> internal_sigs;
+    std::map<std::string, std::vector<SigSpec>> internal_sigs;
 
     HandlerContext(Module *module, Database &db)
         : module(module), db(db), emulib(db.emulib) {}
@@ -263,9 +263,11 @@ struct ModelHandler : public EmulibHandler {
     enum InternalSigProp {
         InputAppend,
         InputShare,
+        InputAutoIndex,
         OutputAppend,
         OutputAndReduce,
         OutputOrReduce,
+        OutputAutoIndex,
     };
 
     // name -> direction (output=true)
@@ -278,33 +280,33 @@ struct ModelHandler : public EmulibHandler {
         {"UP_STAT",         OutputAndReduce},
         {"DOWN_STAT",       OutputAndReduce},
         {"STALL",           OutputOrReduce},
-        {"DRAM_AWVALID",    OutputAppend},
-        {"DRAM_AWREADY",    InputAppend},
-        {"DRAM_AWADDR",     OutputAppend},
-        {"DRAM_AWID",       OutputAppend},
-        {"DRAM_AWLEN",      OutputAppend},
-        {"DRAM_AWSIZE",     OutputAppend},
-        {"DRAM_AWBURST",    OutputAppend},
-        {"DRAM_WVALID",     OutputAppend},
-        {"DRAM_WREADY",     InputAppend},
-        {"DRAM_WDATA",      OutputAppend},
-        {"DRAM_WSTRB",      OutputAppend},
-        {"DRAM_WLAST",      OutputAppend},
-        {"DRAM_BVALID",     InputAppend},
-        {"DRAM_BREADY",     OutputAppend},
-        {"DRAM_BID",        InputAppend},
-        {"DRAM_ARVALID",    OutputAppend},
-        {"DRAM_ARREADY",    InputAppend},
-        {"DRAM_ARADDR",     OutputAppend},
-        {"DRAM_ARID",       OutputAppend},
-        {"DRAM_ARLEN",      OutputAppend},
-        {"DRAM_ARSIZE",     OutputAppend},
-        {"DRAM_ARBURST",    OutputAppend},
-        {"DRAM_RVALID",     InputAppend},
-        {"DRAM_RREADY",     OutputAppend},
-        {"DRAM_RDATA",      InputAppend},
-        {"DRAM_RID",        InputAppend},
-        {"DRAM_RLAST",      InputAppend},
+        {"DRAM_AWVALID",    OutputAutoIndex},
+        {"DRAM_AWREADY",    InputAutoIndex},
+        {"DRAM_AWADDR",     OutputAutoIndex},
+        {"DRAM_AWID",       OutputAutoIndex},
+        {"DRAM_AWLEN",      OutputAutoIndex},
+        {"DRAM_AWSIZE",     OutputAutoIndex},
+        {"DRAM_AWBURST",    OutputAutoIndex},
+        {"DRAM_WVALID",     OutputAutoIndex},
+        {"DRAM_WREADY",     InputAutoIndex},
+        {"DRAM_WDATA",      OutputAutoIndex},
+        {"DRAM_WSTRB",      OutputAutoIndex},
+        {"DRAM_WLAST",      OutputAutoIndex},
+        {"DRAM_BVALID",     InputAutoIndex},
+        {"DRAM_BREADY",     OutputAutoIndex},
+        {"DRAM_BID",        InputAutoIndex},
+        {"DRAM_ARVALID",    OutputAutoIndex},
+        {"DRAM_ARREADY",    InputAutoIndex},
+        {"DRAM_ARADDR",     OutputAutoIndex},
+        {"DRAM_ARID",       OutputAutoIndex},
+        {"DRAM_ARLEN",      OutputAutoIndex},
+        {"DRAM_ARSIZE",     OutputAutoIndex},
+        {"DRAM_ARBURST",    OutputAutoIndex},
+        {"DRAM_RVALID",     InputAutoIndex},
+        {"DRAM_RREADY",     OutputAutoIndex},
+        {"DRAM_RDATA",      InputAutoIndex},
+        {"DRAM_RID",        InputAutoIndex},
+        {"DRAM_RLAST",      InputAutoIndex},
     };
 
     void process_internal_sigs(HandlerContext &ctxt) {
@@ -315,7 +317,7 @@ struct ModelHandler : public EmulibHandler {
             if (!signame.empty()) {
                 if (internal_sig_list.find(signame) == internal_sig_list.end())
                     log_error("Undefined signal name %s\n", signame.c_str());
-                ctxt.internal_sigs[signame].append(wire);
+                ctxt.internal_sigs[signame].push_back(wire);
             }
         }
     }
@@ -342,32 +344,53 @@ struct ModelHandler : public EmulibHandler {
 
     virtual void finalize(HandlerContext &ctxt) override {
         for (auto &it : internal_sig_list) {
-            IdString wirename = "\\EMU_INTERNAL_" + it.first;
             Wire *wire = nullptr;
-            SigSpec &sig = ctxt.internal_sigs[it.first];
+            const auto &sigs = ctxt.internal_sigs[it.first];
+
+            if (it.second == InputAutoIndex || it.second == OutputAutoIndex) {
+                int index = 0;
+                bool output = it.second == OutputAutoIndex;
+                for (auto &s : sigs) {
+                    IdString wirename = stringf("\\EMU_INTERNAL_AUTO_%d_", index++) + it.first;
+                    wire = emu_create_port(ctxt.module, wirename, GetSize(s), output);
+                    if (output)
+                        ctxt.module->connect(wire, s);
+                    else
+                        ctxt.module->connect(s, wire);
+                }
+                continue;
+            }
+
+            IdString wirename = "\\EMU_INTERNAL_" + it.first;
+            SigSpec flat_sig;
+            for (auto &s : sigs)
+                flat_sig.append(s);
+
             switch (it.second) {
                 case InputAppend:
-                    wire = emu_create_port(ctxt.module, wirename, GetSize(sig), false);
-                    ctxt.module->connect(sig, wire);
+                    wire = emu_create_port(ctxt.module, wirename, GetSize(flat_sig), false);
+                    ctxt.module->connect(flat_sig, wire);
                     break;
                 case InputShare:
                     wire = emu_create_port(ctxt.module, wirename, 1, false);
-                    for (SigBit &bit : sig)
+                    for (SigBit &bit : flat_sig)
                         ctxt.module->connect(bit, wire);
                     break;
                 case OutputAppend:
-                    wire = emu_create_port(ctxt.module, wirename, GetSize(sig), true);
-                    ctxt.module->connect(wire, sig);
+                    wire = emu_create_port(ctxt.module, wirename, GetSize(flat_sig), true);
+                    ctxt.module->connect(wire, flat_sig);
                     break;
                 case OutputAndReduce:
-                    sig.append(State::S1);
+                    flat_sig.append(State::S1);
                     wire = emu_create_port(ctxt.module, wirename, 1, true);
-                    ctxt.module->connect(wire, ctxt.module->ReduceAnd(NEW_ID, sig));
+                    ctxt.module->connect(wire, ctxt.module->ReduceAnd(NEW_ID, flat_sig));
                     break;
                 case OutputOrReduce:
-                    sig.append(State::S0);
+                    flat_sig.append(State::S0);
                     wire = emu_create_port(ctxt.module, wirename, 1, true);
-                    ctxt.module->connect(wire, ctxt.module->ReduceOr(NEW_ID, sig));
+                    ctxt.module->connect(wire, ctxt.module->ReduceOr(NEW_ID, flat_sig));
+                    break;
+                default:
                     break;
             }
         }
