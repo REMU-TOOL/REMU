@@ -9,6 +9,26 @@ using namespace Emu;
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+void obj_error(const char *msg, Module *module, IdString id, std::string src) {
+    log("=== ERROR Traceback ===\n");
+    for (auto &s : split_tokens(src, "|"))
+        log("Object declared at %s\n", s.c_str());
+    log_error("%s: %s.%s\n", msg, log_id(module), log_id(id));
+}
+
+void mem_error(const char *msg, Module *module, Mem &mem) {
+    obj_error(msg, module, mem.memid, mem.get_src_attribute());
+}
+
+void ff_error(const char *msg, Module *module, Cell *cell) {
+    SigSpec q = cell->getPort(ID::Q);
+    if (q.is_wire()) {
+        Wire *wire = q.chunks()[0].wire;
+        obj_error(msg, module, wire->name, wire->get_src_attribute());
+    }
+    log_error("%s: %s.%s\n", msg, log_id(module), log_id(cell));
+}
+
 void emu_check(Module *module) {
 
     // RTLIL processes & memories are not accepted
@@ -26,10 +46,10 @@ void emu_check(Module *module) {
         FfData ff(nullptr, cell);
 
         if (!ff.has_clk || ff.has_arst || ff.has_sr)
-            log_error("Cell type not supported: %s (%s.%s)\n", log_id(cell->type), log_id(module), log_id(cell));
+            ff_error("Asynchronous logic not supported", module, cell);
 
         if (!ff.pol_clk)
-            log_error("Negedge clock polarity not supported: %s (%s.%s)\n", log_id(cell->type), log_id(module), log_id(cell));
+            ff_error("Negedge clock polarity not supported", module, cell);
     }
 
     for (auto &mem : mem_cells) {
@@ -37,14 +57,14 @@ void emu_check(Module *module) {
             // TODO: check for arst
             if (rd.clk_enable) {
                 if (!rd.clk_polarity)
-                    log_error("Negedge clock polarity not supported in mem %s.%s\n", log_id(module), log_id(mem.memid));
+                    mem_error("Negedge clock polarity not supported in mem", module, mem);
             }
         }
         for (auto &wr : mem.wr_ports) {
             if (!wr.clk_enable)
-                log_error("Mem with asynchronous write port not supported (%s.%s)\n", log_id(module), log_id(mem.cell));
+                mem_error("Mem with asynchronous write port not supported", module, mem);
             if (!wr.clk_polarity)
-                log_error("Negedge clock polarity not supported in mem %s.%s\n", log_id(module), log_id(mem.memid));
+                mem_error("Negedge clock polarity not supported in mem", module, mem);
         }
     }
 }
