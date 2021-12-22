@@ -70,75 +70,87 @@ module rammodel #(
     (* keep, emu_internal_sig = "DOWN_STAT"     *)  wire down_stat;
     (* keep, emu_internal_sig = "STALL"         *)  wire stall;
 
-    (* keep, emu_internal_sig = "DRAM_AWVALID"  *)
+    (* keep, emu_internal_sig = "dram_awvalid"  *)
     wire                        m_axi_awvalid;
-    (* keep, emu_internal_sig = "DRAM_AWREADY"  *)
+    (* keep, emu_internal_sig = "dram_awready"  *)
     wire                        m_axi_awready;
-    (* keep, emu_internal_sig = "DRAM_AWADDR"   *)
+    (* keep, emu_internal_sig = "dram_awaddr"   *)
     wire    [ADDR_WIDTH-1:0]    m_axi_awaddr;
-    (* keep, emu_internal_sig = "DRAM_AWID"     *)
+    (* keep, emu_internal_sig = "dram_awid"     *)
     wire    [ID_WIDTH-1:0]      m_axi_awid;
-    (* keep, emu_internal_sig = "DRAM_AWLEN"    *)
+    (* keep, emu_internal_sig = "dram_awlen"    *)
     wire    [7:0]               m_axi_awlen;
-    (* keep, emu_internal_sig = "DRAM_AWSIZE"   *)
+    (* keep, emu_internal_sig = "dram_awsize"   *)
     wire    [2:0]               m_axi_awsize;
-    (* keep, emu_internal_sig = "DRAM_AWBURST"  *)
+    (* keep, emu_internal_sig = "dram_awburst"  *)
     wire    [1:0]               m_axi_awburst;
+    (* keep, emu_internal_sig = "dram_awlock"  *)
     wire    [0:0]               m_axi_awlock;
+    (* keep, emu_internal_sig = "dram_awcache"  *)
     wire    [3:0]               m_axi_awcache;
+    (* keep, emu_internal_sig = "dram_awprot"  *)
     wire    [2:0]               m_axi_awprot;
+    (* keep, emu_internal_sig = "dram_awqos"  *)
     wire    [3:0]               m_axi_awqos;
+    (* keep, emu_internal_sig = "dram_awregion"  *)
     wire    [3:0]               m_axi_awregion;
 
-    (* keep, emu_internal_sig = "DRAM_WVALID"   *)
+    (* keep, emu_internal_sig = "dram_wvalid"   *)
     wire                        m_axi_wvalid;
-    (* keep, emu_internal_sig = "DRAM_WREADY"   *)
+    (* keep, emu_internal_sig = "dram_wready"   *)
     wire                        m_axi_wready;
-    (* keep, emu_internal_sig = "DRAM_WDATA"    *)
+    (* keep, emu_internal_sig = "dram_wdata"    *)
     wire    [DATA_WIDTH-1:0]    m_axi_wdata;
-    (* keep, emu_internal_sig = "DRAM_WSTRB"    *)
+    (* keep, emu_internal_sig = "dram_wstrb"    *)
     wire    [DATA_WIDTH/8-1:0]  m_axi_wstrb;
-    (* keep, emu_internal_sig = "DRAM_WLAST"    *)
+    (* keep, emu_internal_sig = "dram_wlast"    *)
     wire                        m_axi_wlast;
 
-    (* keep, emu_internal_sig = "DRAM_BVALID"   *)
+    (* keep, emu_internal_sig = "dram_bvalid"   *)
     wire                        m_axi_bvalid;
-    (* keep, emu_internal_sig = "DRAM_BREADY"   *)
+    (* keep, emu_internal_sig = "dram_bready"   *)
     wire                        m_axi_bready;
-    wire    [1:0]               m_axi_bresp = 2'b00;
-    (* keep, emu_internal_sig = "DRAM_BID"      *)
+    (* keep, emu_internal_sig = "dram_bresp"  *)
+    wire    [1:0]               m_axi_bresp;
+    (* keep, emu_internal_sig = "dram_bid"      *)
     wire    [ID_WIDTH-1:0]      m_axi_bid;
 
-    (* keep, emu_internal_sig = "DRAM_ARVALID"  *)
+    (* keep, emu_internal_sig = "dram_arvalid"  *)
     wire                        m_axi_arvalid;
-    (* keep, emu_internal_sig = "DRAM_ARREADY"  *)
+    (* keep, emu_internal_sig = "dram_arready"  *)
     wire                        m_axi_arready;
-    (* keep, emu_internal_sig = "DRAM_ARADDR"   *)
+    (* keep, emu_internal_sig = "dram_araddr"   *)
     wire    [ADDR_WIDTH-1:0]    m_axi_araddr;
-    (* keep, emu_internal_sig = "DRAM_ARID"     *)
+    (* keep, emu_internal_sig = "dram_arid"     *)
     wire    [ID_WIDTH-1:0]      m_axi_arid;
-    (* keep, emu_internal_sig = "DRAM_ARLEN"    *)
+    (* keep, emu_internal_sig = "dram_arlen"    *)
     wire    [7:0]               m_axi_arlen;
-    (* keep, emu_internal_sig = "DRAM_ARSIZE"   *)
+    (* keep, emu_internal_sig = "dram_arsize"   *)
     wire    [2:0]               m_axi_arsize;
-    (* keep, emu_internal_sig = "DRAM_ARBURST"  *)
+    (* keep, emu_internal_sig = "dram_arburst"  *)
     wire    [1:0]               m_axi_arburst;
+    (* keep, emu_internal_sig = "dram_arlock"  *)
     wire    [0:0]               m_axi_arlock;
+    (* keep, emu_internal_sig = "dram_arcache"  *)
     wire    [3:0]               m_axi_arcache;
+    (* keep, emu_internal_sig = "dram_arprot"  *)
     wire    [2:0]               m_axi_arprot;
+    (* keep, emu_internal_sig = "dram_arqos"  *)
     wire    [3:0]               m_axi_arqos;
+    (* keep, emu_internal_sig = "dram_arregion"  *)
     wire    [3:0]               m_axi_arregion;
 
-    (* keep, emu_internal_sig = "DRAM_RVALID"   *)
+    (* keep, emu_internal_sig = "dram_rvalid"   *)
     wire                        m_axi_rvalid;
-    (* keep, emu_internal_sig = "DRAM_RREADY"   *)
+    (* keep, emu_internal_sig = "dram_rready"   *)
     wire                        m_axi_rready;
-    (* keep, emu_internal_sig = "DRAM_RDATA"    *)
+    (* keep, emu_internal_sig = "dram_rdata"    *)
     wire    [DATA_WIDTH-1:0]    m_axi_rdata;
-    wire    [1:0]               m_axi_rresp = 2'b00;
-    (* keep, emu_internal_sig = "DRAM_RID"      *)
+    (* keep, emu_internal_sig = "dram_rresp"  *)
+    wire    [1:0]               m_axi_rresp;
+    (* keep, emu_internal_sig = "dram_rid"      *)
     wire    [ID_WIDTH-1:0]      m_axi_rid;
-    (* keep, emu_internal_sig = "DRAM_RLAST"    *)
+    (* keep, emu_internal_sig = "dram_rlast"    *)
     wire                        m_axi_rlast;
 
     rammodel_simple #(

@@ -1,5 +1,7 @@
 `timescale 1ns / 1ps
 
+`include "axi.vh"
+
 module test #(
     // DO NOT CHANGE
     parameter   ADDR_WIDTH      = 32,
@@ -218,45 +220,8 @@ module test #(
         .EMU_INTERNAL_UP_STAT           (up),
         .EMU_INTERNAL_DOWN_STAT         (down),
         .EMU_INTERNAL_STALL             (dut_stall),
-        .EMU_INTERNAL_AUTO_0_DRAM_AWVALID       (m_axi_awvalid),
-        .EMU_INTERNAL_AUTO_0_DRAM_AWREADY       (m_axi_awready),
-        .EMU_INTERNAL_AUTO_0_DRAM_AWADDR        (m_axi_awaddr),
-        .EMU_INTERNAL_AUTO_0_DRAM_AWID          (m_axi_awid),
-        .EMU_INTERNAL_AUTO_0_DRAM_AWLEN         (m_axi_awlen),
-        .EMU_INTERNAL_AUTO_0_DRAM_AWSIZE        (m_axi_awsize),
-        .EMU_INTERNAL_AUTO_0_DRAM_AWBURST       (m_axi_awburst),
-        .EMU_INTERNAL_AUTO_0_DRAM_WVALID        (m_axi_wvalid),
-        .EMU_INTERNAL_AUTO_0_DRAM_WREADY        (m_axi_wready),
-        .EMU_INTERNAL_AUTO_0_DRAM_WDATA         (m_axi_wdata),
-        .EMU_INTERNAL_AUTO_0_DRAM_WSTRB         (m_axi_wstrb),
-        .EMU_INTERNAL_AUTO_0_DRAM_WLAST         (m_axi_wlast),
-        .EMU_INTERNAL_AUTO_0_DRAM_BVALID        (m_axi_bvalid),
-        .EMU_INTERNAL_AUTO_0_DRAM_BREADY        (m_axi_bready),
-        .EMU_INTERNAL_AUTO_0_DRAM_BID           (m_axi_bid),
-        .EMU_INTERNAL_AUTO_0_DRAM_ARVALID       (m_axi_arvalid),
-        .EMU_INTERNAL_AUTO_0_DRAM_ARREADY       (m_axi_arready),
-        .EMU_INTERNAL_AUTO_0_DRAM_ARADDR        (m_axi_araddr),
-        .EMU_INTERNAL_AUTO_0_DRAM_ARID          (m_axi_arid),
-        .EMU_INTERNAL_AUTO_0_DRAM_ARLEN         (m_axi_arlen),
-        .EMU_INTERNAL_AUTO_0_DRAM_ARSIZE        (m_axi_arsize),
-        .EMU_INTERNAL_AUTO_0_DRAM_ARBURST       (m_axi_arburst),
-        .EMU_INTERNAL_AUTO_0_DRAM_RVALID        (m_axi_rvalid),
-        .EMU_INTERNAL_AUTO_0_DRAM_RREADY        (m_axi_rready),
-        .EMU_INTERNAL_AUTO_0_DRAM_RDATA         (m_axi_rdata),
-        .EMU_INTERNAL_AUTO_0_DRAM_RID           (m_axi_rid),
-        .EMU_INTERNAL_AUTO_0_DRAM_RLAST         (m_axi_rlast)
+        `AXI4_CONNECT                   (EMU_INTERNAL_AUTO_0_dram, m_axi)
     );
-
-    assign m_axi_awlock        = 1'd0;
-    assign m_axi_awcache       = 4'd0;
-    assign m_axi_awprot        = 3'b010;
-    assign m_axi_awqos         = 4'd0;
-    assign m_axi_awregion      = 4'd0;
-    assign m_axi_arlock        = 1'd0;
-    assign m_axi_arcache       = 4'd0;
-    assign m_axi_arprot        = 3'b010;
-    assign m_axi_arqos         = 4'd0;
-    assign m_axi_arregion      = 4'd0;
 
     assign dut_clk_en = !pause && !dut_stall;
     assign emu_dut_ff_clk_en = !pause && !dut_stall || ff_scan;
