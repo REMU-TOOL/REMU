@@ -59,8 +59,6 @@ module rammodel #(
 
 );
 
-    // TODO: handle aresetn in down state
-
     (* keep, emu_internal_sig = "CLOCK"         *)  wire model_clk;
     (* keep, emu_internal_sig = "RESET"         *)  wire model_rst;
     (* keep, emu_internal_sig = "PAUSE"         *)  wire pause;
@@ -163,6 +161,7 @@ module rammodel #(
     u_rammodel (
         .clk            (model_clk),
         .resetn         (!model_rst),
+        .dut_resetn     (aresetn),
         `AXI4_CONNECT   (s_dut, s_axi),
         `AXI4_CONNECT   (m_dram, m_axi),
         .pause          (pause),

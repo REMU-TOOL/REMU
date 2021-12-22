@@ -12,6 +12,8 @@ module rammodel_simple #(
     input                       clk,
     input                       resetn,
 
+    input                       dut_resetn,
+
     `AXI4_SLAVE_IF              (s_dut,     ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
     `AXI4_MASTER_IF             (m_dram,    ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
 
@@ -27,7 +29,7 @@ module rammodel_simple #(
 
     `AXI4_WIRE(from_dut, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
 
-    axi_stall_s #(
+    axi_stall #(
         .ADDR_WIDTH (ADDR_WIDTH),
         .DATA_WIDTH (DATA_WIDTH),
         .ID_WIDTH   (ID_WIDTH)
@@ -37,7 +39,7 @@ module rammodel_simple #(
         .resetn         (resetn),
         `AXI4_CONNECT   (s, s_dut),
         `AXI4_CONNECT   (m, from_dut),
-        .stall          (dut_stall)
+        .stall          (dut_stall || !dut_resetn)
     );
 
     `AXI4_WIRE(to_timing_model,     ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
@@ -155,10 +157,12 @@ module rammodel_simple #(
 
     `AXI4_WIRE(from_gate_stalled, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
 
-    axi_stall_s #(
+    axi_stall #(
         .ADDR_WIDTH (ADDR_WIDTH),
         .DATA_WIDTH (DATA_WIDTH),
-        .ID_WIDTH   (ID_WIDTH)
+        .ID_WIDTH   (ID_WIDTH),
+        .STALL_S    (0),
+        .STALL_M    (1)
     )
     from_gate_stall (
         .clk            (clk),

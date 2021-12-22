@@ -2,10 +2,12 @@
 
 `include "axi.vh"
 
-module axi_stall_s #(
-    parameter   ADDR_WIDTH              = 32,
-    parameter   DATA_WIDTH              = 64,
-    parameter   ID_WIDTH                = 4
+module axi_stall #(
+    parameter   ADDR_WIDTH      = 32,
+    parameter   DATA_WIDTH      = 64,
+    parameter   ID_WIDTH        = 4,
+    parameter   STALL_S         = 1,
+    parameter   STALL_M         = 1
 )(
     input                       clk,
     input                       resetn,
@@ -16,8 +18,10 @@ module axi_stall_s #(
     input                       stall
 );
 
-    ready_valid_stall_s #(
-        .DATA_WIDTH(`AXI4_AW_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
+    ready_valid_stall #(
+        .DATA_WIDTH(`AXI4_AW_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)),
+        .STALL_S(STALL_S),
+        .STALL_M(STALL_M)
     )
     s_stall_aw (
         .s_valid    (s_awvalid),
@@ -29,8 +33,10 @@ module axi_stall_s #(
         .stall      (stall)
     );
 
-    ready_valid_stall_s #(
-        .DATA_WIDTH(`AXI4_W_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
+    ready_valid_stall #(
+        .DATA_WIDTH(`AXI4_W_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)),
+        .STALL_S(STALL_S),
+        .STALL_M(STALL_M)
     )
     s_stall_w (
         .s_valid    (s_wvalid),
@@ -42,8 +48,10 @@ module axi_stall_s #(
         .stall      (stall)
     );
 
-    ready_valid_stall_m #(
-        .DATA_WIDTH(`AXI4_B_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
+    ready_valid_stall #(
+        .DATA_WIDTH(`AXI4_B_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)),
+        .STALL_S(STALL_M),
+        .STALL_M(STALL_S)
     )
     s_stall_b (
         .m_valid    (s_bvalid),
@@ -55,8 +63,10 @@ module axi_stall_s #(
         .stall      (stall)
     );
 
-    ready_valid_stall_s #(
-        .DATA_WIDTH(`AXI4_AR_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
+    ready_valid_stall #(
+        .DATA_WIDTH(`AXI4_AR_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)),
+        .STALL_S(STALL_S),
+        .STALL_M(STALL_M)
     )
     s_stall_ar (
         .s_valid    (s_arvalid),
@@ -68,8 +78,10 @@ module axi_stall_s #(
         .stall      (stall)
     );
 
-    ready_valid_stall_m #(
-        .DATA_WIDTH(`AXI4_R_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
+    ready_valid_stall #(
+        .DATA_WIDTH(`AXI4_R_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)),
+        .STALL_S(STALL_M),
+        .STALL_M(STALL_S)
     )
     s_stall_r (
         .m_valid    (s_rvalid),

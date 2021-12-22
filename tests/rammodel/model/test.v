@@ -10,6 +10,8 @@ module rammodel_test #(
     input                       clk,
     input                       resetn,
 
+    input                       dut_resetn,
+
     `AXI4_SLAVE_IF              (s_dut,     ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
     `AXI4_MASTER_IF             (m_dram,    ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
 
@@ -34,6 +36,7 @@ module rammodel_test #(
     uut (
         .clk            (clk),
         .resetn         (resetn),
+        .dut_resetn     (dut_resetn),
         `AXI4_CONNECT   (s_dut, s_dut),
         `AXI4_CONNECT   (m_dram, m_dram),
         .pause          (pause),

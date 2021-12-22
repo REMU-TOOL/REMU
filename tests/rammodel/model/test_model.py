@@ -11,7 +11,7 @@ class TB:
     def __init__(self, dut):
         self.dut = dut
         cocotb.fork(Clock(dut.clk, 10, units='ns').start())
-        self.axi_master = AxiMaster(AxiBus.from_prefix(dut, 's_dut'), dut.dut_clk, dut.resetn, reset_active_level=False)
+        self.axi_master = AxiMaster(AxiBus.from_prefix(dut, 's_dut'), dut.dut_clk, dut.dut_resetn, reset_active_level=False)
         self.axi_ram = AxiRam(AxiBus.from_prefix(dut, 'm_dram'), dut.clk, dut.resetn, reset_active_level=False, size=0x1000)
 
     async def do_reset(self):
@@ -19,6 +19,7 @@ class TB:
         self.dut.pause.value = 0
         self.dut.up_req.value = 0
         self.dut.down_req.value = 0
+        self.dut.dut_resetn.value = 0
         self.dut.resetn.value = 0
         await RisingEdge(self.dut.clk)
         await RisingEdge(self.dut.clk)
@@ -77,6 +78,10 @@ async def run_test(dut):
 
     read_write_worker = cocotb.fork(read_write_worker_func())
     pause_resume_worker = cocotb.fork(pause_resume_worker_func())
+
+    await ClockCycles(dut.clk, 100)
+    dut._log.info("Releasing DUT reset")
+    dut.dut_resetn.value = 1
 
     await read_write_worker.join()
     running = False
