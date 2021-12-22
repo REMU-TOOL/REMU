@@ -4,7 +4,7 @@
 
 `timescale 1ns / 1ps
 
-module emu_system(
+module emu_controller (
     input           clk,
     input           resetn,
 
@@ -60,10 +60,53 @@ module emu_system(
     input           s_axilite_bready,
     output  [ 1:0]  s_axilite_bresp,
 
-    `AXI4_MASTER_IF(m_dram_axi, 32, 64, 1)
+    output              emu_clk,
+    output              emu_rst,
+    output reg          emu_pause,
+    output reg          emu_up_req,
+    output reg          emu_down_req,
+    input               emu_up_stat,
+    input               emu_down_stat,
+    input               emu_stall,
+    output              emu_ff_se,
+    output      [63:0]  emu_ff_di,
+    input       [63:0]  emu_ff_do,
+    output              emu_ram_se,
+    output              emu_ram_sd,
+    output      [63:0]  emu_ram_di,
+    input       [63:0]  emu_ram_do,
+    output              emu_dut_ff_clk,     // TODO: width
+    output              emu_dut_ram_clk,    // TODO: width
+    output reg          emu_dut_rst,        // TODO: width
+    input       [31:0]  emu_dut_trig
+
 );
 
     wire rst = !resetn;
+    assign emu_rst = rst;
+
+    wire emu_clk_en;
+    ClockGate clk_gate(
+        .CLK(clk),
+        .EN(emu_clk_en),
+        .GCLK(emu_clk)
+    );
+
+    wire emu_dut_clk_en;
+
+    wire emu_dut_ff_clk_en;
+    ClockGate dut_ff_clk_gate(
+        .CLK(clk),
+        .EN(emu_dut_ff_clk_en),
+        .GCLK(emu_dut_ff_clk)
+    );
+
+    wire emu_dut_ram_clk_en;
+    ClockGate dut_ram_clk_gate(
+        .CLK(clk),
+        .EN(emu_dut_ram_clk_en),
+        .GCLK(emu_dut_ram_clk)
+    );
 
     /*
      * AXI read descriptor input
@@ -158,13 +201,11 @@ module emu_system(
     //      [1]     -> DUT_RESET
     //      [2]     -> UP_REQ
     //      [3]     -> DOWN_REQ
-    //      [4]     -> UP_STAT
-    //      [5]     -> DOWN_STAT
+    //      [4]     -> UP_STAT [RO]
+    //      [5]     -> DOWN_STAT [RO]
     //      [31]    -> STEP_TRIG [RO]
 
-    reg emu_pause, emu_dut_rst, emu_step_trig;
-    reg emu_up_req, emu_down_req;
-    wire emu_up_stat, emu_down_stat;
+    reg emu_step_trig;
     wire [31:0] emu_stat;
     assign emu_stat[31]     = emu_step_trig;
     assign emu_stat[30:2]   = 29'd0;
@@ -183,16 +224,16 @@ module emu_system(
             emu_down_req        <= 1'b0;
             emu_step_trig       <= 1'b0;
         end
-        else if (trigger) begin
-            emu_pause           <= 1'b1;
-            emu_step_trig       <= step_trig;
-        end
         else begin
             if (reg_do_write && reg_write_addr == `EMU_STAT) begin
                 emu_pause           <= reg_write_data[0];
                 emu_dut_rst         <= reg_write_data[1];
                 emu_up_req          <= reg_write_data[2];
                 emu_down_req        <= reg_write_data[3];
+            end
+            if (trigger) begin
+                emu_pause           <= 1'b1;
+                emu_step_trig       <= step_trig;
             end
         end
     end
@@ -218,7 +259,7 @@ module emu_system(
         if (rst) begin
             emu_cycle <= 64'd0;
         end
-        else if (!emu_pause) begin
+        else if (emu_dut_clk_en) begin
             emu_cycle <= emu_cycle + 64'd1;
         end
         else begin
@@ -236,14 +277,11 @@ module emu_system(
     reg [31:0] emu_step, emu_step_next;
 
     always @* begin
-        if (emu_pause) begin
-            emu_step_next = emu_step;
-        end
-        else if (emu_step != 32'd0) begin
+        if (emu_dut_clk_en && emu_step != 32'd0) begin
             emu_step_next = emu_step - 32'd1;
         end
         else begin
-            emu_step_next = 32'd0;
+            emu_step_next = emu_step;
         end
     end
 
@@ -503,27 +541,6 @@ module emu_system(
 
     // DUT & scan logic
 
-    wire emu_clk, emu_clk_en;
-    ClockGate clk_gate(
-        .CLK(clk),
-        .EN(emu_clk_en),
-        .GCLK(emu_clk)
-    );
-
-    wire emu_dut_ff_clk, emu_dut_ff_clk_en;
-    ClockGate dut_ff_clk_gate(
-        .CLK(clk),
-        .EN(emu_dut_ff_clk_en),
-        .GCLK(emu_dut_ff_clk)
-    );
-
-    wire emu_dut_ram_clk, emu_dut_ram_clk_en;
-    ClockGate dut_ram_clk_gate(
-        .CLK(clk),
-        .EN(emu_dut_ram_clk_en),
-        .GCLK(emu_dut_ram_clk)
-    );
-
     // operation sequence
     // (<L> = last data, N = CHAIN_FF_WORDS or CHAIN_MEM_WORDS)
     // scan-out:
@@ -557,7 +574,6 @@ module emu_system(
     // ram_scan_running = RAM RUNNING
     // ram_scan_sig = RAM SCAN
     reg ff_scan_running, ram_scan_running, ram_scan_sig;
-    wire [63:0] ff_sdi, ff_sdo, ram_sdi, ram_sdo;
 
     localparam CNT_BITS_FF  = $clog2(`CHAIN_FF_WORDS + 1);
     localparam CNT_BITS_RAM = $clog2(`CHAIN_MEM_WORDS + 1);
@@ -628,82 +644,25 @@ module emu_system(
     end
 
     if (`CHAIN_FF_WORDS == 0)
-        assign ff_sdi = 64'd0; // to avoid combinational logic loop
+        assign emu_ff_di = 64'd0; // to avoid combinational logic loop
     else
-        assign ff_sdi = emu_dma_direction ? m_axis_read_data_tdata : ff_sdo;
-    assign ram_sdi = m_axis_read_data_tdata;
+        assign emu_ff_di = emu_dma_direction ? m_axis_read_data_tdata : emu_ff_do;
+    assign emu_ram_di = m_axis_read_data_tdata;
+
+    assign emu_ff_se    = ff_scan_running;
+    assign emu_ram_se   = ram_scan_sig;
+    assign emu_ram_sd   = emu_dma_direction;
 
     wire scan_stall = scan_running && (emu_dma_direction ? !m_axis_read_data_tvalid : !s_axis_write_data_tready);
-    wire model_stall;
-
-    EMU_DUT emu_dut(
-        .EMU_CLK                        (emu_clk),
-        .EMU_FF_SE                      (ff_scan_running),
-        .EMU_FF_DI                      (ff_sdi),
-        .EMU_FF_DO                      (ff_sdo),
-        .EMU_RAM_SE                     (ram_scan_sig),
-        .EMU_RAM_SD                     (emu_dma_direction),
-        .EMU_RAM_DI                     (ram_sdi),
-        .EMU_RAM_DO                     (ram_sdo),
-        .EMU_DUT_FF_CLK                 (emu_dut_ff_clk), // TODO: width
-        .EMU_DUT_RAM_CLK                (emu_dut_ram_clk), // TODO: width
-        .EMU_DUT_RST                    (emu_dut_rst), // TODO: width
-        .EMU_DUT_TRIG                   (emu_dut_trig), // TODO: width
-        .EMU_INTERNAL_CLOCK             (emu_clk),
-        .EMU_INTERNAL_RESET             (rst),
-        .EMU_INTERNAL_PAUSE             (emu_pause),
-        .EMU_INTERNAL_UP_REQ            (emu_up_req),
-        .EMU_INTERNAL_DOWN_REQ          (emu_down_req),
-        .EMU_INTERNAL_UP_STAT           (emu_up_stat),
-        .EMU_INTERNAL_DOWN_STAT         (emu_down_stat),
-        .EMU_INTERNAL_STALL             (model_stall),
-        .EMU_INTERNAL_DRAM_AWVALID      (m_dram_axi_awvalid),
-        .EMU_INTERNAL_DRAM_AWREADY      (m_dram_axi_awready),
-        .EMU_INTERNAL_DRAM_AWADDR       (m_dram_axi_awaddr),
-        .EMU_INTERNAL_DRAM_AWID         (m_dram_axi_awid),
-        .EMU_INTERNAL_DRAM_AWLEN        (m_dram_axi_awlen),
-        .EMU_INTERNAL_DRAM_AWSIZE       (m_dram_axi_awsize),
-        .EMU_INTERNAL_DRAM_AWBURST      (m_dram_axi_awburst),
-        .EMU_INTERNAL_DRAM_WVALID       (m_dram_axi_wvalid),
-        .EMU_INTERNAL_DRAM_WREADY       (m_dram_axi_wready),
-        .EMU_INTERNAL_DRAM_WDATA        (m_dram_axi_wdata),
-        .EMU_INTERNAL_DRAM_WSTRB        (m_dram_axi_wstrb),
-        .EMU_INTERNAL_DRAM_WLAST        (m_dram_axi_wlast),
-        .EMU_INTERNAL_DRAM_BVALID       (m_dram_axi_bvalid),
-        .EMU_INTERNAL_DRAM_BREADY       (m_dram_axi_bready),
-        .EMU_INTERNAL_DRAM_BID          (m_dram_axi_bid),
-        .EMU_INTERNAL_DRAM_ARVALID      (m_dram_axi_arvalid),
-        .EMU_INTERNAL_DRAM_ARREADY      (m_dram_axi_arready),
-        .EMU_INTERNAL_DRAM_ARADDR       (m_dram_axi_araddr),
-        .EMU_INTERNAL_DRAM_ARID         (m_dram_axi_arid),
-        .EMU_INTERNAL_DRAM_ARLEN        (m_dram_axi_arlen),
-        .EMU_INTERNAL_DRAM_ARSIZE       (m_dram_axi_arsize),
-        .EMU_INTERNAL_DRAM_ARBURST      (m_dram_axi_arburst),
-        .EMU_INTERNAL_DRAM_RVALID       (m_dram_axi_rvalid),
-        .EMU_INTERNAL_DRAM_RREADY       (m_dram_axi_rready),
-        .EMU_INTERNAL_DRAM_RDATA        (m_dram_axi_rdata),
-        .EMU_INTERNAL_DRAM_RID          (m_dram_axi_rid),
-        .EMU_INTERNAL_DRAM_RLAST        (m_dram_axi_rlast)
-    );
-
-    assign m_dram_axi_awlock        = 1'd0;
-    assign m_dram_axi_awcache       = 4'd0;
-    assign m_dram_axi_awprot        = 3'b010;
-    assign m_dram_axi_awqos         = 4'd0;
-    assign m_dram_axi_awregion      = 4'd0;
-    assign m_dram_axi_arlock        = 1'd0;
-    assign m_dram_axi_arcache       = 4'd0;
-    assign m_dram_axi_arprot        = 3'b010;
-    assign m_dram_axi_arqos         = 4'd0;
-    assign m_dram_axi_arregion      = 4'd0;
 
     assign m_axis_read_data_tready  = emu_dma_direction && scan_running;
     assign s_axis_write_data_tvalid = !emu_dma_direction && scan_running;
     assign s_axis_write_data_tlast  = ram_scan_last;
-    assign s_axis_write_data_tdata  = {64{ff_scan_running}} & ff_sdo | {64{ram_scan_running}} & ram_sdo;
+    assign s_axis_write_data_tdata  = {64{ff_scan_running}} & emu_ff_do | {64{ram_scan_running}} & emu_ram_do;
 
     assign emu_clk_en = !scan_stall;
-    assign emu_dut_ff_clk_en = emu_clk_en && (!emu_pause && !model_stall || ff_scan_running);
-    assign emu_dut_ram_clk_en = emu_clk_en && (!emu_pause && !model_stall || ram_scan_sig);
+    assign emu_dut_clk_en = emu_clk_en && !emu_pause && !emu_stall;
+    assign emu_dut_ff_clk_en = emu_clk_en && (!emu_pause && !emu_stall || ff_scan_running);
+    assign emu_dut_ram_clk_en = emu_clk_en && (!emu_pause && !emu_stall || ram_scan_sig);
 
 endmodule

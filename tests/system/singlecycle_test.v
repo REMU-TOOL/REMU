@@ -55,7 +55,14 @@ module sim_top();
     reg     [31:0]  s_axilite_wdata = 0;
     wire            s_axilite_bvalid;
 
-    emu_system u_emu_system(
+    wire emu_clk, emu_rst;
+    wire emu_pause, emu_stall;
+    wire emu_up_req, emu_down_req, emu_up_stat, emu_down_stat;
+    wire emu_ff_se, emu_ram_se, emu_ram_sd;
+    wire [63:0] emu_ff_di, emu_ff_do, emu_ram_di, emu_ram_do;
+    wire emu_dut_ff_clk, emu_dut_ram_clk, emu_dut_rst, emu_dut_trig;
+
+    emu_controller u_emu_controller(
         .clk                        (clk),
         .resetn                     (resetn),
 
@@ -109,7 +116,50 @@ module sim_top();
         .s_axilite_wstrb            (4'b1111),
         .s_axilite_bvalid           (s_axilite_bvalid),
         .s_axilite_bready           (1'b1),
-        .s_axilite_bresp            ()
+        .s_axilite_bresp            (),
+
+        .emu_clk                    (emu_clk),
+        .emu_rst                    (emu_rst),
+        .emu_pause                  (emu_pause),
+        .emu_up_req                 (emu_up_req),
+        .emu_down_req               (emu_down_req),
+        .emu_up_stat                (emu_up_stat),
+        .emu_down_stat              (emu_down_stat),
+        .emu_stall                  (emu_stall),
+        .emu_ff_se                  (emu_ff_se),
+        .emu_ff_di                  (emu_ff_di),
+        .emu_ff_do                  (emu_ff_do),
+        .emu_ram_se                 (emu_ram_se),
+        .emu_ram_sd                 (emu_ram_sd),
+        .emu_ram_di                 (emu_ram_di),
+        .emu_ram_do                 (emu_ram_do),
+        .emu_dut_ff_clk             (emu_dut_ff_clk),
+        .emu_dut_ram_clk            (emu_dut_ram_clk),
+        .emu_dut_rst                (emu_dut_rst),
+        .emu_dut_trig               (emu_dut_trig)
+    );
+
+    EMU_DUT emu_dut(
+        .EMU_CLK            (emu_clk),
+        .EMU_FF_SE          (emu_ff_se),
+        .EMU_FF_DI          (emu_ff_di),
+        .EMU_FF_DO          (emu_ff_do),
+        .EMU_RAM_SE         (emu_ram_se),
+        .EMU_RAM_SD         (emu_ram_sd),
+        .EMU_RAM_DI         (emu_ram_di),
+        .EMU_RAM_DO         (emu_ram_do),
+        .EMU_DUT_FF_CLK     (emu_dut_ff_clk),
+        .EMU_DUT_RAM_CLK    (emu_dut_ram_clk),
+        .EMU_DUT_RST        (emu_dut_rst),
+        .EMU_DUT_TRIG       (emu_dut_trig),
+        .EMU_INTERNAL_CLOCK             (emu_clk),
+        .EMU_INTERNAL_RESET             (emu_rst),
+        .EMU_INTERNAL_PAUSE             (emu_pause),
+        .EMU_INTERNAL_UP_REQ            (emu_up_req),
+        .EMU_INTERNAL_DOWN_REQ          (emu_down_req),
+        .EMU_INTERNAL_UP_STAT           (emu_up_stat),
+        .EMU_INTERNAL_DOWN_STAT         (emu_down_stat),
+        .EMU_INTERNAL_STALL             (emu_stall)
     );
 
     axi_ram #(
@@ -163,12 +213,12 @@ module sim_top();
     wire ref_clk;
     ClockGate ref_clk_gate(
         .CLK(clk),
-        .EN(!u_emu_system.emu_pause),
+        .EN(!u_emu_controller.emu_pause),
         .GCLK(ref_clk)
     );
 
     assign emu_ref.clock.clock = ref_clk;
-    assign emu_ref.reset.reset = u_emu_system.emu_dut_rst;
+    assign emu_ref.reset.reset = u_emu_controller.emu_dut_rst;
 
     reg [31:0] emucsr_rdata = 0;
 
@@ -415,16 +465,16 @@ module sim_top();
     always @(posedge clk) begin
         result = emu_ref.u_mem.mem[3];
         if (result != 32'hffffffff && !finish) begin
-            $display("Benchmark finished with result = %d at cycle = %d", result, u_emu_system.emu_cycle);
+            $display("Benchmark finished with result = %d at cycle = %d", result, u_emu_controller.emu_cycle);
             finish = 1;
         end
-        if (resetn && !u_emu_system.emu_pause) begin
-            if (u_emu_system.emu_dut.\u_cpu.rf_wen !== emu_ref.u_cpu.rf_wen ||
-                u_emu_system.emu_dut.\u_cpu.rf_waddr !== emu_ref.u_cpu.rf_waddr ||
-                u_emu_system.emu_dut.\u_cpu.rf_wdata !== emu_ref.u_cpu.rf_wdata)
+        if (resetn && !u_emu_controller.emu_pause) begin
+            if (emu_dut.\u_cpu.rf_wen !== emu_ref.u_cpu.rf_wen ||
+                emu_dut.\u_cpu.rf_waddr !== emu_ref.u_cpu.rf_waddr ||
+                emu_dut.\u_cpu.rf_wdata !== emu_ref.u_cpu.rf_wdata)
             begin
-                $display("ERROR: trace mismatch at cycle = %d", u_emu_system.emu_cycle);
-                $display("DUT: wen=%h waddr=%h wdata=%h", u_emu_system.emu_dut.\u_cpu.rf_wen , u_emu_system.emu_dut.\u_cpu.rf_waddr , u_emu_system.emu_dut.\u_cpu.rf_wdata );
+                $display("ERROR: trace mismatch at cycle = %d", u_emu_controller.emu_cycle);
+                $display("DUT: wen=%h waddr=%h wdata=%h", emu_dut.\u_cpu.rf_wen , emu_dut.\u_cpu.rf_waddr , emu_dut.\u_cpu.rf_wdata );
                 $display("REF: wen=%h waddr=%h wdata=%h", emu_ref.u_cpu.rf_wen, emu_ref.u_cpu.rf_waddr, emu_ref.u_cpu.rf_wdata);
                 $fatal;
             end
@@ -432,7 +482,7 @@ module sim_top();
     end
 
     initial begin
-        $readmemh("../common/initmem.txt", u_emu_system.emu_dut.\EMU_DUT_u_mem.mem .\u_mem.mem );
+        $readmemh("../common/initmem.txt", emu_dut.\EMU_DUT_u_mem.mem .\u_mem.mem );
         $readmemh("../common/initmem.txt", emu_ref.u_mem.mem);
     end
 
