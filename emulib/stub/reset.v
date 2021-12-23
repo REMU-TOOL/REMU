@@ -1,6 +1,6 @@
 `timescale 1 ns / 1 ps
 
-(* emulib_component = "reset" *)
+(* keep, emulib_component = "reset" *)
 module EmuReset #(
     parameter DURATION_NS = 20
 )
