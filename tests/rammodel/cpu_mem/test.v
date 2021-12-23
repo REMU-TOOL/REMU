@@ -91,6 +91,13 @@ module test(
 	wire              mem_axi_rready;
 	wire       [31:0] mem_axi_rdata;
 
+    wire putchar_valid;
+    wire [7:0] putchar_data;
+
+    always @(posedge clk)
+        if (dut_clk_en && putchar_valid)
+            $write("%c", putchar_data);
+
     EMU_DUT emu_dut(
         .EMU_CLK            (clk),
         .EMU_FF_SE          (ff_scan),
@@ -104,6 +111,8 @@ module test(
         .EMU_DUT_RAM_CLK    (emu_dut_ram_clk),
         .EMU_DUT_RST        (rst),
         .EMU_DUT_TRIG       (trig),
+        .EMU_PC_VALID       (putchar_valid),
+        .EMU_PC_DATA        (putchar_data),
         .EMU_INTERNAL_CLOCK             (clk),
         .EMU_INTERNAL_RESET             (rst),
         .EMU_INTERNAL_PAUSE             (pause),
@@ -193,16 +202,10 @@ module test(
 
     always @(posedge clk) begin
         if (reg_write_addr_data_ok) begin
-            if (reg_write_addr == 32'h1000_0000) begin
-                $write("%c", reg_write_data[7:0]);
-				$fflush();
-            end
-            else begin
-                if (reg_write_strb[0]) mem[reg_write_addr + 0] <= reg_write_data[ 7: 0];
-                if (reg_write_strb[1]) mem[reg_write_addr + 1] <= reg_write_data[15: 8];
-                if (reg_write_strb[2]) mem[reg_write_addr + 2] <= reg_write_data[23:16];
-                if (reg_write_strb[3]) mem[reg_write_addr + 3] <= reg_write_data[31:24];
-            end
+            if (reg_write_strb[0]) mem[reg_write_addr + 0] <= reg_write_data[ 7: 0];
+            if (reg_write_strb[1]) mem[reg_write_addr + 1] <= reg_write_data[15: 8];
+            if (reg_write_strb[2]) mem[reg_write_addr + 2] <= reg_write_data[23:16];
+            if (reg_write_strb[3]) mem[reg_write_addr + 3] <= reg_write_data[31:24];
         end
     end
 

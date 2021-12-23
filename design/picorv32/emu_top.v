@@ -17,6 +17,32 @@ module emu_top();
         .trigger(trap)
     );
 
+	wire        mem_valid;
+	wire [31:0] mem_addr;
+	wire [31:0] mem_wdata;
+	wire [ 3:0] mem_wstrb;
+	wire        mem_instr;
+	wire        mem_ready;
+	wire [31:0] mem_rdata;
+
+    picorv32 #(
+		.COMPRESSED_ISA(1),
+		.ENABLE_FAST_MUL(1),
+		.ENABLE_DIV(1)
+	) dut (
+		.clk            (clk            ),
+		.resetn         (!rst           ),
+		.trap           (trap           ),
+
+		.mem_valid(mem_valid),
+		.mem_addr (mem_addr ),
+		.mem_wdata(mem_wdata),
+		.mem_wstrb(mem_wstrb),
+		.mem_instr(mem_instr),
+		.mem_ready(mem_ready),
+		.mem_rdata(mem_rdata)
+	);
+
 	wire          mem_axi_awvalid;
 	wire          mem_axi_awready;
 	wire   [31:0] mem_axi_awaddr;
@@ -39,14 +65,9 @@ module emu_top();
 	wire          mem_axi_rready;
 	wire   [31:0] mem_axi_rdata;
 
-    picorv32_axi #(
-		.COMPRESSED_ISA(1),
-		.ENABLE_FAST_MUL(1),
-		.ENABLE_DIV(1)
-	) dut (
+    picorv32_emu_bus_adapter u_adapter (
 		.clk            (clk            ),
 		.resetn         (!rst           ),
-		.trap           (trap           ),
 		.mem_axi_awvalid(mem_axi_awvalid),
 		.mem_axi_awready(mem_axi_awready),
 		.mem_axi_awaddr (mem_axi_awaddr ),
@@ -63,8 +84,15 @@ module emu_top();
 		.mem_axi_arprot (mem_axi_arprot ),
 		.mem_axi_rvalid (mem_axi_rvalid ),
 		.mem_axi_rready (mem_axi_rready ),
-		.mem_axi_rdata  (mem_axi_rdata  )
-	);
+		.mem_axi_rdata  (mem_axi_rdata  ),
+		.mem_valid      (mem_valid      ),
+		.mem_instr      (mem_instr      ),
+		.mem_ready      (mem_ready      ),
+		.mem_addr       (mem_addr       ),
+		.mem_wdata      (mem_wdata      ),
+		.mem_wstrb      (mem_wstrb      ),
+		.mem_rdata      (mem_rdata      )
+    );
 
     rammodel #(
         .ADDR_WIDTH     (32),
@@ -120,5 +148,112 @@ module emu_top();
         .s_axi_rid      (),
         .s_axi_rlast    ()
     );
+
+endmodule
+
+module picorv32_emu_bus_adapter (
+	input clk, resetn,
+
+	// AXI4-lite master memory interface
+
+	output              mem_axi_awvalid,
+	input               mem_axi_awready,
+	output      [31:0]  mem_axi_awaddr,
+	output      [ 2:0]  mem_axi_awprot,
+
+	output              mem_axi_wvalid,
+	input               mem_axi_wready,
+	output      [31:0]  mem_axi_wdata,
+	output      [ 3:0]  mem_axi_wstrb,
+
+	input               mem_axi_bvalid,
+	output              mem_axi_bready,
+
+	output              mem_axi_arvalid,
+	input               mem_axi_arready,
+	output      [31:0]  mem_axi_araddr,
+	output      [ 2:0]  mem_axi_arprot,
+
+	input               mem_axi_rvalid,
+	output              mem_axi_rready,
+	input       [31:0]  mem_axi_rdata,
+
+	// Native PicoRV32 memory interface
+
+	input               mem_valid,
+	input               mem_instr,
+	output              mem_ready,
+	input       [31:0]  mem_addr,
+	input       [31:0]  mem_wdata,
+	input       [ 3:0]  mem_wstrb,
+	output      [31:0]  mem_rdata
+);
+
+	wire aw_fire    = mem_axi_awvalid && mem_axi_awready;
+	wire w_fire     = mem_axi_wvalid && mem_axi_wready;
+	wire b_fire     = mem_axi_bvalid && mem_axi_bready;
+	wire ar_fire    = mem_axi_arvalid && mem_axi_arready;
+	wire r_fire     = mem_axi_rvalid && mem_axi_rready;
+
+    reg uart_ack;
+
+    always @(posedge clk)
+        if (!resetn)
+            uart_ack <= 1'b0;
+        else if (mem_valid && mem_ready)
+            uart_ack <= 1'b0;
+        else if (mem_valid && |mem_wstrb && mem_addr == 32'h10000000)
+            uart_ack <= 1'b1;
+
+    putchar u_putchar (
+        .clk    (clk),
+        .valid  (uart_ack),
+        .data   (mem_wdata[7:0] & {8{mem_wstrb[0]}})
+    );
+
+    reg aw_done, w_done, ar_done;
+
+    always @(posedge clk)
+        if (!resetn)
+            aw_done <= 1'b0;
+        else if (b_fire)
+            aw_done <= 1'b0;
+        else if (aw_fire)
+            aw_done <= 1'b1;
+
+    always @(posedge clk)
+        if (!resetn)
+            w_done <= 1'b0;
+        else if (b_fire)
+            w_done <= 1'b0;
+        else if (w_fire)
+            w_done <= 1'b1;
+
+    always @(posedge clk)
+        if (!resetn)
+            ar_done <= 1'b0;
+        else if (r_fire)
+            ar_done <= 1'b0;
+        else if (ar_fire)
+            ar_done <= 1'b1;
+
+    assign mem_axi_awvalid  = mem_valid && |mem_wstrb && ~|mem_addr[31:28] && !aw_done;
+    assign mem_axi_awaddr   = mem_addr;
+    assign mem_axi_awprot   = 3'd0;
+
+    assign mem_axi_wvalid   = mem_valid && |mem_wstrb && ~|mem_addr[31:28] && !w_done;
+    assign mem_axi_wdata    = mem_wdata;
+    assign mem_axi_wstrb    = mem_wstrb;
+
+    assign mem_axi_bready   = aw_done && w_done;
+
+    assign mem_axi_arvalid  = mem_valid && ~|mem_wstrb && ~|mem_addr[31:28] && !ar_done;
+    assign mem_axi_araddr   = mem_addr;
+    assign mem_axi_arprot   = 3'd0;
+
+    assign mem_axi_rready   = ar_done;
+
+    assign mem_ready        = b_fire || r_fire || uart_ack;
+    assign mem_rdata        = mem_axi_rdata;
 
 endmodule
