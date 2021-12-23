@@ -191,10 +191,7 @@ module emu_controller (
     assign s_axilite_bvalid     = reg_write_resp_valid;
     assign s_axilite_bresp      = reg_write_error ? 2'b10 : 2'b00;
 
-    wire step_trig;
-    wire [31:0] emu_dut_trig;
-
-    wire trigger = |{step_trig, emu_dut_trig};
+    wire trigger;
 
     // EMU_STAT
     //      [0]     -> PAUSE
@@ -238,18 +235,6 @@ module emu_controller (
         end
     end
 
-    // EMU_TRIG_STAT
-    reg [31:0] emu_trig_stat;
-
-    always @(posedge clk) begin
-        if (rst) begin
-            emu_trig_stat       <= 32'd0;
-        end
-        else if (trigger) begin
-            emu_trig_stat       <= emu_dut_trig;
-        end
-    end
-
     // EMU_CYCLE_LO
     // EMU_CYCLE_HI
 
@@ -285,7 +270,7 @@ module emu_controller (
         end
     end
 
-    assign step_trig = emu_step != 32'd0 && emu_step_next == 32'd0;
+    wire step_trig = emu_step != 32'd0 && emu_step_next == 32'd0;
 
     always @(posedge clk) begin
         if (rst) begin
@@ -301,6 +286,35 @@ module emu_controller (
 
     // EMU_CKPT_SIZE
     wire [31:0] emu_ckpt_size = 8 * (`CHAIN_FF_WORDS + `CHAIN_MEM_WORDS);
+
+    // EMU_TRIG_STAT [RO]
+    // State of triggers
+    reg [31:0] emu_trig_stat;
+
+    always @(posedge clk) begin
+        if (rst) begin
+            emu_trig_stat       <= 32'd0;
+        end
+        else begin
+            emu_trig_stat       <= emu_dut_trig;
+        end
+    end
+
+    // EMU_TRIG_EN
+    // Enable state of triggers
+    // Only triggers correspond to set bits in this register can cause a pause
+    reg [31:0] emu_trig_en;
+
+    always @(posedge clk) begin
+        if (rst) begin
+            emu_trig_en <= 32'd0;
+        end
+        else if (reg_do_write && reg_write_addr == `EMU_TRIG_EN) begin
+            emu_trig_en <= reg_write_data;
+        end
+    end
+
+    assign trigger = |{step_trig, (emu_dut_trig & emu_trig_en)};
 
     // EMU_DMA_ADDR_LO
     // EMU_DMA_ADDR_HI

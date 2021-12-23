@@ -272,6 +272,14 @@ module sim_top();
 
         #(CYCLE*100);
 
+        $display("=== enable user triggers ===");
+        s_axilite_awaddr = `EMU_TRIG_EN;
+        s_axilite_awvalid = 1;
+        s_axilite_wdata = 32'hffffffff;
+        s_axilite_wvalid = 1;
+        while (!s_axilite_bvalid) #CYCLE;
+        #CYCLE;
+
         $display("=== set step count to 3 ===");
         s_axilite_awaddr = `EMU_STEP;
         s_axilite_awvalid = 1;
