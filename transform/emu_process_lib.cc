@@ -65,10 +65,17 @@ struct HandlerContext {
     SigSpec rst;
     SigSpec trig;
 
+    SigSpec putchar_valid;
+    SigSpec putchar_data;
+
     std::map<std::string, std::vector<SigSpec>> internal_sigs;
 
     HandlerContext(Module *module, Database &db)
-        : module(module), db(db), emulib(db.emulib) {}
+        : module(module), db(db), emulib(db.emulib)
+    {
+        putchar_valid   = State::S0;
+        putchar_data    = Const(0, 8);
+    }
 };
 
 class EmulibHandler {
@@ -184,6 +191,29 @@ struct TrigHandler : public EmulibHandler {
     }
 
 } TrigHandler;
+
+struct PutCharHandler : public EmulibHandler {
+    PutCharHandler() : EmulibHandler("putchar") {}
+
+    virtual bool process_cell(HandlerContext &ctxt, Cell *cell) override {
+        if (ctxt.putchar_valid != State::S0)
+            log_error("Multiple instantiation of putchar: %s.%s\n", log_id(ctxt.module), log_id(cell));
+
+        ctxt.putchar_valid  = cell->getPort("\\valid");
+        ctxt.putchar_data   = cell->getPort("\\data");
+
+        return true;
+    }
+
+    virtual void finalize(HandlerContext &ctxt) override {
+        Wire *valid = emu_create_port(ctxt.module, PortPCValid, 1, true);
+        Wire *data  = emu_create_port(ctxt.module, PortPCData,  8, true);
+        ctxt.module->connect(valid, ctxt.putchar_valid);
+        ctxt.module->connect(data,  ctxt.putchar_data);
+        ctxt.module->fixup_ports();
+    }
+
+} PutCharHandler;
 
 struct ModelHandler : public EmulibHandler {
     std::string model;
