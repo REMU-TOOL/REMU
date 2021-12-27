@@ -7,8 +7,7 @@ TOPLEVEL_LANG := verilog
 
 EMULIB_DIR := $(PWD)/../../../emulib
 
-VERILOG_SOURCES += $(ROOT_DIR)/emulib/model/rammodel/axi_txn_gate.v
-VERILOG_SOURCES += $(ROOT_DIR)/emulib/model/rammodel/ready_valid_stall.v
+VERILOG_SOURCES += $(ROOT_DIR)/emulib/model/rammodel/*.v
 VERILOG_SOURCES += $(PWD)/axi_txn_gate_test.v
 
 COMPILE_ARGS += -I$(ROOT_DIR)/emulib/include

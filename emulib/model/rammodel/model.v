@@ -153,25 +153,6 @@ module rammodel_simple #(
         .down           (down)
     );
 
-    // Gate AXI in down state as all signals are in unpredictable state during scanning
-
-    `AXI4_WIRE(from_gate_stalled, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
-
-    axi_stall #(
-        .ADDR_WIDTH (ADDR_WIDTH),
-        .DATA_WIDTH (DATA_WIDTH),
-        .ID_WIDTH   (ID_WIDTH),
-        .STALL_S    (0),
-        .STALL_M    (1)
-    )
-    from_gate_stall (
-        .clk            (clk),
-        .resetn         (resetn),
-        `AXI4_CONNECT   (s, from_gate),
-        `AXI4_CONNECT   (m, from_gate_stalled),
-        .stall          (down)
-    );
-
     (* emu_no_scanchain *)
     axi_register_slice #(
         .ADDR_WIDTH (ADDR_WIDTH),
@@ -181,7 +162,7 @@ module rammodel_simple #(
     u_reg_slice (
         .clk            (clk),
         .resetn         (resetn),
-        `AXI4_CONNECT   (s, from_gate_stalled),
+        `AXI4_CONNECT   (s, from_gate),
         `AXI4_CONNECT   (m, m_dram)
     );
 

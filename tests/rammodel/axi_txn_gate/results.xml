@@ -1,6 +1,0 @@
-<testsuites name="results">
-  <testsuite name="all" package="all">
-    <property name="random_seed" value="1639044659" />
-    <testcase name="run_test" classname="test_axi_txn_gate" file="/home/free/workspace/emulator/tests/rammodel/axi_txn_gate/test_axi_txn_gate.py" lineno="44" time="36.07323384284973" sim_time_ns="979570.001" ratio_time="27155.037035698584" />
-  </testsuite>
-</testsuites>

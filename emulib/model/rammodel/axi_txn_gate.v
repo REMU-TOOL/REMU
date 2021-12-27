@@ -259,10 +259,10 @@ module rammodel_axi_txn_gate #(
     assign s_bid        = m_bid;
     assign s_bresp      = m_bresp;
 
-    assign m_arvalid    = r_state == DO_AR && w_state == DO_AW && (s_arvalid || arvalid && pending);
+    assign m_arvalid    = ctrl_state != DOWN && r_state == DO_AR && w_state == DO_AW && (s_arvalid || arvalid && pending);
     assign `AXI4_AR_PAYLOAD(m) = arvalid ? ar_payload : `AXI4_AR_PAYLOAD(s);
     assign m_rready     = r_state == DO_R && (s_rready || pending);
-    assign m_awvalid    = r_state == DO_AR && w_state == DO_AW && (!s_arvalid && s_awvalid || awvalid && pending);
+    assign m_awvalid    = ctrl_state != DOWN && r_state == DO_AR && w_state == DO_AW && (!s_arvalid && s_awvalid || awvalid && pending);
     assign `AXI4_AW_PAYLOAD(m) = awvalid ? aw_payload : `AXI4_AW_PAYLOAD(s);
     assign m_wvalid     = w_state == DO_W && (s_wvalid || pending);
     assign m_wdata      = s_wdata;
