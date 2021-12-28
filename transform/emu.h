@@ -23,9 +23,7 @@ const char
     PortDutFfClk    [] = "\\EMU_DUT_FF_CLK",
     PortDutRamClk   [] = "\\EMU_DUT_RAM_CLK",
     PortDutRst      [] = "\\EMU_DUT_RST",
-    PortDutTrig     [] = "\\EMU_DUT_TRIG",
-    PortPCValid     [] = "\\EMU_PC_VALID",
-    PortPCData      [] = "\\EMU_PC_DATA";
+    PortDutTrig     [] = "\\EMU_DUT_TRIG";
 
 const char
 

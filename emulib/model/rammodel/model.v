@@ -39,7 +39,7 @@ module rammodel_simple #(
         .resetn         (resetn),
         `AXI4_CONNECT   (s, s_dut),
         `AXI4_CONNECT   (m, from_dut),
-        .stall          (dut_stall || !dut_resetn)
+        .stall          (pause || !dut_resetn)
     );
 
     `AXI4_WIRE(to_timing_model,     ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
@@ -125,14 +125,13 @@ module rammodel_simple #(
         .wlast      (to_timing_model_wlast),
         .bvalid     (to_timing_model_bvalid),
         .bready     (to_timing_model_bready),
-        .stall      (dut_stall)
+        .stall      (pause)
     );
 
     assign to_timing_model_bready = from_dut_bready;
     assign to_timing_model_rready = from_dut_rready;
 
-    assign dut_stall =  pause ||
-                        to_timing_model_bvalid && !to_data_model_bvalid ||
+    assign dut_stall =  to_timing_model_bvalid && !to_data_model_bvalid ||
                         to_timing_model_rvalid && !to_data_model_rvalid;
 
     `AXI4_WIRE(from_gate, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);

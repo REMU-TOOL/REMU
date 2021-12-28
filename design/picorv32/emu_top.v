@@ -94,7 +94,7 @@ module emu_top();
 		.mem_rdata      (mem_rdata      )
     );
 
-    rammodel #(
+    RAMModel #(
         .ADDR_WIDTH     (32),
         .DATA_WIDTH     (32),
         .ID_WIDTH       (1),
@@ -205,7 +205,7 @@ module picorv32_emu_bus_adapter (
         else if (mem_valid && |mem_wstrb && mem_addr == 32'h10000000)
             uart_ack <= 1'b1;
 
-    putchar u_putchar (
+    PutCharDevice u_putchar (
         .clk    (clk),
         .valid  (uart_ack),
         .data   (mem_wdata[7:0] & {8{mem_wstrb[0]}})

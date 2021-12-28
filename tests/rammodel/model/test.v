@@ -39,7 +39,7 @@ module rammodel_test #(
         .dut_resetn     (dut_resetn),
         `AXI4_CONNECT   (s_dut, s_dut),
         `AXI4_CONNECT   (m_dram, m_dram),
-        .pause          (pause),
+        .pause          (pause || dut_stall),
         .up_req         (up_req),
         .down_req       (down_req),
         .up             (up),
@@ -47,7 +47,7 @@ module rammodel_test #(
         .dut_stall      (dut_stall)
     );
 
-    wire dut_clk_en = !dut_stall;
+    wire dut_clk_en = !pause && !dut_stall;
 
     reg en_latch;
     always @(clk or dut_clk_en)

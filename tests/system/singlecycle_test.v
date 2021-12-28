@@ -152,14 +152,14 @@ module sim_top();
         .EMU_DUT_RAM_CLK    (emu_dut_ram_clk),
         .EMU_DUT_RST        (emu_dut_rst),
         .EMU_DUT_TRIG       (emu_dut_trig),
-        .EMU_INTERNAL_CLOCK             (emu_clk),
-        .EMU_INTERNAL_RESET             (emu_rst),
-        .EMU_INTERNAL_PAUSE             (emu_pause),
-        .EMU_INTERNAL_UP_REQ            (emu_up_req),
-        .EMU_INTERNAL_DOWN_REQ          (emu_down_req),
-        .EMU_INTERNAL_UP_STAT           (emu_up_stat),
-        .EMU_INTERNAL_DOWN_STAT         (emu_down_stat),
-        .EMU_INTERNAL_STALL             (emu_stall)
+        .EMU_CLOCK          (emu_clk),
+        .EMU_RESET          (emu_rst),
+        .EMU_PAUSE          (emu_pause || emu_stall),
+        .EMU_UP_REQ         (emu_up_req),
+        .EMU_DOWN_REQ       (emu_down_req),
+        .EMU_UP_STAT        (emu_up_stat),
+        .EMU_DOWN_STAT      (emu_down_stat),
+        .EMU_STALL          (emu_stall)
     );
 
     axi_ram #(

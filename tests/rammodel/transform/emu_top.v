@@ -56,7 +56,7 @@ module emu_top #(
     EmuClock clock(clk);
     EmuReset reset(rst);
 
-    rammodel #(
+    RAMModel #(
         .ADDR_WIDTH (ADDR_WIDTH),
         .DATA_WIDTH (DATA_WIDTH),
         .ID_WIDTH   (ID_WIDTH)

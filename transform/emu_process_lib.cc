@@ -9,455 +9,372 @@ using namespace Emu;
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-void replace_portbit(ModWalker::PortBit &portbit, SigBit &newbit) {
-    SigSpec new_port = portbit.cell->getPort(portbit.port);
-    new_port[portbit.offset] = newbit;
-    portbit.cell->setPort(portbit.port, new_port);
-}
-
-// Rewrite module to assign FFs & Mems with separated ff_clk & mem_clk
-void rewrite_clock(Module *module, SigBit orig_clk, SigBit ff_clk, SigBit mem_clk) {
-    ModWalker modwalker(module->design, module);
-
-    pool<ModWalker::PortBit> portbits;
-    modwalker.get_consumers(portbits, SigSpec(orig_clk)); // Workaround: the SigBit-version get_consumers is now inaccessible
-    for (auto &portbit : portbits) {
-        if (RTLIL::builtin_ff_cell_types().count(portbit.cell->type)) {
-            replace_portbit(portbit, ff_clk);
-        }
-        else if (portbit.cell->is_mem_cell()) {
-            replace_portbit(portbit, mem_clk);
-        }
-        else {
-            Module *target = module->design->module(portbit.cell->type);
-
-            if (!target)
-                log_error("Unknown cell type cannot be handled by rewrite_clock: %s\n",
-                    portbit.cell->type.c_str());
-
-            // Rewrite submodule
-            Wire *target_port = target->wire(portbit.port);
-            std::string new_name = target_port->name.str() + "$EMU$ADDED$PORT";
-            if (!target_port->has_attribute(AttrClkPortRewritten)) {
-                Wire *new_port = target->addWire(new_name);
-                new_port->port_input = true;
-                target->fixup_ports();
-
-                SigBit target_ff_clk = SigSpec(target_port)[portbit.offset];
-                rewrite_clock(target, target_ff_clk, target_ff_clk, new_port);
-
-                target_port->set_bool_attribute(AttrClkPortRewritten);
-            }
-
-            replace_portbit(portbit, ff_clk);
-            portbit.cell->setPort(new_name, mem_clk);
-        }
-    }
-}
-
 struct HandlerContext {
     Module *module;
     Database &db;
     EmulibData &emulib;
 
-    SigSpec ff_clk;
-    SigSpec mem_clk;
-    SigSpec rst;
-    SigSpec trig;
-
-    SigSpec putchar_valid;
-    SigSpec putchar_data;
-
     std::map<std::string, std::vector<SigSpec>> internal_sigs;
 
     HandlerContext(Module *module, Database &db)
-        : module(module), db(db), emulib(db.emulib)
-    {
-        putchar_valid   = State::S0;
-        putchar_data    = Const(0, 8);
+        : module(module), db(db), emulib(db.emulib) {}
+};
+
+enum InternalSigProp {
+    InputAppend,
+    InputShare,
+    InputAutoIndex,
+    OutputAppend,
+    OutputAndReduce,
+    OutputOrReduce,
+    OutputAutoIndex,
+};
+
+// name -> direction (output=true)
+const dict<std::string, InternalSigProp> internal_sig_list = {
+    {"CLOCK",           InputShare},
+    {"RESET",           InputShare},
+    {"PAUSE",           InputShare},
+    {"UP_REQ",          InputShare},
+    {"DOWN_REQ",        InputShare},
+    {"UP_STAT",         OutputAndReduce},
+    {"DOWN_STAT",       OutputAndReduce},
+    {"STALL",           OutputOrReduce},
+    {"DUT_FF_CLK",      InputAppend},
+    {"DUT_RAM_CLK",     InputAppend},
+    {"DUT_RST",         InputAppend},
+    {"DUT_TRIG",        OutputAppend},
+    {"dram_awvalid",    OutputAutoIndex},
+    {"dram_awready",    InputAutoIndex},
+    {"dram_awaddr",     OutputAutoIndex},
+    {"dram_awid",       OutputAutoIndex},
+    {"dram_awlen",      OutputAutoIndex},
+    {"dram_awsize",     OutputAutoIndex},
+    {"dram_awburst",    OutputAutoIndex},
+    {"dram_awlock",     OutputAutoIndex},
+    {"dram_awcache",    OutputAutoIndex},
+    {"dram_awprot",     OutputAutoIndex},
+    {"dram_awqos",      OutputAutoIndex},
+    {"dram_awregion",   OutputAutoIndex},
+    {"dram_wvalid",     OutputAutoIndex},
+    {"dram_wready",     InputAutoIndex},
+    {"dram_wdata",      OutputAutoIndex},
+    {"dram_wstrb",      OutputAutoIndex},
+    {"dram_wlast",      OutputAutoIndex},
+    {"dram_bvalid",     InputAutoIndex},
+    {"dram_bready",     OutputAutoIndex},
+    {"dram_bresp",      InputAutoIndex},
+    {"dram_bid",        InputAutoIndex},
+    {"dram_arvalid",    OutputAutoIndex},
+    {"dram_arready",    InputAutoIndex},
+    {"dram_araddr",     OutputAutoIndex},
+    {"dram_arid",       OutputAutoIndex},
+    {"dram_arlen",      OutputAutoIndex},
+    {"dram_arsize",     OutputAutoIndex},
+    {"dram_arburst",    OutputAutoIndex},
+    {"dram_arlock",     OutputAutoIndex},
+    {"dram_arcache",    OutputAutoIndex},
+    {"dram_arprot",     OutputAutoIndex},
+    {"dram_arqos",      OutputAutoIndex},
+    {"dram_arregion",   OutputAutoIndex},
+    {"dram_rvalid",     InputAutoIndex},
+    {"dram_rready",     OutputAutoIndex},
+    {"dram_rdata",      InputAutoIndex},
+    {"dram_rresp",      InputAutoIndex},
+    {"dram_rid",        InputAutoIndex},
+    {"dram_rlast",      InputAutoIndex},
+    {"putchar_valid",   OutputAppend},
+    {"putchar_ready",   InputAppend},
+    {"putchar_data",    OutputAppend},
+};
+
+struct ModelHandler {
+    static std::map<std::string, ModelHandler *> handler_map;
+
+    ModelHandler(std::string component) {
+        if (handler_map.find(component) != handler_map.end())
+            log_error("ModelHandler: component %s is already registered\n", component.c_str());
+
+        handler_map[component] = this;
     }
+
+    virtual void do_handle(HandlerContext &ctxt, Cell *cell) {
+        static_cast<void>(ctxt);
+        static_cast<void>(cell);
+    }
+
+    virtual void do_finalize(HandlerContext &ctxt) {
+        static_cast<void>(ctxt);
+    }
+
+    static void handle(HandlerContext &ctxt, Cell *cell);
+    static void finalize(HandlerContext &ctxt);
 };
 
-class EmulibHandler {
-    static std::map<std::string, EmulibHandler *> handler_map;
+std::map<std::string, ModelHandler *> ModelHandler::handler_map;
 
-public:
+void load_model(HandlerContext &ctxt, Cell *cell) {
+    Module *module = cell->module;
+    Design *design = module->design;
+    Module *stub = design->module(cell->type);
+    std::string model = stub->get_string_attribute(AttrEmulibComponent);
 
-    // return true to remove the cell
-    virtual bool process_cell(HandlerContext &ctxt, Cell *cell) = 0;
-    virtual void finalize(HandlerContext &ctxt) = 0;
+    // Save attributes
 
-    EmulibHandler(std::string component);
+    EmulibCellInfo info;
+    info.name = get_hier_name(cell);
 
-    static EmulibHandler &get(std::string component);
-    static void finalize_all(HandlerContext &ctxt);
-};
+    for (auto it : stub->parameter_default_values)
+        info.attrs[it.first.str().substr(1)] = it.second.as_int();
 
-std::map<std::string, EmulibHandler *> EmulibHandler::handler_map;
+    for (auto it : cell->parameters)
+        info.attrs[it.first.str().substr(1)] = it.second.as_int();
 
-EmulibHandler::EmulibHandler(std::string component) {
-    if (handler_map.find(component) != handler_map.end())
-        log_error("EmulibHandler: component %s is already registered\n", component.c_str());
+    ctxt.emulib[model].push_back(info);
 
-    handler_map[component] = this;
+    // Load & process model design
+
+    Design *new_design = new Design;
+
+    std::string share_dirname = proc_share_dirname();
+    std::vector<std::string> read_verilog_argv = {
+        "read_verilog",
+        "-I",
+        share_dirname + "emulib/include",
+        share_dirname + "emulib/model/" + model + "/*.v"
+    };
+
+    Pass::call(new_design, read_verilog_argv);
+
+    Module *original_module = new_design->module("\\" + model);
+    if (!original_module)
+        log_error("Module %s is not found\n", model.c_str());
+
+    IdString derived_modname = original_module->derive(new_design, cell->parameters);
+    Module *derived_module = new_design->module(derived_modname);
+    derived_module->set_bool_attribute(ID::top);
+
+    Pass::call(new_design, "hierarchy");
+    Pass::call(new_design, "proc");
+    Pass::call(new_design, "emu_prop_attr -a emu_no_scanchain");
+    Pass::call(new_design, "flatten");
+    Pass::call(new_design, "opt");
+    Pass::call(new_design, "wreduce");
+    Pass::call(new_design, "memory_share");
+    Pass::call(new_design, "memory_collect");
+    Pass::call(new_design, "opt -fast");
+    Pass::call(new_design, "emu_opt_ram");
+    Pass::call(new_design, "opt_clean");
+
+    if (GetSize(new_design->modules()) != 1)
+        log_error("Multiple modules detected in model implementation after processing\n");
+
+    design->remove(stub);
+
+    Module *top_module = new_design->top_module();
+    Module *copy = top_module->clone();
+    copy->name = cell->type;
+    copy->design = design;
+    copy->attributes.erase(ID::top);
+    design->add(copy);
+
+    for (auto cell : copy->cells()) {
+        cell->set_bool_attribute(AttrModel);
+    }
+
+    for (auto wire : copy->wires()) {
+        wire->set_bool_attribute(AttrModel);
+    }
+
+    delete new_design;
+
+    // Flatten this cell
+    RTLIL::Selection selection(false);
+    selection.select(module, cell);
+    Pass::call_on_selection(design, selection, "flatten");
+    design->remove(copy);
+
+    // Process internal signals
+    for (auto &wire : module->selected_wires()) {
+        std::string signame = wire->get_string_attribute(AttrInternalSig);
+        if (!signame.empty()) {
+            if (internal_sig_list.find(signame) == internal_sig_list.end())
+                log_error("Undefined signal name %s\n", signame.c_str());
+            ctxt.internal_sigs[signame].push_back(wire);
+            wire->attributes.erase(AttrInternalSig);
+        }
+    }
 }
 
-EmulibHandler &EmulibHandler::get(std::string component) {
+void ModelHandler::handle(HandlerContext &ctxt, Cell *cell) {
+    Module *target = ctxt.module->design->module(cell->type);
+
+    if (!target)
+        return;
+
+    std::string component = target->get_string_attribute(AttrEmulibComponent);
+    if (component.empty())
+        return;
+
+    log_header(ctxt.module->design, "Processing cell %s.%s (%s) ...\n", log_id(ctxt.module), log_id(cell), component.c_str());
+    log_push();
+
+    ModelHandler *handler = nullptr;
     try {
-        return *handler_map.at(component);
+        handler = handler_map.at(component);
     }
     catch (std::out_of_range &x) {
-        log_error("EmulibHandler: undefined component %s\n", component.c_str());
+        log_error("ModelHandler: undefined component %s\n", component.c_str());
     }
+
+    handler->do_handle(ctxt, cell);
+
+    load_model(ctxt, cell);
+
+    log_pop();
 }
 
-void EmulibHandler::finalize_all(HandlerContext &ctxt) {
-    for (auto it : handler_map) {
-        it.second->finalize(ctxt);
+void ModelHandler::finalize(HandlerContext &ctxt) {
+    for (auto &it : internal_sig_list) {
+        Wire *wire = nullptr;
+        const auto &sigs = ctxt.internal_sigs[it.first];
+
+        if (it.second == InputAutoIndex || it.second == OutputAutoIndex) {
+            int index = 0;
+            bool output = it.second == OutputAutoIndex;
+            for (auto &s : sigs) {
+                IdString wirename = stringf("\\EMU_AUTO_%d_", index++) + it.first;
+                wire = emu_create_port(ctxt.module, wirename, GetSize(s), output);
+                if (output)
+                    ctxt.module->connect(wire, s);
+                else
+                    ctxt.module->connect(s, wire);
+            }
+            continue;
+        }
+
+        IdString wirename = "\\EMU_" + it.first;
+        SigSpec flat_sig;
+        for (auto &s : sigs)
+            flat_sig.append(s);
+
+        switch (it.second) {
+            case InputAppend:
+                wire = emu_create_port(ctxt.module, wirename, GetSize(flat_sig), false);
+                ctxt.module->connect(flat_sig, wire);
+                break;
+            case InputShare:
+                wire = emu_create_port(ctxt.module, wirename, 1, false);
+                for (SigBit &bit : flat_sig)
+                    ctxt.module->connect(bit, wire);
+                break;
+            case OutputAppend:
+                wire = emu_create_port(ctxt.module, wirename, GetSize(flat_sig), true);
+                ctxt.module->connect(wire, flat_sig);
+                break;
+            case OutputAndReduce:
+                flat_sig.append(State::S1);
+                wire = emu_create_port(ctxt.module, wirename, 1, true);
+                ctxt.module->connect(wire, ctxt.module->ReduceAnd(NEW_ID, flat_sig));
+                break;
+            case OutputOrReduce:
+                flat_sig.append(State::S0);
+                wire = emu_create_port(ctxt.module, wirename, 1, true);
+                ctxt.module->connect(wire, ctxt.module->ReduceOr(NEW_ID, flat_sig));
+                break;
+            default:
+                break;
+        }
     }
+
+    ctxt.module->fixup_ports();
+
+    for (auto it : handler_map)
+        it.second->do_finalize(ctxt);
 }
 
-struct ClockHandler : public EmulibHandler {
-    ClockHandler() : EmulibHandler("clock") {}
+struct ClockHandler : public ModelHandler {
+    ClockHandler() : ModelHandler("clock") {}
 
-    virtual bool process_cell(HandlerContext &ctxt, Cell *cell) override {
-        Wire *ff_clk = ctxt.module->addWire(NEW_ID);
-        Wire *mem_clk = ctxt.module->addWire(NEW_ID);
-        SigBit orig_clk = cell->getPort("\\clock")[0];
-        rewrite_clock(ctxt.module, orig_clk, ff_clk, mem_clk);
-        ctxt.ff_clk.append(ff_clk);
-        ctxt.mem_clk.append(mem_clk);
-
-        EmulibCellInfo info;
-        info.name = get_hier_name(cell);
-        info.attrs["cycle_ps"] = cell->getParam("\\CYCLE_PERIOD_PS").as_int();
-        info.attrs["phase_ps"] = cell->getParam("\\PHASE_SHIFT_PS").as_int();
-        ctxt.emulib["clock"].push_back(info);
-
-        return true;
+    void replace_portbit(ModWalker::PortBit &portbit, SigBit &newbit) {
+        SigSpec new_port = portbit.cell->getPort(portbit.port);
+        new_port[portbit.offset] = newbit;
+        portbit.cell->setPort(portbit.port, new_port);
     }
 
-    virtual void finalize(HandlerContext &ctxt) override {
-        Wire *ff_clk_wire = emu_create_port(ctxt.module, PortDutFfClk, GetSize(ctxt.ff_clk), false);
-        ctxt.module->connect(ctxt.ff_clk, ff_clk_wire);
+    // Rewrite module to assign FFs & Mems with separated ff_clk & mem_clk
+    void rewrite_clock(Module *module, SigBit orig_clk, SigBit ff_clk, SigBit mem_clk) {
+        ModWalker modwalker(module->design, module);
 
-        Wire *mem_clk_wire = emu_create_port(ctxt.module, PortDutRamClk, GetSize(ctxt.mem_clk), false);
-        ctxt.module->connect(ctxt.mem_clk, mem_clk_wire);
+        pool<ModWalker::PortBit> portbits;
+        modwalker.get_consumers(portbits, SigSpec(orig_clk)); // Workaround: the SigBit-version get_consumers is now inaccessible
+        for (auto &portbit : portbits) {
+            if (RTLIL::builtin_ff_cell_types().count(portbit.cell->type)) {
+                replace_portbit(portbit, ff_clk);
+            }
+            else if (portbit.cell->is_mem_cell()) {
+                replace_portbit(portbit, mem_clk);
+            }
+            else {
+                Module *target = module->design->module(portbit.cell->type);
 
-        ctxt.module->fixup_ports();
+                if (!target)
+                    log_error("Unknown cell type cannot be handled by rewrite_clock: %s\n",
+                        portbit.cell->type.c_str());
+
+                // Rewrite submodule
+                Wire *target_port = target->wire(portbit.port);
+                std::string new_name = target_port->name.str() + "$EMU$ADDED$PORT";
+                if (!target_port->has_attribute(AttrClkPortRewritten)) {
+                    Wire *new_port = target->addWire(new_name);
+                    new_port->port_input = true;
+                    target->fixup_ports();
+
+                    SigBit target_ff_clk = SigSpec(target_port)[portbit.offset];
+                    rewrite_clock(target, target_ff_clk, target_ff_clk, new_port);
+
+                    target_port->set_bool_attribute(AttrClkPortRewritten);
+                }
+
+                replace_portbit(portbit, ff_clk);
+                portbit.cell->setPort(new_name, mem_clk);
+            }
+        }
+    }
+
+    virtual void do_handle(HandlerContext &ctxt, Cell *cell) override {
+        cell->setPort("\\ram_clock", ctxt.module->addWire(NEW_ID));
+    }
+
+    virtual void do_finalize(HandlerContext &ctxt) override {
+        auto &fclks = ctxt.internal_sigs["DUT_FF_CLK"];
+        auto &rclks = ctxt.internal_sigs["DUT_RAM_CLK"];
+        for (
+            auto fclk = fclks.begin(), rclk = rclks.begin();
+            fclk != fclks.end() && rclk != rclks.end();
+            ++fclk, ++rclk
+        ) {
+            rewrite_clock(ctxt.module, *fclk, *fclk, *rclk);
+        }
     }
 
 } ClockHandler;
 
-struct ResetHandler : public EmulibHandler {
-    ResetHandler() : EmulibHandler("reset") {}
-
-    virtual bool process_cell(HandlerContext &ctxt, Cell *cell) override {
-        ctxt.rst.append(cell->getPort("\\reset"));
-
-        EmulibCellInfo info;
-        info.name = get_hier_name(cell);
-        info.attrs["duration_ns"] = cell->getParam("\\DURATION_NS").as_int();
-        ctxt.emulib["reset"].push_back(info);
-
-        return true;
-    }
-
-    virtual void finalize(HandlerContext &ctxt) override {
-        Wire *reset_wire = emu_create_port(ctxt.module, PortDutRst, GetSize(ctxt.rst), false);
-        ctxt.module->connect(ctxt.rst, reset_wire);
-        ctxt.module->fixup_ports();
-    }
-
+struct ResetHandler : public ModelHandler {
+    ResetHandler() : ModelHandler("reset") {}
 } ResetHandler;
 
-struct TrigHandler : public EmulibHandler {
-    TrigHandler() : EmulibHandler("trigger") {}
-
-    virtual bool process_cell(HandlerContext &ctxt, Cell *cell) override {
-        ctxt.trig.append(cell->getPort("\\trigger"));
-
-        EmulibCellInfo info;
-        info.name = get_hier_name(cell);
-        ctxt.emulib["trigger"].push_back(info);
-
-        return true;
-    }
-
-    virtual void finalize(HandlerContext &ctxt) override {
-        Wire *trig_wire = emu_create_port(ctxt.module, PortDutTrig, GetSize(ctxt.trig), true);
-        ctxt.module->connect(trig_wire, ctxt.trig);
-        ctxt.module->fixup_ports();
-    }
-
+struct TrigHandler : public ModelHandler {
+    TrigHandler() : ModelHandler("trigger") {}
 } TrigHandler;
-
-struct PutCharHandler : public EmulibHandler {
-    PutCharHandler() : EmulibHandler("putchar") {}
-
-    virtual bool process_cell(HandlerContext &ctxt, Cell *cell) override {
-        if (ctxt.putchar_valid != State::S0)
-            log_error("Multiple instantiation of putchar: %s.%s\n", log_id(ctxt.module), log_id(cell));
-
-        ctxt.putchar_valid  = cell->getPort("\\valid");
-        ctxt.putchar_data   = cell->getPort("\\data");
-
-        return true;
-    }
-
-    virtual void finalize(HandlerContext &ctxt) override {
-        Wire *valid = emu_create_port(ctxt.module, PortPCValid, 1, true);
-        Wire *data  = emu_create_port(ctxt.module, PortPCData,  8, true);
-        ctxt.module->connect(valid, ctxt.putchar_valid);
-        ctxt.module->connect(data,  ctxt.putchar_data);
-        ctxt.module->fixup_ports();
-    }
-
-} PutCharHandler;
-
-struct ModelHandler : public EmulibHandler {
-    std::string model;
-
-    ModelHandler(std::string model) : EmulibHandler(model), model(model) {}
-
-    Module *load_model(Design *design, dict<RTLIL::IdString, RTLIL::Const> &parameters) {
-        IdString modname = "\\" + model;
-        if (design->has(modname))
-            design->remove(design->module(modname));
-
-        Design *new_design = new Design;
-
-        log_header(new_design, "Loading model %s ...\n", model.c_str());
-        log_push();
-
-        std::string share_dirname = proc_share_dirname();
-        std::vector<std::string> read_verilog_argv = {
-            "read_verilog",
-            "-I",
-            share_dirname + "emulib/include",
-            share_dirname + "emulib/model/" + model + "/*.v"
-        };
-
-        Pass::call(new_design, read_verilog_argv);
-
-        log_header(new_design, "Deriving module with given parameters ...\n");
-        log_push();
-
-        Module *original_module = new_design->module(modname);
-        if (!original_module)
-            log_error("Module %s is not found\n", model.c_str());
-
-        IdString derived_modname = original_module->derive(new_design, parameters);
-        Module *derived_module = new_design->module(derived_modname);
-        derived_module->set_bool_attribute(ID::top);
-
-        log_pop();
-
-        Pass::call(new_design, "hierarchy");
-        Pass::call(new_design, "proc");
-        Pass::call(new_design, "emu_prop_attr -a emu_no_scanchain");
-        Pass::call(new_design, "flatten");
-        Pass::call(new_design, "opt");
-        Pass::call(new_design, "wreduce");
-        Pass::call(new_design, "memory_share");
-        Pass::call(new_design, "memory_collect");
-        Pass::call(new_design, "opt -fast");
-        Pass::call(new_design, "emu_opt_ram");
-        Pass::call(new_design, "opt_clean");
-
-        log_pop();
-
-        if (GetSize(new_design->modules()) != 1)
-            log_error("Multiple modules detected in model implementation after processing\n");
-
-        Module *top_module = new_design->top_module();
-        Module *copy = top_module->clone();
-        copy->name = modname;
-        copy->design = design;
-        copy->attributes.erase(ID::top);
-        design->add(copy);
-
-        for (auto cell : copy->cells()) {
-            cell->set_bool_attribute(AttrModel);
-        }
-
-        for (auto wire : copy->wires()) {
-            wire->set_bool_attribute(AttrModel);
-        }
-
-        delete new_design;
-
-        return copy;
-    }
-
-    enum InternalSigProp {
-        InputAppend,
-        InputShare,
-        InputAutoIndex,
-        OutputAppend,
-        OutputAndReduce,
-        OutputOrReduce,
-        OutputAutoIndex,
-    };
-
-    // name -> direction (output=true)
-    const dict<std::string, InternalSigProp> internal_sig_list = {
-        {"CLOCK",           InputShare},
-        {"RESET",           InputShare},
-        {"PAUSE",           InputShare},
-        {"UP_REQ",          InputShare},
-        {"DOWN_REQ",        InputShare},
-        {"UP_STAT",         OutputAndReduce},
-        {"DOWN_STAT",       OutputAndReduce},
-        {"STALL",           OutputOrReduce},
-        {"dram_awvalid",    OutputAutoIndex},
-        {"dram_awready",    InputAutoIndex},
-        {"dram_awaddr",     OutputAutoIndex},
-        {"dram_awid",       OutputAutoIndex},
-        {"dram_awlen",      OutputAutoIndex},
-        {"dram_awsize",     OutputAutoIndex},
-        {"dram_awburst",    OutputAutoIndex},
-        {"dram_awlock",     OutputAutoIndex},
-        {"dram_awcache",    OutputAutoIndex},
-        {"dram_awprot",     OutputAutoIndex},
-        {"dram_awqos",      OutputAutoIndex},
-        {"dram_awregion",   OutputAutoIndex},
-        {"dram_wvalid",     OutputAutoIndex},
-        {"dram_wready",     InputAutoIndex},
-        {"dram_wdata",      OutputAutoIndex},
-        {"dram_wstrb",      OutputAutoIndex},
-        {"dram_wlast",      OutputAutoIndex},
-        {"dram_bvalid",     InputAutoIndex},
-        {"dram_bready",     OutputAutoIndex},
-        {"dram_bresp",      InputAutoIndex},
-        {"dram_bid",        InputAutoIndex},
-        {"dram_arvalid",    OutputAutoIndex},
-        {"dram_arready",    InputAutoIndex},
-        {"dram_araddr",     OutputAutoIndex},
-        {"dram_arid",       OutputAutoIndex},
-        {"dram_arlen",      OutputAutoIndex},
-        {"dram_arsize",     OutputAutoIndex},
-        {"dram_arburst",    OutputAutoIndex},
-        {"dram_arlock",     OutputAutoIndex},
-        {"dram_arcache",    OutputAutoIndex},
-        {"dram_arprot",     OutputAutoIndex},
-        {"dram_arqos",      OutputAutoIndex},
-        {"dram_arregion",   OutputAutoIndex},
-        {"dram_rvalid",     InputAutoIndex},
-        {"dram_rready",     OutputAutoIndex},
-        {"dram_rdata",      InputAutoIndex},
-        {"dram_rresp",      InputAutoIndex},
-        {"dram_rid",        InputAutoIndex},
-        {"dram_rlast",      InputAutoIndex},
-    };
-
-    void process_internal_sigs(HandlerContext &ctxt) {
-        std::vector<std::pair<Wire *, std::string>> wires;
-
-        for (auto &wire : ctxt.module->selected_wires()) {
-            std::string signame = wire->get_string_attribute(AttrInternalSig);
-            if (!signame.empty()) {
-                if (internal_sig_list.find(signame) == internal_sig_list.end())
-                    log_error("Undefined signal name %s\n", signame.c_str());
-                ctxt.internal_sigs[signame].push_back(wire);
-            }
-        }
-    }
-
-    virtual bool process_cell(HandlerContext &ctxt, Cell *cell) override {
-        Module *module = ctxt.module;
-        Design *design = module->design;
-
-        // Load model implementation
-        auto &parameters = cell->parameters;
-        Module *model_module = load_model(design, parameters);
-
-        // Flatten this cell
-        RTLIL::Selection selection(false);
-        selection.select(module, cell);
-        Pass::call_on_selection(design, selection, "flatten");
-        design->remove(model_module);
-
-        // Process internal signals
-        process_internal_sigs(ctxt);
-
-        return false;
-    }
-
-    virtual void finalize(HandlerContext &ctxt) override {
-        for (auto &it : internal_sig_list) {
-            Wire *wire = nullptr;
-            const auto &sigs = ctxt.internal_sigs[it.first];
-
-            if (it.second == InputAutoIndex || it.second == OutputAutoIndex) {
-                int index = 0;
-                bool output = it.second == OutputAutoIndex;
-                for (auto &s : sigs) {
-                    IdString wirename = stringf("\\EMU_INTERNAL_AUTO_%d_", index++) + it.first;
-                    wire = emu_create_port(ctxt.module, wirename, GetSize(s), output);
-                    if (output)
-                        ctxt.module->connect(wire, s);
-                    else
-                        ctxt.module->connect(s, wire);
-                }
-                continue;
-            }
-
-            IdString wirename = "\\EMU_INTERNAL_" + it.first;
-            SigSpec flat_sig;
-            for (auto &s : sigs)
-                flat_sig.append(s);
-
-            switch (it.second) {
-                case InputAppend:
-                    wire = emu_create_port(ctxt.module, wirename, GetSize(flat_sig), false);
-                    ctxt.module->connect(flat_sig, wire);
-                    break;
-                case InputShare:
-                    wire = emu_create_port(ctxt.module, wirename, 1, false);
-                    for (SigBit &bit : flat_sig)
-                        ctxt.module->connect(bit, wire);
-                    break;
-                case OutputAppend:
-                    wire = emu_create_port(ctxt.module, wirename, GetSize(flat_sig), true);
-                    ctxt.module->connect(wire, flat_sig);
-                    break;
-                case OutputAndReduce:
-                    flat_sig.append(State::S1);
-                    wire = emu_create_port(ctxt.module, wirename, 1, true);
-                    ctxt.module->connect(wire, ctxt.module->ReduceAnd(NEW_ID, flat_sig));
-                    break;
-                case OutputOrReduce:
-                    flat_sig.append(State::S0);
-                    wire = emu_create_port(ctxt.module, wirename, 1, true);
-                    ctxt.module->connect(wire, ctxt.module->ReduceOr(NEW_ID, flat_sig));
-                    break;
-                default:
-                    break;
-            }
-        }
-
-        ctxt.module->fixup_ports();
-    }
-};
 
 struct RAMModelHandler : public ModelHandler {
     RAMModelHandler() : ModelHandler("rammodel") {}
-
-    virtual bool process_cell(HandlerContext &ctxt, Cell *cell) override {
-        EmulibCellInfo info;
-        info.name = get_hier_name(cell);
-        info.attrs["addr_width"]    = cell->getParam("\\ADDR_WIDTH").as_int();
-        info.attrs["data_width"]    = cell->getParam("\\DATA_WIDTH").as_int();
-        info.attrs["id_width"]      = cell->getParam("\\ID_WIDTH").as_int();
-        ctxt.emulib["rammodel"].push_back(info);
-
-        ModelHandler::process_cell(ctxt, cell);
-
-        return false;
-    }
-
 } RAMModelHandler;
+
+struct PutCharHandler : public ModelHandler {
+    PutCharHandler() : ModelHandler("putchar") {}
+} PutCharHandler;
 
 struct ProcessLibWorker {
 
@@ -475,28 +392,10 @@ struct ProcessLibWorker {
 
         HandlerContext ctxt(module, db);
 
-        std::vector<Cell *> cells_to_remove;
+        for (auto &cell : module->selected_cells())
+            ModelHandler::handle(ctxt, cell);
 
-        for (auto &cell : module->selected_cells()) {
-            Module *target = module->design->module(cell->type);
-
-            if (target) {
-                std::string component = target->get_string_attribute(AttrEmulibComponent);
-                if (!component.empty()) {
-                    log("Processing cell %s.%s (%s) ...\n", log_id(module), log_id(cell), component.c_str());
-                    if (EmulibHandler::get(component).process_cell(ctxt, cell))
-                        cells_to_remove.push_back(cell);
-                }
-            }
-        }
-
-        for (auto &it : cells_to_remove) {
-            module->remove(it);
-        }
-
-        // add ports & connect signals
-
-        EmulibHandler::finalize_all(ctxt);
+        ModelHandler::finalize(ctxt);
 
         module->set_bool_attribute(AttrLibProcessed);
     }

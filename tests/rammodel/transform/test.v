@@ -212,15 +212,15 @@ module test #(
         .EMU_DUT_RAM_CLK    (emu_dut_ram_clk),
         .EMU_DUT_RST        (rst),
         .EMU_DUT_TRIG       (),
-        .EMU_INTERNAL_CLOCK             (clk),
-        .EMU_INTERNAL_RESET             (rst),
-        .EMU_INTERNAL_PAUSE             (pause),
-        .EMU_INTERNAL_UP_REQ            (up_req),
-        .EMU_INTERNAL_DOWN_REQ          (down_req),
-        .EMU_INTERNAL_UP_STAT           (up),
-        .EMU_INTERNAL_DOWN_STAT         (down),
-        .EMU_INTERNAL_STALL             (dut_stall),
-        `AXI4_CONNECT                   (EMU_INTERNAL_AUTO_0_dram, m_axi)
+        .EMU_CLOCK          (clk),
+        .EMU_RESET          (rst),
+        .EMU_PAUSE          (pause || dut_stall),
+        .EMU_UP_REQ         (up_req),
+        .EMU_DOWN_REQ       (down_req),
+        .EMU_UP_STAT        (up),
+        .EMU_DOWN_STAT      (down),
+        .EMU_STALL          (dut_stall),
+        `AXI4_CONNECT       (EMU_AUTO_0_dram, m_axi)
     );
 
     assign dut_clk_en = !pause && !dut_stall;

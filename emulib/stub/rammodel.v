@@ -3,7 +3,7 @@
 // NOTE: reset during a transaction is currently unsupported
 
 (* keep, emulib_component = "rammodel" *)
-module rammodel #(
+module RAMModel #(
     parameter   ADDR_WIDTH      = 32,
     parameter   DATA_WIDTH      = 64,
     parameter   ID_WIDTH        = 4,

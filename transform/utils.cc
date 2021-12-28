@@ -9,7 +9,7 @@ std::map<std::string, Database> Database::databases;
 
 Wire *emu_create_port(Module *module, IdString name, int width, bool output) {
     if (module->has_attribute(name))
-        return nullptr;
+        log_error("Multiple creation of emulation port %s\n", log_id(name));
 
     Wire *port = module->addWire(module->uniquify(name), width);
     if (output)
