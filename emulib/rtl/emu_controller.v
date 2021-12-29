@@ -78,7 +78,11 @@ module emu_controller (
     output              emu_dut_ff_clk,     // TODO: width
     output              emu_dut_ram_clk,    // TODO: width
     output reg          emu_dut_rst,        // TODO: width
-    input       [31:0]  emu_dut_trig
+    input       [31:0]  emu_dut_trig,
+
+    input               emu_putchar_valid,
+    output              emu_putchar_ready,
+    input       [7 :0]  emu_putchar_data
 
 );
 
@@ -379,6 +383,12 @@ module emu_controller (
     assign s_axis_read_desc_valid   = emu_dma_start && emu_dma_direction;
     assign s_axis_write_desc_valid  = emu_dma_start && !emu_dma_direction;
 
+    // EMU_PUTCHAR
+    //      [7:0]   -> DATA [RO]
+    //      [31]    -> VALID [RO]
+
+    wire [31:0] emu_putchar = {emu_putchar_valid, 23'd0, emu_putchar_data};
+
     // CSR read logic
 
     reg [11:0] reg_read_addr;
@@ -398,6 +408,7 @@ module emu_controller (
             `EMU_DMA_ADDR_HI:       reg_read_data_wire = emu_dma_addr[63:32];
             `EMU_DMA_STAT:          reg_read_data_wire = emu_dma_stat;
             `EMU_DMA_CTRL:          reg_read_data_wire = emu_dma_ctrl;
+            `EMU_PUTCHAR:           reg_read_data_wire = emu_putchar;
             default:                reg_read_data_wire = 32'd0;
         endcase
     end
@@ -429,6 +440,8 @@ module emu_controller (
     assign s_axilite_rvalid     = reg_read_data_valid;
     assign s_axilite_rdata      = reg_read_data;
     assign s_axilite_rresp      = 2'b00;
+
+    assign emu_putchar_ready = reg_do_read && reg_read_addr == `EMU_PUTCHAR;
 
     // DMA for scan chain
 

@@ -9,3 +9,4 @@
 `define EMU_DMA_ADDR_HI         12'h024
 `define EMU_DMA_STAT            12'h028
 `define EMU_DMA_CTRL            12'h02c
+`define EMU_PUTCHAR             12'h080
