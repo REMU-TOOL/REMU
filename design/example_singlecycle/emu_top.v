@@ -1,5 +1,9 @@
 `timescale 1 ns / 1 ps
 
+`ifndef INITMEM_FILE
+`define INITMEM_FILE "initmem.txt"
+`endif
+
 module emu_top();
 
     wire clk, rst, trig;
@@ -62,6 +66,8 @@ module ideal_mem #(
 );
 
     reg [WIDTH-1:0] mem [DEPTH-1:0];
+
+    initial $readmemh(`INITMEM_FILE, mem);
 
     integer i;
     always @(posedge clk) begin

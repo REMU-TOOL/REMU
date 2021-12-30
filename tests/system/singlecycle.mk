@@ -24,6 +24,7 @@ DUMP_FILE 	:= $(BUILD_DIR)/dump.vcd
 SIM_SRCS	+= $(OUTPUT_FILE)
 SIM_SRCS 	+= $(SIMSRCS)
 
+EXTRA_IVFLAGS += -DINITMEM_FILE=\"$(ROOT_DIR)/design/example_singlecycle/initmem.txt\"
 EXTRA_IVFLAGS += -DEMULIB_TEST
 
 run:

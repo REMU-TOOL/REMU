@@ -477,21 +477,16 @@ module sim_top();
             finish = 1;
         end
         if (resetn && !u_emu_controller.emu_pause) begin
-            if (emu_dut.\u_cpu.rf_wen !== emu_ref.u_cpu.rf_wen ||
-                emu_dut.\u_cpu.rf_waddr !== emu_ref.u_cpu.rf_waddr ||
-                emu_dut.\u_cpu.rf_wdata !== emu_ref.u_cpu.rf_wdata)
+            if (emu_dut.dut.\u_cpu.rf_wen !== emu_ref.u_cpu.rf_wen ||
+                emu_dut.dut.\u_cpu.rf_waddr !== emu_ref.u_cpu.rf_waddr ||
+                emu_dut.dut.\u_cpu.rf_wdata !== emu_ref.u_cpu.rf_wdata)
             begin
                 $display("ERROR: trace mismatch at cycle = %d", u_emu_controller.emu_cycle);
-                $display("DUT: wen=%h waddr=%h wdata=%h", emu_dut.\u_cpu.rf_wen , emu_dut.\u_cpu.rf_waddr , emu_dut.\u_cpu.rf_wdata );
+                $display("DUT: wen=%h waddr=%h wdata=%h", emu_dut.dut.\u_cpu.rf_wen , emu_dut.dut.\u_cpu.rf_waddr , emu_dut.dut.\u_cpu.rf_wdata );
                 $display("REF: wen=%h waddr=%h wdata=%h", emu_ref.u_cpu.rf_wen, emu_ref.u_cpu.rf_waddr, emu_ref.u_cpu.rf_wdata);
                 $fatal;
             end
         end
-    end
-
-    initial begin
-        $readmemh("../common/initmem.txt", emu_dut.\EMU_DUT_u_mem.mem .\u_mem.mem );
-        $readmemh("../common/initmem.txt", emu_ref.u_mem.mem);
     end
 
     `DUMP_VCD

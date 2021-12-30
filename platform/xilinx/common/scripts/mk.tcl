@@ -14,7 +14,8 @@ create_project "${plat}-${design}" -force -dir ${design_dir}/vivado_prj -part ${
 set_property board_part ${board} [current_project]
 
 add_files -norecurse ${design_dir}/
-add_files ../../rtl/
+add_files ../../emulib/rtl/
+add_files ../../emulib/include/
 add_files common/rtl/
 
 source ${plat}/scripts/setup.tcl
