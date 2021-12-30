@@ -9,6 +9,9 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct PackageWorker {
 
+    Database &database;
+    Design *design;
+
     void generate_mem_last_i(Module *module, int depth, SigSpec clk, SigSpec scan, SigSpec dir, SigSpec last_i) {
         const int cntbits = ceil_log2(depth + 1);
 
@@ -45,24 +48,51 @@ struct PackageWorker {
         module->connect(last_i, module->And(NEW_ID, ok, module->Not(NEW_ID, ok_r)));
     }
 
-    void operator()(Database &db, Module* top) {
-        ScanChainData &scanchain = db.scanchain;
+    void run() {
+        ScanChainData &scanchain = database.scanchain;
 
-        Wire *wire_clk        = top->wire(PortClk);
-        Wire *wire_ram_scan   = top->wire(PortRamScanEn);
-        Wire *wire_ram_dir    = top->wire(PortRamScanDir);
-        Wire *wire_ram_last_i = top->wire(PortRamLastIn);
-        Wire *wire_ram_last_o = top->wire(PortRamLastOut);
+        Module *top = design->top_module();
+
+        if (!top)
+            log_error("No top module found\n");
+
+        if (!top->get_bool_attribute(AttrLibProcessed))
+            log_error("Module %s is not processed by emu_process_lib. Run emu_process_lib first.\n", log_id(top));
+
+        if (!top->get_bool_attribute(AttrInstrumented))
+            log_error("Module %s is not processed by emu_instrument. Run emu_instrument first.\n", log_id(top));
+
+        design->rename(top, "\\instrumented_user_top");
+        top->attributes.erase(ID::top);
+
+        Module *new_top = design->addModule("\\EMU_DUT");
+        new_top->set_bool_attribute(ID::top);
+
+        Cell *sub = new_top->addCell("\\dut", top->name);
+        
+        for (auto portid : top->ports) {
+            Wire *port = top->wire(portid);
+            Wire *new_port = new_top->addWire(portid, port);
+            sub->setPort(portid, new_port);
+        }
+
+        Wire *wire_clk        = new_top->wire(PortClk);
+        Wire *wire_ram_scan   = new_top->wire(PortRamScanEn);
+        Wire *wire_ram_dir    = new_top->wire(PortRamScanDir);
+        Wire *wire_ram_last_i = new_top->wire(PortRamLastIn);
+        Wire *wire_ram_last_o = new_top->wire(PortRamLastOut);
 
         wire_ram_last_i->port_input = false;
         wire_ram_last_o->port_output = false;
-        top->fixup_ports();
+        new_top->fixup_ports();
 
         int depth = scanchain.mem_sc_depth();
-        generate_mem_last_i(top, depth, wire_clk, wire_ram_scan, wire_ram_dir, wire_ram_last_i);
+        generate_mem_last_i(new_top, depth, wire_clk, wire_ram_scan, wire_ram_dir, wire_ram_last_i);
     }
 
-} PackageWorker;
+    PackageWorker(Database &database, Design *design) : database(database), design(design) {}
+
+};
 
 struct EmuPackagePass : public Pass {
     EmuPackagePass() : Pass("emu_package", "package design for emulation") { }
@@ -98,21 +128,8 @@ struct EmuPackagePass : public Pass {
 
         Database &db = Database::databases[db_name];
 
-        Module *top = design->top_module();
-
-        if (!top)
-            log_error("No top module found\n");
-
-        if (!top->get_bool_attribute(AttrLibProcessed))
-            log_error("Module %s is not processed by emu_process_lib. Run emu_process_lib first.\n", log_id(top));
-
-        if (!top->get_bool_attribute(AttrInstrumented))
-            log_error("Module %s is not processed by emu_instrument. Run emu_instrument first.\n", log_id(top));
-
-        PackageWorker(db, top);
-
-        // rename top module
-        design->rename(top, "\\EMU_DUT");
+        PackageWorker worker(db, design);
+        worker.run();
     }
 } EmuPackagePass;
 
