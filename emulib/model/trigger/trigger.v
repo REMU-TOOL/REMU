@@ -4,7 +4,7 @@ module trigger(
     input trigger
 );
 
-    (* keep, emu_internal_sig = "DUT_TRIG" *)
+    (* keep, emu_intf_port = "dut_trig" *)
     wire _trig;
 
     assign _trig = trigger;

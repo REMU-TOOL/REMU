@@ -6,24 +6,10 @@
 
 namespace Emu {
 
+USING_YOSYS_NAMESPACE
+
 const int DATA_WIDTH = 64;
 const int TRIG_WIDTH = 32;
-
-const char
-    PortClk         [] = "\\EMU_CLK",
-    PortFfScanEn    [] = "\\EMU_FF_SE",
-    PortFfDataIn    [] = "\\EMU_FF_DI",
-    PortFfDataOut   [] = "\\EMU_FF_DO",
-    PortRamScanEn   [] = "\\EMU_RAM_SE",
-    PortRamScanDir  [] = "\\EMU_RAM_SD",
-    PortRamDataIn   [] = "\\EMU_RAM_DI",
-    PortRamDataOut  [] = "\\EMU_RAM_DO",
-    PortRamLastIn   [] = "\\EMU_RAM_LI",
-    PortRamLastOut  [] = "\\EMU_RAM_LO",
-    PortDutFfClk    [] = "\\EMU_DUT_FF_CLK",
-    PortDutRamClk   [] = "\\EMU_DUT_RAM_CLK",
-    PortDutRst      [] = "\\EMU_DUT_RST",
-    PortDutTrig     [] = "\\EMU_DUT_TRIG";
 
 const char
 
@@ -35,7 +21,7 @@ const char
     // Usage: specified in model implementation to indicate internal signals.
     // Type: string
     // Compatible: wire
-    AttrInternalSig         [] = "\\emu_internal_sig",
+    AttrIntfPort            [] = "\\emu_intf_port",
 
     // Usage: specified in model implementation to avoid scan chain insertion.
     // Type: bool
@@ -63,9 +49,12 @@ const char
     AttrClkPortRewritten    [] = "\\emu_clk_port_rewritten";
 
 // fixup_ports must be called after all ports are created
-Yosys::Wire *emu_create_port(Yosys::Module *module, Yosys::IdString name, int width, bool output);
-Yosys::Wire *emu_get_port(Yosys::Module *module, Yosys::IdString name);
-Yosys::IdString emu_get_port_id(Yosys::Module *module, Yosys::IdString name);
+void promote_intf_port(Module *module, std::string name, Wire *wire);
+
+// fixup_ports must be called after all ports are created
+Wire *create_intf_port(Module *module, std::string name, int width);
+
+std::vector<Wire *> get_intf_ports(Module *module, std::string name);
 
 bool is_public_id(Yosys::IdString id);
 std::string str_id(Yosys::IdString id);

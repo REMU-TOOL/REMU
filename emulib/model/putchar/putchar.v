@@ -7,18 +7,13 @@ module putchar (
     input   [7:0]   data
 );
 
-    (* keep, emu_internal_sig = "CLOCK"         *)  wire model_clk;
-    (* keep, emu_internal_sig = "RESET"         *)  wire model_rst;
-    //(* keep, emu_internal_sig = "PAUSE"         *)  wire pause;
-    //(* keep, emu_internal_sig = "UP_REQ"        *)  wire up_req;
-    //(* keep, emu_internal_sig = "DOWN_REQ"      *)  wire down_req;
-    //(* keep, emu_internal_sig = "UP_STAT"       *)  wire up_stat;
-    //(* keep, emu_internal_sig = "DOWN_STAT"     *)  wire down_stat;
-    (* keep, emu_internal_sig = "STALL"         *)  wire stall;
+    (* keep, emu_intf_port = "clk"              *)  wire model_clk;
+    (* keep, emu_intf_port = "rst"              *)  wire model_rst;
+    (* keep, emu_intf_port = "stall"            *)  wire stall;
 
-    (* keep, emu_internal_sig = "putchar_valid" *)  wire putchar_valid;
-    (* keep, emu_internal_sig = "putchar_ready" *)  wire putchar_ready;
-    (* keep, emu_internal_sig = "putchar_data"  *)  wire [7:0] putchar_data;
+    (* keep, emu_intf_port = "putchar_valid"    *)  wire putchar_valid;
+    (* keep, emu_intf_port = "putchar_ready"    *)  wire putchar_ready;
+    (* keep, emu_intf_port = "putchar_data"     *)  wire [7:0] putchar_data;
 
     reg valid_r;
     reg [7:0] data_r;

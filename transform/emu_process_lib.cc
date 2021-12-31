@@ -14,78 +14,8 @@ struct HandlerContext {
     Database &db;
     EmulibData &emulib;
 
-    std::map<std::string, std::vector<SigSpec>> internal_sigs;
-
     HandlerContext(Module *module, Database &db)
         : module(module), db(db), emulib(db.emulib) {}
-};
-
-enum InternalSigProp {
-    InputAppend,
-    InputShare,
-    InputAutoIndex,
-    OutputAppend,
-    OutputAndReduce,
-    OutputOrReduce,
-    OutputAutoIndex,
-};
-
-// name -> direction (output=true)
-const dict<std::string, InternalSigProp> internal_sig_list = {
-    {"CLOCK",           InputShare},
-    {"RESET",           InputShare},
-    {"PAUSE",           InputShare},
-    {"UP_REQ",          InputShare},
-    {"DOWN_REQ",        InputShare},
-    {"UP_STAT",         OutputAndReduce},
-    {"DOWN_STAT",       OutputAndReduce},
-    {"STALL",           OutputOrReduce},
-    {"DUT_FF_CLK",      InputAppend},
-    {"DUT_RAM_CLK",     InputAppend},
-    {"DUT_RST",         InputAppend},
-    {"DUT_TRIG",        OutputAppend},
-    {"dram_awvalid",    OutputAutoIndex},
-    {"dram_awready",    InputAutoIndex},
-    {"dram_awaddr",     OutputAutoIndex},
-    {"dram_awid",       OutputAutoIndex},
-    {"dram_awlen",      OutputAutoIndex},
-    {"dram_awsize",     OutputAutoIndex},
-    {"dram_awburst",    OutputAutoIndex},
-    {"dram_awlock",     OutputAutoIndex},
-    {"dram_awcache",    OutputAutoIndex},
-    {"dram_awprot",     OutputAutoIndex},
-    {"dram_awqos",      OutputAutoIndex},
-    {"dram_awregion",   OutputAutoIndex},
-    {"dram_wvalid",     OutputAutoIndex},
-    {"dram_wready",     InputAutoIndex},
-    {"dram_wdata",      OutputAutoIndex},
-    {"dram_wstrb",      OutputAutoIndex},
-    {"dram_wlast",      OutputAutoIndex},
-    {"dram_bvalid",     InputAutoIndex},
-    {"dram_bready",     OutputAutoIndex},
-    {"dram_bresp",      InputAutoIndex},
-    {"dram_bid",        InputAutoIndex},
-    {"dram_arvalid",    OutputAutoIndex},
-    {"dram_arready",    InputAutoIndex},
-    {"dram_araddr",     OutputAutoIndex},
-    {"dram_arid",       OutputAutoIndex},
-    {"dram_arlen",      OutputAutoIndex},
-    {"dram_arsize",     OutputAutoIndex},
-    {"dram_arburst",    OutputAutoIndex},
-    {"dram_arlock",     OutputAutoIndex},
-    {"dram_arcache",    OutputAutoIndex},
-    {"dram_arprot",     OutputAutoIndex},
-    {"dram_arqos",      OutputAutoIndex},
-    {"dram_arregion",   OutputAutoIndex},
-    {"dram_rvalid",     InputAutoIndex},
-    {"dram_rready",     OutputAutoIndex},
-    {"dram_rdata",      InputAutoIndex},
-    {"dram_rresp",      InputAutoIndex},
-    {"dram_rid",        InputAutoIndex},
-    {"dram_rlast",      InputAutoIndex},
-    {"putchar_valid",   OutputAppend},
-    {"putchar_ready",   InputAppend},
-    {"putchar_data",    OutputAppend},
 };
 
 struct ModelHandler {
@@ -196,14 +126,13 @@ void load_model(HandlerContext &ctxt, Cell *cell) {
 
     // Process internal signals
     for (auto &wire : module->selected_wires()) {
-        std::string signame = wire->get_string_attribute(AttrInternalSig);
+        std::string signame = wire->get_string_attribute(AttrIntfPort);
         if (!signame.empty()) {
-            if (internal_sig_list.find(signame) == internal_sig_list.end())
-                log_error("Undefined signal name %s\n", signame.c_str());
-            ctxt.internal_sigs[signame].push_back(wire);
-            wire->attributes.erase(AttrInternalSig);
+            promote_intf_port(module, signame, wire);
+            wire->attributes.erase(AttrIntfPort);
         }
     }
+    module->fixup_ports();
 }
 
 void ModelHandler::handle(HandlerContext &ctxt, Cell *cell) {
@@ -235,60 +164,6 @@ void ModelHandler::handle(HandlerContext &ctxt, Cell *cell) {
 }
 
 void ModelHandler::finalize(HandlerContext &ctxt) {
-    for (auto &it : internal_sig_list) {
-        Wire *wire = nullptr;
-        const auto &sigs = ctxt.internal_sigs[it.first];
-
-        if (it.second == InputAutoIndex || it.second == OutputAutoIndex) {
-            int index = 0;
-            bool output = it.second == OutputAutoIndex;
-            for (auto &s : sigs) {
-                IdString wirename = stringf("\\EMU_AUTO_%d_", index++) + it.first;
-                wire = emu_create_port(ctxt.module, wirename, GetSize(s), output);
-                if (output)
-                    ctxt.module->connect(wire, s);
-                else
-                    ctxt.module->connect(s, wire);
-            }
-            continue;
-        }
-
-        IdString wirename = "\\EMU_" + it.first;
-        SigSpec flat_sig;
-        for (auto &s : sigs)
-            flat_sig.append(s);
-
-        switch (it.second) {
-            case InputAppend:
-                wire = emu_create_port(ctxt.module, wirename, GetSize(flat_sig), false);
-                ctxt.module->connect(flat_sig, wire);
-                break;
-            case InputShare:
-                wire = emu_create_port(ctxt.module, wirename, 1, false);
-                for (SigBit &bit : flat_sig)
-                    ctxt.module->connect(bit, wire);
-                break;
-            case OutputAppend:
-                wire = emu_create_port(ctxt.module, wirename, GetSize(flat_sig), true);
-                ctxt.module->connect(wire, flat_sig);
-                break;
-            case OutputAndReduce:
-                flat_sig.append(State::S1);
-                wire = emu_create_port(ctxt.module, wirename, 1, true);
-                ctxt.module->connect(wire, ctxt.module->ReduceAnd(NEW_ID, flat_sig));
-                break;
-            case OutputOrReduce:
-                flat_sig.append(State::S0);
-                wire = emu_create_port(ctxt.module, wirename, 1, true);
-                ctxt.module->connect(wire, ctxt.module->ReduceOr(NEW_ID, flat_sig));
-                break;
-            default:
-                break;
-        }
-    }
-
-    ctxt.module->fixup_ports();
-
     for (auto it : handler_map)
         it.second->do_finalize(ctxt);
 }
@@ -347,8 +222,8 @@ struct ClockHandler : public ModelHandler {
     }
 
     virtual void do_finalize(HandlerContext &ctxt) override {
-        auto &fclks = ctxt.internal_sigs["DUT_FF_CLK"];
-        auto &rclks = ctxt.internal_sigs["DUT_RAM_CLK"];
+        auto fclks = get_intf_ports(ctxt.module, "dut_ff_clk");
+        auto rclks = get_intf_ports(ctxt.module, "dut_ram_clk");
         for (
             auto fclk = fclks.begin(), rclk = rclks.begin();
             fclk != fclks.end() && rclk != rclks.end();

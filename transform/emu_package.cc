@@ -5,6 +5,141 @@
 using namespace Emu;
 
 USING_YOSYS_NAMESPACE
+
+namespace Emu {
+
+enum IntfProp {
+    InputShare          = 0x0,
+    InputAppend         = 0x1,
+    InputAutoIndex      = 0x2,
+    OutputAppend        = 0x10000,
+    OutputAndReduce     = 0x10001,
+    OutputOrReduce      = 0x10002,
+    OutputAutoIndex     = 0x10003,
+};
+
+inline bool is_output(IntfProp prop) {
+    return prop & 0x10000;
+}
+
+// name -> direction (output=true)
+const std::map<std::string, IntfProp> intf_list = {
+    {"clk",             InputShare},
+    {"rst",             InputShare},
+    {"ff_se",           InputShare},
+    {"ff_di",           InputShare},
+    {"ff_do",           OutputAppend},
+    {"ram_se",          InputShare},
+    {"ram_sd",          InputShare},
+    {"ram_di",          InputShare},
+    {"ram_do",          OutputAppend},
+    {"pause",           InputShare},
+    {"up_req",          InputShare},
+    {"down_req",        InputShare},
+    {"up_stat",         OutputAndReduce},
+    {"down_stat",       OutputAndReduce},
+    {"stall",           OutputOrReduce},
+    {"dut_ff_clk",      InputAppend},
+    {"dut_ram_clk",     InputAppend},
+    {"dut_rst",         InputAppend},
+    {"dut_trig",        OutputAppend},
+    {"dram_awvalid",    OutputAutoIndex},
+    {"dram_awready",    InputAutoIndex},
+    {"dram_awaddr",     OutputAutoIndex},
+    {"dram_awid",       OutputAutoIndex},
+    {"dram_awlen",      OutputAutoIndex},
+    {"dram_awsize",     OutputAutoIndex},
+    {"dram_awburst",    OutputAutoIndex},
+    {"dram_awlock",     OutputAutoIndex},
+    {"dram_awcache",    OutputAutoIndex},
+    {"dram_awprot",     OutputAutoIndex},
+    {"dram_awqos",      OutputAutoIndex},
+    {"dram_awregion",   OutputAutoIndex},
+    {"dram_wvalid",     OutputAutoIndex},
+    {"dram_wready",     InputAutoIndex},
+    {"dram_wdata",      OutputAutoIndex},
+    {"dram_wstrb",      OutputAutoIndex},
+    {"dram_wlast",      OutputAutoIndex},
+    {"dram_bvalid",     InputAutoIndex},
+    {"dram_bready",     OutputAutoIndex},
+    {"dram_bresp",      InputAutoIndex},
+    {"dram_bid",        InputAutoIndex},
+    {"dram_arvalid",    OutputAutoIndex},
+    {"dram_arready",    InputAutoIndex},
+    {"dram_araddr",     OutputAutoIndex},
+    {"dram_arid",       OutputAutoIndex},
+    {"dram_arlen",      OutputAutoIndex},
+    {"dram_arsize",     OutputAutoIndex},
+    {"dram_arburst",    OutputAutoIndex},
+    {"dram_arlock",     OutputAutoIndex},
+    {"dram_arcache",    OutputAutoIndex},
+    {"dram_arprot",     OutputAutoIndex},
+    {"dram_arqos",      OutputAutoIndex},
+    {"dram_arregion",   OutputAutoIndex},
+    {"dram_rvalid",     InputAutoIndex},
+    {"dram_rready",     OutputAutoIndex},
+    {"dram_rdata",      InputAutoIndex},
+    {"dram_rresp",      InputAutoIndex},
+    {"dram_rid",        InputAutoIndex},
+    {"dram_rlast",      InputAutoIndex},
+    {"putchar_valid",   OutputAppend},
+    {"putchar_ready",   InputAppend},
+    {"putchar_data",    OutputAppend},
+};
+
+static inline IdString get_count_attr(std::string name) {
+    return "\\EmuIntfPortCnt_" + name;
+}
+
+static inline IdString get_internal_id(std::string name, int index) {
+    return stringf("\\emu_internal_%s_%d", name.c_str(), index);
+}
+
+void promote_intf_port(Module *module, std::string name, Wire *wire) {
+    int count = 0;
+    IdString count_attr = get_count_attr(name);
+
+    if (module->has_attribute(count_attr))
+        count = module->attributes.at(count_attr).as_int();
+
+    module->rename(wire, get_internal_id(name, count++));
+
+    try {
+        if (is_output(intf_list.at(name)))
+            wire->port_output = true;
+        else
+            wire->port_input = true;
+    }
+    catch (std::out_of_range) {
+        log_error("Unknown interface name %s\n", name.c_str());
+    }
+
+    module->attributes[count_attr] = Const(count);
+}
+
+Wire *create_intf_port(Module *module, std::string name, int width) {
+    Wire *port = module->addWire(NEW_ID, width);
+    promote_intf_port(module, name, port);
+    return port;
+}
+
+std::vector<Wire *> get_intf_ports(Module *module, std::string name) {
+    int count = 0;
+    IdString count_attr = get_count_attr(name);
+
+    if (module->has_attribute(count_attr))
+        count = module->attributes.at(count_attr).as_int();
+
+    std::vector<Wire *> port_list;
+
+    for (int i = 0; i < count; i++)
+        port_list.push_back(module->wire(get_internal_id(name.c_str(), i)));
+
+    return port_list;
+}
+
+}
+
 PRIVATE_NAMESPACE_BEGIN
 
 struct PackageWorker {
@@ -12,45 +147,75 @@ struct PackageWorker {
     Database &database;
     Design *design;
 
-    void generate_mem_last_i(Module *module, int depth, SigSpec clk, SigSpec scan, SigSpec dir, SigSpec last_i) {
-        const int cntbits = ceil_log2(depth + 1);
+    void process_intf_ports(Module *module) {
+        for (auto &it : intf_list) {
+            int count = 0;
+            IdString count_attr = get_count_attr(it.first);
 
-        // generate last_i signal for mem scan chain
-        // delay 1 cycle for scan-out mode to prepare raddr
+            if (module->has_attribute(count_attr))
+                count = module->attributes.at(count_attr).as_int();
 
-        // reg [..] cnt;
-        // wire full = cnt == depth;
-        // always @(posedge clk)
-        //   if (!scan)
-        //     cnt <= 0;
-        //   else if (!full)
-        //     cnt <= cnt + 1;
-        // reg scan_r;
-        // always @(posedge clk) scan_r <= scan;
-        // wire ok = dir ? full : scan_r;
-        // reg ok_r;
-        // always @(posedge clk)
-        //    ok_r <= ok;
-        // assign last_i = ok && !ok_r;
+            if (it.second == InputAutoIndex || it.second == OutputAutoIndex) {
+                for (int i = 0; i < count; i++) {
+                    Wire *wire = module->wire(get_internal_id(it.first.c_str(), i));
+                    module->rename(wire, stringf("\\emu_auto_%d_%s", i, it.first.c_str()));
+                }
+                continue;
+            }
 
-        SigSpec cnt = module->addWire(NEW_ID, cntbits);
-        SigSpec full = module->Eq(NEW_ID, cnt, Const(depth, cntbits));
-        module->addSdffe(NEW_ID, clk, module->Not(NEW_ID, full), module->Not(NEW_ID, scan),
-            module->Add(NEW_ID, cnt, Const(1, cntbits)), cnt, Const(0, cntbits)); 
+            IdString wirename = "\\emu_" + it.first;
+            std::vector<Wire *> wire_list;
 
-        SigSpec scan_r = module->addWire(NEW_ID);
-        module->addDff(NEW_ID, clk, scan, scan_r);
+            for (int i = 0; i < count; i++) {
+                Wire *wire = module->wire(get_internal_id(it.first.c_str(), i));
+                wire->port_input = false;
+                wire->port_output = false;
+                wire_list.push_back(wire);
+            }
 
-        SigSpec ok = module->Mux(NEW_ID, scan_r, full, dir);
-        SigSpec ok_r = module->addWire(NEW_ID);
-        module->addDff(NEW_ID, clk, ok, ok_r);
+            if (it.second == InputShare) {
+                int width = 0;
+                if (!wire_list.empty())
+                    width = wire_list[0]->width;
 
-        module->connect(last_i, module->And(NEW_ID, ok, module->Not(NEW_ID, ok_r)));
+                Wire *port = module->addWire(wirename, width);
+                port->port_input = true;
+
+                for (Wire *wire : wire_list) {
+                    if (wire->width != port->width)
+                        log_error("Shared interface port %s has different widths (current %d, first %d)\n",
+                            it.first.c_str(), wire->width, port->width);
+
+                    module->connect(wire, port);
+                }
+
+                continue;
+            }
+
+            SigSpec flat_sig;
+            for (Wire *wire : wire_list)
+                flat_sig.append(wire);
+
+            if (it.second == OutputAndReduce)
+                flat_sig = module->ReduceAnd(NEW_ID, flat_sig);
+            else if (it.second == OutputOrReduce)
+                flat_sig = module->ReduceOr(NEW_ID, flat_sig);
+
+            Wire *port = module->addWire(wirename, GetSize(flat_sig));
+            if (is_output(it.second)) {
+                port->port_output = true;
+                module->connect(port, flat_sig);
+            }
+            else {
+                port->port_input = true;
+                module->connect(flat_sig, port);
+            }
+        }
+
+        module->fixup_ports();
     }
 
-    void run() {
-        ScanChainData &scanchain = database.scanchain;
-
+    void run(bool bare) {
         Module *top = design->top_module();
 
         if (!top)
@@ -62,32 +227,12 @@ struct PackageWorker {
         if (!top->get_bool_attribute(AttrInstrumented))
             log_error("Module %s is not processed by emu_instrument. Run emu_instrument first.\n", log_id(top));
 
-        design->rename(top, "\\instrumented_user_top");
-        top->attributes.erase(ID::top);
+        design->rename(top, "\\EMU_DUT");
 
-        Module *new_top = design->addModule("\\EMU_DUT");
-        new_top->set_bool_attribute(ID::top);
+        process_intf_ports(top);
 
-        Cell *sub = new_top->addCell("\\dut", top->name);
-        
-        for (auto portid : top->ports) {
-            Wire *port = top->wire(portid);
-            Wire *new_port = new_top->addWire(portid, port);
-            sub->setPort(portid, new_port);
-        }
-
-        Wire *wire_clk        = new_top->wire(PortClk);
-        Wire *wire_ram_scan   = new_top->wire(PortRamScanEn);
-        Wire *wire_ram_dir    = new_top->wire(PortRamScanDir);
-        Wire *wire_ram_last_i = new_top->wire(PortRamLastIn);
-        Wire *wire_ram_last_o = new_top->wire(PortRamLastOut);
-
-        wire_ram_last_i->port_input = false;
-        wire_ram_last_o->port_output = false;
-        new_top->fixup_ports();
-
-        int depth = scanchain.mem_sc_depth();
-        generate_mem_last_i(new_top, depth, wire_clk, wire_ram_scan, wire_ram_dir, wire_ram_last_i);
+        if (bare)
+            return;
     }
 
     PackageWorker(Database &database, Design *design) : database(database), design(design) {}
@@ -107,6 +252,8 @@ struct EmuPackagePass : public Pass {
         log("\n");
         log("    -db <database>\n");
         log("        specify the emulation database or the default one will be used.\n");
+        log("    -bare\n");
+        log("        expose scan chain interface and do not include controller.\n");
         log("\n");
     }
 
@@ -114,12 +261,17 @@ struct EmuPackagePass : public Pass {
         log_header(design, "Executing EMU_PACKAGE pass.\n");
 
         std::string db_name;
+        bool bare = false;
 
         size_t argidx;
         for (argidx = 1; argidx < args.size(); argidx++)
         {
             if (args[argidx] == "-db" && argidx+1 < args.size()) {
                 db_name = args[++argidx];
+                continue;
+            }
+            if (args[argidx] == "-bare") {
+                bare = true;
                 continue;
             }
             break;
@@ -129,7 +281,7 @@ struct EmuPackagePass : public Pass {
         Database &db = Database::databases[db_name];
 
         PackageWorker worker(db, design);
-        worker.run();
+        worker.run(bare);
     }
 } EmuPackagePass;
 

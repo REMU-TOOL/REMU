@@ -31,17 +31,17 @@ module sim_top();
     );
 
     EMU_DUT emu_dut(
-        .EMU_CLK            (clk),
-        .EMU_FF_SE          (ff_scan),
-        .EMU_FF_DI          (ff_dir ? ff_sdi : ff_sdo),
-        .EMU_FF_DO          (ff_sdo),
-        .EMU_RAM_SE         (ram_scan),
-        .EMU_RAM_SD         (ram_dir),
-        .EMU_RAM_DI         (ram_sdi),
-        .EMU_RAM_DO         (ram_sdo),
-        .EMU_DUT_FF_CLK     (dut_ff_clk),
-        .EMU_DUT_RAM_CLK    (dut_ram_clk),
-        .EMU_DUT_RST        (rst)
+        .emu_clk            (clk),
+        .emu_ff_se          (ff_scan),
+        .emu_ff_di          (ff_dir ? ff_sdi : ff_sdo),
+        .emu_ff_do          (ff_sdo),
+        .emu_ram_se         (ram_scan),
+        .emu_ram_sd         (ram_dir),
+        .emu_ram_di         (ram_sdi),
+        .emu_ram_do         (ram_sdo),
+        .emu_dut_ff_clk     (dut_ff_clk),
+        .emu_dut_ram_clk    (dut_ram_clk),
+        .emu_dut_rst        (rst)
     );
 
     wire ref_clk;
@@ -77,12 +77,12 @@ module sim_top();
                 $display("Benchmark finished with result = %d at cycle %d", result, cycle);
                 finish = 1;
             end
-            if (emu_dut.dut.\u_cpu.rf_wen !== emu_ref.u_cpu.rf_wen ||
-                emu_dut.dut.\u_cpu.rf_waddr !== emu_ref.u_cpu.rf_waddr ||
-                emu_dut.dut.\u_cpu.rf_wdata !== emu_ref.u_cpu.rf_wdata)
+            if (emu_dut.\u_cpu.rf_wen !== emu_ref.u_cpu.rf_wen ||
+                emu_dut.\u_cpu.rf_waddr !== emu_ref.u_cpu.rf_waddr ||
+                emu_dut.\u_cpu.rf_wdata !== emu_ref.u_cpu.rf_wdata)
             begin
                 $display("ERROR: trace mismatch at cycle %d", cycle);
-                $display("DUT: wen=%h waddr=%h wdata=%h", emu_dut.dut.\u_cpu.rf_wen , emu_dut.dut.\u_cpu.rf_waddr , emu_dut.dut.\u_cpu.rf_wdata );
+                $display("DUT: wen=%h waddr=%h wdata=%h", emu_dut.\u_cpu.rf_wen , emu_dut.\u_cpu.rf_waddr , emu_dut.\u_cpu.rf_wdata );
                 $display("REF: wen=%h waddr=%h wdata=%h", emu_ref.u_cpu.rf_wen, emu_ref.u_cpu.rf_waddr, emu_ref.u_cpu.rf_wdata);
                 $fatal;
             end

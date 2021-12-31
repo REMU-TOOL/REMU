@@ -9,9 +9,9 @@ module clock #(
     output ram_clock
 );
 
-    (* keep, emu_internal_sig = "DUT_FF_CLK" *)
+    (* keep, emu_intf_port = "dut_ff_clk" *)
     wire _ff_clk;
-    (* keep, emu_internal_sig = "DUT_RAM_CLK" *)
+    (* keep, emu_intf_port = "dut_ram_clk" *)
     wire _ram_clk;
 
     assign clock = _ff_clk;

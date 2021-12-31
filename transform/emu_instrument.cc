@@ -69,19 +69,17 @@ private:
 
     Wire *wire_clk;
     Wire *wire_ff_scan, *wire_ff_data_i, *wire_ff_data_o;
-    Wire *wire_ram_scan, *wire_ram_dir, *wire_ram_data_i, *wire_ram_data_o, *wire_ram_last_i, *wire_ram_last_o; // dir: 0=out 1=in
+    Wire *wire_ram_scan, *wire_ram_dir, *wire_ram_data_i, *wire_ram_data_o; // dir: 0=out 1=in
 
     void create_ports() {
-        wire_clk        = emu_create_port(module,   PortClk,        1,          false   );
-        wire_ff_scan    = emu_create_port(module,   PortFfScanEn,   1,          false   );
-        wire_ff_data_i  = emu_create_port(module,   PortFfDataIn,   DATA_WIDTH, false   );
-        wire_ff_data_o  = emu_create_port(module,   PortFfDataOut,  DATA_WIDTH, true    );
-        wire_ram_scan   = emu_create_port(module,   PortRamScanEn,  1,          false   );
-        wire_ram_dir    = emu_create_port(module,   PortRamScanDir, 1,          false   );
-        wire_ram_data_i = emu_create_port(module,   PortRamDataIn,  DATA_WIDTH, false   );
-        wire_ram_data_o = emu_create_port(module,   PortRamDataOut, DATA_WIDTH, true    );
-        wire_ram_last_i = emu_create_port(module,   PortRamLastIn,  1,          false   );
-        wire_ram_last_o = emu_create_port(module,   PortRamLastOut, 1,          true    );
+        wire_clk        = create_intf_port(module,  "clk",      1           );
+        wire_ff_scan    = create_intf_port(module,  "ff_se",    1           );
+        wire_ff_data_i  = create_intf_port(module,  "ff_di",    DATA_WIDTH  );
+        wire_ff_data_o  = create_intf_port(module,  "ff_do",    DATA_WIDTH  );
+        wire_ram_scan   = create_intf_port(module,  "ram_se",   1           );
+        wire_ram_dir    = create_intf_port(module,  "ram_sd",   1           );
+        wire_ram_data_i = create_intf_port(module,  "ram_di",   DATA_WIDTH  );
+        wire_ram_data_o = create_intf_port(module,  "ram_do",   DATA_WIDTH  );
 
         module->fixup_ports();
     }
@@ -408,6 +406,42 @@ private:
         }
     }
 
+    void generate_mem_last_i(Module *module, int depth, SigSpec clk, SigSpec scan, SigSpec dir, SigSpec last_i) {
+        const int cntbits = ceil_log2(depth + 1);
+
+        // generate last_i signal for mem scan chain
+        // delay 1 cycle for scan-out mode to prepare raddr
+
+        // reg [..] cnt;
+        // wire full = cnt == depth;
+        // always @(posedge clk)
+        //   if (!scan)
+        //     cnt <= 0;
+        //   else if (!full)
+        //     cnt <= cnt + 1;
+        // reg scan_r;
+        // always @(posedge clk) scan_r <= scan;
+        // wire ok = dir ? full : scan_r;
+        // reg ok_r;
+        // always @(posedge clk)
+        //    ok_r <= ok;
+        // assign last_i = ok && !ok_r;
+
+        SigSpec cnt = module->addWire(NEW_ID, cntbits);
+        SigSpec full = module->Eq(NEW_ID, cnt, Const(depth, cntbits));
+        module->addSdffe(NEW_ID, clk, module->Not(NEW_ID, full), module->Not(NEW_ID, scan),
+            module->Add(NEW_ID, cnt, Const(1, cntbits)), cnt, Const(0, cntbits)); 
+
+        SigSpec scan_r = module->addWire(NEW_ID);
+        module->addDff(NEW_ID, clk, scan, scan_r);
+
+        SigSpec ok = module->Mux(NEW_ID, scan_r, full, dir);
+        SigSpec ok_r = module->addWire(NEW_ID);
+        module->addDff(NEW_ID, clk, ok, ok_r);
+
+        module->connect(last_i, module->And(NEW_ID, ok, module->Not(NEW_ID, ok_r)));
+    }
+
 public:
 
     InsertAccessorWorker(Module *mod, Database &db) : module(mod), database(db) {}
@@ -463,16 +497,20 @@ public:
         // process mems
         instrument_mems(mem_cells, chain_mem);
 
+        database.scanchain = ScanChainData(chain_ff.src, chain_mem.src);
+
+        int depth = database.scanchain.mem_sc_depth();
+
+        SigSpec last_i = module->addWire(NEW_ID);
+        generate_mem_last_i(module, depth, wire_clk, wire_ram_scan, wire_ram_dir, last_i);
+
         module->connect(chain_ff.last_i, State::S0);
 
         module->connect(chain_ff.data_i, wire_ff_data_i);
         module->connect(wire_ff_data_o, chain_ff.data_o);
         module->connect(chain_mem.data_i, wire_ram_data_i);
         module->connect(wire_ram_data_o, chain_mem.data_o);
-        module->connect(chain_mem.last_i, wire_ram_last_i);
-        module->connect(wire_ram_last_o, chain_mem.last_o);
-
-        database.scanchain = ScanChainData(chain_ff.src, chain_mem.src);
+        module->connect(chain_mem.last_i, last_i);
 
         // set attribute to indicate this module is processed
         module->set_bool_attribute(AttrInstrumented);

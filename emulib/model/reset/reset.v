@@ -7,7 +7,7 @@ module reset #(
     output reset
 );
 
-    (* keep, emu_internal_sig = "DUT_RST" *)
+    (* keep, emu_intf_port = "dut_rst" *)
     wire _rst;
 
     assign reset = _rst;
