@@ -33,12 +33,12 @@ const std::map<std::string, IntfProp> intf_list = {
     {"ram_sd",          InputShare},
     {"ram_di",          InputShare},
     {"ram_do",          OutputAppend},
-    {"pause",           InputShare},
+    {"stall",           InputShare},
+    {"stall_gen",       OutputOrReduce},
     {"up_req",          InputShare},
     {"down_req",        InputShare},
     {"up_stat",         OutputAndReduce},
     {"down_stat",       OutputAndReduce},
-    {"stall",           OutputOrReduce},
     {"dut_ff_clk",      InputAppend},
     {"dut_ram_clk",     InputAppend},
     {"dut_rst",         InputAppend},
@@ -214,25 +214,80 @@ struct PackageWorker {
 
         module->fixup_ports();
     }
+    
+    void add_controller(Module *module) {
+        std::string share_dirname = proc_share_dirname();
+        std::vector<std::string> read_verilog_argv = {
+            "read_verilog",
+            "-lib",
+            "-I",
+            share_dirname + "emulib/include",
+            share_dirname + "emulib/rtl/emu_controller.v"
+        };
 
-    void run(bool bare) {
-        Module *top = design->top_module();
+        Pass::call(design, read_verilog_argv);
 
-        if (!top)
+        IdString ctrl_id = "\\emu_controller";
+        Module *ctrl_mod = design->module(ctrl_id);
+        Cell *ctrl_cell = module->addCell(module->uniquify("\\controller"), ctrl_id);
+
+        ctrl_cell->setParam("\\CHAIN_FF_WORDS", Const(GetSize(database.scanchain.ff)));
+
+        int words = 0;
+        for (auto &mem : database.scanchain.mem)
+            words += mem.depth;
+        ctrl_cell->setParam("\\CHAIN_MEM_WORDS", Const(words));
+
+        for (auto id : ctrl_mod->ports) {
+            Wire *port = module->wire(id);
+            if (port) {
+                // Connect existing ports to controller
+                port->port_input = false;
+                port->port_output = false;
+                ctrl_cell->setPort(id, port);
+            }
+            else {
+                // Expose controller-owned ports
+                port = module->addWire(id, ctrl_mod->wire(id));
+                ctrl_cell->setPort(id, port);
+            }
+        }
+
+        module->fixup_ports();
+    }
+
+    void run() {
+        Module *dut_mod = design->top_module();
+
+        if (!dut_mod)
             log_error("No top module found\n");
 
-        if (!top->get_bool_attribute(AttrLibProcessed))
-            log_error("Module %s is not processed by emu_process_lib. Run emu_process_lib first.\n", log_id(top));
+        if (!dut_mod->get_bool_attribute(AttrLibProcessed))
+            log_error("Module %s is not processed by emu_process_lib. Run emu_process_lib first.\n", log_id(dut_mod));
 
-        if (!top->get_bool_attribute(AttrInstrumented))
-            log_error("Module %s is not processed by emu_instrument. Run emu_instrument first.\n", log_id(top));
+        if (!dut_mod->get_bool_attribute(AttrInstrumented))
+            log_error("Module %s is not processed by emu_instrument. Run emu_instrument first.\n", log_id(dut_mod));
 
-        design->rename(top, "\\EMU_DUT");
+        // Create interface ports
+        process_intf_ports(dut_mod);
 
-        process_intf_ports(top);
+        // Rename DUT
+        design->rename(dut_mod, "\\EMU_DUT");
+        dut_mod->attributes.erase(ID::top);
 
-        if (bare)
-            return;
+        // Create new top module
+        Module *new_top = design->addModule("\\EMU_SYSTEM");
+        new_top->set_bool_attribute(ID::top);
+
+        // Instantiate DUT
+        Cell *dut_cell = new_top->addCell("\\dut", dut_mod->name);
+        for (auto id : dut_mod->ports) {
+            Wire *port = new_top->addWire(id, dut_mod->wire(id));
+            dut_cell->setPort(id, port);
+        }
+
+        // Instantiate controller module
+        add_controller(new_top);
     }
 
     PackageWorker(Database &database, Design *design) : database(database), design(design) {}
@@ -252,26 +307,20 @@ struct EmuPackagePass : public Pass {
         log("\n");
         log("    -db <database>\n");
         log("        specify the emulation database or the default one will be used.\n");
-        log("    -bare\n");
-        log("        expose scan chain interface and do not include controller.\n");
         log("\n");
     }
 
     void execute(vector<string> args, Design* design) override {
         log_header(design, "Executing EMU_PACKAGE pass.\n");
+        log_push();
 
         std::string db_name;
-        bool bare = false;
 
         size_t argidx;
         for (argidx = 1; argidx < args.size(); argidx++)
         {
             if (args[argidx] == "-db" && argidx+1 < args.size()) {
                 db_name = args[++argidx];
-                continue;
-            }
-            if (args[argidx] == "-bare") {
-                bare = true;
                 continue;
             }
             break;
@@ -281,7 +330,9 @@ struct EmuPackagePass : public Pass {
         Database &db = Database::databases[db_name];
 
         PackageWorker worker(db, design);
-        worker.run(bare);
+        worker.run();
+
+        log_pop();
     }
 } EmuPackagePass;
 

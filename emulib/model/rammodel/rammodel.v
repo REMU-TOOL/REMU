@@ -61,12 +61,12 @@ module rammodel #(
 
     (* keep, emu_intf_port = "clk"              *) wire model_clk;
     (* keep, emu_intf_port = "rst"              *) wire model_rst;
-    (* keep, emu_intf_port = "pause"            *) wire pause;
+    (* keep, emu_intf_port = "stall"            *) wire stall;
+    (* keep, emu_intf_port = "stall_gen"        *) wire stall_gen;
     (* keep, emu_intf_port = "up_req"           *) wire up_req;
     (* keep, emu_intf_port = "down_req"         *) wire down_req;
     (* keep, emu_intf_port = "up_stat"          *) wire up_stat;
     (* keep, emu_intf_port = "down_stat"        *) wire down_stat;
-    (* keep, emu_intf_port = "stall"            *) wire stall;
 
     (* keep, emu_intf_port = "dram_awvalid"     *)
     wire                        m_axi_awvalid;
@@ -164,12 +164,12 @@ module rammodel #(
         .dut_resetn     (aresetn),
         `AXI4_CONNECT   (s_dut, s_axi),
         `AXI4_CONNECT   (m_dram, m_axi),
-        .pause          (pause),
+        .stall          (stall),
         .up_req         (up_req),
         .down_req       (down_req),
         .up             (up_stat),
         .down           (down_stat),
-        .dut_stall      (stall)
+        .stall_gen      (stall_gen)
     );
 
 endmodule

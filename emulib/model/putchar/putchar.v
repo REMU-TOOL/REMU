@@ -7,9 +7,9 @@ module putchar (
     input   [7:0]   data
 );
 
-    (* keep, emu_intf_port = "clk"              *)  wire model_clk;
-    (* keep, emu_intf_port = "rst"              *)  wire model_rst;
-    (* keep, emu_intf_port = "stall"            *)  wire stall;
+    //(* keep, emu_intf_port = "clk"              *)  wire model_clk;
+    //(* keep, emu_intf_port = "rst"              *)  wire model_rst;
+    (* keep, emu_intf_port = "stall_gen"        *)  wire stall_gen;
 
     (* keep, emu_intf_port = "putchar_valid"    *)  wire putchar_valid;
     (* keep, emu_intf_port = "putchar_ready"    *)  wire putchar_ready;
@@ -29,7 +29,7 @@ module putchar (
     always @(posedge clk) 
         data_r <= data;
 
-    assign stall = valid_r && !putchar_ready;
+    assign stall_gen = valid_r && !putchar_ready;
 
     assign putchar_valid = valid_r;
     assign putchar_data = data_r;

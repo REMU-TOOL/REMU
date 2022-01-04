@@ -1,10 +1,12 @@
-`include "loader.vh"
 `include "emu_csr.vh"
 `include "axi.vh"
 
 `timescale 1ns / 1ps
 
-module emu_controller (
+module emu_controller #(
+    parameter       CHAIN_FF_WORDS      = 0,
+    parameter       CHAIN_MEM_WORDS     = 0
+)(
     input           clk,
     input           resetn,
 
@@ -62,12 +64,12 @@ module emu_controller (
 
     output              emu_clk,
     output              emu_rst,
-    output reg          emu_pause,
+    output              emu_stall,
+    input               emu_stall_gen,
     output reg          emu_up_req,
     output reg          emu_down_req,
     input               emu_up_stat,
     input               emu_down_stat,
-    input               emu_stall,
     output              emu_ff_se,
     output      [63:0]  emu_ff_di,
     input       [63:0]  emu_ff_do,
@@ -206,7 +208,7 @@ module emu_controller (
     //      [5]     -> DOWN_STAT [RO]
     //      [31]    -> STEP_TRIG [RO]
 
-    reg emu_step_trig;
+    reg emu_pause, emu_step_trig;
     wire [31:0] emu_stat;
     assign emu_stat[31]     = emu_step_trig;
     assign emu_stat[30:2]   = 29'd0;
@@ -289,7 +291,7 @@ module emu_controller (
     end
 
     // EMU_CKPT_SIZE
-    wire [31:0] emu_ckpt_size = 8 * (`CHAIN_FF_WORDS + `CHAIN_MEM_WORDS);
+    wire [31:0] emu_ckpt_size = 8 * (CHAIN_FF_WORDS + CHAIN_MEM_WORDS);
 
     // EMU_TRIG_STAT [RO]
     // State of triggers
@@ -602,8 +604,8 @@ module emu_controller (
     // ram_scan_sig = RAM SCAN
     reg ff_scan_running, ram_scan_running, ram_scan_sig;
 
-    localparam CNT_BITS_FF  = $clog2(`CHAIN_FF_WORDS + 1);
-    localparam CNT_BITS_RAM = $clog2(`CHAIN_MEM_WORDS + 1);
+    localparam CNT_BITS_FF  = $clog2(CHAIN_FF_WORDS + 1);
+    localparam CNT_BITS_RAM = $clog2(CHAIN_MEM_WORDS + 1);
 
     reg [CNT_BITS_FF-1:0]   ff_scan_cnt;
     reg [CNT_BITS_RAM-1:0]  ram_scan_cnt;
@@ -611,7 +613,7 @@ module emu_controller (
     wire scan_running   = ff_scan_running || ram_scan_running;
 
     wire ff_scan_start  = read_desc_fire || write_desc_fire;
-    wire ff_scan_last   = (ff_scan_start || ff_scan_running) && ff_scan_cnt == `CHAIN_FF_WORDS;
+    wire ff_scan_last   = (ff_scan_start || ff_scan_running) && ff_scan_cnt == CHAIN_FF_WORDS;
 
     reg [1:0] ram_scan_wait;
     always @(posedge emu_clk) begin
@@ -623,7 +625,7 @@ module emu_controller (
 
     // wait 2 cycles in scan-out mode
     wire ram_scan_start = emu_dma_direction ? ff_scan_last : ram_scan_wait[1];
-    wire ram_scan_last  = (ram_scan_start || ram_scan_running) && ram_scan_cnt == `CHAIN_MEM_WORDS;
+    wire ram_scan_last  = (ram_scan_start || ram_scan_running) && ram_scan_cnt == CHAIN_MEM_WORDS;
 
     always @(posedge emu_clk) begin
         if (rst)
@@ -670,7 +672,7 @@ module emu_controller (
             ram_scan_cnt <= ram_scan_cnt + 1;
     end
 
-    if (`CHAIN_FF_WORDS == 0)
+    if (CHAIN_FF_WORDS == 0)
         assign emu_ff_di = 64'd0; // to avoid combinational logic loop
     else
         assign emu_ff_di = emu_dma_direction ? m_axis_read_data_tdata : emu_ff_do;
@@ -687,9 +689,11 @@ module emu_controller (
     assign s_axis_write_data_tlast  = ram_scan_last;
     assign s_axis_write_data_tdata  = {64{ff_scan_running}} & emu_ff_do | {64{ram_scan_running}} & emu_ram_do;
 
+    assign emu_stall = emu_pause || emu_stall_gen;
+
     assign emu_clk_en = !scan_stall;
-    assign emu_dut_clk_en = emu_clk_en && !emu_pause && !emu_stall;
-    assign emu_dut_ff_clk_en = emu_clk_en && (!emu_pause && !emu_stall || ff_scan_running);
-    assign emu_dut_ram_clk_en = emu_clk_en && (!emu_pause && !emu_stall || ram_scan_sig);
+    assign emu_dut_clk_en = emu_clk_en && !emu_stall;
+    assign emu_dut_ff_clk_en = emu_clk_en && (!emu_stall || ff_scan_running);
+    assign emu_dut_ram_clk_en = emu_clk_en && (!emu_stall || ram_scan_sig);
 
 endmodule
