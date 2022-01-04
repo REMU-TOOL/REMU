@@ -75,17 +75,7 @@ module sim_top();
 	wire              mem_axi_rready;
 	wire       [31:0] mem_axi_rdata;
 
-    wire emu_clk, emu_rst;
-    wire emu_pause, emu_stall;
-    wire emu_up_req, emu_down_req, emu_up_stat, emu_down_stat;
-    wire emu_ff_se, emu_ram_se, emu_ram_sd;
-    wire [63:0] emu_ff_di, emu_ff_do, emu_ram_di, emu_ram_do;
-    wire emu_dut_ff_clk, emu_dut_ram_clk, emu_dut_rst, emu_dut_trig;
-
-    wire putchar_valid, putchar_ready;
-    wire [7:0] putchar_data;
-
-    emu_controller u_emu_controller(
+    EMU_SYSTEM u_emu_system(
         .clk                        (clk),
         .resetn                     (resetn),
 
@@ -141,50 +131,6 @@ module sim_top();
         .s_axilite_bready           (1'b1),
         .s_axilite_bresp            (),
 
-        .emu_clk                    (emu_clk),
-        .emu_rst                    (emu_rst),
-        .emu_pause                  (emu_pause),
-        .emu_up_req                 (emu_up_req),
-        .emu_down_req               (emu_down_req),
-        .emu_up_stat                (emu_up_stat),
-        .emu_down_stat              (emu_down_stat),
-        .emu_stall                  (emu_stall),
-        .emu_ff_se                  (emu_ff_se),
-        .emu_ff_di                  (emu_ff_di),
-        .emu_ff_do                  (emu_ff_do),
-        .emu_ram_se                 (emu_ram_se),
-        .emu_ram_sd                 (emu_ram_sd),
-        .emu_ram_di                 (emu_ram_di),
-        .emu_ram_do                 (emu_ram_do),
-        .emu_dut_ff_clk             (emu_dut_ff_clk),
-        .emu_dut_ram_clk            (emu_dut_ram_clk),
-        .emu_dut_rst                (emu_dut_rst),
-        .emu_dut_trig               (emu_dut_trig),
-        .emu_putchar_valid          (putchar_valid),
-        .emu_putchar_ready          (putchar_ready),
-        .emu_putchar_data           (putchar_data)
-    );
-
-    EMU_DUT emu_dut(
-        .emu_clk            (emu_clk),
-        .emu_rst            (emu_rst),
-        .emu_ff_se          (emu_ff_se),
-        .emu_ff_di          (emu_ff_di),
-        .emu_ff_do          (emu_ff_do),
-        .emu_ram_se         (emu_ram_se),
-        .emu_ram_sd         (emu_ram_sd),
-        .emu_ram_di         (emu_ram_di),
-        .emu_ram_do         (emu_ram_do),
-        .emu_dut_ff_clk     (emu_dut_ff_clk),
-        .emu_dut_ram_clk    (emu_dut_ram_clk),
-        .emu_dut_rst        (emu_dut_rst),
-        .emu_dut_trig       (emu_dut_trig),
-        .emu_pause          (emu_pause || emu_stall),
-        .emu_up_req         (emu_up_req),
-        .emu_down_req       (emu_down_req),
-        .emu_up_stat        (emu_up_stat),
-        .emu_down_stat      (emu_down_stat),
-        .emu_stall          (emu_stall),
         .emu_auto_0_dram_awvalid        (mem_axi_awvalid),
         .emu_auto_0_dram_awready        (mem_axi_awready),
         .emu_auto_0_dram_awaddr         (mem_axi_awaddr),
@@ -223,10 +169,7 @@ module sim_top();
         .emu_auto_0_dram_rdata          (mem_axi_rdata),
         .emu_auto_0_dram_rresp          (2'b00),
         .emu_auto_0_dram_rid            (1'd0),
-        .emu_auto_0_dram_rlast          (1'b1),
-        .emu_putchar_valid              (putchar_valid),
-        .emu_putchar_ready              (putchar_ready),
-        .emu_putchar_data               (putchar_data)
+        .emu_auto_0_dram_rlast          (1'b1)
     );
 
     axi_ram #(
