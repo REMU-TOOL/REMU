@@ -35,16 +35,15 @@ module rammodel_test #(
     )
     uut (
         .clk            (clk),
-        .resetn         (resetn),
-        .dut_resetn     (dut_resetn),
+        .resetn         (resetn && dut_resetn),
         `AXI4_CONNECT   (s_dut, s_dut),
         `AXI4_CONNECT   (m_dram, m_dram),
-        .pause          (pause || dut_stall),
+        .stall          (pause || dut_stall),
         .up_req         (up_req),
         .down_req       (down_req),
         .up             (up),
         .down           (down),
-        .dut_stall      (dut_stall)
+        .stall_gen      (dut_stall)
     );
 
     wire dut_clk_en = !pause && !dut_stall;

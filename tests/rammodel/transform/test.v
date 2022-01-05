@@ -201,6 +201,7 @@ module test #(
         .s_axi_rlast    (s_axi_rlast),
 
         .emu_clk            (clk),
+        .emu_rst            (rst),
         .emu_ff_se          (ff_scan),
         .emu_ff_di          (ff_dir ? ff_sdi : ff_sdo),
         .emu_ff_do          (ff_sdo),
@@ -212,14 +213,12 @@ module test #(
         .emu_dut_ram_clk    (emu_dut_ram_clk),
         .emu_dut_rst        (rst),
         .emu_dut_trig       (),
-        .emu_clock          (clk),
-        .emu_reset          (rst),
-        .emu_pause          (pause || dut_stall),
+        .emu_stall          (pause || dut_stall),
+        .emu_stall_gen      (dut_stall),
         .emu_up_req         (up_req),
         .emu_down_req       (down_req),
         .emu_up_stat        (up),
         .emu_down_stat      (down),
-        .emu_stall          (dut_stall),
         `AXI4_CONNECT       (emu_auto_0_dram, m_axi)
     );
 
