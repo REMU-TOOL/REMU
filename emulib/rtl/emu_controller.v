@@ -2,6 +2,7 @@
 `include "axi.vh"
 
 `timescale 1ns / 1ps
+`default_nettype none
 
 module emu_controller #(
     parameter       CHAIN_FF_WORDS      = 0,

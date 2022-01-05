@@ -1,4 +1,5 @@
 `timescale 1ns / 1ps
+`default_nettype none
 
 module ready_valid_fork #(
     parameter   DATA_WIDTH      = 1

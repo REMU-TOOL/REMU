@@ -1,4 +1,5 @@
 `timescale 1 ns / 1 ps
+`default_nettype none
 
 module clock #(
     parameter CYCLE_PERIOD_PS = 10000,

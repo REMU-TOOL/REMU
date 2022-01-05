@@ -1,4 +1,5 @@
 `timescale 1ns / 1ps
+`default_nettype none
 
 module rammodel_simple_timing_model #(
     parameter   ADDR_WIDTH      = 32,

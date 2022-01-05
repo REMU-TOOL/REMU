@@ -1,4 +1,5 @@
 `timescale 1ns / 1ps
+`default_nettype none
 
 (* keep, emulib_component = "putchar" *)
 module PutCharDevice (
