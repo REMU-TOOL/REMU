@@ -211,6 +211,7 @@ module emu_controller #(
     //      [31]    -> STEP_TRIG [RO]
 
     reg emu_pause, emu_step_trig;
+    wire step_trig;
     wire [31:0] emu_stat;
     assign emu_stat[31]     = emu_step_trig;
     assign emu_stat[30:2]   = 29'd0;
@@ -278,7 +279,7 @@ module emu_controller #(
         end
     end
 
-    wire step_trig = emu_step != 32'd0 && emu_step_next == 32'd0;
+    assign step_trig = emu_step != 32'd0 && emu_step_next == 32'd0;
 
     always @(posedge clk) begin
         if (rst) begin
