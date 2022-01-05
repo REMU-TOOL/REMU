@@ -1,7 +1,5 @@
 `timescale 1ns / 1ps
 
-// NOTE: reset during a transaction is currently unsupported
-
 (* keep, emulib_component = "rammodel" *)
 module RAMModel #(
     parameter   ADDR_WIDTH      = 32,

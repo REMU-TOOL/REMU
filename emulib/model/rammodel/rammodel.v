@@ -1,4 +1,5 @@
 `timescale 1ns / 1ps
+`default_nettype none
 
 `include "axi.vh"
 
@@ -151,6 +152,21 @@ module rammodel #(
     (* keep, emu_intf_port = "dram_rlast"       *)
     wire                        m_axi_rlast;
 
+    wire mrg_stall, mrg_down, mrg_rst;
+
+    (* emu_no_scanchain *)
+    rst_down_gen u_rst_down_gen (
+        .clk            (model_clk),
+        .rst            (model_rst),
+        .dut_rst        (!aresetn),
+        .stall_gen      (mrg_stall),
+        .down_req       (mrg_down),
+        .down_stat      (down_stat),
+        .rst_gen        (mrg_rst)
+    );
+
+    wire rammodel_stall_gen;
+
     rammodel_simple #(
         .ADDR_WIDTH (ADDR_WIDTH),
         .DATA_WIDTH (DATA_WIDTH),
@@ -160,16 +176,17 @@ module rammodel #(
     )
     u_rammodel (
         .clk            (model_clk),
-        .resetn         (!model_rst),
-        .dut_resetn     (aresetn),
+        .resetn         (!(model_rst || mrg_rst)),
         `AXI4_CONNECT   (s_dut, s_axi),
         `AXI4_CONNECT   (m_dram, m_axi),
         .stall          (stall),
         .up_req         (up_req),
-        .down_req       (down_req),
+        .down_req       (down_req || mrg_down),
         .up             (up_stat),
         .down           (down_stat),
-        .stall_gen      (stall_gen)
+        .stall_gen      (rammodel_stall_gen)
     );
+
+    assign stall_gen = rammodel_stall_gen || mrg_stall;
 
 endmodule

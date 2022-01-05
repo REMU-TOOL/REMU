@@ -1,4 +1,5 @@
 `timescale 1ns / 1ps
+`default_nettype none
 
 `include "axi.vh"
 
@@ -11,8 +12,6 @@ module rammodel_simple #(
 )(
     input                       clk,
     input                       resetn,
-
-    input                       dut_resetn,
 
     `AXI4_SLAVE_IF              (s_dut,     ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
     `AXI4_MASTER_IF             (m_dram,    ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
@@ -39,7 +38,7 @@ module rammodel_simple #(
         .resetn         (resetn),
         `AXI4_CONNECT   (s, s_dut),
         `AXI4_CONNECT   (m, from_dut),
-        .stall          (stall || !dut_resetn)
+        .stall          (stall)
     );
 
     `AXI4_WIRE(to_timing_model,     ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
