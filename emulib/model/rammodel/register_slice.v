@@ -1,19 +1,20 @@
+`resetall
 `timescale 1ns / 1ps
 `default_nettype none
 
 module register_slice #(
     parameter   DATA_WIDTH      = 1
 )(
-    input                           clk,
-    input                           resetn,
+    input  wire                     clk,
+    input  wire                     resetn,
 
-    input                           s_valid,
-    input       [DATA_WIDTH-1:0]    s_data,
+    input  wire                     s_valid,
+    input  wire [DATA_WIDTH-1:0]    s_data,
     output reg                      s_ready,
 
     output reg                      m_valid,
     output reg  [DATA_WIDTH-1:0]    m_data,
-    input                           m_ready
+    input  wire                     m_ready
 );
 
     reg [DATA_WIDTH-1:0] s_data_r;
@@ -88,3 +89,5 @@ module register_slice #(
 `endif
 
 endmodule
+
+`resetall

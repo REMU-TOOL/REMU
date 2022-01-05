@@ -1,3 +1,4 @@
+`resetall
 `timescale 1ns / 1ps
 `default_nettype none
 
@@ -10,13 +11,13 @@ module axi_stall #(
     parameter   STALL_S         = 1,
     parameter   STALL_M         = 1
 )(
-    input                       clk,
-    input                       resetn,
+    input  wire                 clk,
+    input  wire                 resetn,
 
     `AXI4_SLAVE_IF              (s, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
     `AXI4_MASTER_IF             (m, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
 
-    input                       stall
+    input  wire                 stall
 );
 
     ready_valid_stall #(
@@ -95,3 +96,5 @@ module axi_stall #(
     );
 
 endmodule
+
+`resetall

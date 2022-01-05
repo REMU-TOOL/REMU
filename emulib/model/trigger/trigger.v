@@ -1,8 +1,9 @@
+`resetall
 `timescale 1 ns / 1 ps
 `default_nettype none
 
 module trigger(
-    input trigger
+    input wire trigger
 );
 
     (* keep, emu_intf_port = "dut_trig" *)
@@ -11,3 +12,5 @@ module trigger(
     assign _trig = trigger;
 
 endmodule
+
+`resetall

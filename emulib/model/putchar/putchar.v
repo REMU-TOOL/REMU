@@ -1,11 +1,12 @@
+`resetall
 `timescale 1ns / 1ps
 `default_nettype none
 
 module putchar (
-    input           clk,
-    input           rst,
-    input           valid,
-    input   [7:0]   data
+    input  wire         clk,
+    input  wire         rst,
+    input  wire         valid,
+    input  wire [7:0]   data
 );
 
     //(* keep, emu_intf_port = "clk"              *)  wire model_clk;
@@ -36,3 +37,5 @@ module putchar (
     assign putchar_data = data_r;
 
 endmodule
+
+`resetall

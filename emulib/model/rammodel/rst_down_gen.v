@@ -1,14 +1,15 @@
+`resetall
 `timescale 1ns / 1ps
 `default_nettype none
 
 module rst_down_gen (
-    input       clk,
-    input       rst,
-    input       dut_rst,
-    output      stall_gen,
-    output      down_req,
-    input       down_stat,
-    output      rst_gen
+    input  wire     clk,
+    input  wire     rst,
+    input  wire     dut_rst,
+    output wire     stall_gen,
+    output wire     down_req,
+    input  wire     down_stat,
+    output wire     rst_gen
 );
 
     localparam [2:0]
@@ -39,3 +40,5 @@ module rst_down_gen (
     assign rst_gen      = state == STATE_WAIT;
 
 endmodule
+
+`resetall

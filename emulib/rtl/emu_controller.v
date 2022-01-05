@@ -1,91 +1,92 @@
-`include "emu_csr.vh"
-`include "axi.vh"
-
+`resetall
 `timescale 1ns / 1ps
 `default_nettype none
+
+`include "emu_csr.vh"
+`include "axi.vh"
 
 module emu_controller #(
     parameter       CHAIN_FF_WORDS      = 0,
     parameter       CHAIN_MEM_WORDS     = 0
 )(
-    input           clk,
-    input           resetn,
+    input  wire         clk,
+    input  wire         resetn,
 
-    output          m_axi_arvalid,
-    input           m_axi_arready,
-    output  [63:0]  m_axi_araddr,
-    output  [ 2:0]  m_axi_arprot,
-    output  [ 7:0]  m_axi_arlen,
-    output  [ 2:0]  m_axi_arsize,
-    output  [ 1:0]  m_axi_arburst,
-    output  [ 0:0]  m_axi_arlock,
-    output  [ 3:0]  m_axi_arcache,
-    input           m_axi_rvalid,
-    output          m_axi_rready,
-    input   [ 1:0]  m_axi_rresp,
-    input   [63:0]  m_axi_rdata,
-    input           m_axi_rlast,
-    output          m_axi_awvalid,
-    input           m_axi_awready,
-    output  [63:0]  m_axi_awaddr,
-    output  [ 2:0]  m_axi_awprot,
-    output  [ 7:0]  m_axi_awlen,
-    output  [ 2:0]  m_axi_awsize,
-    output  [ 1:0]  m_axi_awburst,
-    output  [ 0:0]  m_axi_awlock,
-    output  [ 3:0]  m_axi_awcache,
-    output          m_axi_wvalid,
-    input           m_axi_wready,
-    output  [63:0]  m_axi_wdata,
-    output  [ 7:0]  m_axi_wstrb,
-    output          m_axi_wlast,
-    input           m_axi_bvalid,
-    output          m_axi_bready,
-    input   [ 1:0]  m_axi_bresp,
+    output wire         m_axi_arvalid,
+    input  wire         m_axi_arready,
+    output wire [63:0]  m_axi_araddr,
+    output wire [ 2:0]  m_axi_arprot,
+    output wire [ 7:0]  m_axi_arlen,
+    output wire [ 2:0]  m_axi_arsize,
+    output wire [ 1:0]  m_axi_arburst,
+    output wire [ 0:0]  m_axi_arlock,
+    output wire [ 3:0]  m_axi_arcache,
+    input  wire         m_axi_rvalid,
+    output wire         m_axi_rready,
+    input  wire [ 1:0]  m_axi_rresp,
+    input  wire [63:0]  m_axi_rdata,
+    input  wire         m_axi_rlast,
+    output wire         m_axi_awvalid,
+    input  wire         m_axi_awready,
+    output wire [63:0]  m_axi_awaddr,
+    output wire [ 2:0]  m_axi_awprot,
+    output wire [ 7:0]  m_axi_awlen,
+    output wire [ 2:0]  m_axi_awsize,
+    output wire [ 1:0]  m_axi_awburst,
+    output wire [ 0:0]  m_axi_awlock,
+    output wire [ 3:0]  m_axi_awcache,
+    output wire         m_axi_wvalid,
+    input  wire         m_axi_wready,
+    output wire [63:0]  m_axi_wdata,
+    output wire [ 7:0]  m_axi_wstrb,
+    output wire         m_axi_wlast,
+    input  wire         m_axi_bvalid,
+    output wire         m_axi_bready,
+    input  wire [ 1:0]  m_axi_bresp,
 
-    input           s_axilite_arvalid,
-    output          s_axilite_arready,
-    input   [11:0]  s_axilite_araddr,
-    input   [ 2:0]  s_axilite_arprot,
-    output          s_axilite_rvalid,
-    input           s_axilite_rready,
-    output  [ 1:0]  s_axilite_rresp,
-    output  [31:0]  s_axilite_rdata,
-    input           s_axilite_awvalid,
-    output          s_axilite_awready,
-    input   [11:0]  s_axilite_awaddr,
-    input   [ 2:0]  s_axilite_awprot,
-    input           s_axilite_wvalid,
-    output          s_axilite_wready,
-    input   [31:0]  s_axilite_wdata,
-    input   [ 3:0]  s_axilite_wstrb,
-    output          s_axilite_bvalid,
-    input           s_axilite_bready,
-    output  [ 1:0]  s_axilite_bresp,
+    input  wire         s_axilite_arvalid,
+    output wire         s_axilite_arready,
+    input  wire [11:0]  s_axilite_araddr,
+    input  wire [ 2:0]  s_axilite_arprot,
+    output wire         s_axilite_rvalid,
+    input  wire         s_axilite_rready,
+    output wire [ 1:0]  s_axilite_rresp,
+    output wire [31:0]  s_axilite_rdata,
+    input  wire         s_axilite_awvalid,
+    output wire         s_axilite_awready,
+    input  wire [11:0]  s_axilite_awaddr,
+    input  wire [ 2:0]  s_axilite_awprot,
+    input  wire         s_axilite_wvalid,
+    output wire         s_axilite_wready,
+    input  wire [31:0]  s_axilite_wdata,
+    input  wire [ 3:0]  s_axilite_wstrb,
+    output wire         s_axilite_bvalid,
+    input  wire         s_axilite_bready,
+    output wire [ 1:0]  s_axilite_bresp,
 
-    output              emu_clk,
-    output              emu_rst,
-    output              emu_stall,
-    input               emu_stall_gen,
+    output wire         emu_clk,
+    output wire         emu_rst,
+    output wire         emu_stall,
+    input  wire         emu_stall_gen,
     output reg          emu_up_req,
     output reg          emu_down_req,
-    input               emu_up_stat,
-    input               emu_down_stat,
-    output              emu_ff_se,
-    output      [63:0]  emu_ff_di,
-    input       [63:0]  emu_ff_do,
-    output              emu_ram_se,
-    output              emu_ram_sd,
-    output      [63:0]  emu_ram_di,
-    input       [63:0]  emu_ram_do,
-    output              emu_dut_ff_clk,     // TODO: width
-    output              emu_dut_ram_clk,    // TODO: width
+    input  wire         emu_up_stat,
+    input  wire         emu_down_stat,
+    output wire         emu_ff_se,
+    output wire [63:0]  emu_ff_di,
+    input  wire [63:0]  emu_ff_do,
+    output wire         emu_ram_se,
+    output wire         emu_ram_sd,
+    output wire [63:0]  emu_ram_di,
+    input  wire [63:0]  emu_ram_do,
+    output wire         emu_dut_ff_clk,     // TODO: width
+    output wire         emu_dut_ram_clk,    // TODO: width
     output reg          emu_dut_rst,        // TODO: width
-    input       [31:0]  emu_dut_trig,
+    input  wire [31:0]  emu_dut_trig,
 
-    input               emu_putchar_valid,
-    output              emu_putchar_ready,
-    input       [7 :0]  emu_putchar_data
+    input  wire         emu_putchar_valid,
+    output wire         emu_putchar_ready,
+    input  wire [7 :0]  emu_putchar_data
 
 );
 
@@ -698,3 +699,5 @@ module emu_controller #(
     assign emu_dut_ram_clk_en = emu_clk_en && (!emu_stall || ram_scan_sig);
 
 endmodule
+
+`resetall

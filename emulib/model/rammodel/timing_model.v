@@ -1,3 +1,4 @@
+`resetall
 `timescale 1ns / 1ps
 `default_nettype none
 
@@ -6,34 +7,34 @@ module rammodel_simple_timing_model #(
     parameter   R_DELAY         = 25,
     parameter   W_DELAY         = 3
 )(
-    input                       clk,
-    input                       resetn,
+    input  wire                     clk,
+    input  wire                     resetn,
 
-    input                       arvalid,
-    output                      arready,
-    input   [ADDR_WIDTH-1:0]    araddr,
-    input   [7:0]               arlen,
-    input   [2:0]               arsize,
-    input   [1:0]               arburst,
+    input  wire                     arvalid,
+    output wire                     arready,
+    input  wire [ADDR_WIDTH-1:0]    araddr,
+    input  wire [7:0]               arlen,
+    input  wire [2:0]               arsize,
+    input  wire [1:0]               arburst,
 
-    output                      rvalid,
-    input                       rready,
+    output wire                     rvalid,
+    input  wire                     rready,
 
-    input                       awvalid,
-    output                      awready,
-    input   [ADDR_WIDTH-1:0]    awaddr,
-    input   [7:0]               awlen,
-    input   [2:0]               awsize,
-    input   [1:0]               awburst,
+    input  wire                     awvalid,
+    output wire                     awready,
+    input  wire [ADDR_WIDTH-1:0]    awaddr,
+    input  wire [7:0]               awlen,
+    input  wire [2:0]               awsize,
+    input  wire [1:0]               awburst,
 
-    input                       wvalid,
-    output                      wready,
-    input                       wlast,
+    input  wire                     wvalid,
+    output wire                     wready,
+    input  wire                     wlast,
 
-    output                      bvalid,
-    input                       bready,
+    output wire                     bvalid,
+    input  wire                     bready,
 
-    input                       stall
+    input  wire                     stall
 
 );
 
@@ -115,3 +116,5 @@ module rammodel_simple_timing_model #(
     assign bvalid   = aw && w && wcnt == 16'd0;
 
 endmodule
+
+`resetall

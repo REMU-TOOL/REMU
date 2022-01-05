@@ -1,3 +1,4 @@
+`resetall
 `timescale 1ns / 1ps
 `default_nettype none
 
@@ -10,20 +11,20 @@ module rammodel_simple #(
     parameter   R_DELAY         = 25,
     parameter   W_DELAY         = 3
 )(
-    input                       clk,
-    input                       resetn,
+    input  wire                 clk,
+    input  wire                 resetn,
 
     `AXI4_SLAVE_IF              (s_dut,     ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
     `AXI4_MASTER_IF             (m_dram,    ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
 
-    input                       stall,
+    input  wire                 stall,
 
-    input                       up_req,
-    input                       down_req,
-    output                      up,
-    output                      down,
+    input  wire                 up_req,
+    input  wire                 down_req,
+    output wire                 up,
+    output wire                 down,
 
-    output                      stall_gen
+    output wire                 stall_gen
 );
 
     `AXI4_WIRE(from_dut, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
@@ -165,3 +166,5 @@ module rammodel_simple #(
     );
 
 endmodule
+
+`resetall

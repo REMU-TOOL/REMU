@@ -1,3 +1,4 @@
+`resetall
 `timescale 1ns / 1ps
 `default_nettype none
 
@@ -6,15 +7,15 @@ module ready_valid_stall #(
     parameter   STALL_S         = 1,
     parameter   STALL_M         = 1
 )(
-    input                           s_valid,
-    input       [DATA_WIDTH-1:0]    s_data,
-    output                          s_ready,
+    input  wire                         s_valid,
+    input  wire     [DATA_WIDTH-1:0]    s_data,
+    output wire                         s_ready,
 
-    output                          m_valid,
-    output      [DATA_WIDTH-1:0]    m_data,
-    input                           m_ready,
+    output wire                         m_valid,
+    output wire     [DATA_WIDTH-1:0]    m_data,
+    input  wire                         m_ready,
 
-    input                           stall
+    input  wire                         stall
 );
 
     if (STALL_S)
@@ -30,3 +31,5 @@ module ready_valid_stall #(
     assign m_data = s_data;
 
 endmodule
+
+`resetall

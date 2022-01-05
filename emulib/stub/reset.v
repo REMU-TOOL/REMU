@@ -1,3 +1,4 @@
+`resetall
 `timescale 1 ns / 1 ps
 `default_nettype none
 
@@ -6,7 +7,7 @@ module EmuReset #(
     parameter DURATION_NS = 20
 )
 (
-    output reset
+    output wire reset
 );
 
 `ifdef RECONSTRUCT
@@ -32,3 +33,5 @@ module EmuReset #(
 `endif
 
 endmodule
+
+`resetall

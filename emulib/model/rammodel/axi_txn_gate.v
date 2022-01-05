@@ -1,3 +1,4 @@
+`resetall
 `timescale 1ns / 1ps
 `default_nettype none
 
@@ -11,16 +12,16 @@ module rammodel_axi_txn_gate #(
     parameter   DATA_WIDTH      = 64,
     parameter   ID_WIDTH        = 4
 )(
-    input                       clk,
-    input                       resetn,
+    input  wire                 clk,
+    input  wire                 resetn,
 
     `AXI4_SLAVE_IF              (s, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
     `AXI4_MASTER_IF             (m, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
 
-    input                       up_req,
-    input                       down_req,
-    output                      up,
-    output                      down
+    input  wire                 up_req,
+    input  wire                 down_req,
+    output wire                 up,
+    output wire                 down
 );
 
     wire s_arfire   = s_arvalid && s_arready;
@@ -319,3 +320,5 @@ module rammodel_axi_txn_gate #(
 `endif
 
 endmodule
+
+`resetall

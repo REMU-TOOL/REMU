@@ -1,4 +1,5 @@
-`timescale 1 ns / 1 ps
+`resetall
+`timescale 1ns / 1ps
 `default_nettype none
 
 module clock #(
@@ -6,8 +7,8 @@ module clock #(
     parameter PHASE_SHIFT_PS = 0
 )
 (
-    output clock,
-    output ram_clock
+    output wire clock,
+    output wire ram_clock
 );
 
     (* keep, emu_intf_port = "dut_ff_clk" *)
@@ -19,3 +20,5 @@ module clock #(
     assign ram_clock = _ram_clk;
 
 endmodule
+
+`resetall

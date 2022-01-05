@@ -1,3 +1,4 @@
+`resetall
 `timescale 1ns / 1ps
 `default_nettype none
 
@@ -8,8 +9,8 @@ module axi_register_slice #(
     parameter   DATA_WIDTH              = 64,
     parameter   ID_WIDTH                = 4
 )(
-    input                       clk,
-    input                       resetn,
+    input  wire                 clk,
+    input  wire                 resetn,
     `AXI4_SLAVE_IF              (s, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
     `AXI4_MASTER_IF             (m, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)
 );
@@ -85,3 +86,5 @@ module axi_register_slice #(
     );
 
 endmodule
+
+`resetall

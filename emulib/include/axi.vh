@@ -45,19 +45,19 @@
 
 // Define an AXI4-Lite slave interface in module port declaration
 `define AXI4LITE_SLAVE_IF(prefix, addr_width, data_width) \
-    `_AXI4LITE(input, output, prefix, addr_width, data_width, `_AXI_VH_DELIMITER_COMMA)
+    `_AXI4LITE(input wire, output wire, prefix, addr_width, data_width, `_AXI_VH_DELIMITER_COMMA)
 
 // Define an AXI4-Lite master interface in module port declaration
 `define AXI4LITE_MASTER_IF(prefix, addr_width, data_width) \
-    `_AXI4LITE(output, input, prefix, addr_width, data_width, `_AXI_VH_DELIMITER_COMMA)
+    `_AXI4LITE(output wire, input wire, prefix, addr_width, data_width, `_AXI_VH_DELIMITER_COMMA)
 
 // Define an AXI4-Lite monitor input interface in module port declaration
 `define AXI4LITE_INPUT_IF(prefix, addr_width, data_width) \
-    `_AXI4LITE(input, input, prefix, addr_width, data_width, `_AXI_VH_DELIMITER_COMMA)
+    `_AXI4LITE(input wire, input wire, prefix, addr_width, data_width, `_AXI_VH_DELIMITER_COMMA)
 
 // Define an AXI4-Lite monitor input interface in module port declaration
 `define AXI4LITE_OUTPUT_IF(prefix, addr_width, data_width) \
-    `_AXI4LITE(output, output, prefix, addr_width, data_width, `_AXI_VH_DELIMITER_COMMA)
+    `_AXI4LITE(output wire, output wire, prefix, addr_width, data_width, `_AXI_VH_DELIMITER_COMMA)
 
 // Define an AXI4-Lite wire bundle in module context
 `define AXI4LITE_WIRE(prefix, addr_width, data_width) \
@@ -189,19 +189,19 @@
 
 // Define an AXI4 slave interface in module port declaration
 `define AXI4_SLAVE_IF(prefix, addr_width, data_width, id_width) \
-    `_AXI4(input, output, prefix, addr_width, data_width, id_width, `_AXI_VH_DELIMITER_COMMA)
+    `_AXI4(input wire, output wire, prefix, addr_width, data_width, id_width, `_AXI_VH_DELIMITER_COMMA)
 
 // Define an AXI4 master interface in module port declaration
 `define AXI4_MASTER_IF(prefix, addr_width, data_width, id_width) \
-    `_AXI4(output, input, prefix, addr_width, data_width, id_width, `_AXI_VH_DELIMITER_COMMA)
+    `_AXI4(output wire, input wire, prefix, addr_width, data_width, id_width, `_AXI_VH_DELIMITER_COMMA)
 
 // Define an AXI4 monitor input interface in module port declaration
 `define AXI4_INPUT_IF(prefix, addr_width, data_width, id_width) \
-    `_AXI4(input, input, prefix, addr_width, data_width, id_width, `_AXI_VH_DELIMITER_COMMA)
+    `_AXI4(input wire, input wire, prefix, addr_width, data_width, id_width, `_AXI_VH_DELIMITER_COMMA)
 
 // Define an AXI4 monitor output interface in module port declaration
 `define AXI4_OUTPUT_IF(prefix, addr_width, data_width, id_width) \
-    `_AXI4(output, output, prefix, addr_width, data_width, id_width, `_AXI_VH_DELIMITER_COMMA)
+    `_AXI4(output wire, output wire, prefix, addr_width, data_width, id_width, `_AXI_VH_DELIMITER_COMMA)
 
 // Define an AXI4 wire bundle in module context
 `define AXI4_WIRE(prefix, addr_width, data_width, id_width) \

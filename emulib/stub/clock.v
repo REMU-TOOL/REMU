@@ -1,3 +1,4 @@
+`resetall
 `timescale 1 ns / 1 ps
 `default_nettype none
 
@@ -7,7 +8,7 @@ module EmuClock #(
     parameter PHASE_SHIFT_PS = 0
 )
 (
-    output clock
+    output wire clock
 );
 
 `ifdef RECONSTRUCT
@@ -24,3 +25,5 @@ module EmuClock #(
 `endif
 
 endmodule
+
+`resetall
