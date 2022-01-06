@@ -6,6 +6,7 @@ module rst_down_gen (
     input  wire     clk,
     input  wire     rst,
     input  wire     dut_rst,
+    input  wire     stall,
     output wire     stall_gen,
     output wire     down_req,
     input  wire     down_stat,
@@ -28,9 +29,9 @@ module rst_down_gen (
 
     always @* begin
         case (state)
-            STATE_INIT: state_next = dut_rst ? STATE_DOWN : STATE_INIT;
+            STATE_INIT: state_next = dut_rst && !stall ? STATE_DOWN : STATE_INIT;
             STATE_DOWN: state_next = down_stat ? STATE_WAIT : STATE_DOWN;
-            STATE_WAIT:  state_next = !dut_rst ? STATE_INIT : STATE_WAIT;
+            STATE_WAIT:  state_next = !dut_rst && !stall ? STATE_INIT : STATE_WAIT;
             default:    state_next = STATE_INIT;
         endcase
     end

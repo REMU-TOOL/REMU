@@ -692,7 +692,11 @@ module emu_controller #(
     assign s_axis_write_data_tlast  = ram_scan_last;
     assign s_axis_write_data_tdata  = {64{ff_scan_running}} & emu_ff_do | {64{ram_scan_running}} & emu_ram_do;
 
-    assign emu_stall = emu_pause || emu_stall_gen;
+    // release stall when reset
+    reg stall_mask;
+    always @(posedge clk) stall_mask <= !rst;
+
+    assign emu_stall = stall_mask && (emu_pause || emu_stall_gen);
 
     assign emu_clk_en = !scan_stall;
     assign emu_dut_clk_en = emu_clk_en && !emu_stall;

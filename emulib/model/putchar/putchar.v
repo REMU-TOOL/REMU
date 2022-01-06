@@ -10,7 +10,7 @@ module putchar (
 );
 
     //(* keep, emu_intf_port = "clk"              *)  wire model_clk;
-    //(* keep, emu_intf_port = "rst"              *)  wire model_rst;
+    (* keep, emu_intf_port = "rst"              *)  wire model_rst;
     (* keep, emu_intf_port = "stall_gen"        *)  wire stall_gen;
 
     (* keep, emu_intf_port = "putchar_valid"    *)  wire putchar_valid;
@@ -21,7 +21,7 @@ module putchar (
     reg [7:0] data_r;
 
     always @(posedge clk)
-        if (rst)
+        if (rst || model_rst)
             valid_r <= 1'b0;
         else if (valid)
             valid_r <= 1'b1;

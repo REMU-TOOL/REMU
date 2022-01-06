@@ -160,6 +160,7 @@ module rammodel #(
         .clk            (model_clk),
         .rst            (model_rst),
         .dut_rst        (!aresetn),
+        .stall          (stall),
         .stall_gen      (mrg_stall),
         .down_req       (mrg_down),
         .down_stat      (down_stat),
