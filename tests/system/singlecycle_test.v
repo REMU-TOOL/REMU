@@ -434,12 +434,12 @@ module sim_top();
             finish = 1;
         end
         if (resetn && !u_emu_system.controller.emu_stall) begin
-            if (u_emu_system.dut.\u_cpu.rf_wen !== emu_ref.u_cpu.rf_wen ||
-                u_emu_system.dut.\u_cpu.rf_waddr !== emu_ref.u_cpu.rf_waddr ||
-                u_emu_system.dut.\u_cpu.rf_wdata !== emu_ref.u_cpu.rf_wdata)
+            if (u_emu_system.dut.u_cpu.rf_wen !== emu_ref.u_cpu.rf_wen ||
+                u_emu_system.dut.u_cpu.rf_waddr !== emu_ref.u_cpu.rf_waddr ||
+                u_emu_system.dut.u_cpu.rf_wdata !== emu_ref.u_cpu.rf_wdata)
             begin
                 $display("ERROR: trace mismatch");
-                $display("DUT: wen=%h waddr=%h wdata=%h", u_emu_system.dut.\u_cpu.rf_wen , u_emu_system.dut.\u_cpu.rf_waddr , u_emu_system.dut.\u_cpu.rf_wdata );
+                $display("DUT: wen=%h waddr=%h wdata=%h", u_emu_system.dut.u_cpu.rf_wen, u_emu_system.dut.u_cpu.rf_waddr, u_emu_system.dut.u_cpu.rf_wdata);
                 $display("REF: wen=%h waddr=%h wdata=%h", emu_ref.u_cpu.rf_wen, emu_ref.u_cpu.rf_waddr, emu_ref.u_cpu.rf_wdata);
                 $fatal;
             end

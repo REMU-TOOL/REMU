@@ -77,12 +77,12 @@ module sim_top();
                 $display("Benchmark finished with result = %d at cycle %d", result, cycle);
                 finish = 1;
             end
-            if (emu_dut.\u_cpu.rf_wen !== emu_ref.u_cpu.rf_wen ||
-                emu_dut.\u_cpu.rf_waddr !== emu_ref.u_cpu.rf_waddr ||
-                emu_dut.\u_cpu.rf_wdata !== emu_ref.u_cpu.rf_wdata)
+            if (emu_dut.u_cpu.rf_wen !== emu_ref.u_cpu.rf_wen ||
+                emu_dut.u_cpu.rf_waddr !== emu_ref.u_cpu.rf_waddr ||
+                emu_dut.u_cpu.rf_wdata !== emu_ref.u_cpu.rf_wdata)
             begin
                 $display("ERROR: trace mismatch at cycle %d", cycle);
-                $display("DUT: wen=%h waddr=%h wdata=%h", emu_dut.\u_cpu.rf_wen , emu_dut.\u_cpu.rf_waddr , emu_dut.\u_cpu.rf_wdata );
+                $display("DUT: wen=%h waddr=%h wdata=%h", emu_dut.u_cpu.rf_wen, emu_dut.u_cpu.rf_waddr, emu_dut.u_cpu.rf_wdata);
                 $display("REF: wen=%h waddr=%h wdata=%h", emu_ref.u_cpu.rf_wen, emu_ref.u_cpu.rf_waddr, emu_ref.u_cpu.rf_wdata);
                 $fatal;
             end
