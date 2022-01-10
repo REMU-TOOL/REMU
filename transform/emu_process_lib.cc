@@ -3,19 +3,20 @@
 #include "kernel/modtools.h"
 
 #include "emu.h"
+#include "interface.h"
 
 using namespace Emu;
+using namespace Emu::Interface;
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct HandlerContext {
     Module *module;
-    Database &db;
     EmulibData &emulib;
 
-    HandlerContext(Module *module, Database &db)
-        : module(module), db(db), emulib(db.emulib) {}
+    HandlerContext(Module *module, EmulibData &emulib)
+        : module(module), emulib(emulib) {}
 };
 
 struct ModelHandler {
@@ -254,9 +255,9 @@ struct PutCharHandler : public ModelHandler {
 struct ProcessLibWorker {
 
     Module *module;
-    Database &db;
+    EmulibData &emulib;
 
-    ProcessLibWorker(Module *module, Database &db) : module(module), db(db) {}
+    ProcessLibWorker(Module *module, EmulibData &emulib) : module(module), emulib(emulib) {}
 
     void run() {
         // check if already processed
@@ -265,7 +266,7 @@ struct ProcessLibWorker {
             return;
         }
 
-        HandlerContext ctxt(module, db);
+        HandlerContext ctxt(module, emulib);
 
         for (auto &cell : module->selected_cells())
             ModelHandler::handle(ctxt, cell);
@@ -312,13 +313,11 @@ struct EmuProcessLibPass : public Pass {
 
         Database &db = Database::databases[db_name];
 
-        Module *top = design->top_module();
-		if (!top)
-			log_error("No top module found.\n");
-
-        log("Processing module %s\n", top->name.c_str());
-        ProcessLibWorker worker(top, db);
-        worker.run();
+        for (auto mod : design->selected_modules()) {
+            log("Processing module %s\n", mod->name.c_str());
+            ProcessLibWorker worker(mod, db.emulib[mod->name]);
+            worker.run();
+        }
 
         log_pop();
     }

@@ -74,7 +74,6 @@ struct EmuTransformPass : public ScriptPass {
 
         run("emu_preproc_attr");
         run("proc");
-        run("flatten");
         run("opt");
         run("wreduce");
         run("memory_share");

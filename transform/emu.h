@@ -48,14 +48,6 @@ const char
     // Compatible: wire (clock ports)
     AttrClkPortRewritten    [] = "\\emu_clk_port_rewritten";
 
-// fixup_ports must be called after all ports are created
-void promote_intf_port(Module *module, std::string name, Wire *wire);
-
-// fixup_ports must be called after all ports are created
-Wire *create_intf_port(Module *module, std::string name, int width);
-
-std::vector<Wire *> get_intf_ports(Module *module, std::string name);
-
 bool is_public_id(IdString id);
 std::string str_id(IdString id);
 
@@ -137,8 +129,9 @@ struct EmulibCellInfo {
 typedef std::map<std::string, std::vector<EmulibCellInfo>> EmulibData;
 
 struct Database {
-    ScanChainData scanchain;
-    EmulibData emulib;
+    IdString top;
+    dict<IdString, ScanChainData> scanchain;
+    dict<IdString, EmulibData> emulib;
 
     static std::map<std::string, Database> databases;
 };

@@ -1,12 +1,16 @@
 #include "kernel/yosys.h"
+#include "kernel/utils.h"
 
 #include "emu.h"
+#include "interface.h"
 
 using namespace Emu;
+using namespace Emu::Interface;
 
 USING_YOSYS_NAMESPACE
 
 namespace Emu {
+namespace Interface {
 
 enum IntfProp {
     InputShare          = 0x0,
@@ -33,6 +37,8 @@ const std::map<std::string, IntfProp> intf_list = {
     {"ram_sd",          InputShare},
     {"ram_di",          InputShare},
     {"ram_do",          OutputAppend},
+    {"ram_li",          InputShare},
+    {"ram_lo",          OutputAppend},
     {"stall",           InputShare},
     {"stall_gen",       OutputOrReduce},
     {"up_req",          InputShare},
@@ -138,14 +144,164 @@ std::vector<Wire *> get_intf_ports(Module *module, std::string name) {
     return port_list;
 }
 
-}
+} // namespace Interface
+} // namespace Emu
 
 PRIVATE_NAMESPACE_BEGIN
+
+struct RenameModuleWorker {
+    Design *design;
+    dict<IdString, Module *> mod_map;
+    dict<Module *, pool<Cell *>> inst_map; // mod name -> cells
+
+    bool rename(IdString old_name, IdString new_name) {
+        if (mod_map.count(old_name) == 0 || mod_map.count(new_name) > 0)
+            return false;
+
+        Module *module = design->module(old_name);
+        design->rename(module, new_name);
+
+        for (auto cell : inst_map.at(module)) {
+            cell->type = new_name;
+        }
+
+        mod_map[new_name] = mod_map.at(old_name);
+        mod_map.erase(old_name);
+
+        return true;
+    }
+
+    RenameModuleWorker(Design *design) : design(design) {
+        for (auto module : design->modules()) {
+            mod_map[module->name] = module;
+            inst_map.insert(module);
+        }
+        for (auto module : design->modules()) {
+            for (auto cell : module->cells()) {
+                if (mod_map.count(cell->type) > 0) {
+                    Module *module = design->module(cell->type);
+                    inst_map[module].insert(cell);
+                }
+            }
+        }
+    }
+};
 
 struct PackageWorker {
 
     Database &database;
     Design *design;
+
+    void process_submod_cell(Cell *cell) {
+        Module *module = cell->module;
+        Module *target = design->module(cell->type);
+        EmulibData &emulib = database.emulib[module->name];
+        ScanChainData &sc = database.scanchain[module->name];
+
+        // promote submodule interfaces
+        for (auto it : intf_list) {
+            std::vector<Wire *> target_wires = get_intf_ports(target, it.first);
+            if (it.first != "ff_di" && it.first != "ff_do" &&
+                it.first != "ram_di" && it.first != "ram_do" &&
+                it.first != "ram_li" && it.first != "ram_lo") {
+                for (auto target_wire : target_wires) {
+                    Wire *wire = module->addWire(NEW_ID, target_wire);
+                    cell->setPort(target_wire->name, wire);
+                    promote_intf_port(module, it.first, wire);
+                }
+            }
+        }
+
+        // connect submodule scanchain
+
+        auto module_ff_di = get_intf_ports(module, "ff_di");
+        auto module_ram_di = get_intf_ports(module, "ram_di");
+        auto module_ram_lo = get_intf_ports(module, "ram_lo");
+        auto target_ff_di = get_intf_ports(target, "ff_di");
+        auto target_ff_do = get_intf_ports(target, "ff_do");
+        auto target_ram_di = get_intf_ports(target, "ram_di");
+        auto target_ram_do = get_intf_ports(target, "ram_do");
+        auto target_ram_li = get_intf_ports(target, "ram_li");
+        auto target_ram_lo = get_intf_ports(target, "ram_lo");
+
+        log_assert(GetSize(module_ff_di) == 1);
+        log_assert(GetSize(module_ram_di) == 1);
+        log_assert(GetSize(module_ram_lo) == 1);
+        log_assert(GetSize(target_ff_di) == 1);
+        log_assert(GetSize(target_ff_do) == 1);
+        log_assert(GetSize(target_ram_di) == 1);
+        log_assert(GetSize(target_ram_do) == 1);
+        log_assert(GetSize(target_ram_li) == 1);
+        log_assert(GetSize(target_ram_lo) == 1);
+
+        IdString ff_di_name = module_ff_di[0]->name;
+        IdString ram_di_name = module_ram_di[0]->name;
+        IdString ram_lo_name = module_ram_lo[0]->name;
+        module->rename(module_ff_di[0], NEW_ID);
+        module->rename(module_ram_di[0], NEW_ID);
+        module->rename(module_ram_lo[0], NEW_ID);
+        Wire *new_ff_di = module->addWire(ff_di_name, module_ff_di[0]);
+        Wire *new_ram_di = module->addWire(ram_di_name, module_ram_di[0]);
+        Wire *new_ram_lo = module->addWire(ram_lo_name, module_ram_lo[0]);
+        module_ff_di[0]->port_input = false;
+        module_ram_di[0]->port_input = false;
+        module_ram_lo[0]->port_output = false;
+
+        cell->setPort(target_ff_di[0]->name, new_ff_di);
+        cell->setPort(target_ram_di[0]->name, new_ram_di);
+        cell->setPort(target_ram_li[0]->name, module_ram_lo[0]);
+        cell->setPort(target_ff_do[0]->name, module_ff_di[0]);
+        cell->setPort(target_ram_do[0]->name, module_ram_di[0]);
+        cell->setPort(target_ram_lo[0]->name, new_ram_lo);
+
+        // import submodule model data
+        for (auto it : database.emulib[target->name]) {
+            auto &this_data = emulib[it.first];
+            for (auto &data : it.second)
+                this_data.push_back(data.nest(cell));
+        }
+
+        // import submodule scanchain data
+        auto target_sc = database.scanchain[target->name];
+        for (auto &ff : target_sc.ff)
+            sc.ff.push_back(ff.nest(cell));
+        for (auto &mem : target_sc.mem)
+            sc.mem.push_back(mem.nest(cell));
+    }
+
+    // Promote interfaces & import databases from child modules to parent modules
+    void process_hier() {
+        TopoSort<RTLIL::Module*, IdString::compare_ptr_by_name<RTLIL::Module>> topo_modules;
+        for (auto &mod : design->selected_modules()) {
+            topo_modules.node(mod);
+            for (auto &cell : mod->selected_cells()) {
+                Module *tpl = design->module(cell->type);
+                if (tpl && design->selected_module(tpl)) {
+                    topo_modules.edge(tpl, mod);
+                }
+            }
+        }
+
+        if (!topo_modules.sort())
+            log_error("Recursive instantiation detected.\n");
+
+        for (auto &mod : topo_modules.sorted) {
+            log("Processing module %s\n", mod->name.c_str());
+
+            if (!mod->get_bool_attribute(AttrLibProcessed))
+                log_error("Module %s is not processed by emu_process_lib. Run emu_process_lib first.\n", log_id(mod));
+
+            if (!mod->get_bool_attribute(AttrInstrumented))
+                log_error("Module %s is not processed by emu_instrument. Run emu_instrument first.\n", log_id(mod));
+
+            for (auto cell : mod->cells()) {
+                if (design->has(cell->type)) {
+                    process_submod_cell(cell);
+                }
+            }
+            mod->fixup_ports();
+        }
+    }
 
     void process_intf_ports(Module *module) {
         for (auto &it : intf_list) {
@@ -214,6 +370,42 @@ struct PackageWorker {
 
         module->fixup_ports();
     }
+
+    void generate_mem_last_i(Module *module, int depth, SigSpec clk, SigSpec scan, SigSpec dir, SigSpec last_i) {
+        const int cntbits = ceil_log2(depth + 1);
+
+        // generate last_i signal for mem scan chain
+        // delay 1 cycle for scan-out mode to prepare raddr
+
+        // reg [..] cnt;
+        // wire full = cnt == depth;
+        // always @(posedge clk)
+        //   if (!scan)
+        //     cnt <= 0;
+        //   else if (!full)
+        //     cnt <= cnt + 1;
+        // reg scan_r;
+        // always @(posedge clk) scan_r <= scan;
+        // wire ok = dir ? full : scan_r;
+        // reg ok_r;
+        // always @(posedge clk)
+        //    ok_r <= ok;
+        // assign last_i = ok && !ok_r;
+
+        SigSpec cnt = module->addWire(NEW_ID, cntbits);
+        SigSpec full = module->Eq(NEW_ID, cnt, Const(depth, cntbits));
+        module->addSdffe(NEW_ID, clk, module->Not(NEW_ID, full), module->Not(NEW_ID, scan),
+            module->Add(NEW_ID, cnt, Const(1, cntbits)), cnt, Const(0, cntbits)); 
+
+        SigSpec scan_r = module->addWire(NEW_ID);
+        module->addDff(NEW_ID, clk, scan, scan_r);
+
+        SigSpec ok = module->Mux(NEW_ID, scan_r, full, dir);
+        SigSpec ok_r = module->addWire(NEW_ID);
+        module->addDff(NEW_ID, clk, ok, ok_r);
+
+        module->connect(last_i, module->And(NEW_ID, ok, module->Not(NEW_ID, ok_r)));
+    }
     
     void add_controller(Module *module) {
         std::string share_dirname = proc_share_dirname();
@@ -231,10 +423,12 @@ struct PackageWorker {
         Module *ctrl_mod = design->module(ctrl_id);
         Cell *ctrl_cell = module->addCell(module->uniquify("\\controller"), ctrl_id);
 
-        ctrl_cell->setParam("\\CHAIN_FF_WORDS", Const(GetSize(database.scanchain.ff)));
+        ScanChainData & sc = database.scanchain[database.top];
+
+        ctrl_cell->setParam("\\CHAIN_FF_WORDS", Const(GetSize(sc.ff)));
 
         int words = 0;
-        for (auto &mem : database.scanchain.mem)
+        for (auto &mem : sc.mem)
             words += mem.depth;
         ctrl_cell->setParam("\\CHAIN_MEM_WORDS", Const(words));
 
@@ -257,32 +451,57 @@ struct PackageWorker {
     }
 
     void run() {
-        Module *dut_mod = design->top_module();
+        Module *dut_top = design->top_module();
 
-        if (!dut_mod)
+        if (!dut_top)
             log_error("No top module found\n");
 
-        if (!dut_mod->get_bool_attribute(AttrLibProcessed))
-            log_error("Module %s is not processed by emu_process_lib. Run emu_process_lib first.\n", log_id(dut_mod));
+        database.top = dut_top->name;
 
-        if (!dut_mod->get_bool_attribute(AttrInstrumented))
-            log_error("Module %s is not processed by emu_instrument. Run emu_instrument first.\n", log_id(dut_mod));
+        // Connect module interfaces in hierarchy
+        process_hier();
 
         // Create interface ports
-        process_intf_ports(dut_mod);
+        process_intf_ports(dut_top);
+
+        // Generate ram_li signal
+        ScanChainData &sc = database.scanchain.at(database.top);
+        Wire *clk = dut_top->wire("\\emu_clk");
+        Wire *ram_se = dut_top->wire("\\emu_ram_se");
+        Wire *ram_sd = dut_top->wire("\\emu_ram_sd");
+        Wire *ram_li = dut_top->wire("\\emu_ram_li");
+        Wire *ram_lo = dut_top->wire("\\emu_ram_lo");
+        ram_li->port_input = false;
+        ram_lo->port_output = false;
+        dut_top->fixup_ports();
+        generate_mem_last_i(dut_top, sc.mem_sc_depth(), clk, ram_se, ram_sd, ram_li);
+
+        // Rename modules
+
+        RenameModuleWorker rmworker(design);
+        std::vector<IdString> modnames;
+
+        for (auto module : design->modules())
+            modnames.push_back(module->name);
+
+        for (auto modname : modnames) {
+            std::string name_str = modname.str();
+            IdString new_name = "\\EMU_PACKAGE_" + (name_str[0] == '\\' ? name_str.substr(1) : name_str);
+            rmworker.rename(modname, new_name);
+        }
 
         // Rename DUT
-        design->rename(dut_mod, "\\EMU_DUT");
-        dut_mod->attributes.erase(ID::top);
+        design->rename(dut_top, "\\EMU_DUT");
+        dut_top->attributes.erase(ID::top);
 
         // Create new top module
         Module *new_top = design->addModule("\\EMU_SYSTEM");
         new_top->set_bool_attribute(ID::top);
 
         // Instantiate DUT
-        Cell *dut_cell = new_top->addCell("\\dut", dut_mod->name);
-        for (auto id : dut_mod->ports) {
-            Wire *port = new_top->addWire(id, dut_mod->wire(id));
+        Cell *dut_cell = new_top->addCell("\\dut", dut_top->name);
+        for (auto id : dut_top->ports) {
+            Wire *port = new_top->addWire(id, dut_top->wire(id));
             dut_cell->setPort(id, port);
         }
 

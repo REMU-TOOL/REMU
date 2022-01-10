@@ -14,8 +14,14 @@ struct EmuDatabaseWorker {
 struct WriteConfigWorker : public EmuDatabaseWorker {
     void operator()(std::string db_name, std::ostream &os) override {
         Database &database = Database::databases.at(db_name);
-        EmulibData &emulib = database.emulib;
-        ScanChainData &scanchain = database.scanchain;
+
+        if (database.top.empty()) {
+            log_warning("Database %s is incomplete and ignored\n", db_name.c_str());
+            return;
+        }
+
+        EmulibData &emulib = database.emulib.at(database.top);
+        ScanChainData &scanchain = database.scanchain.at(database.top);
         JsonWriter json(os);
 
         json.key("width").value(DATA_WIDTH);
@@ -108,7 +114,13 @@ std::string simple_hier_name(const std::vector<std::string> &hier) {
 struct WriteLoaderWorker : public EmuDatabaseWorker {
     void operator()(std::string db_name, std::ostream &os) override {
         Database &database = Database::databases.at(db_name);
-        ScanChainData &scanchain = database.scanchain;
+
+        if (database.top.empty()) {
+            log_warning("Database %s is incomplete and ignored\n", db_name.c_str());
+            return;
+        }
+
+        ScanChainData &scanchain = database.scanchain.at(database.top);
 
         int addr;
 
