@@ -56,13 +56,13 @@ Wire *create_intf_port(Module *module, std::string name, int width);
 
 std::vector<Wire *> get_intf_ports(Module *module, std::string name);
 
-bool is_public_id(Yosys::IdString id);
-std::string str_id(Yosys::IdString id);
+bool is_public_id(IdString id);
+std::string str_id(IdString id);
 
 template <typename T>
 std::vector<std::string> get_hier_name(T *obj) {
     std::vector<std::string> hier;
-    if (obj->has_attribute(Yosys::ID::hdlname))
+    if (obj->has_attribute(ID::hdlname))
         hier = obj->get_hdlname_attribute();
     else
         hier.push_back(str_id(obj->name));
@@ -89,11 +89,11 @@ struct FfInfoChunk {
 struct FfInfo {
     std::vector<FfInfoChunk> info;
     FfInfo() {}
-    FfInfo(Yosys::SigSpec);
+    FfInfo(SigSpec);
     FfInfo(std::string);
     operator std::string();
     FfInfo extract(int offset, int length);
-    FfInfo nest(Yosys::Cell *parent);
+    FfInfo nest(Cell *parent);
 };
 
 struct MemInfo {
@@ -105,8 +105,8 @@ struct MemInfo {
     int mem_depth;
     int mem_start_offset;
     MemInfo() {}
-    MemInfo(Yosys::Mem &mem, int slices);
-    MemInfo nest(Yosys::Cell *parent);
+    MemInfo(Mem &mem, int slices);
+    MemInfo nest(Cell *parent);
 };
 
 struct ScanChainData {
@@ -126,7 +126,7 @@ struct EmulibCellInfo {
     std::vector<std::string> name;
     std::map<std::string, int> attrs;
 
-    inline EmulibCellInfo nest(Yosys::Cell *parent) const {
+    inline EmulibCellInfo nest(Cell *parent) const {
         EmulibCellInfo res = *this;
         std::vector<std::string> hier = get_hier_name(parent);
         res.name.insert(res.name.begin(), hier.begin(), hier.end());
@@ -191,7 +191,7 @@ public:
 
 // Measure a gated clock with its source clock
 // Returns a signal with 1-cycle delay to its enable signal
-Yosys::SigSpec measure_clk(Yosys::Module *module, Yosys::SigSpec clk, Yosys::SigSpec gated_clk);
+SigSpec measure_clk(Module *module, SigSpec clk, SigSpec gated_clk);
 
 } // namespace Emu
 
