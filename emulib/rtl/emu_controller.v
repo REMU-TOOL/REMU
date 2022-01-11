@@ -214,7 +214,7 @@ module emu_controller #(
     wire step_trig;
     wire [31:0] emu_stat;
     assign emu_stat[31]     = emu_step_trig;
-    assign emu_stat[30:2]   = 29'd0;
+    assign emu_stat[30:6]   = 29'd0;
     assign emu_stat[5]      = emu_down_stat;
     assign emu_stat[4]      = emu_up_stat;
     assign emu_stat[3]      = emu_down_req;
