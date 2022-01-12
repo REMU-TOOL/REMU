@@ -1,6 +1,5 @@
 #include "kernel/yosys.h"
 #include "kernel/utils.h"
-#include "kernel/modtools.h"
 
 #include "emu.h"
 #include "interface.h"
@@ -171,69 +170,6 @@ void ModelHandler::finalize(HandlerContext &ctxt) {
 
 struct ClockHandler : public ModelHandler {
     ClockHandler() : ModelHandler("clock") {}
-
-    void replace_portbit(ModWalker::PortBit &portbit, SigBit &newbit) {
-        SigSpec new_port = portbit.cell->getPort(portbit.port);
-        new_port[portbit.offset] = newbit;
-        portbit.cell->setPort(portbit.port, new_port);
-    }
-
-    // Rewrite module to assign FFs & Mems with separated ff_clk & mem_clk
-    void rewrite_clock(Module *module, SigBit orig_clk, SigBit ff_clk, SigBit mem_clk) {
-        ModWalker modwalker(module->design, module);
-
-        pool<ModWalker::PortBit> portbits;
-        modwalker.get_consumers(portbits, SigSpec(orig_clk)); // Workaround: the SigBit-version get_consumers is now inaccessible
-        for (auto &portbit : portbits) {
-            if (RTLIL::builtin_ff_cell_types().count(portbit.cell->type)) {
-                replace_portbit(portbit, ff_clk);
-            }
-            else if (portbit.cell->is_mem_cell()) {
-                replace_portbit(portbit, mem_clk);
-            }
-            else {
-                Module *target = module->design->module(portbit.cell->type);
-
-                if (!target)
-                    log_error("Unknown cell type cannot be handled by rewrite_clock: %s\n",
-                        portbit.cell->type.c_str());
-
-                // Rewrite submodule
-                Wire *target_port = target->wire(portbit.port);
-                std::string new_name = target_port->name.str() + "$EMU$ADDED$PORT";
-                if (!target_port->has_attribute(AttrClkPortRewritten)) {
-                    Wire *new_port = target->addWire(new_name);
-                    new_port->port_input = true;
-                    target->fixup_ports();
-
-                    SigBit target_ff_clk = SigSpec(target_port)[portbit.offset];
-                    rewrite_clock(target, target_ff_clk, target_ff_clk, new_port);
-
-                    target_port->set_bool_attribute(AttrClkPortRewritten);
-                }
-
-                replace_portbit(portbit, ff_clk);
-                portbit.cell->setPort(new_name, mem_clk);
-            }
-        }
-    }
-
-    virtual void do_handle(HandlerContext &ctxt, Cell *cell) override {
-        cell->setPort("\\ram_clock", ctxt.module->addWire(NEW_ID));
-    }
-
-    virtual void do_finalize(HandlerContext &ctxt) override {
-        auto fclks = get_intf_ports(ctxt.module, "dut_ff_clk");
-        auto rclks = get_intf_ports(ctxt.module, "dut_ram_clk");
-        for (
-            auto fclk = fclks.begin(), rclk = rclks.begin();
-            fclk != fclks.end() && rclk != rclks.end();
-            ++fclk, ++rclk
-        ) {
-            rewrite_clock(ctxt.module, *fclk, *fclk, *rclk);
-        }
-    }
-
 } ClockHandler;
 
 struct ResetHandler : public ModelHandler {

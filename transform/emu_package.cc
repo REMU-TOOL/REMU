@@ -1,8 +1,10 @@
 #include "kernel/yosys.h"
 #include "kernel/utils.h"
+#include "kernel/modtools.h"
 
 #include "emu.h"
 #include "interface.h"
+#include "designtools.h"
 
 using namespace Emu;
 using namespace Emu::Interface;
@@ -45,6 +47,7 @@ const std::map<std::string, IntfProp> intf_list = {
     {"down_req",        InputShare},
     {"up_stat",         OutputAndReduce},
     {"down_stat",       OutputAndReduce},
+    {"dut_clk",         InputAppend},       // for internal use and to be rewritten with dut_ff_clk & dut_mem_clk
     {"dut_ff_clk",      InputAppend},
     {"dut_ram_clk",     InputAppend},
     {"dut_rst",         InputAppend},
@@ -151,40 +154,22 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct RenameModuleWorker {
     Design *design;
-    dict<IdString, Module *> mod_map;
-    dict<Module *, pool<Cell *>> inst_map; // mod name -> cells
+    DesignWalker walker;
 
-    bool rename(IdString old_name, IdString new_name) {
-        if (mod_map.count(old_name) == 0 || mod_map.count(new_name) > 0)
+    bool rename(Module *module, IdString new_name) {
+        if (design->has(new_name))
             return false;
 
-        Module *module = design->module(old_name);
         design->rename(module, new_name);
 
-        for (auto cell : inst_map.at(module)) {
+        for (auto cell : walker.instances_of(module)) {
             cell->type = new_name;
         }
-
-        mod_map[new_name] = mod_map.at(old_name);
-        mod_map.erase(old_name);
 
         return true;
     }
 
-    RenameModuleWorker(Design *design) : design(design) {
-        for (auto module : design->modules()) {
-            mod_map[module->name] = module;
-            inst_map.insert(module);
-        }
-        for (auto module : design->modules()) {
-            for (auto cell : module->cells()) {
-                if (mod_map.count(cell->type) > 0) {
-                    Module *module = design->module(cell->type);
-                    inst_map[module].insert(cell);
-                }
-            }
-        }
-    }
+    RenameModuleWorker(Design *design) : design(design), walker(design) {}
 };
 
 struct PackageWorker {
@@ -286,7 +271,7 @@ struct PackageWorker {
             log_error("Recursive instantiation detected.\n");
 
         for (auto &mod : topo_modules.sorted) {
-            log("Processing module %s\n", mod->name.c_str());
+            log("Processing module %s\n", log_id(mod));
 
             if (!mod->get_bool_attribute(AttrLibProcessed))
                 log_error("Module %s is not processed by emu_process_lib. Run emu_process_lib first.\n", log_id(mod));
@@ -479,15 +464,10 @@ struct PackageWorker {
         // Rename modules
 
         RenameModuleWorker rmworker(design);
-        std::vector<IdString> modnames;
-
-        for (auto module : design->modules())
-            modnames.push_back(module->name);
-
-        for (auto modname : modnames) {
-            std::string name_str = modname.str();
+        for (auto module : design->modules().to_vector()) {
+            std::string name_str = module->name.str();
             IdString new_name = "\\EMU_PACKAGE_" + (name_str[0] == '\\' ? name_str.substr(1) : name_str);
-            rmworker.rename(modname, new_name);
+            rmworker.rename(module, new_name);
         }
 
         // Rename DUT
