@@ -147,6 +147,23 @@ std::vector<Wire *> get_intf_ports(Module *module, std::string name) {
     return port_list;
 }
 
+void unregister_intf_ports(Module *module, std::string name) {
+    int count = 0;
+    IdString count_attr = get_count_attr(name);
+
+    if (module->has_attribute(count_attr))
+        count = module->attributes.at(count_attr).as_int();
+
+    module->attributes.erase(count_attr);
+
+    for (int i = 0; i < count; i++) {
+        Wire *wire = module->wire(get_internal_id(name.c_str(), i));
+        module->rename(wire, "$unregistered" + wire->name.str());
+        wire->port_input = false;
+        wire->port_output = false;
+    }
+}
+
 } // namespace Interface
 } // namespace Emu
 
@@ -449,13 +466,15 @@ struct PackageWorker {
         // Create interface ports
         process_intf_ports(dut_top);
 
-        // Generate ram_li signal
+        // Fix up ports
         ScanChainData &sc = database.scanchain.at(database.top);
         Wire *clk = dut_top->wire("\\emu_clk");
+        Wire *dut_clk = dut_top->wire("\\emu_dut_clk");
         Wire *ram_se = dut_top->wire("\\emu_ram_se");
         Wire *ram_sd = dut_top->wire("\\emu_ram_sd");
         Wire *ram_li = dut_top->wire("\\emu_ram_li");
         Wire *ram_lo = dut_top->wire("\\emu_ram_lo");
+        dut_clk->port_input = false;
         ram_li->port_input = false;
         ram_lo->port_output = false;
         dut_top->fixup_ports();

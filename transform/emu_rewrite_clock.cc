@@ -145,11 +145,9 @@ struct RewriteClockWorker {
 
             Module *tpl = design->module(cell->type);
 
-            if (tpl == nullptr) {
-                log_warning("Cell type %s is unknown and clock is not rewritten\n",
+            if (tpl == nullptr)
+                log_error("Cell type %s is unknown and its clock cannot be rewritten\n",
                     cell->type.c_str());
-                continue;
-            }
 
             log("Rewriting input port %s.%s[%d]\n",
                 log_id(tpl), log_id(portbit.port), portbit.offset);
@@ -208,7 +206,9 @@ struct RewriteClockWorker {
                 Wire *ram_clk = create_intf_port(module, "dut_ram_clk", 1);
                 rewrite_clock_bits(clk, ff_clk, ram_clk);
             }
+            unregister_intf_ports(module, "dut_clk");
             module->fixup_ports();
+            module->set_bool_attribute(AttrClkRewritten);
         }
     }
 

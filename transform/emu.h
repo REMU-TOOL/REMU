@@ -43,10 +43,10 @@ const char
     // Compatible: module
     AttrLibProcessed        [] = "\\emu_lib_processed",
 
-    // Usage: specified by emu_process_lib to indicate rewritten clock ports.
+    // Usage: specified by emu_rewrite_clock to indicate rewritten modules.
     // Type: bool
-    // Compatible: wire (clock ports)
-    AttrClkPortRewritten    [] = "\\emu_clk_port_rewritten";
+    // Compatible: module
+    AttrClkRewritten    [] = "\\emu_clk_rewritten";
 
 bool is_public_id(IdString id);
 std::string str_id(IdString id);

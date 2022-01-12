@@ -16,6 +16,9 @@ Wire *create_intf_port(Module *module, std::string name, int width);
 
 std::vector<Wire *> get_intf_ports(Module *module, std::string name);
 
+// fixup_ports must be called after all ports are unregistered
+void unregister_intf_ports(Module *module, std::string name);
+
 } // namespace Interface
 } // namespace Emu
 
