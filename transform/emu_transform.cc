@@ -60,7 +60,10 @@ struct EmuTransformPass : public ScriptPass {
 
         run("emu_database reset");
 
-        run("read_verilog -lib +/emulib/stub/*.v");
+		std::string share_dirname = proc_share_dirname();
+
+        run("read_verilog -I " + share_dirname + "emulib/include " +
+			share_dirname + "emulib/model/*.v");
 
 		if (help_mode) {
 			run("hierarchy -check {-top <top> | -auto-top}");
@@ -86,6 +89,7 @@ struct EmuTransformPass : public ScriptPass {
         run("opt_clean");
         run("emu_process_lib");
         run("emu_rewrite_clock");
+		run("emu_prop_attr -a emu_no_scanchain");
         run("emu_instrument");
         run("emu_package");
 

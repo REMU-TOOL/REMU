@@ -87,7 +87,7 @@ struct RewriteClockWorker {
 
                 Wire *ram_clk_port = module->wire(ram_portname);
                 if (ram_clk_port == nullptr) {
-                    ff_clk_port = module->addWire(ram_portname, output_bit.wire);
+                    ram_clk_port = module->addWire(ram_portname, output_bit.wire);
                     do_fixup_ports = true;
                 }
 

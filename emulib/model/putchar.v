@@ -2,7 +2,8 @@
 `timescale 1ns / 1ps
 `default_nettype none
 
-module putchar (
+(* keep, emulib_component = "putchar" *)
+module PutCharDevice (
     input  wire         clk,
     input  wire         rst,
     input  wire         valid,

@@ -13,12 +13,12 @@ module rst_down_gen (
     output wire     rst_gen
 );
 
-    localparam [2:0]
+    localparam [1:0]
         STATE_INIT  = 0,
         STATE_DOWN  = 1,
         STATE_WAIT  = 2;
 
-    reg [2:0] state, state_next;
+    reg [1:0] state, state_next;
 
     always @(posedge clk) begin
         if (rst)
