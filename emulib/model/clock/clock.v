@@ -7,17 +7,13 @@ module clock #(
     parameter PHASE_SHIFT_PS = 0
 )
 (
-    output wire clock,
-    output wire ram_clock
+    output wire clock
 );
 
-    (* keep, emu_intf_port = "dut_ff_clk" *)
-    wire _ff_clk;
-    (* keep, emu_intf_port = "dut_ram_clk" *)
-    wire _ram_clk;
+    (* keep, emu_intf_port = "dut_clk" *)
+    wire dut_clk;
 
-    assign clock = _ff_clk;
-    assign ram_clock = _ram_clk;
+    assign clock = dut_clk;
 
 endmodule
 
