@@ -128,16 +128,16 @@ struct RewriteClockWorker {
             if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
                 for (auto chunk : cell->getPort(ID::Q).chunks())
                     if (chunk.is_wire())
-                        log("Rewriting ff cell %s.%s.%s\n",
-                            log_id(module), log_id(chunk.wire), log_id(portbit.port));
+                        log("Rewriting ff cell %s.%s.%s[%d]\n",
+                            log_id(module), log_id(chunk.wire), log_id(portbit.port), portbit.offset);
 
                 replace_portbit(portbit.cell, portbit.port, portbit.offset, ff_clk);
                 continue;
             }
 
             if (cell->is_mem_cell()) {
-                log("Rewriting mem cell %s.%s.%s\n",
-                    log_id(module), log_id(cell), log_id(portbit.port));
+                log("Rewriting mem cell %s.%s.%s[%d]\n",
+                    log_id(module), log_id(cell), log_id(portbit.port), portbit.offset);
 
                 replace_portbit(portbit.cell, portbit.port, portbit.offset, ram_clk);
                 continue;
@@ -200,7 +200,6 @@ struct RewriteClockWorker {
     }
 
     void run() {
-        log("Begin rewriting clock\n");
         for (Module *module : design->modules()) {
             std::vector<Wire *> dut_clk = get_intf_ports(module, "dut_clk");
             for (Wire *clk : dut_clk) {
@@ -211,7 +210,6 @@ struct RewriteClockWorker {
             }
             module->fixup_ports();
         }
-        log("End rewriting clock\n");
     }
 
     RewriteClockWorker(Design *design) : design(design), design_walker(design) {}
