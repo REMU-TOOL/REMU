@@ -104,9 +104,9 @@ test:
 monitor:
 	make -C monitor VENDOR=$(VENDOR) PLAT=$(PLAT)
 
-.PHONY: clean test_clean transform_clean build_clean yosys_clean monitor_clean
+.PHONY: clean test_clean transform_clean yosys_clean monitor_clean
 
-clean: build_clean yosys_clean transform_clean test_clean monitor_clean
+clean: yosys_clean transform_clean test_clean monitor_clean
 
 yosys_clean:
 	make -C yosys clean
