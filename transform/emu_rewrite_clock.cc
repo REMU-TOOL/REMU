@@ -199,15 +199,20 @@ struct RewriteClockWorker {
 
     void run() {
         for (Module *module : design->modules()) {
-            std::vector<Wire *> dut_clk = get_intf_ports(module, "dut_clk");
-            for (Wire *clk : dut_clk) {
-                log("Processing %s.%s\n", log_id(module), log_id(clk));
-                Wire *ff_clk = create_intf_port(module, "dut_ff_clk", 1);
-                Wire *ram_clk = create_intf_port(module, "dut_ram_clk", 1);
-                rewrite_clock_bits(clk, ff_clk, ram_clk);
+            for (Wire *wire : module->wires().to_vector()) {
+                if (wire->get_string_attribute(AttrIntfPort) == "dut_clk") {
+                    log("Processing %s.%s\n", log_id(module), log_id(wire));
+                    wire->attributes.erase(ID::keep);
+                    wire->attributes.erase(AttrIntfPort);
+                    Wire *ff_clk = module->addWire(module->uniquify("\\ut_ff_clk"));
+                    ff_clk->set_bool_attribute(ID::keep);
+                    ff_clk->set_string_attribute(AttrIntfPort, "dut_ff_clk");
+                    Wire *ram_clk = module->addWire(module->uniquify("\\dut_ram_clk"));
+                    ram_clk->set_bool_attribute(ID::keep);
+                    ram_clk->set_string_attribute(AttrIntfPort, "dut_ram_clk");
+                    rewrite_clock_bits(wire, ff_clk, ram_clk);
+                }
             }
-            unregister_intf_ports(module, "dut_clk");
-            module->fixup_ports();
             module->set_bool_attribute(AttrClkRewritten);
         }
     }

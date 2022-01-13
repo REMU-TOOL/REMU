@@ -35,6 +35,9 @@ struct ProcessLibWorker {
             return;
         }
 
+        if (!module->get_bool_attribute(AttrClkRewritten))
+            log_error("Module %s is not processed by emu_rewrite_clock. Run emu_rewrite_clock first.\n", log_id(module));
+
         process_internal_sigs();
 
         for (auto cell : module->cells()) {
