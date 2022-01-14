@@ -421,9 +421,6 @@ public:
             return;
         }
 
-        if (!module->get_bool_attribute(AttrLibProcessed))
-            log_error("Module %s is not processed by emu_process_lib. Run emu_process_lib first.\n", log_id(module));
-
         // search for all FF cells & hierarchical cells
         std::vector<Cell *> ff_cells, hier_cells;
         for (auto cell : module->selected_cells())

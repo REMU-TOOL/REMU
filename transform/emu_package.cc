@@ -189,13 +189,25 @@ struct RenameModuleWorker {
     RenameModuleWorker(Design *design) : design(design), walker(design) {}
 };
 
-struct PackageWorker {
+struct ProcessLibWorker {
 
-    Database &database;
     Design *design;
+    Database &database;
 
-    void process_submod_cell(Cell *cell) {
-        Module *module = cell->module;
+    ProcessLibWorker(Design *design, Database &database) : design(design), database(database) {}
+
+    void promote_mod_intf_ports(Module *module) {
+        for (auto &wire : module->selected_wires()) {
+            std::string signame = wire->get_string_attribute(AttrIntfPort);
+            if (!signame.empty()) {
+                promote_intf_port(module, signame, wire);
+                wire->attributes.erase(AttrIntfPort);
+            }
+        }
+    }
+
+    void propagate_submodule(Cell *cell) {
+        Module* module = cell->module;
         Module *target = design->module(cell->type);
         EmulibData &emulib = database.emulib[module->name];
         ScanChainData &sc = database.scanchain[module->name];
@@ -271,8 +283,39 @@ struct PackageWorker {
             sc.mem.push_back(mem.nest(cell));
     }
 
+    void process_module(Module *module) {
+        if (!module->get_bool_attribute(AttrClkRewritten))
+            log_error("Module %s is not processed by emu_rewrite_clock. Run emu_rewrite_clock first.\n", log_id(module));
+
+        EmulibData &emulib = database.emulib[module->name];
+
+        // Process emulib module interface ports & parameters
+
+        std::string component = module->get_string_attribute(AttrEmulibComponent);
+        if (!component.empty()) {
+            promote_mod_intf_ports(module);
+
+            EmulibCellInfo info;
+
+            for (auto it : module->parameter_default_values)
+                info.attrs[it.first.str().substr(1)] = it.second.as_int();
+
+            emulib[component].push_back(info);
+
+            module->attributes.erase(AttrEmulibComponent);
+        }
+
+        // Process submodules
+
+        for (auto cell : module->cells())
+            if (design->has(cell->type))
+                propagate_submodule(cell);
+
+        module->fixup_ports();
+    }
+
     // Promote interfaces & import databases from child modules to parent modules
-    void process_hier() {
+    void run() {
         TopoSort<RTLIL::Module*, IdString::compare_ptr_by_name<RTLIL::Module>> topo_modules;
         for (auto &mod : design->selected_modules()) {
             topo_modules.node(mod);
@@ -289,21 +332,16 @@ struct PackageWorker {
 
         for (auto &mod : topo_modules.sorted) {
             log("Processing module %s\n", log_id(mod));
-
-            if (!mod->get_bool_attribute(AttrLibProcessed))
-                log_error("Module %s is not processed by emu_process_lib. Run emu_process_lib first.\n", log_id(mod));
-
-            if (!mod->get_bool_attribute(AttrInstrumented))
-                log_error("Module %s is not processed by emu_instrument. Run emu_instrument first.\n", log_id(mod));
-
-            for (auto cell : mod->cells()) {
-                if (design->has(cell->type)) {
-                    process_submod_cell(cell);
-                }
-            }
-            mod->fixup_ports();
+            process_module(mod);
         }
     }
+
+};
+
+struct PackageWorker {
+
+    Database &database;
+    Design *design;
 
     void process_intf_ports(Module *module) {
         for (auto &it : intf_list) {
@@ -460,9 +498,6 @@ struct PackageWorker {
 
         database.top = dut_top->name;
 
-        // Connect module interfaces in hierarchy
-        process_hier();
-
         // Create interface ports
         process_intf_ports(dut_top);
 
@@ -547,8 +582,11 @@ struct EmuPackagePass : public Pass {
 
         Database &db = Database::databases[db_name];
 
-        PackageWorker worker(db, design);
-        worker.run();
+        ProcessLibWorker lib_worker(design, db);
+        lib_worker.run();
+
+        PackageWorker pkg_worker(db, design);
+        pkg_worker.run();
 
         log_pop();
     }

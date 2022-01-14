@@ -38,11 +38,6 @@ const char
     // Compatible: module
     AttrInstrumented        [] = "\\emu_instrumented",
 
-    // Usage: specified by emu_process_lib to indicate completion of the pass.
-    // Type: bool
-    // Compatible: module
-    AttrLibProcessed        [] = "\\emu_lib_processed",
-
     // Usage: specified by emu_rewrite_clock to indicate rewritten modules.
     // Type: bool
     // Compatible: module

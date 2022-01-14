@@ -88,7 +88,6 @@ struct EmuTransformPass : public ScriptPass {
         run("emu_opt_ram");
         run("opt_clean");
         run("emu_rewrite_clock");
-        run("emu_process_lib");
 		run("emu_prop_attr -a emu_no_scanchain");
         run("emu_instrument");
         run("emu_package");
