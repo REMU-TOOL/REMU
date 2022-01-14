@@ -11,7 +11,7 @@ module EmuClock #(
     output wire clock
 );
 
-    (* keep, emu_intf_port = "dut_clk" *)
+    (* keep, emu_dut_clk *)
     wire dut_clk;
 
     assign clock = dut_clk;

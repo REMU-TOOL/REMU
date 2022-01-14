@@ -15,13 +15,18 @@ const char
 
     // Usage: specified in emulib stub modules to indicate the component name.
     // Type: string
-    // Compatible: module (emulib stubs)
+    // Compatible: module
     AttrEmulibComponent     [] = "\\emulib_component",
 
     // Usage: specified in model implementation to indicate internal signals.
     // Type: string
     // Compatible: wire
     AttrIntfPort            [] = "\\emu_intf_port",
+
+    // Usage: specified in EmuClock to indicate DUT clock signals.
+    // Type: string
+    // Compatible: wire
+    AttrDutClk              [] = "\\emu_dut_clk",
 
     // Usage: specified in model implementation to avoid scan chain insertion.
     // Type: bool

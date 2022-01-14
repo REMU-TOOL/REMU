@@ -47,7 +47,6 @@ const std::map<std::string, IntfProp> intf_list = {
     {"down_req",        InputShare},
     {"up_stat",         OutputAndReduce},
     {"down_stat",       OutputAndReduce},
-    {"dut_clk",         InputAppend},       // for internal use and to be rewritten with dut_ff_clk & dut_mem_clk
     {"dut_ff_clk",      InputAppend},
     {"dut_ram_clk",     InputAppend},
     {"dut_rst",         InputAppend},
@@ -504,12 +503,10 @@ struct PackageWorker {
         // Fix up ports
         ScanChainData &sc = database.scanchain.at(database.top);
         Wire *clk = dut_top->wire("\\emu_clk");
-        Wire *dut_clk = dut_top->wire("\\emu_dut_clk");
         Wire *ram_se = dut_top->wire("\\emu_ram_se");
         Wire *ram_sd = dut_top->wire("\\emu_ram_sd");
         Wire *ram_li = dut_top->wire("\\emu_ram_li");
         Wire *ram_lo = dut_top->wire("\\emu_ram_lo");
-        dut_clk->port_input = false;
         ram_li->port_input = false;
         ram_lo->port_output = false;
         dut_top->fixup_ports();

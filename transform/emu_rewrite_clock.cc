@@ -200,10 +200,10 @@ struct RewriteClockWorker {
     void run() {
         for (Module *module : design->modules()) {
             for (Wire *wire : module->wires().to_vector()) {
-                if (wire->get_string_attribute(AttrIntfPort) == "dut_clk") {
+                if (wire->get_bool_attribute(AttrDutClk)) {
                     log("Processing %s.%s\n", log_id(module), log_id(wire));
                     wire->attributes.erase(ID::keep);
-                    wire->attributes.erase(AttrIntfPort);
+                    wire->attributes.erase(AttrDutClk);
                     Wire *ff_clk = module->addWire(module->uniquify("\\ut_ff_clk"));
                     ff_clk->set_bool_attribute(ID::keep);
                     ff_clk->set_string_attribute(AttrIntfPort, "dut_ff_clk");
