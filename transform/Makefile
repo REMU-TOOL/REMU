@@ -1,6 +1,6 @@
 include ../common.mk
 
-CXX := clang
+CXX := gcc
 CXXFLAGS := -Wall -Wextra -ggdb -I"$(YOSYS_DIR)" \
 	-MD -MP -D_YOSYS_ -fPIC -std=c++11 -Os \
 	-DYOSYS_ENABLE_READLINE \

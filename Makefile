@@ -90,6 +90,7 @@ build: yosys transform
 
 .PHONY: yosys
 yosys:
+	cp yosys.conf yosys/Makefile.conf
 	+make -C yosys all
 
 .PHONY: transform
