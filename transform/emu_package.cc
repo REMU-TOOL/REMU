@@ -118,7 +118,7 @@ void promote_intf_port(Module *module, std::string name, Wire *wire) {
         else
             wire->port_input = true;
     }
-    catch (std::out_of_range) {
+    catch (std::out_of_range const&) {
         log_error("Unknown interface name %s\n", name.c_str());
     }
 
