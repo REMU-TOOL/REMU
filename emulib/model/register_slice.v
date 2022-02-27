@@ -2,7 +2,7 @@
 `timescale 1ns / 1ps
 `default_nettype none
 
-module register_slice #(
+module emulib_register_slice #(
     parameter   DATA_WIDTH      = 1
 )(
     input  wire                     clk,

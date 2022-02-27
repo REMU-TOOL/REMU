@@ -2,27 +2,27 @@
 `timescale 1ns / 1ps
 `default_nettype none
 
-module ready_valid_fork #(
-    parameter   DATA_WIDTH      = 1
+module emulib_ready_valid_fork #(
+    parameter   BRANCHES    = 2
 )(
-    input  wire                         s_valid,
-    input  wire     [DATA_WIDTH-1:0]    s_data,
-    output wire                         s_ready,
+    input  wire                 s_valid,
+    output wire                 s_ready,
 
-    output wire                         m1_valid,
-    output wire     [DATA_WIDTH-1:0]    m1_data,
-    input  wire                         m1_ready,
-
-    output wire                         m2_valid,
-    output wire     [DATA_WIDTH-1:0]    m2_data,
-    input  wire                         m2_ready
+    output reg  [BRANCHES-1:0]  m_valid,
+    input  wire [BRANCHES-1:0]  m_ready
 );
 
-    assign m1_data      = s_data;
-    assign m2_data      = s_data;
-    assign m1_valid     = s_valid && m2_ready;
-    assign m2_valid     = s_valid && m1_ready;
-    assign s_ready      = m1_ready && m2_ready;
+    integer i, j;
+
+    always @* begin
+        m_valid = {BRANCHES{s_valid}};
+        for (i = 0; i < BRANCHES; i = i + 1)
+            for (j = 0; j < BRANCHES; j = j + 1)
+                if (i != j)
+                    m_valid[i] = m_valid[i] && m_ready[j];
+    end
+
+    assign s_ready = &m_ready;
 
 endmodule
 

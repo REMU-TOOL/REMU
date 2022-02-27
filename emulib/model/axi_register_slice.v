@@ -4,7 +4,7 @@
 
 `include "axi.vh"
 
-module axi_register_slice #(
+module emulib_axi_register_slice #(
     parameter   ADDR_WIDTH              = 32,
     parameter   DATA_WIDTH              = 64,
     parameter   ID_WIDTH                = 4
@@ -15,7 +15,7 @@ module axi_register_slice #(
     `AXI4_MASTER_IF             (m, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)
 );
 
-    register_slice #(
+    emulib_register_slice #(
         .DATA_WIDTH(`AXI4_AW_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
     )
     slice_aw (
@@ -29,7 +29,7 @@ module axi_register_slice #(
         .m_data     (`AXI4_AW_PAYLOAD(m))
     );
 
-    register_slice #(
+    emulib_register_slice #(
         .DATA_WIDTH(`AXI4_W_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
     )
     slice_w (
@@ -43,7 +43,7 @@ module axi_register_slice #(
         .m_data     (`AXI4_W_PAYLOAD(m))
     );
 
-    register_slice #(
+    emulib_register_slice #(
         .DATA_WIDTH(`AXI4_B_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
     )
     slice_b (
@@ -57,7 +57,7 @@ module axi_register_slice #(
         .m_data     (`AXI4_B_PAYLOAD(s))
     );
 
-    register_slice #(
+    emulib_register_slice #(
         .DATA_WIDTH(`AXI4_AR_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
     )
     slice_ar (
@@ -71,7 +71,7 @@ module axi_register_slice #(
         .m_data     (`AXI4_AR_PAYLOAD(m))
     );
 
-    register_slice #(
+    emulib_register_slice #(
         .DATA_WIDTH(`AXI4_R_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
     )
     slice_r (
