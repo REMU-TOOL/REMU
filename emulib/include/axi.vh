@@ -560,9 +560,13 @@
     prefix``_awqos, \
     prefix``_awregion }
 
+// List of AXI4 W channel payload fields without last signal
+`define AXI4_W_PAYLOAD_WO_LAST(prefix) { \
+    `AXI4LITE_W_PAYLOAD(prefix) }
+
 // List of AXI4 W channel payload fields
 `define AXI4_W_PAYLOAD(prefix) { \
-    `AXI4LITE_W_PAYLOAD(prefix), \
+    `AXI4_W_PAYLOAD_WO_LAST(prefix), \
     prefix``_wlast }
 
 // List of AXI4 B channel payload fields
@@ -582,10 +586,14 @@
     prefix``_arqos, \
     prefix``_arregion }
 
+// List of AXI4 R channel payload fields without last signal
+`define AXI4_R_PAYLOAD_WO_LAST(prefix) { \
+    `AXI4LITE_R_PAYLOAD(prefix), \
+    prefix``_rid }
+
 // List of AXI4 R channel payload fields
 `define AXI4_R_PAYLOAD(prefix) { \
-    `AXI4LITE_R_PAYLOAD(prefix), \
-    prefix``_rid, \
+    `AXI4_R_PAYLOAD_WO_LAST(prefix), \
     prefix``_rlast }
 
 // Length of AXI4 AW channel payload fields
