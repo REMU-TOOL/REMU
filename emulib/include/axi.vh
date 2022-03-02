@@ -20,9 +20,9 @@
     `_AXI4_DEF_FIELD(key1, prefix, wstrb,       (data_width/8))
 
 `define _AXI4LITE_B_PORT_DECL(key1, key2, prefix, addr_width, data_width) \
-    `_AXI4_DEF_FIELD(key2, prefix, bvalid,      1), \
-    `_AXI4_DEF_FIELD(key1, prefix, bready,      1), \
-    `_AXI4_DEF_FIELD(key2, prefix, bresp,       2)
+    `_AXI4_DEF_FIELD(key1, prefix, bvalid,      1), \
+    `_AXI4_DEF_FIELD(key2, prefix, bready,      1), \
+    `_AXI4_DEF_FIELD(key1, prefix, bresp,       2)
 
 `define _AXI4LITE_AR_PORT_DECL(key1, key2, prefix, addr_width, data_width) \
     `_AXI4_DEF_FIELD(key1, prefix, arvalid,     1), \
@@ -31,10 +31,10 @@
     `_AXI4_DEF_FIELD(key1, prefix, arprot,      3)
 
 `define _AXI4LITE_R_PORT_DECL(key1, key2, prefix, addr_width, data_width) \
-    `_AXI4_DEF_FIELD(key2, prefix, rvalid,      1), \
-    `_AXI4_DEF_FIELD(key1, prefix, rready,      1), \
-    `_AXI4_DEF_FIELD(key2, prefix, rdata,       data_width), \
-    `_AXI4_DEF_FIELD(key2, prefix, rresp,       2)
+    `_AXI4_DEF_FIELD(key1, prefix, rvalid,      1), \
+    `_AXI4_DEF_FIELD(key2, prefix, rready,      1), \
+    `_AXI4_DEF_FIELD(key1, prefix, rdata,       data_width), \
+    `_AXI4_DEF_FIELD(key1, prefix, rresp,       2)
 
 `define _AXI4LITE_AW_ITEM_DECL(key, prefix, addr_width, data_width) \
     `_AXI4_DEF_FIELD(key, prefix, awvalid,      1); \
@@ -82,7 +82,7 @@
 
 `define _AXI4_B_PORT_DECL(key1, key2, prefix, addr_width, data_width, id_width) \
     `_AXI4LITE_B_PORT_DECL(key1, key2, prefix, addr_width, data_width), \
-    `_AXI4_DEF_FIELD(key2, prefix, bid,         id_width)
+    `_AXI4_DEF_FIELD(key1, prefix, bid,         id_width)
 
 `define _AXI4_AR_PORT_DECL(key1, key2, prefix, addr_width, data_width, id_width) \
     `_AXI4LITE_AR_PORT_DECL(key1, key2, prefix, addr_width, data_width), \
@@ -97,8 +97,8 @@
 
 `define _AXI4_R_PORT_DECL(key1, key2, prefix, addr_width, data_width, id_width) \
     `_AXI4LITE_R_PORT_DECL(key1, key2, prefix, addr_width, data_width), \
-    `_AXI4_DEF_FIELD(key2, prefix, rid,         id_width), \
-    `_AXI4_DEF_FIELD(key2, prefix, rlast,       1)
+    `_AXI4_DEF_FIELD(key1, prefix, rid,         id_width), \
+    `_AXI4_DEF_FIELD(key1, prefix, rlast,       1)
 
 `define _AXI4_AW_ITEM_DECL(key, prefix, addr_width, data_width, id_width) \
     `_AXI4LITE_AW_ITEM_DECL(key, prefix, addr_width, data_width); \
@@ -161,9 +161,9 @@
 `define AXI4LITE_SLAVE_IF(prefix, addr_width, data_width) \
     `AXI4LITE_AW_SLAVE_IF(prefix, addr_width, data_width), \
     `AXI4LITE_W_SLAVE_IF (prefix, addr_width, data_width), \
-    `AXI4LITE_B_SLAVE_IF (prefix, addr_width, data_width), \
+    `AXI4LITE_B_MASTER_IF(prefix, addr_width, data_width), \
     `AXI4LITE_AR_SLAVE_IF(prefix, addr_width, data_width), \
-    `AXI4LITE_R_SLAVE_IF (prefix, addr_width, data_width)
+    `AXI4LITE_R_MASTER_IF(prefix, addr_width, data_width)
 
 // Define an AXI4-Lite AW channel master interface in module port declaration
 `define AXI4LITE_AW_MASTER_IF(prefix, addr_width, data_width) \
@@ -189,9 +189,9 @@
 `define AXI4LITE_MASTER_IF(prefix, addr_width, data_width) \
     `AXI4LITE_AW_MASTER_IF(prefix, addr_width, data_width), \
     `AXI4LITE_W_MASTER_IF (prefix, addr_width, data_width), \
-    `AXI4LITE_B_MASTER_IF (prefix, addr_width, data_width), \
+    `AXI4LITE_B_SLAVE_IF  (prefix, addr_width, data_width), \
     `AXI4LITE_AR_MASTER_IF(prefix, addr_width, data_width), \
-    `AXI4LITE_R_MASTER_IF (prefix, addr_width, data_width)
+    `AXI4LITE_R_SLAVE_IF  (prefix, addr_width, data_width)
 
 // Define an AXI4-Lite AW channel monitor input interface in module port declaration
 `define AXI4LITE_AW_INPUT_IF(prefix, addr_width, data_width) \
@@ -384,9 +384,9 @@
 `define AXI4_SLAVE_IF(prefix, addr_width, data_width, id_width) \
     `AXI4_AW_SLAVE_IF(prefix, addr_width, data_width, id_width), \
     `AXI4_W_SLAVE_IF (prefix, addr_width, data_width, id_width), \
-    `AXI4_B_SLAVE_IF (prefix, addr_width, data_width, id_width), \
+    `AXI4_B_MASTER_IF(prefix, addr_width, data_width, id_width), \
     `AXI4_AR_SLAVE_IF(prefix, addr_width, data_width, id_width), \
-    `AXI4_R_SLAVE_IF (prefix, addr_width, data_width, id_width)
+    `AXI4_R_MASTER_IF(prefix, addr_width, data_width, id_width)
 
 // Define an AXI4 AW channel master interface in module port declaration
 `define AXI4_AW_MASTER_IF(prefix, addr_width, data_width, id_width) \
@@ -412,9 +412,9 @@
 `define AXI4_MASTER_IF(prefix, addr_width, data_width, id_width) \
     `AXI4_AW_MASTER_IF(prefix, addr_width, data_width, id_width), \
     `AXI4_W_MASTER_IF (prefix, addr_width, data_width, id_width), \
-    `AXI4_B_MASTER_IF (prefix, addr_width, data_width, id_width), \
+    `AXI4_B_SLAVE_IF  (prefix, addr_width, data_width, id_width), \
     `AXI4_AR_MASTER_IF(prefix, addr_width, data_width, id_width), \
-    `AXI4_R_MASTER_IF (prefix, addr_width, data_width, id_width)
+    `AXI4_R_SLAVE_IF  (prefix, addr_width, data_width, id_width)
 
 // Define an AXI4 AW channel monitor input interface in module port declaration
 `define AXI4_AW_INPUT_IF(prefix, addr_width, data_width, id_width) \
