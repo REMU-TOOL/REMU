@@ -3,6 +3,7 @@
 `default_nettype none
 
 `include "axi.vh"
+`include "axi_a.vh"
 
 (* keep, emulib_component = "rammodel" *)
 module RAMModel #(
@@ -14,8 +15,8 @@ module RAMModel #(
     parameter   W_DELAY         = 3
 )(
 
-    input  wire                     aclk,
-    input  wire                     aresetn,
+    input  wire                     clk,
+    input  wire                     rst,
 
     input  wire                     s_axi_awvalid,
     output wire                     s_axi_awready,
@@ -65,8 +66,8 @@ module RAMModel #(
 
     (* keep, emu_intf_port = "clk"              *) wire model_clk;
     (* keep, emu_intf_port = "rst"              *) wire model_rst;
+    (* keep, emu_intf_port = "target_fire"      *) wire target_fire;
     (* keep, emu_intf_port = "stall"            *) wire stall;
-    (* keep, emu_intf_port = "stall_gen"        *) wire stall_gen;
     (* keep, emu_intf_port = "up_req"           *) wire up_req;
     (* keep, emu_intf_port = "down_req"         *) wire down_req;
     (* keep, emu_intf_port = "up_stat"          *) wire up_stat;
@@ -155,23 +156,7 @@ module RAMModel #(
     (* keep, emu_intf_port = "dram_rlast"       *)
     wire                        m_axi_rlast;
 
-    wire mrg_stall, mrg_down, mrg_rst;
-
-    (* emu_no_scanchain *)
-    rst_down_gen u_rst_down_gen (
-        .clk            (model_clk),
-        .rst            (model_rst),
-        .dut_rst        (!aresetn),
-        .stall          (stall),
-        .stall_gen      (mrg_stall),
-        .down_req       (mrg_down),
-        .down_stat      (down_stat),
-        .rst_gen        (mrg_rst)
-    );
-
-    wire rammodel_stall_gen;
-
-    rammodel_simple #(
+    EmuRam #(
         .ADDR_WIDTH (ADDR_WIDTH),
         .DATA_WIDTH (DATA_WIDTH),
         .ID_WIDTH   (ID_WIDTH),
@@ -179,19 +164,165 @@ module RAMModel #(
         .W_DELAY    (W_DELAY)
     )
     u_rammodel (
-        .clk            (model_clk),
-        .resetn         (!(model_rst || mrg_rst)),
-        `AXI4_CONNECT   (s_dut, s_axi),
-        `AXI4_CONNECT   (m_dram, m_axi),
+        .clk            (clk),
+        .rst            (rst),
+        `AXI4_CONNECT   (s_axi, s_axi),
+        .host_clk       (model_clk),
+        .host_rst       (model_rst),
+        `AXI4_CONNECT   (host_axi, m_axi),
+        .target_fire    (target_fire),
         .stall          (stall),
         .up_req         (up_req),
-        .down_req       (down_req || mrg_down),
-        .up             (up_stat),
-        .down           (down_stat),
-        .stall_gen      (rammodel_stall_gen)
+        .down_req       (down_req),
+        .up_stat        (up_stat),
+        .down_stat      (down_stat)
     );
 
-    assign stall_gen = rammodel_stall_gen || mrg_stall;
+endmodule
+
+(* __emu_directive_1 = "extern host_clk" *)
+(* __emu_directive_2 = "extern host_rst" *)
+(* __emu_directive_3 = "extern host_axi_*" *)
+(* __emu_directive_4 = "extern target_fire" *)
+(* __emu_directive_5 = "extern stall" *)
+(* __emu_directive_6 = "extern up_req" *)
+(* __emu_directive_7 = "extern down_req" *)
+(* __emu_directive_8 = "extern up_stat" *)
+(* __emu_directive_9 = "extern down_stat" *)
+
+module EmuRam #(
+    parameter   ADDR_WIDTH      = 32,
+    parameter   DATA_WIDTH      = 64,
+    parameter   ID_WIDTH        = 4,
+    parameter   PF_COUNT        = 'h10000,
+    parameter   MAX_INFLIGHT    = 8,
+    parameter   R_DELAY         = 25,
+    parameter   W_DELAY         = 3
+)(
+
+    input  wire                 clk,
+    input  wire                 rst,
+
+    `AXI4_SLAVE_IF              (s_axi,    ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
+
+    input  wire                 host_clk,
+    input  wire                 host_rst,
+
+    `AXI4_MASTER_IF             (host_axi,      ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
+
+    input  wire                 target_fire,
+    output wire                 stall,
+
+    input  wire                 up_req,
+    input  wire                 down_req,
+    output wire                 up_stat,
+    output wire                 down_stat
+
+);
+
+    `AXI4_A_WIRE(f2b, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_W_WIRE(f2b, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_B_WIRE(f2b, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_R_WIRE(f2b, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+
+    wire                 rreq_valid;
+    wire [ID_WIDTH-1:0]  rreq_id;
+
+    wire                 breq_valid;
+    wire [ID_WIDTH-1:0]  breq_id;
+
+    emulib_rammodel_frontend #(
+        .ADDR_WIDTH     (ADDR_WIDTH),
+        .DATA_WIDTH     (DATA_WIDTH),
+        .ID_WIDTH       (ID_WIDTH),
+        .MAX_INFLIGHT   (MAX_INFLIGHT),
+        .R_DELAY        (R_DELAY),
+        .W_DELAY        (W_DELAY)
+    )
+    frontend (
+
+        .target_clk     (clk),
+        .target_rst     (rst),
+
+        `AXI4_CONNECT   (target_axi, s_axi),
+
+        `AXI4_A_CONNECT (backend, f2b),
+        `AXI4_W_CONNECT (backend, f2b),
+        `AXI4_B_CONNECT (backend, f2b),
+        `AXI4_R_CONNECT (backend, f2b),
+
+        .rreq_valid     (rreq_valid),
+        .rreq_id        (rreq_id),
+
+        .breq_valid     (breq_valid),
+        .breq_id        (breq_id)
+
+    );
+
+    emulib_rammodel_backend #(
+        .ADDR_WIDTH     (ADDR_WIDTH),
+        .DATA_WIDTH     (DATA_WIDTH),
+        .ID_WIDTH       (ID_WIDTH),
+        .PF_COUNT       (PF_COUNT),
+        .MAX_INFLIGHT   (MAX_INFLIGHT)
+    )
+    backend (
+
+        .host_clk       (host_clk),
+        .host_rst       (host_rst),
+
+        .target_clk     (clk),
+        .target_rst     (rst),
+
+        `AXI4_A_CONNECT (frontend, f2b),
+        `AXI4_W_CONNECT (frontend, f2b),
+        `AXI4_B_CONNECT (frontend, f2b),
+        `AXI4_R_CONNECT (frontend, f2b),
+
+        .rreq_valid     (rreq_valid),
+        .rreq_id        (rreq_id),
+
+        .breq_valid     (breq_valid),
+        .breq_id        (breq_id),
+
+        `AXI4_CONNECT   (host_axi, host_axi),
+
+        .target_fire    (target_fire),
+        .stall          (stall),
+
+        .up_req         (up_req),
+        .down_req       (down_req),
+        .up_stat        (up_stat),
+        .down_stat      (down_stat)
+
+    );
+
+`ifdef SIM_LOG
+
+    always @(posedge clk) begin
+        if (!rst) begin
+            if (f2b_avalid && f2b_aready) begin
+                $display("[%0d ns] %m: f2b A", $time);
+            end
+            if (f2b_wvalid && f2b_wready) begin
+                $display("[%0d ns] %m: f2b W", $time);
+            end
+            if (f2b_bvalid && f2b_bready) begin
+                $display("[%0d ns] %m: f2b B", $time);
+            end
+            if (f2b_rvalid && f2b_rready) begin
+                $display("[%0d ns] %m: f2b R", $time);
+            end
+            if (breq_valid) begin
+                $display("[%0d ns] %m: f2b BReq", $time);
+            end
+            if (rreq_valid) begin
+                $display("[%0d ns] %m: f2b RReq", $time);
+            end
+        end
+    end
+
+`endif
 
 endmodule
 
