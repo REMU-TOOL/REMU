@@ -15,7 +15,7 @@ module emulib_ready_valid_mux #(
     output wire [NUM_M-1:0]             m_valid,
     input  wire [NUM_M-1:0]             m_ready,
     output wire [DATA_WIDTH*NUM_M-1:0]  m_data,
-    input  wire [NUM_S-1:0]             m_sel
+    input  wire [NUM_M-1:0]             m_sel
 );
 
     wire valid = |(s_valid & s_sel);
