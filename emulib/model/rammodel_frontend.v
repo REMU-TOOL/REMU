@@ -3,7 +3,7 @@
 `default_nettype none
 
 `include "axi.vh"
-`include "axi_a.vh"
+`include "axi_custom.vh"
 
 module emulib_rammodel_frontend #(
     parameter   ADDR_WIDTH      = 32,
@@ -19,10 +19,10 @@ module emulib_rammodel_frontend #(
 
     `AXI4_SLAVE_IF              (target_axi, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
 
-    `AXI4_A_MASTER_IF           (backend, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
-    `AXI4_W_MASTER_IF           (backend, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
-    `AXI4_B_SLAVE_IF            (backend, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
-    `AXI4_R_SLAVE_IF            (backend, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
+    `AXI4_CUSTOM_A_MASTER_IF    (backend, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
+    `AXI4_CUSTOM_W_MASTER_IF    (backend, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
+    `AXI4_CUSTOM_B_SLAVE_IF     (backend, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
+    `AXI4_CUSTOM_R_SLAVE_IF     (backend, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
 
     output wire                 rreq_valid,
     output wire [ID_WIDTH-1:0]  rreq_id,
@@ -75,11 +75,11 @@ module emulib_rammodel_frontend #(
         .ID_WIDTH           (ID_WIDTH),
         .MAX_INFLIGHT       (MAX_INFLIGHT)
     ) tracker (
-        .target_clk         (target_clk),
-        .target_rst         (target_rst),
-        `AXI4_CONNECT       (axi, tracker),
-        `AXI4_A_CONNECT     (backend, backend),
-        `AXI4_W_CONNECT     (backend, backend)
+        .target_clk             (target_clk),
+        .target_rst             (target_rst),
+        `AXI4_CONNECT           (axi, tracker),
+        `AXI4_CUSTOM_A_CONNECT  (backend, backend),
+        `AXI4_CUSTOM_W_CONNECT  (backend, backend)
     );
 
     // Timing model
@@ -123,8 +123,10 @@ module emulib_rammodel_frontend #(
         .m_ready        ({target_axi_bready, tracker_bready})
     );
 
-    assign `AXI4_B_PAYLOAD(tracker) = `AXI4_B_PAYLOAD(backend);
-    assign `AXI4_B_PAYLOAD(target_axi) = `AXI4_B_PAYLOAD(backend);
+    assign `AXI4_CUSTOM_B_PAYLOAD(tracker) = `AXI4_CUSTOM_B_PAYLOAD(backend);
+    assign tracker_bresp = 2'b00;
+    assign `AXI4_CUSTOM_B_PAYLOAD(target_axi) = `AXI4_CUSTOM_B_PAYLOAD(backend);
+    assign target_axi_bresp = 2'b00;
 
     emulib_ready_valid_fork #(.BRANCHES(2)) fork_r (
         .s_valid        (backend_rvalid),
@@ -133,8 +135,10 @@ module emulib_rammodel_frontend #(
         .m_ready        ({target_axi_rready, tracker_rready})
     );
 
-    assign `AXI4_R_PAYLOAD(tracker) = `AXI4_R_PAYLOAD(backend);
-    assign `AXI4_R_PAYLOAD(target_axi) = `AXI4_R_PAYLOAD(backend);
+    assign `AXI4_CUSTOM_R_PAYLOAD(tracker) = `AXI4_CUSTOM_R_PAYLOAD(backend);
+    assign tracker_rresp = 2'b00;
+    assign `AXI4_CUSTOM_R_PAYLOAD(target_axi) = `AXI4_CUSTOM_R_PAYLOAD(backend);
+    assign target_axi_rresp = 2'b00;
 
 endmodule
 

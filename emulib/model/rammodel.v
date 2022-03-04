@@ -3,7 +3,7 @@
 `default_nettype none
 
 `include "axi.vh"
-`include "axi_a.vh"
+`include "axi_custom.vh"
 
 (* keep, emulib_component = "rammodel" *)
 module RAMModel #(
@@ -220,10 +220,10 @@ module EmuRam #(
 
 );
 
-    `AXI4_A_WIRE(f2b, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
-    `AXI4_W_WIRE(f2b, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
-    `AXI4_B_WIRE(f2b, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
-    `AXI4_R_WIRE(f2b, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_CUSTOM_A_WIRE(f2b, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_CUSTOM_W_WIRE(f2b, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_CUSTOM_B_WIRE(f2b, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_CUSTOM_R_WIRE(f2b, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
 
     wire                 rreq_valid;
     wire [ID_WIDTH-1:0]  rreq_id;
@@ -241,21 +241,21 @@ module EmuRam #(
     )
     frontend (
 
-        .target_clk     (clk),
-        .target_rst     (rst),
+        .target_clk             (clk),
+        .target_rst             (rst),
 
-        `AXI4_CONNECT   (target_axi, s_axi),
+        `AXI4_CONNECT           (target_axi, s_axi),
 
-        `AXI4_A_CONNECT (backend, f2b),
-        `AXI4_W_CONNECT (backend, f2b),
-        `AXI4_B_CONNECT (backend, f2b),
-        `AXI4_R_CONNECT (backend, f2b),
+        `AXI4_CUSTOM_A_CONNECT  (backend, f2b),
+        `AXI4_CUSTOM_W_CONNECT  (backend, f2b),
+        `AXI4_CUSTOM_B_CONNECT  (backend, f2b),
+        `AXI4_CUSTOM_R_CONNECT  (backend, f2b),
 
-        .rreq_valid     (rreq_valid),
-        .rreq_id        (rreq_id),
+        .rreq_valid             (rreq_valid),
+        .rreq_id                (rreq_id),
 
-        .breq_valid     (breq_valid),
-        .breq_id        (breq_id)
+        .breq_valid             (breq_valid),
+        .breq_id                (breq_id)
 
     );
 
@@ -268,32 +268,32 @@ module EmuRam #(
     )
     backend (
 
-        .host_clk       (host_clk),
-        .host_rst       (host_rst),
+        .host_clk               (host_clk),
+        .host_rst               (host_rst),
 
-        .target_clk     (clk),
-        .target_rst     (rst),
+        .target_clk             (clk),
+        .target_rst             (rst),
 
-        `AXI4_A_CONNECT (frontend, f2b),
-        `AXI4_W_CONNECT (frontend, f2b),
-        `AXI4_B_CONNECT (frontend, f2b),
-        `AXI4_R_CONNECT (frontend, f2b),
+        `AXI4_CUSTOM_A_CONNECT  (frontend, f2b),
+        `AXI4_CUSTOM_W_CONNECT  (frontend, f2b),
+        `AXI4_CUSTOM_B_CONNECT  (frontend, f2b),
+        `AXI4_CUSTOM_R_CONNECT  (frontend, f2b),
 
-        .rreq_valid     (rreq_valid),
-        .rreq_id        (rreq_id),
+        .rreq_valid             (rreq_valid),
+        .rreq_id                (rreq_id),
 
-        .breq_valid     (breq_valid),
-        .breq_id        (breq_id),
+        .breq_valid             (breq_valid),
+        .breq_id                (breq_id),
 
-        `AXI4_CONNECT   (host_axi, host_axi),
+        `AXI4_CONNECT           (host_axi, host_axi),
 
-        .target_fire    (target_fire),
-        .stall          (stall),
+        .target_fire            (target_fire),
+        .stall                  (stall),
 
-        .up_req         (up_req),
-        .down_req       (down_req),
-        .up_stat        (up_stat),
-        .down_stat      (down_stat)
+        .up_req                 (up_req),
+        .down_req               (down_req),
+        .up_stat                (up_stat),
+        .down_stat              (down_stat)
 
     );
 

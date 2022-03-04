@@ -3,7 +3,7 @@
 `default_nettype none
 
 `include "axi.vh"
-`include "axi_a.vh"
+`include "axi_custom.vh"
 
 (* __emu_directive = "ignore" *)
 
@@ -21,10 +21,10 @@ module emulib_rammodel_backend #(
     input  wire                 target_clk,
     input  wire                 target_rst,
 
-    `AXI4_A_SLAVE_IF            (frontend, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
-    `AXI4_W_SLAVE_IF            (frontend, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
-    `AXI4_B_MASTER_IF           (frontend, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
-    `AXI4_R_MASTER_IF           (frontend, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
+    `AXI4_CUSTOM_A_SLAVE_IF     (frontend, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
+    `AXI4_CUSTOM_W_SLAVE_IF     (frontend, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
+    `AXI4_CUSTOM_B_MASTER_IF    (frontend, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
+    `AXI4_CUSTOM_R_MASTER_IF    (frontend, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
 
     input  wire                 rreq_valid,
     input  wire [ID_WIDTH-1:0]  rreq_id,
@@ -126,31 +126,31 @@ module emulib_rammodel_backend #(
 
     // A FIFO
 
-    `AXI4_A_WIRE(a_fifo_load,   ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
-    `AXI4_A_WIRE(a_fifo_in,     ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
-    `AXI4_A_WIRE(a_fifo_out,    ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
-    `AXI4_A_WIRE(a_fifo_save,   ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
-    `AXI4_A_WIRE(sched,         ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_CUSTOM_A_WIRE(a_fifo_load,   ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_CUSTOM_A_WIRE(a_fifo_in,     ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_CUSTOM_A_WIRE(a_fifo_out,    ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_CUSTOM_A_WIRE(a_fifo_save,   ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_CUSTOM_A_WIRE(sched,         ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
 
     emulib_ready_valid_mux #(
         .NUM_S      (2),
         .NUM_M      (1),
-        .DATA_WIDTH (`AXI4_A_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
+        .DATA_WIDTH (`AXI4_CUSTOM_A_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
     ) a_fifo_in_mux (
         .s_valid    ({decoupled_avalid, a_fifo_load_avalid}),
         .s_ready    ({decoupled_aready, a_fifo_load_aready}),
-        .s_data     ({`AXI4_A_PAYLOAD(frontend), `AXI4_A_PAYLOAD(a_fifo_load)}),
+        .s_data     ({`AXI4_CUSTOM_A_PAYLOAD(frontend), `AXI4_CUSTOM_A_PAYLOAD(a_fifo_load)}),
         .s_sel      (a_fifo_in_mux_sel),
         .m_valid    (a_fifo_in_avalid),
         .m_ready    (a_fifo_in_aready),
-        .m_data     (`AXI4_A_PAYLOAD(a_fifo_in)),
+        .m_data     (`AXI4_CUSTOM_A_PAYLOAD(a_fifo_in)),
         .m_sel      (1'b1)
     );
 
     wire [$clog2(MAX_INFLIGHT):0] a_fifo_item_cnt;
 
     emulib_fifo #(
-        .WIDTH      (`AXI4_A_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)),
+        .WIDTH      (`AXI4_CUSTOM_A_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)),
         .DEPTH      (MAX_INFLIGHT),
         .USE_BURST  (0),
         .USE_SRSW   (0)
@@ -159,55 +159,55 @@ module emulib_rammodel_backend #(
         .rst        (host_rst),
         .ivalid     (a_fifo_in_avalid),
         .iready     (a_fifo_in_aready),
-        .idata      (`AXI4_A_PAYLOAD(a_fifo_in)),
+        .idata      (`AXI4_CUSTOM_A_PAYLOAD(a_fifo_in)),
         .ovalid     (a_fifo_out_avalid),
         .oready     (a_fifo_out_aready),
-        .odata      (`AXI4_A_PAYLOAD(a_fifo_out)),
+        .odata      (`AXI4_CUSTOM_A_PAYLOAD(a_fifo_out)),
         .item_cnt   (a_fifo_item_cnt)
     );
 
     emulib_ready_valid_mux #(
         .NUM_S      (1),
         .NUM_M      (2),
-        .DATA_WIDTH (`AXI4_A_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
+        .DATA_WIDTH (`AXI4_CUSTOM_A_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
     ) a_fifo_out_mux (
         .s_valid    (a_fifo_out_avalid),
         .s_ready    (a_fifo_out_aready),
-        .s_data     (`AXI4_A_PAYLOAD(a_fifo_out)),
+        .s_data     (`AXI4_CUSTOM_A_PAYLOAD(a_fifo_out)),
         .s_sel      (1'b1),
         .m_valid    ({sched_avalid, a_fifo_save_avalid}),
         .m_ready    ({sched_aready, a_fifo_save_aready}),
-        .m_data     ({`AXI4_A_PAYLOAD(sched), `AXI4_A_PAYLOAD(a_fifo_save)}),
+        .m_data     ({`AXI4_CUSTOM_A_PAYLOAD(sched), `AXI4_CUSTOM_A_PAYLOAD(a_fifo_save)}),
         .m_sel      (a_fifo_out_mux_sel)
     );
 
     // W FIFO
 
-    `AXI4_W_WIRE(w_fifo_load,   ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
-    `AXI4_W_WIRE(w_fifo_in,     ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
-    `AXI4_W_WIRE(w_fifo_out,    ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
-    `AXI4_W_WIRE(w_fifo_save,   ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
-    `AXI4_W_WIRE(sched,         ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_CUSTOM_W_WIRE(w_fifo_load,   ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_CUSTOM_W_WIRE(w_fifo_in,     ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_CUSTOM_W_WIRE(w_fifo_out,    ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_CUSTOM_W_WIRE(w_fifo_save,   ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_CUSTOM_W_WIRE(sched,         ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
 
     emulib_ready_valid_mux #(
         .NUM_S      (2),
         .NUM_M      (1),
-        .DATA_WIDTH (`AXI4_W_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
+        .DATA_WIDTH (`AXI4_CUSTOM_W_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
     ) w_fifo_in_mux (
         .s_valid    ({decoupled_wvalid, w_fifo_load_wvalid}),
         .s_ready    ({decoupled_wready, w_fifo_load_wready}),
-        .s_data     ({`AXI4_W_PAYLOAD(frontend), `AXI4_W_PAYLOAD(w_fifo_load)}),
+        .s_data     ({`AXI4_CUSTOM_W_PAYLOAD(frontend), `AXI4_CUSTOM_W_PAYLOAD(w_fifo_load)}),
         .s_sel      (w_fifo_in_mux_sel),
         .m_valid    (w_fifo_in_wvalid),
         .m_ready    (w_fifo_in_wready),
-        .m_data     (`AXI4_W_PAYLOAD(w_fifo_in)),
+        .m_data     (`AXI4_CUSTOM_W_PAYLOAD(w_fifo_in)),
         .m_sel      (1'b1)
     );
 
     wire [$clog2(W_FIFO_DEPTH):0] w_fifo_item_cnt, w_fifo_burst_cnt;
 
     emulib_fifo #(
-        .WIDTH      (`AXI4_W_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH) - 1),
+        .WIDTH      (`AXI4_CUSTOM_W_PAYLOAD_WO_LAST_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)),
         .DEPTH      (W_FIFO_DEPTH),
         .USE_BURST  (1),
         .USE_SRSW   (1)
@@ -216,11 +216,11 @@ module emulib_rammodel_backend #(
         .rst        (host_rst),
         .ivalid     (w_fifo_in_wvalid),
         .iready     (w_fifo_in_wready),
-        .idata      (`AXI4_W_PAYLOAD_WO_LAST(w_fifo_in)),
+        .idata      (`AXI4_CUSTOM_W_PAYLOAD_WO_LAST(w_fifo_in)),
         .ilast      (w_fifo_in_wlast),
         .ovalid     (w_fifo_out_wvalid),
         .oready     (w_fifo_out_wready),
-        .odata      (`AXI4_W_PAYLOAD_WO_LAST(w_fifo_out)),
+        .odata      (`AXI4_CUSTOM_W_PAYLOAD_WO_LAST(w_fifo_out)),
         .olast      (w_fifo_out_wlast),
         .item_cnt   (w_fifo_item_cnt),
         .burst_cnt  (w_fifo_burst_cnt)
@@ -229,38 +229,38 @@ module emulib_rammodel_backend #(
     emulib_ready_valid_mux #(
         .NUM_S      (1),
         .NUM_M      (2),
-        .DATA_WIDTH (`AXI4_W_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
+        .DATA_WIDTH (`AXI4_CUSTOM_W_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
     ) w_fifo_out_mux (
         .s_valid    (w_fifo_out_wvalid),
         .s_ready    (w_fifo_out_wready),
-        .s_data     (`AXI4_W_PAYLOAD(w_fifo_out)),
+        .s_data     (`AXI4_CUSTOM_W_PAYLOAD(w_fifo_out)),
         .s_sel      (1'b1),
         .m_valid    ({sched_wvalid, w_fifo_save_wvalid}),
         .m_ready    ({sched_wready, w_fifo_save_wready}),
-        .m_data     ({`AXI4_W_PAYLOAD(sched), `AXI4_W_PAYLOAD(w_fifo_save)}),
+        .m_data     ({`AXI4_CUSTOM_W_PAYLOAD(sched), `AXI4_CUSTOM_W_PAYLOAD(w_fifo_save)}),
         .m_sel      (w_fifo_out_mux_sel)
     );
 
     // B FIFO
 
-    `AXI4_B_WIRE(b_fifo_load,   ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
-    `AXI4_B_WIRE(b_fifo_in,     ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
-    `AXI4_B_WIRE(b_fifo_out,    ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
-    `AXI4_B_WIRE(b_fifo_save,   ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
-    `AXI4_B_WIRE(resp,          ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_CUSTOM_B_WIRE(b_fifo_load,   ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_CUSTOM_B_WIRE(b_fifo_in,     ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_CUSTOM_B_WIRE(b_fifo_out,    ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_CUSTOM_B_WIRE(b_fifo_save,   ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_CUSTOM_B_WIRE(resp,          ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
 
     emulib_ready_valid_mux #(
         .NUM_S      (2),
         .NUM_M      (1),
-        .DATA_WIDTH (`AXI4_B_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
+        .DATA_WIDTH (`AXI4_CUSTOM_B_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
     ) b_fifo_in_mux (
         .s_valid    ({host_axi_bvalid, b_fifo_load_bvalid}),
         .s_ready    ({host_axi_bready, b_fifo_load_bready}),
-        .s_data     ({`AXI4_B_PAYLOAD(host_axi), `AXI4_B_PAYLOAD(b_fifo_load)}),
+        .s_data     ({`AXI4_CUSTOM_B_PAYLOAD(host_axi), `AXI4_CUSTOM_B_PAYLOAD(b_fifo_load)}),
         .s_sel      (b_fifo_in_mux_sel),
         .m_valid    (b_fifo_in_bvalid),
         .m_ready    (b_fifo_in_bready),
-        .m_data     (`AXI4_B_PAYLOAD(b_fifo_in)),
+        .m_data     (`AXI4_CUSTOM_B_PAYLOAD(b_fifo_in)),
         .m_sel      (1'b1)
     );
 
@@ -268,7 +268,7 @@ module emulib_rammodel_backend #(
     wire [$clog2(B_FIFO_DEPTH):0] b_fifo_item_cnt;
 
     emulib_fifo #(
-        .WIDTH      (`AXI4_B_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)),
+        .WIDTH      (`AXI4_CUSTOM_B_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)),
         .DEPTH      (B_FIFO_DEPTH),
         .USE_BURST  (0),
         .USE_SRSW   (0)
@@ -277,10 +277,10 @@ module emulib_rammodel_backend #(
         .rst        (host_rst),
         .ivalid     (b_fifo_in_bvalid),
         .iready     (b_fifo_in_bready),
-        .idata      (`AXI4_B_PAYLOAD(b_fifo_in)),
+        .idata      (`AXI4_CUSTOM_B_PAYLOAD(b_fifo_in)),
         .ovalid     (b_fifo_out_bvalid),
         .oready     (b_fifo_out_bready),
-        .odata      (`AXI4_B_PAYLOAD(b_fifo_out)),
+        .odata      (`AXI4_CUSTOM_B_PAYLOAD(b_fifo_out)),
         .empty      (b_fifo_empty),
         .item_cnt   (b_fifo_item_cnt)
     );
@@ -288,38 +288,38 @@ module emulib_rammodel_backend #(
     emulib_ready_valid_mux #(
         .NUM_S      (1),
         .NUM_M      (2),
-        .DATA_WIDTH (`AXI4_B_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
+        .DATA_WIDTH (`AXI4_CUSTOM_B_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
     ) b_fifo_out_mux (
         .s_valid    (b_fifo_out_bvalid),
         .s_ready    (b_fifo_out_bready),
-        .s_data     (`AXI4_B_PAYLOAD(b_fifo_out)),
+        .s_data     (`AXI4_CUSTOM_B_PAYLOAD(b_fifo_out)),
         .s_sel      (1'b1),
         .m_valid    ({resp_bvalid, b_fifo_save_bvalid}),
         .m_ready    ({resp_bready, b_fifo_save_bready}),
-        .m_data     ({`AXI4_B_PAYLOAD(resp), `AXI4_B_PAYLOAD(b_fifo_save)}),
+        .m_data     ({`AXI4_CUSTOM_B_PAYLOAD(resp), `AXI4_CUSTOM_B_PAYLOAD(b_fifo_save)}),
         .m_sel      (b_fifo_out_mux_sel)
     );
 
     // R FIFO
 
-    `AXI4_R_WIRE(r_fifo_load,   ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
-    `AXI4_R_WIRE(r_fifo_in,     ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
-    `AXI4_R_WIRE(r_fifo_out,    ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
-    `AXI4_R_WIRE(r_fifo_save,   ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
-    `AXI4_R_WIRE(resp,          ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_CUSTOM_R_WIRE(r_fifo_load,   ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_CUSTOM_R_WIRE(r_fifo_in,     ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_CUSTOM_R_WIRE(r_fifo_out,    ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_CUSTOM_R_WIRE(r_fifo_save,   ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_CUSTOM_R_WIRE(resp,          ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
 
     emulib_ready_valid_mux #(
         .NUM_S      (2),
         .NUM_M      (1),
-        .DATA_WIDTH (`AXI4_R_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
+        .DATA_WIDTH (`AXI4_CUSTOM_R_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
     ) r_fifo_in_mux (
         .s_valid    ({host_axi_rvalid, r_fifo_load_rvalid}),
         .s_ready    ({host_axi_rready, r_fifo_load_rready}),
-        .s_data     ({`AXI4_R_PAYLOAD(host_axi), `AXI4_R_PAYLOAD(r_fifo_load)}),
+        .s_data     ({`AXI4_CUSTOM_R_PAYLOAD(host_axi), `AXI4_CUSTOM_R_PAYLOAD(r_fifo_load)}),
         .s_sel      (r_fifo_in_mux_sel),
         .m_valid    (r_fifo_in_rvalid),
         .m_ready    (r_fifo_in_rready),
-        .m_data     (`AXI4_R_PAYLOAD(r_fifo_in)),
+        .m_data     (`AXI4_CUSTOM_R_PAYLOAD(r_fifo_in)),
         .m_sel      (1'b1)
     );
 
@@ -327,7 +327,7 @@ module emulib_rammodel_backend #(
     wire [$clog2(R_FIFO_DEPTH):0] r_fifo_item_cnt, r_fifo_burst_cnt;
 
     emulib_fifo #(
-        .WIDTH      (`AXI4_R_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH) - 1),
+        .WIDTH      (`AXI4_CUSTOM_R_PAYLOAD_WO_LAST_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)),
         .DEPTH      (R_FIFO_DEPTH),
         .USE_BURST  (1),
         .USE_SRSW   (1)
@@ -336,11 +336,11 @@ module emulib_rammodel_backend #(
         .rst        (host_rst),
         .ivalid     (r_fifo_in_rvalid),
         .iready     (r_fifo_in_rready),
-        .idata      (`AXI4_R_PAYLOAD_WO_LAST(r_fifo_in)),
+        .idata      (`AXI4_CUSTOM_R_PAYLOAD_WO_LAST(r_fifo_in)),
         .ilast      (r_fifo_in_rlast),
         .ovalid     (r_fifo_out_rvalid),
         .oready     (r_fifo_out_rready),
-        .odata      (`AXI4_R_PAYLOAD_WO_LAST(r_fifo_out)),
+        .odata      (`AXI4_CUSTOM_R_PAYLOAD_WO_LAST(r_fifo_out)),
         .olast      (r_fifo_out_rlast),
         .empty      (r_fifo_empty),
         .item_cnt   (r_fifo_item_cnt),
@@ -350,15 +350,15 @@ module emulib_rammodel_backend #(
     emulib_ready_valid_mux #(
         .NUM_S      (1),
         .NUM_M      (2),
-        .DATA_WIDTH (`AXI4_R_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
+        .DATA_WIDTH (`AXI4_CUSTOM_R_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
     ) r_fifo_out_mux (
         .s_valid    (r_fifo_out_rvalid),
         .s_ready    (r_fifo_out_rready),
-        .s_data     (`AXI4_R_PAYLOAD(r_fifo_out)),
+        .s_data     (`AXI4_CUSTOM_R_PAYLOAD(r_fifo_out)),
         .s_sel      (1'b1),
         .m_valid    ({resp_rvalid, r_fifo_save_rvalid}),
         .m_ready    ({resp_rready, r_fifo_save_rready}),
-        .m_data     ({`AXI4_R_PAYLOAD(resp), `AXI4_R_PAYLOAD(r_fifo_save)}),
+        .m_data     ({`AXI4_CUSTOM_R_PAYLOAD(resp), `AXI4_CUSTOM_R_PAYLOAD(r_fifo_save)}),
         .m_sel      (r_fifo_out_mux_sel)
     );
 
@@ -417,26 +417,26 @@ module emulib_rammodel_backend #(
         .couple     (resp_enable_r)
     );
 
-    assign `AXI4_B_PAYLOAD(frontend) = `AXI4_B_PAYLOAD(resp);
-    assign `AXI4_R_PAYLOAD(frontend) = `AXI4_R_PAYLOAD(resp);
+    assign `AXI4_CUSTOM_B_PAYLOAD(frontend) = `AXI4_CUSTOM_B_PAYLOAD(resp);
+    assign `AXI4_CUSTOM_R_PAYLOAD(frontend) = `AXI4_CUSTOM_R_PAYLOAD(resp);
 
     // Route A to AW/AR
 
-    `AXI4_A_WIRE(routed_aw, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
-    `AXI4_A_WIRE(routed_ar, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_CUSTOM_A_WIRE(routed_aw, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_CUSTOM_A_WIRE(routed_ar, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
 
     emulib_ready_valid_mux #(
         .NUM_S      (1),
         .NUM_M      (2),
-        .DATA_WIDTH (`AXI4_A_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
+        .DATA_WIDTH (`AXI4_CUSTOM_A_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
     ) a_router (
         .s_valid    (gated_sched_avalid),
         .s_ready    (gated_sched_aready),
-        .s_data     (`AXI4_A_PAYLOAD(sched)),
+        .s_data     (`AXI4_CUSTOM_A_PAYLOAD(sched)),
         .s_sel      (1'b1),
         .m_valid    ({routed_aw_avalid, routed_ar_avalid}),
         .m_ready    ({routed_aw_aready, routed_ar_aready}),
-        .m_data     ({`AXI4_A_PAYLOAD(routed_aw), `AXI4_A_PAYLOAD(routed_ar)}),
+        .m_data     ({`AXI4_CUSTOM_A_PAYLOAD(routed_aw), `AXI4_CUSTOM_A_PAYLOAD(routed_ar)}),
         .m_sel      ({sched_awrite, ~sched_awrite})
     );
 
@@ -455,7 +455,7 @@ module emulib_rammodel_backend #(
 
     assign host_axi_wvalid      = gated_sched_wvalid;
     assign gated_sched_wready   = host_axi_wready;
-    assign `AXI4_W_PAYLOAD(host_axi) = `AXI4_W_PAYLOAD(sched);
+    assign `AXI4_CUSTOM_W_PAYLOAD(host_axi) = `AXI4_CUSTOM_W_PAYLOAD(sched);
 
     assign host_axi_arvalid     = routed_ar_avalid;
     assign routed_ar_aready     = host_axi_arready;

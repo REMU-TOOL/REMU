@@ -3,7 +3,7 @@
 `default_nettype none
 
 `include "axi.vh"
-`include "axi_a.vh"
+`include "axi_custom.vh"
 
 module emulib_rammodel_tracker #(
     parameter   ADDR_WIDTH      = 32,
@@ -12,35 +12,35 @@ module emulib_rammodel_tracker #(
     parameter   MAX_INFLIGHT    = 8
 )(
 
-    input  wire         target_clk,
-    input  wire         target_rst,
+    input  wire                 target_clk,
+    input  wire                 target_rst,
 
-    `AXI4_AW_SLAVE_IF   (axi, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
-    `AXI4_W_SLAVE_IF    (axi, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
-    `AXI4_AR_SLAVE_IF   (axi, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
+    `AXI4_AW_SLAVE_IF           (axi, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
+    `AXI4_W_SLAVE_IF            (axi, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
+    `AXI4_AR_SLAVE_IF           (axi, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
 
-    `AXI4_B_SLAVE_IF    (axi, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
-    `AXI4_R_SLAVE_IF    (axi, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
+    `AXI4_B_SLAVE_IF            (axi, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
+    `AXI4_R_SLAVE_IF            (axi, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
 
-    `AXI4_A_MASTER_IF   (backend, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
-    `AXI4_W_MASTER_IF   (backend, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)
+    `AXI4_CUSTOM_A_MASTER_IF    (backend, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
+    `AXI4_CUSTOM_W_MASTER_IF    (backend, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)
 
 );
 
     // AW/AR arbitration
 
-    `AXI4_A_WIRE(arb, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_CUSTOM_A_WIRE(arb, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
 
     emulib_ready_valid_arb #(
         .NUM_S      (2),
-        .DATA_WIDTH (`AXI4_A_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
+        .DATA_WIDTH (`AXI4_CUSTOM_A_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
     ) aw_ar_arb (
         .s_valid    ({axi_awvalid, axi_arvalid}),
         .s_ready    ({axi_awready, axi_arready}),
-        .s_data     ({`AXI4_A_PAYLOAD_FROM_AW(axi), `AXI4_A_PAYLOAD_FROM_AR(axi)}),
+        .s_data     ({`AXI4_CUSTOM_A_PAYLOAD_FROM_AW(axi), `AXI4_CUSTOM_A_PAYLOAD_FROM_AR(axi)}),
         .m_valid    (arb_avalid),
         .m_ready    (arb_aready),
-        .m_data     (`AXI4_A_PAYLOAD(arb)),
+        .m_data     (`AXI4_CUSTOM_A_PAYLOAD(arb)),
         .m_sel      ()
     );
 
@@ -93,12 +93,12 @@ module emulib_rammodel_tracker #(
     assign backend_avalid   = arb_avalid && !if_full;
     assign arb_aready       = backend_aready && !if_full;
 
-    assign `AXI4_A_PAYLOAD(backend) = `AXI4_A_PAYLOAD(arb);
+    assign `AXI4_CUSTOM_A_PAYLOAD(backend) = `AXI4_CUSTOM_A_PAYLOAD(arb);
 
     assign backend_wvalid   = axi_wvalid && !aw_empty;
     assign axi_wready       = backend_wready && !aw_empty;
 
-    assign `AXI4_W_PAYLOAD(backend) = `AXI4_W_PAYLOAD(axi);
+    assign `AXI4_CUSTOM_W_PAYLOAD(backend) = `AXI4_CUSTOM_W_PAYLOAD(axi);
 
     assign axi_bready = 1'b1;
     assign axi_rready = 1'b1;
