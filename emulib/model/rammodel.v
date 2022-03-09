@@ -180,15 +180,16 @@ module RAMModel #(
 
 endmodule
 
-(* __emu_directive_1 = "extern host_clk" *)
-(* __emu_directive_2 = "extern host_rst" *)
-(* __emu_directive_3 = "extern host_axi_*" *)
-(* __emu_directive_4 = "extern target_fire" *)
-(* __emu_directive_5 = "extern stall" *)
-(* __emu_directive_6 = "extern up_req" *)
-(* __emu_directive_7 = "extern down_req" *)
-(* __emu_directive_8 = "extern up_stat" *)
-(* __emu_directive_9 = "extern down_stat" *)
+(* __emu_directive_1    = "extern host_clk" *)
+(* __emu_directive_2    = "extern host_rst" *)
+(* __emu_directive_3    = "extern host_axi_*" *)
+(* __emu_directive_4    = "extern lsu_axi_*" *)
+(* __emu_directive_5    = "extern target_fire" *)
+(* __emu_directive_6    = "extern stall" *)
+(* __emu_directive_7    = "extern up_req" *)
+(* __emu_directive_8    = "extern down_req" *)
+(* __emu_directive_9    = "extern up_stat" *)
+(* __emu_directive_10   = "extern down_stat" *)
 
 module EmuRam #(
     parameter   ADDR_WIDTH      = 32,
@@ -209,6 +210,7 @@ module EmuRam #(
     input  wire                 host_rst,
 
     `AXI4_MASTER_IF             (host_axi,      ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
+    `AXI4_MASTER_IF_NO_ID       (lsu_axi, 32, 32),
 
     input  wire                 target_fire,
     output wire                 stall,
@@ -286,6 +288,7 @@ module EmuRam #(
         .breq_id                (breq_id),
 
         `AXI4_CONNECT           (host_axi, host_axi),
+        `AXI4_CONNECT_NO_ID     (lsu_axi, lsu_axi),
 
         .target_fire            (target_fire),
         .stall                  (stall),
@@ -296,33 +299,6 @@ module EmuRam #(
         .down_stat              (down_stat)
 
     );
-
-`ifdef SIM_LOG
-
-    always @(posedge clk) begin
-        if (!rst) begin
-            if (f2b_avalid && f2b_aready) begin
-                $display("[%0d ns] %m: f2b A", $time);
-            end
-            if (f2b_wvalid && f2b_wready) begin
-                $display("[%0d ns] %m: f2b W", $time);
-            end
-            if (f2b_bvalid && f2b_bready) begin
-                $display("[%0d ns] %m: f2b B", $time);
-            end
-            if (f2b_rvalid && f2b_rready) begin
-                $display("[%0d ns] %m: f2b R", $time);
-            end
-            if (breq_valid) begin
-                $display("[%0d ns] %m: f2b BReq", $time);
-            end
-            if (rreq_valid) begin
-                $display("[%0d ns] %m: f2b RReq", $time);
-            end
-        end
-    end
-
-`endif
 
 endmodule
 

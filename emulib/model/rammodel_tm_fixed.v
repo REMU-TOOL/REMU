@@ -37,12 +37,14 @@ module emulib_rammodel_tm_fixed #(
 
     reg [15:0] rcnt, wcnt;
 
+    reg [7:0] rlen;
+
     always @(posedge clk) begin
         if (rst)
             ar <= 1'b0;
         else if (arvalid && arready)
             ar <= 1'b1;
-        else if (rreq_valid)
+        else if (rreq_valid && rlen == 8'd0)
             ar <= 1'b0;
     end
 
@@ -80,6 +82,15 @@ module emulib_rammodel_tm_fixed #(
             wcnt <= W_DELAY;
         else if (wcnt != 16'd0)
             wcnt <= wcnt - 16'd1;
+    end
+
+    always @(posedge clk) begin
+        if (rst)
+            rlen <= 8'd0;
+        else if (arvalid && arready)
+            rlen <= arlen;
+        else if (rreq_valid)
+            rlen <= rlen - 8'd1;
     end
 
     assign arready      = 1'b1;

@@ -33,6 +33,7 @@ module emulib_rammodel_backend #(
     input  wire [ID_WIDTH-1:0]  breq_id,
 
     `AXI4_MASTER_IF             (host_axi,      ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
+    `AXI4_MASTER_IF_NO_ID       (lsu_axi, 32, 32),
 
     input  wire                 target_fire,
     output wire                 stall,
@@ -102,16 +103,14 @@ module emulib_rammodel_backend #(
     // Decouple frontend BReq, RReq
 
     wire decoupled_breq_valid = breq_valid && target_fire;
-    wire decoupled_breq_ready;
     wire decoupled_rreq_valid = rreq_valid && target_fire;
-    wire decoupled_rreq_ready;
 
     // Generate stall signal
 
     wire a_stall    = frontend_avalid && !decoupled_aready;
     wire w_stall    = frontend_wvalid && !decoupled_wready;
-    wire breq_stall = breq_valid && !decoupled_breq_ready;
-    wire rreq_stall = rreq_valid && !decoupled_rreq_ready;
+    wire breq_stall = breq_valid && !resp_bvalid;
+    wire rreq_stall = rreq_valid && !resp_rvalid;
 
     assign stall = a_stall || w_stall || breq_stall || rreq_stall;
 
@@ -147,6 +146,7 @@ module emulib_rammodel_backend #(
         .m_sel      (1'b1)
     );
 
+    wire a_fifo_empty;
     wire [$clog2(MAX_INFLIGHT):0] a_fifo_item_cnt;
 
     emulib_fifo #(
@@ -163,6 +163,7 @@ module emulib_rammodel_backend #(
         .ovalid     (a_fifo_out_avalid),
         .oready     (a_fifo_out_aready),
         .odata      (`AXI4_CUSTOM_A_PAYLOAD(a_fifo_out)),
+        .empty      (a_fifo_empty),
         .item_cnt   (a_fifo_item_cnt)
     );
 
@@ -204,6 +205,7 @@ module emulib_rammodel_backend #(
         .m_sel      (1'b1)
     );
 
+    wire w_fifo_empty;
     wire [$clog2(W_FIFO_DEPTH):0] w_fifo_item_cnt, w_fifo_burst_cnt;
 
     emulib_fifo #(
@@ -222,6 +224,7 @@ module emulib_rammodel_backend #(
         .oready     (w_fifo_out_wready),
         .odata      (`AXI4_CUSTOM_W_PAYLOAD_WO_LAST(w_fifo_out)),
         .olast      (w_fifo_out_wlast),
+        .empty      (w_fifo_empty),
         .item_cnt   (w_fifo_item_cnt),
         .burst_cnt  (w_fifo_burst_cnt)
     );
@@ -393,8 +396,6 @@ module emulib_rammodel_backend #(
 
     // Gate B & R responses
 
-    wire resp_enable_b, resp_enable_r;
-
     emulib_ready_valid_decouple #(
         .DECOUPLE_S (1),
         .DECOUPLE_M (1)
@@ -403,7 +404,7 @@ module emulib_rammodel_backend #(
         .s_ready    (resp_bready),
         .m_valid    (decoupled_bvalid),
         .m_ready    (decoupled_bready),
-        .couple     (resp_enable_b)
+        .couple     (decoupled_breq_valid)
     );
 
     emulib_ready_valid_decouple #(
@@ -414,7 +415,7 @@ module emulib_rammodel_backend #(
         .s_ready    (resp_rready),
         .m_valid    (decoupled_rvalid),
         .m_ready    (decoupled_rready),
-        .couple     (resp_enable_r)
+        .couple     (decoupled_rreq_valid)
     );
 
     assign `AXI4_CUSTOM_B_PAYLOAD(frontend) = `AXI4_CUSTOM_B_PAYLOAD(resp);
@@ -470,109 +471,79 @@ module emulib_rammodel_backend #(
     assign host_axi_arqos       = 4'd0;
     assign host_axi_arregion    = 4'd0;
 
-    // Save/load FSM
-
-    // TODO
-
-    assign a_fifo_load_avalid = 1'b0;
-    assign a_fifo_save_aready = 1'b0;
-    assign w_fifo_load_wvalid = 1'b0;
-    assign w_fifo_save_wready = 1'b0;
-    assign b_fifo_load_bvalid = 1'b0;
-    assign b_fifo_save_bready = 1'b0;
-    assign r_fifo_load_rvalid = 1'b0;
-    assign r_fifo_save_rready = 1'b0;
-
-    assign a_fifo_in_mux_sel = 2'b10;
-    assign w_fifo_in_mux_sel = 2'b10;
-    assign b_fifo_in_mux_sel = 2'b10;
-    assign r_fifo_in_mux_sel = 2'b10;
-    assign a_fifo_out_mux_sel = 2'b10;
-    assign w_fifo_out_mux_sel = 2'b10;
-    assign b_fifo_out_mux_sel = 2'b10;
-    assign r_fifo_out_mux_sel = 2'b10;
-
-    assign up_stat      = 1'b1;
-    assign down_stat    = 1'b0;
-
-    // Scheduler FSM
+    // Scheduler & responser FSMs
 
     wire sched_afire    = sched_avalid && sched_aready;
     wire sched_wfire    = sched_wvalid && sched_wready;
+    wire host_axi_bfire = host_axi_bvalid && host_axi_bready;
+    wire host_axi_rfire = host_axi_rvalid && host_axi_rready;
     wire resp_rfire     = resp_rvalid && resp_rready;
     wire resp_bfire     = resp_bvalid && resp_bready;
 
     localparam [2:0]
-        IDLE = 3'd0,
-        DO_A = 3'd1,
-        DO_W = 3'd2,
-        DO_R = 3'd3,
-        DO_B = 3'd4,
-        WAIT_R = 3'd5,
-        WAIT_B = 3'd6;
+        SCHED_IDLE  = 3'd0,
+        SCHED_DO_A  = 3'd1,
+        SCHED_DO_W  = 3'd2,
+        SCHED_DO_R  = 3'd3,
+        SCHED_DO_B  = 3'd4;
 
     reg [2:0] sched_state, sched_state_next;
 
+    wire sched_ok_to_ar = sched_avalid && !sched_awrite;
+    wire sched_ok_to_aw = sched_avalid && sched_awrite && w_fifo_burst_cnt != 0;
+    wire sched_ok_to_a = (sched_ok_to_ar || sched_ok_to_aw) && b_fifo_empty && r_fifo_empty && up_stat && !down_req;
+
     always @(posedge host_clk)
         if (host_rst)
-            sched_state <= IDLE;
+            sched_state <= SCHED_IDLE;
         else
             sched_state <= sched_state_next;
 
     always @*
         case (sched_state)
-            IDLE:
-                if (b_fifo_empty && r_fifo_empty)
-                    sched_state_next = DO_A;
-                else
-                    sched_state_next = IDLE;
-            DO_A:
-                if (sched_afire)
-                    sched_state_next = sched_awrite ? DO_W : WAIT_R;
-                else
-                    sched_state_next = DO_A;
-            WAIT_R:
-                if (decoupled_rreq_valid)
-                    sched_state_next = DO_R;
-                else
-                    sched_state_next = WAIT_R;
-            DO_R:
-                if (resp_rfire && resp_rlast)
-                    sched_state_next = IDLE;
-                else
-                    sched_state_next = DO_R;
-            DO_W:
-                if (sched_wfire && sched_wlast)
-                    sched_state_next = WAIT_B;
-                else
-                    sched_state_next = DO_W;
-            WAIT_B:
-                if (decoupled_breq_valid)
-                    sched_state_next = DO_B;
-                else
-                    sched_state_next = WAIT_B;
-            DO_B:
-                if (resp_bfire)
-                    sched_state_next = IDLE;
-                else
-                    sched_state_next = DO_B;
-            default:
-                sched_state_next = IDLE;
+        SCHED_IDLE:
+            if (sched_ok_to_a)
+                sched_state_next = SCHED_DO_A;
+            else
+                sched_state_next = SCHED_IDLE;
+        SCHED_DO_A:
+            if (sched_afire)
+                sched_state_next = sched_awrite ? SCHED_DO_W : SCHED_DO_R;
+            else
+                sched_state_next = SCHED_DO_A;
+        SCHED_DO_R:
+            if (host_axi_rfire && host_axi_rlast)
+                sched_state_next = SCHED_IDLE;
+            else
+                sched_state_next = SCHED_DO_R;
+        SCHED_DO_W:
+            if (sched_wfire && sched_wlast)
+                sched_state_next = SCHED_DO_B;
+            else
+                sched_state_next = SCHED_DO_W;
+        SCHED_DO_B:
+            if (host_axi_bfire)
+                sched_state_next = SCHED_IDLE;
+            else
+                sched_state_next = SCHED_DO_B;
+        default:
+            sched_state_next = SCHED_IDLE;
         endcase
+
+    assign sched_enable_a   = sched_state == SCHED_DO_A;
+    assign sched_enable_w   = sched_state == SCHED_DO_W;
 
 `ifdef SIM_LOG
 
-    function [255:0] sim_sched_state_name(input [2:0] state);
+    function [255:0] sched_state_name(input [2:0] arg_state);
         begin
-            case (state)
-                IDLE:       sim_sched_state_name = "IDLE";
-                DO_A:       sim_sched_state_name = "DO_A";
-                DO_W:       sim_sched_state_name = "DO_W";
-                DO_R:       sim_sched_state_name = "DO_R";
-                DO_B:       sim_sched_state_name = "DO_B";
-                WAIT_R:     sim_sched_state_name = "WAIT_R";
-                WAIT_B:     sim_sched_state_name = "WAIT_B";
-                default:    sim_sched_state_name = "<UNK>";
+            case (arg_state)
+                SCHED_IDLE:     sched_state_name = "IDLE";
+                SCHED_DO_A:     sched_state_name = "DO_A";
+                SCHED_DO_W:     sched_state_name = "DO_W";
+                SCHED_DO_R:     sched_state_name = "DO_R";
+                SCHED_DO_B:     sched_state_name = "DO_B";
+                default:        sched_state_name = "<UNK>";
             endcase
         end
     endfunction
@@ -581,24 +552,137 @@ module emulib_rammodel_backend #(
         if (!host_rst) begin
             if (sched_state != sched_state_next) begin
                 $display("[%0d ns] %m: sched_state %0s -> %0s", $time,
-                    sim_sched_state_name(sched_state),
-                    sim_sched_state_name(sched_state_next));
+                    sched_state_name(sched_state),
+                    sched_state_name(sched_state_next));
             end
         end
     end
 
 `endif
 
-    assign sched_enable_a   = sched_state == DO_A;
-    assign sched_enable_w   = sched_state == DO_W;
-    assign resp_enable_b    = sched_state == DO_B;
-    assign resp_enable_r    = sched_state == DO_R;
+    // State LSU (load/save unit)
 
-    // BReq/RReq response
+    wire lsu_save, lsu_load, lsu_complete;
+    wire sched_idle;
 
-    // TODO: find a proper way to handle BReq/RReq when target B/R response is in progress
-    assign decoupled_breq_ready = b_fifo_item_cnt != 0;
-    assign decoupled_rreq_ready = r_fifo_burst_cnt != 0;
+    wire [31:0] fifo_a_cnt  = a_fifo_item_cnt;
+    wire [31:0] fifo_w_cnt  = w_fifo_item_cnt;
+    wire [31:0] fifo_b_cnt  = b_fifo_item_cnt;
+    wire [31:0] fifo_r_cnt  = r_fifo_item_cnt;
+
+    emulib_rammodel_state_lsu #(
+        .ADDR_WIDTH             (ADDR_WIDTH),
+        .DATA_WIDTH             (DATA_WIDTH),
+        .ID_WIDTH               (ID_WIDTH)
+    ) u_state_lsu (
+
+        .clk                    (host_clk),
+        .rst                    (host_rst),
+
+        .save                   (lsu_save),
+        .load                   (lsu_load),
+        .complete               (lsu_complete),
+
+        `AXI4_CUSTOM_A_CONNECT  (fifo_save, a_fifo_save),
+        `AXI4_CUSTOM_W_CONNECT  (fifo_save, w_fifo_save),
+        `AXI4_CUSTOM_B_CONNECT  (fifo_save, b_fifo_save),
+        `AXI4_CUSTOM_R_CONNECT  (fifo_save, r_fifo_save),
+
+        `AXI4_CUSTOM_A_CONNECT  (fifo_load, a_fifo_load),
+        `AXI4_CUSTOM_W_CONNECT  (fifo_load, w_fifo_load),
+        `AXI4_CUSTOM_B_CONNECT  (fifo_load, b_fifo_load),
+        `AXI4_CUSTOM_R_CONNECT  (fifo_load, r_fifo_load),
+
+        .fifo_a_cnt             (fifo_a_cnt),
+        .fifo_w_cnt             (fifo_w_cnt),
+        .fifo_b_cnt             (fifo_b_cnt),
+        .fifo_r_cnt             (fifo_r_cnt),
+
+        `AXI4_CONNECT_NO_ID     (host_axi, lsu_axi)
+
+    );
+
+    localparam [1:0]
+        LS_STATE_UP     = 2'd0,
+        LS_STATE_SAVE   = 2'd1,
+        LS_STATE_LOAD   = 2'd2,
+        LS_STATE_DOWN   = 2'd3;
+
+    reg [1:0] ls_state, ls_state_next;
+
+    always @(posedge host_clk)
+        if (host_rst)
+            ls_state <= LS_STATE_UP;
+        else
+            ls_state <= ls_state_next;
+
+    always @*
+        case (ls_state)
+        LS_STATE_UP:
+            if (down_req && sched_state == SCHED_IDLE)
+                ls_state_next = LS_STATE_SAVE;
+            else
+                ls_state_next = LS_STATE_UP;
+        LS_STATE_SAVE:
+            if (lsu_complete)
+                ls_state_next = LS_STATE_DOWN;
+            else
+                ls_state_next = LS_STATE_SAVE;
+        LS_STATE_DOWN:
+            if (up_req)
+                ls_state_next = LS_STATE_LOAD;
+            else
+                ls_state_next = LS_STATE_DOWN;
+        LS_STATE_LOAD:
+            if (lsu_complete)
+                ls_state_next = LS_STATE_UP;
+            else
+                ls_state_next = LS_STATE_LOAD;
+        default:
+            ls_state_next = LS_STATE_UP;
+        endcase
+
+    assign lsu_save     = ls_state == LS_STATE_SAVE;
+    assign lsu_load     = ls_state == LS_STATE_LOAD;
+    assign up_stat      = ls_state == LS_STATE_UP;
+    assign down_stat    = ls_state == LS_STATE_DOWN;
+
+    wire [1:0] fifo_sel = {up_stat, lsu_save || lsu_load};
+
+    assign a_fifo_in_mux_sel    = fifo_sel;
+    assign w_fifo_in_mux_sel    = fifo_sel;
+    assign b_fifo_in_mux_sel    = fifo_sel;
+    assign r_fifo_in_mux_sel    = fifo_sel;
+    assign a_fifo_out_mux_sel   = fifo_sel;
+    assign w_fifo_out_mux_sel   = fifo_sel;
+    assign b_fifo_out_mux_sel   = fifo_sel;
+    assign r_fifo_out_mux_sel   = fifo_sel;
+
+`ifdef SIM_LOG
+
+    function [255:0] ls_state_name(input [2:0] arg_state);
+        begin
+            case (arg_state)
+                LS_STATE_UP:    ls_state_name = "UP";
+                LS_STATE_SAVE:  ls_state_name = "SAVE";
+                LS_STATE_LOAD:  ls_state_name = "LOAD";
+                LS_STATE_DOWN:  ls_state_name = "DOWN";
+                default:        ls_state_name = "<UNK>";
+            endcase
+        end
+    endfunction
+
+    always @(posedge host_clk) begin
+        if (!host_rst) begin
+            if (ls_state != ls_state_next) begin
+                $display("[%0d ns] %m: ls_state %0s -> %0s", $time,
+                    ls_state_name(ls_state),
+                    ls_state_name(ls_state_next));
+            end
+        end
+    end
+
+`endif
 
 endmodule
 

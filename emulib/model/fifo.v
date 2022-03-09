@@ -164,7 +164,7 @@ module emulib_fifo #(
     assign full     = !iready;
     assign empty    = !ovalid;
 
-`ifdef SIM_LOG
+`ifdef SIM_LOG_FIFO
 
     always @(posedge clk) begin
         if (!rst) begin
