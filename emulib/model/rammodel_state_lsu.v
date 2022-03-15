@@ -743,6 +743,7 @@ module emulib_rammodel_state_lsu #(
         case (mc_ins[3:0])
         SIZE_1:     s_read_count = 1;
         SIZE_CNT:   s_read_count = mc_cnt;
+        default:    s_read_count = 1;
         endcase
 
     assign s_write_addr_valid   = mc_state == STATE_DMA_WADDR;
@@ -754,6 +755,7 @@ module emulib_rammodel_state_lsu #(
         case (mc_ins[3:0])
         SIZE_1:     s_write_count = 1;
         SIZE_CNT:   s_write_count = mc_cnt;
+        default:    s_write_count = 1;
         endcase
 
     assign complete = mc_state == STATE_DECODE && mc_ins[7:4] == OP_FINISH;
