@@ -5,8 +5,6 @@
 `include "axi.vh"
 `include "axi_custom.vh"
 
-(* __emu_directive = "ignore" *)
-
 module emulib_rammodel_backend #(
     parameter   ADDR_WIDTH      = 32,
     parameter   DATA_WIDTH      = 64,
@@ -48,6 +46,11 @@ module emulib_rammodel_backend #(
     localparam  W_FIFO_DEPTH    = 256;
     localparam  B_FIFO_DEPTH    = 1;
     localparam  R_FIFO_DEPTH    = 256;
+
+    // Decouple target reset
+
+    wire decoupled_target_rst = target_rst && target_fire;
+    wire target_rst_ok;
 
     // Decouple frontend A, W, B, R
 
@@ -111,6 +114,7 @@ module emulib_rammodel_backend #(
     wire w_stall    = frontend_wvalid && !decoupled_wready;
     wire breq_stall = breq_valid && !resp_bvalid;
     wire rreq_stall = rreq_valid && !resp_rvalid;
+    wire rst_stall  = target_rst && !target_rst_ok;
 
     assign stall = a_stall || w_stall || breq_stall || rreq_stall;
 
@@ -122,6 +126,8 @@ module emulib_rammodel_backend #(
     wire [1:0] w_fifo_in_mux_sel, w_fifo_out_mux_sel;
     wire [1:0] b_fifo_in_mux_sel, b_fifo_out_mux_sel;
     wire [1:0] r_fifo_in_mux_sel, r_fifo_out_mux_sel;
+
+    wire fifo_clear;
 
     // A FIFO
 
@@ -156,7 +162,7 @@ module emulib_rammodel_backend #(
         .USE_SRSW   (0)
     ) a_fifo (
         .clk        (host_clk),
-        .rst        (host_rst),
+        .rst        (host_rst || fifo_clear),
         .ivalid     (a_fifo_in_avalid),
         .iready     (a_fifo_in_aready),
         .idata      (`AXI4_CUSTOM_A_PAYLOAD(a_fifo_in)),
@@ -215,7 +221,7 @@ module emulib_rammodel_backend #(
         .USE_SRSW   (1)
     ) w_fifo (
         .clk        (host_clk),
-        .rst        (host_rst),
+        .rst        (host_rst || fifo_clear),
         .ivalid     (w_fifo_in_wvalid),
         .iready     (w_fifo_in_wready),
         .idata      (`AXI4_CUSTOM_W_PAYLOAD_WO_LAST(w_fifo_in)),
@@ -277,7 +283,7 @@ module emulib_rammodel_backend #(
         .USE_SRSW   (0)
     ) b_fifo (
         .clk        (host_clk),
-        .rst        (host_rst),
+        .rst        (host_rst || fifo_clear),
         .ivalid     (b_fifo_in_bvalid),
         .iready     (b_fifo_in_bready),
         .idata      (`AXI4_CUSTOM_B_PAYLOAD(b_fifo_in)),
@@ -336,7 +342,7 @@ module emulib_rammodel_backend #(
         .USE_SRSW   (1)
     ) r_fifo (
         .clk        (host_clk),
-        .rst        (host_rst),
+        .rst        (host_rst || fifo_clear),
         .ivalid     (r_fifo_in_rvalid),
         .iready     (r_fifo_in_rready),
         .idata      (`AXI4_CUSTOM_R_PAYLOAD_WO_LAST(r_fifo_in)),
@@ -559,6 +565,42 @@ module emulib_rammodel_backend #(
     end
 
 `endif
+
+    // Reset handler
+
+    localparam [1:0]
+        RST_IDLE    = 2'd0,
+        RST_FIRE    = 2'd1,
+        RST_DONE    = 2'd2;
+
+    reg [1:0] rst_state, rst_state_next;
+
+    always @(posedge host_clk)
+        if (host_rst)
+            rst_state <= RST_IDLE;
+        else
+            rst_state <= rst_state_next;
+
+    always @*
+        case (rst_state)
+        RST_IDLE:
+            if (decoupled_target_rst && sched_state == SCHED_IDLE)
+                rst_state_next = RST_FIRE;
+            else
+                rst_state_next = RST_IDLE;
+        RST_FIRE:
+            rst_state_next = RST_DONE;
+        RST_DONE:
+            if (target_fire && !target_rst)
+                rst_state_next = RST_IDLE;
+            else
+                rst_state_next = RST_DONE;
+        default:
+            rst_state_next = RST_IDLE;
+        endcase
+
+    assign target_rst_ok    = rst_state == RST_DONE;
+    assign fifo_clear       = rst_state == RST_FIRE;
 
     // State LSU (load/save unit)
 
