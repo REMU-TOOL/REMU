@@ -77,15 +77,12 @@ async def run_test(dut):
             await ClockCycles(dut.host_clk, random.randint(1, 3))
             dut.pause.value = 0
 
-    #read_write_worker = cocotb.fork(read_write_worker_func())
-    #pause_resume_worker = cocotb.fork(pause_resume_worker_func())
+    read_write_worker = cocotb.fork(read_write_worker_func())
+    pause_resume_worker = cocotb.fork(pause_resume_worker_func())
 
     await ClockCycles(dut.host_clk, 100)
     dut._log.info("Releasing DUT reset")
     dut.target_rst.value = 0
-
-    read_write_worker = cocotb.fork(read_write_worker_func())
-    pause_resume_worker = cocotb.fork(pause_resume_worker_func())
 
     await read_write_worker.join()
     running = False
