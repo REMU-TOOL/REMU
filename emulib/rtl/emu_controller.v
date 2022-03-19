@@ -9,65 +9,17 @@ module emu_controller #(
     parameter       CHAIN_FF_WORDS      = 0,
     parameter       CHAIN_MEM_WORDS     = 0
 )(
+
     input  wire         clk,
     input  wire         resetn,
 
-    output wire         m_axi_arvalid,
-    input  wire         m_axi_arready,
-    output wire [63:0]  m_axi_araddr,
-    output wire [ 2:0]  m_axi_arprot,
-    output wire [ 7:0]  m_axi_arlen,
-    output wire [ 2:0]  m_axi_arsize,
-    output wire [ 1:0]  m_axi_arburst,
-    output wire [ 0:0]  m_axi_arlock,
-    output wire [ 3:0]  m_axi_arcache,
-    input  wire         m_axi_rvalid,
-    output wire         m_axi_rready,
-    input  wire [ 1:0]  m_axi_rresp,
-    input  wire [63:0]  m_axi_rdata,
-    input  wire         m_axi_rlast,
-    output wire         m_axi_awvalid,
-    input  wire         m_axi_awready,
-    output wire [63:0]  m_axi_awaddr,
-    output wire [ 2:0]  m_axi_awprot,
-    output wire [ 7:0]  m_axi_awlen,
-    output wire [ 2:0]  m_axi_awsize,
-    output wire [ 1:0]  m_axi_awburst,
-    output wire [ 0:0]  m_axi_awlock,
-    output wire [ 3:0]  m_axi_awcache,
-    output wire         m_axi_wvalid,
-    input  wire         m_axi_wready,
-    output wire [63:0]  m_axi_wdata,
-    output wire [ 7:0]  m_axi_wstrb,
-    output wire         m_axi_wlast,
-    input  wire         m_axi_bvalid,
-    output wire         m_axi_bready,
-    input  wire [ 1:0]  m_axi_bresp,
+    `AXI4_MASTER_IF     (m_axi, 64, 64, 1),
+    `AXI4LITE_SLAVE_IF  (s_axilite, 12, 32),
 
-    input  wire         s_axilite_arvalid,
-    output wire         s_axilite_arready,
-    input  wire [11:0]  s_axilite_araddr,
-    input  wire [ 2:0]  s_axilite_arprot,
-    output wire         s_axilite_rvalid,
-    input  wire         s_axilite_rready,
-    output wire [ 1:0]  s_axilite_rresp,
-    output wire [31:0]  s_axilite_rdata,
-    input  wire         s_axilite_awvalid,
-    output wire         s_axilite_awready,
-    input  wire [11:0]  s_axilite_awaddr,
-    input  wire [ 2:0]  s_axilite_awprot,
-    input  wire         s_axilite_wvalid,
-    output wire         s_axilite_wready,
-    input  wire [31:0]  s_axilite_wdata,
-    input  wire [ 3:0]  s_axilite_wstrb,
-    output wire         s_axilite_bvalid,
-    input  wire         s_axilite_bready,
-    output wire [ 1:0]  s_axilite_bresp,
-
-    output wire         emu_clk,
-    output wire         emu_rst,
-    output wire         emu_stall,
-    input  wire         emu_stall_gen,
+    output wire         emu_host_clk,
+    output wire         emu_host_rst,
+    output wire         emu_target_fire,
+    input  wire         emu_stall,
     output reg          emu_up_req,
     output reg          emu_down_req,
     input  wire         emu_up_stat,
@@ -91,13 +43,13 @@ module emu_controller #(
 );
 
     wire rst = !resetn;
-    assign emu_rst = rst;
+    assign emu_host_rst = rst;
 
-    wire emu_clk_en;
+    wire emu_host_clk_en;
     ClockGate clk_gate(
         .CLK(clk),
-        .EN(emu_clk_en),
-        .GCLK(emu_clk)
+        .EN(emu_host_clk_en),
+        .GCLK(emu_host_clk)
     );
 
     wire emu_dut_clk_en;
@@ -527,7 +479,7 @@ module emu_controller #(
         /*
         * AXI master interface
         */
-        .m_axi_arid                     (),
+        .m_axi_arid                     (m_axi_arid),
         .m_axi_araddr                   (m_axi_araddr),
         .m_axi_arlen                    (m_axi_arlen),
         .m_axi_arsize                   (m_axi_arsize),
@@ -537,13 +489,13 @@ module emu_controller #(
         .m_axi_arprot                   (m_axi_arprot),
         .m_axi_arvalid                  (m_axi_arvalid),
         .m_axi_arready                  (m_axi_arready),
-        .m_axi_rid                      (1'd0),
+        .m_axi_rid                      (m_axi_rid),
         .m_axi_rdata                    (m_axi_rdata),
         .m_axi_rresp                    (m_axi_rresp),
         .m_axi_rlast                    (m_axi_rlast),
         .m_axi_rvalid                   (m_axi_rvalid),
         .m_axi_rready                   (m_axi_rready),
-        .m_axi_awid                     (),
+        .m_axi_awid                     (m_axi_awid),
         .m_axi_awaddr                   (m_axi_awaddr),
         .m_axi_awlen                    (m_axi_awlen),
         .m_axi_awsize                   (m_axi_awsize),
@@ -558,7 +510,7 @@ module emu_controller #(
         .m_axi_wlast                    (m_axi_wlast),
         .m_axi_wvalid                   (m_axi_wvalid),
         .m_axi_wready                   (m_axi_wready),
-        .m_axi_bid                      (1'd0),
+        .m_axi_bid                      (m_axi_bid),
         .m_axi_bresp                    (m_axi_bresp),
         .m_axi_bvalid                   (m_axi_bvalid),
         .m_axi_bready                   (m_axi_bready),
@@ -570,6 +522,11 @@ module emu_controller #(
         .write_enable                   (emu_dma_running && !emu_dma_direction),
         .write_abort                    (1'b0)
     );
+
+    assign m_axi_arqos = 0;
+    assign m_axi_arregion = 0;
+    assign m_axi_awqos = 0;
+    assign m_axi_awregion = 0;
 
     // DUT & scan logic
 
@@ -619,7 +576,7 @@ module emu_controller #(
     wire ff_scan_last   = (ff_scan_start || ff_scan_running) && ff_scan_cnt == CHAIN_FF_WORDS;
 
     reg [1:0] ram_scan_wait;
-    always @(posedge emu_clk) begin
+    always @(posedge emu_host_clk) begin
         if (rst)
             ram_scan_wait <= 2'd0;
         else
@@ -630,7 +587,7 @@ module emu_controller #(
     wire ram_scan_start = emu_dma_direction ? ff_scan_last : ram_scan_wait[1];
     wire ram_scan_last  = (ram_scan_start || ram_scan_running) && ram_scan_cnt == CHAIN_MEM_WORDS;
 
-    always @(posedge emu_clk) begin
+    always @(posedge emu_host_clk) begin
         if (rst)
             ff_scan_running <= 1'b0;
         else if (ff_scan_last)
@@ -639,7 +596,7 @@ module emu_controller #(
             ff_scan_running <= 1'b1;
     end
 
-    always @(posedge emu_clk) begin
+    always @(posedge emu_host_clk) begin
         if (rst)
             ram_scan_running <= 1'b0;
         else if (ram_scan_last)
@@ -648,7 +605,7 @@ module emu_controller #(
             ram_scan_running <= 1'b1;
     end
 
-    always @(posedge emu_clk) begin
+    always @(posedge emu_host_clk) begin
         if (rst)
             ram_scan_sig <= 1'b0;
         else if (ram_scan_last)
@@ -657,7 +614,7 @@ module emu_controller #(
             ram_scan_sig <= 1'b1;
     end
 
-    always @(posedge emu_clk) begin
+    always @(posedge emu_host_clk) begin
         if (rst)
             ff_scan_cnt <= 0;
         else if (ff_scan_last)
@@ -666,7 +623,7 @@ module emu_controller #(
             ff_scan_cnt <= ff_scan_cnt + 1;
     end
 
-    always @(posedge emu_clk) begin
+    always @(posedge emu_host_clk) begin
         if (rst)
             ram_scan_cnt <= 0;
         else if (ram_scan_last)
@@ -692,16 +649,12 @@ module emu_controller #(
     assign s_axis_write_data_tlast  = ram_scan_last;
     assign s_axis_write_data_tdata  = {64{ff_scan_running}} & emu_ff_do | {64{ram_scan_running}} & emu_ram_do;
 
-    // release stall when reset
-    reg stall_mask;
-    always @(posedge clk) stall_mask <= !rst;
+    assign emu_target_fire = !(emu_pause || emu_stall);
 
-    assign emu_stall = stall_mask && (emu_pause || emu_stall_gen);
-
-    assign emu_clk_en = !scan_stall;
-    assign emu_dut_clk_en = emu_clk_en && !emu_stall;
-    assign emu_dut_ff_clk_en = emu_clk_en && (!emu_stall || ff_scan_running);
-    assign emu_dut_ram_clk_en = emu_clk_en && (!emu_stall || ram_scan_sig);
+    assign emu_host_clk_en = !scan_stall;
+    assign emu_dut_clk_en = emu_host_clk_en && emu_target_fire;
+    assign emu_dut_ff_clk_en = emu_host_clk_en && (emu_target_fire || ff_scan_running);
+    assign emu_dut_ram_clk_en = emu_host_clk_en && (emu_target_fire || ram_scan_sig);
 
 endmodule
 
