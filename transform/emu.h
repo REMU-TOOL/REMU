@@ -23,16 +23,6 @@ const char
     // Compatible: wire
     AttrIntfPort            [] = "\\emu_intf_port",
 
-    // Usage: specified in EmuClock to indicate DUT clock signals.
-    // Type: string
-    // Compatible: wire
-    AttrDutClk              [] = "\\emu_dut_clk",
-
-    // Usage: specified in model implementation to avoid scan chain insertion.
-    // Type: bool
-    // Compatible: cell, wire
-    AttrNoScanchain         [] = "\\emu_no_scanchain",
-
     // Usage: specified by emu_process_lib to indicate cells & wires loaded from model implementation.
     // Type: bool
     // Compatible: cell, wire
@@ -43,9 +33,9 @@ const char
     // Compatible: module
     AttrInstrumented        [] = "\\emu_instrumented",
 
-    // Usage: specified by emu_rewrite_clock to indicate rewritten modules.
+    // Usage: specified by emu_rewrite_clock to indicate rewritten cells.
     // Type: bool
-    // Compatible: module
+    // Compatible: cell
     AttrClkRewritten    [] = "\\emu_clk_rewritten";
 
 bool is_public_id(IdString id);

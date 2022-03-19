@@ -3,44 +3,14 @@
 `include "test.vh"
 `include "emu_csr.vh"
 
+`include "axi.vh"
+
 module sim_top();
 
     parameter CYCLE = 10;
 
     reg clk = 0, resetn = 0;
     always #(CYCLE/2) clk = ~clk;
-
-    wire            m_axi_arvalid;
-    wire            m_axi_arready;
-    wire    [63:0]  m_axi_araddr;
-    wire    [ 2:0]  m_axi_arprot;
-    wire    [ 7:0]  m_axi_arlen;
-    wire    [ 2:0]  m_axi_arsize;
-    wire    [ 1:0]  m_axi_arburst;
-    wire    [ 0:0]  m_axi_arlock;
-    wire    [ 3:0]  m_axi_arcache;
-    wire            m_axi_rvalid;
-    wire            m_axi_rready;
-    wire    [ 1:0]  m_axi_rresp;
-    wire    [63:0]  m_axi_rdata;
-    wire            m_axi_rlast;
-    wire            m_axi_awvalid;
-    wire            m_axi_awready;
-    wire    [63:0]  m_axi_awaddr;
-    wire    [ 2:0]  m_axi_awprot;
-    wire    [ 7:0]  m_axi_awlen;
-    wire    [ 2:0]  m_axi_awsize;
-    wire    [ 1:0]  m_axi_awburst;
-    wire    [ 0:0]  m_axi_awlock;
-    wire    [ 3:0]  m_axi_awcache;
-    wire            m_axi_wvalid;
-    wire            m_axi_wready;
-    wire    [63:0]  m_axi_wdata;
-    wire    [ 7:0]  m_axi_wstrb;
-    wire            m_axi_wlast;
-    wire            m_axi_bvalid;
-    wire            m_axi_bready;
-    wire    [ 1:0]  m_axi_bresp;
 
     reg             s_axilite_arvalid = 0;
     wire            s_axilite_arready;
@@ -55,61 +25,13 @@ module sim_top();
     reg     [31:0]  s_axilite_wdata = 0;
     wire            s_axilite_bvalid;
 
-    wire              mem_axi_awvalid;
-	wire              mem_axi_awready;
-	wire       [31:0] mem_axi_awaddr;
-
-	wire              mem_axi_wvalid;
-	wire              mem_axi_wready;
-	wire       [31:0] mem_axi_wdata;
-	wire       [ 3:0] mem_axi_wstrb;
-
-	wire              mem_axi_bvalid;
-	wire              mem_axi_bready;
-
-	wire              mem_axi_arvalid;
-	wire              mem_axi_arready;
-	wire       [31:0] mem_axi_araddr;
-
-	wire              mem_axi_rvalid;
-	wire              mem_axi_rready;
-	wire       [31:0] mem_axi_rdata;
+    `AXI4_WIRE          (m_axi, 64, 64, 1);
+    `AXI4_WIRE          (mem_axi, 32, 32, 1);
+    `AXI4_WIRE_NO_ID    (lsu_axi, 32, 32);
 
     EMU_SYSTEM u_emu_system(
         .clk                        (clk),
         .resetn                     (resetn),
-
-        .m_axi_arvalid              (m_axi_arvalid),
-        .m_axi_arready              (m_axi_arready),
-        .m_axi_araddr               (m_axi_araddr),
-        .m_axi_arprot               (m_axi_arprot),
-        .m_axi_arlen                (m_axi_arlen),
-        .m_axi_arsize               (m_axi_arsize),
-        .m_axi_arburst              (m_axi_arburst),
-        .m_axi_arlock               (m_axi_arlock),
-        .m_axi_arcache              (m_axi_arcache),
-        .m_axi_rvalid               (m_axi_rvalid),
-        .m_axi_rready               (m_axi_rready),
-        .m_axi_rresp                (m_axi_rresp),
-        .m_axi_rdata                (m_axi_rdata),
-        .m_axi_rlast                (m_axi_rlast),
-        .m_axi_awvalid              (m_axi_awvalid),
-        .m_axi_awready              (m_axi_awready),
-        .m_axi_awaddr               (m_axi_awaddr),
-        .m_axi_awprot               (m_axi_awprot),
-        .m_axi_awlen                (m_axi_awlen),
-        .m_axi_awsize               (m_axi_awsize),
-        .m_axi_awburst              (m_axi_awburst),
-        .m_axi_awlock               (m_axi_awlock),
-        .m_axi_awcache              (m_axi_awcache),
-        .m_axi_wvalid               (m_axi_wvalid),
-        .m_axi_wready               (m_axi_wready),
-        .m_axi_wdata                (m_axi_wdata),
-        .m_axi_wstrb                (m_axi_wstrb),
-        .m_axi_wlast                (m_axi_wlast),
-        .m_axi_bvalid               (m_axi_bvalid),
-        .m_axi_bready               (m_axi_bready),
-        .m_axi_bresp                (m_axi_bresp),
 
         .s_axilite_arvalid          (s_axilite_arvalid),
         .s_axilite_arready          (s_axilite_arready),
@@ -131,46 +53,16 @@ module sim_top();
         .s_axilite_bready           (1'b1),
         .s_axilite_bresp            (),
 
-        .emu_auto_0_dram_awvalid        (mem_axi_awvalid),
-        .emu_auto_0_dram_awready        (mem_axi_awready),
-        .emu_auto_0_dram_awaddr         (mem_axi_awaddr),
-        .emu_auto_0_dram_awid           (),
-        .emu_auto_0_dram_awlen          (),
-        .emu_auto_0_dram_awsize         (),
-        .emu_auto_0_dram_awburst        (),
-        .emu_auto_0_dram_awlock         (),
-        .emu_auto_0_dram_awcache        (),
-        .emu_auto_0_dram_awprot         (),
-        .emu_auto_0_dram_awqos          (),
-        .emu_auto_0_dram_awregion       (),
-        .emu_auto_0_dram_wvalid         (mem_axi_wvalid),
-        .emu_auto_0_dram_wready         (mem_axi_wready),
-        .emu_auto_0_dram_wdata          (mem_axi_wdata),
-        .emu_auto_0_dram_wstrb          (mem_axi_wstrb),
-        .emu_auto_0_dram_wlast          (),
-        .emu_auto_0_dram_bvalid         (mem_axi_bvalid),
-        .emu_auto_0_dram_bready         (mem_axi_bready),
-        .emu_auto_0_dram_bresp          (2'b00),
-        .emu_auto_0_dram_bid            (1'd0),
-        .emu_auto_0_dram_arvalid        (mem_axi_arvalid),
-        .emu_auto_0_dram_arready        (mem_axi_arready),
-        .emu_auto_0_dram_araddr         (mem_axi_araddr),
-        .emu_auto_0_dram_arid           (),
-        .emu_auto_0_dram_arlen          (),
-        .emu_auto_0_dram_arsize         (),
-        .emu_auto_0_dram_arburst        (),
-        .emu_auto_0_dram_arlock         (),
-        .emu_auto_0_dram_arcache        (),
-        .emu_auto_0_dram_arprot         (),
-        .emu_auto_0_dram_arqos          (),
-        .emu_auto_0_dram_arregion       (),
-        .emu_auto_0_dram_rvalid         (mem_axi_rvalid),
-        .emu_auto_0_dram_rready         (mem_axi_rready),
-        .emu_auto_0_dram_rdata          (mem_axi_rdata),
-        .emu_auto_0_dram_rresp          (2'b00),
-        .emu_auto_0_dram_rid            (1'd0),
-        .emu_auto_0_dram_rlast          (1'b1)
+        `AXI4_CONNECT               (m_axi, m_axi),
+        `AXI4_CONNECT               (emu_axi_0_host_axi, mem_axi),
+        `AXI4_CONNECT_NO_ID         (emu_axi_1_lsu_axi, lsu_axi)
     );
+
+    assign mem_axi_bresp = 2'b00;
+    assign mem_axi_bid = 1'd0;
+    assign mem_axi_rresp = 2'b00;
+    assign mem_axi_rid = 1'd0;
+    assign mem_axi_rlast = 1'd1;
 
     axi_ram #(
         .DATA_WIDTH     (64),
@@ -181,7 +73,7 @@ module sim_top();
         .clk            (clk),
         .rst            (!resetn),
 
-        .s_axi_awid     (1'd0),
+        .s_axi_awid     (m_axi_awid),
         .s_axi_awaddr   (m_axi_awaddr[15:0]),
         .s_axi_awlen    (m_axi_awlen),
         .s_axi_awsize   (m_axi_awsize),
@@ -196,11 +88,11 @@ module sim_top();
         .s_axi_wlast    (m_axi_wlast),
         .s_axi_wvalid   (m_axi_wvalid),
         .s_axi_wready   (m_axi_wready),
-        .s_axi_bid      (),
+        .s_axi_bid      (m_axi_bid),
         .s_axi_bresp    (m_axi_bresp),
         .s_axi_bvalid   (m_axi_bvalid),
         .s_axi_bready   (m_axi_bready),
-        .s_axi_arid     (1'd0),
+        .s_axi_arid     (m_axi_arid),
         .s_axi_araddr   (m_axi_araddr[15:0]),
         .s_axi_arlen    (m_axi_arlen),
         .s_axi_arsize   (m_axi_arsize),
@@ -210,12 +102,58 @@ module sim_top();
         .s_axi_arprot   (m_axi_arprot),
         .s_axi_arvalid  (m_axi_arvalid),
         .s_axi_arready  (m_axi_arready),
-        .s_axi_rid      (),
+        .s_axi_rid      (m_axi_rid),
         .s_axi_rdata    (m_axi_rdata),
         .s_axi_rresp    (m_axi_rresp),
         .s_axi_rlast    (m_axi_rlast),
         .s_axi_rvalid   (m_axi_rvalid),
         .s_axi_rready   (m_axi_rready)
+    );
+
+    axi_ram #(
+        .DATA_WIDTH     (64),
+        .ADDR_WIDTH     (16),
+        .ID_WIDTH       (1)
+    )
+    u_axi_lsu_ram(
+        .clk            (clk),
+        .rst            (!resetn),
+
+        .s_axi_awid     (1'd0),
+        .s_axi_awaddr   (lsu_axi_awaddr[15:0]),
+        .s_axi_awlen    (lsu_axi_awlen),
+        .s_axi_awsize   (lsu_axi_awsize),
+        .s_axi_awburst  (lsu_axi_awburst),
+        .s_axi_awlock   (lsu_axi_awlock),
+        .s_axi_awcache  (lsu_axi_awcache),
+        .s_axi_awprot   (lsu_axi_awprot),
+        .s_axi_awvalid  (lsu_axi_awvalid),
+        .s_axi_awready  (lsu_axi_awready),
+        .s_axi_wdata    (lsu_axi_wdata),
+        .s_axi_wstrb    (lsu_axi_wstrb),
+        .s_axi_wlast    (lsu_axi_wlast),
+        .s_axi_wvalid   (lsu_axi_wvalid),
+        .s_axi_wready   (lsu_axi_wready),
+        .s_axi_bid      (),
+        .s_axi_bresp    (lsu_axi_bresp),
+        .s_axi_bvalid   (lsu_axi_bvalid),
+        .s_axi_bready   (lsu_axi_bready),
+        .s_axi_arid     (1'd0),
+        .s_axi_araddr   (lsu_axi_araddr[15:0]),
+        .s_axi_arlen    (lsu_axi_arlen),
+        .s_axi_arsize   (lsu_axi_arsize),
+        .s_axi_arburst  (lsu_axi_arburst),
+        .s_axi_arlock   (lsu_axi_arlock),
+        .s_axi_arcache  (lsu_axi_arcache),
+        .s_axi_arprot   (lsu_axi_arprot),
+        .s_axi_arvalid  (lsu_axi_arvalid),
+        .s_axi_arready  (lsu_axi_arready),
+        .s_axi_rid      (),
+        .s_axi_rdata    (lsu_axi_rdata),
+        .s_axi_rresp    (lsu_axi_rresp),
+        .s_axi_rlast    (lsu_axi_rlast),
+        .s_axi_rvalid   (lsu_axi_rvalid),
+        .s_axi_rready   (lsu_axi_rready)
     );
 
     sim_dram u_sim_dram (

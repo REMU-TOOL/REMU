@@ -30,8 +30,8 @@ inline bool is_output(IntfProp prop) {
 
 // name -> direction (output=true)
 const std::map<std::string, IntfProp> intf_list = {
-    {"clk",             InputShare},
-    {"rst",             InputShare},
+    {"host_clk",        InputShare},
+    {"host_rst",        InputShare},
     {"ff_se",           InputShare},
     {"ff_di",           InputShare},
     {"ff_do",           OutputAppend},
@@ -41,8 +41,8 @@ const std::map<std::string, IntfProp> intf_list = {
     {"ram_do",          OutputAppend},
     {"ram_li",          InputShare},
     {"ram_lo",          OutputAppend},
-    {"stall",           InputShare},
-    {"stall_gen",       OutputOrReduce},
+    {"target_fire",     InputShare},
+    {"stall",           OutputOrReduce},
     {"up_req",          InputShare},
     {"down_req",        InputShare},
     {"up_stat",         OutputAndReduce},
@@ -51,45 +51,6 @@ const std::map<std::string, IntfProp> intf_list = {
     {"dut_ram_clk",     InputAppend},
     {"dut_rst",         InputAppend},
     {"dut_trig",        OutputAppend},
-    {"dram_awvalid",    OutputAutoIndex},
-    {"dram_awready",    InputAutoIndex},
-    {"dram_awaddr",     OutputAutoIndex},
-    {"dram_awid",       OutputAutoIndex},
-    {"dram_awlen",      OutputAutoIndex},
-    {"dram_awsize",     OutputAutoIndex},
-    {"dram_awburst",    OutputAutoIndex},
-    {"dram_awlock",     OutputAutoIndex},
-    {"dram_awcache",    OutputAutoIndex},
-    {"dram_awprot",     OutputAutoIndex},
-    {"dram_awqos",      OutputAutoIndex},
-    {"dram_awregion",   OutputAutoIndex},
-    {"dram_wvalid",     OutputAutoIndex},
-    {"dram_wready",     InputAutoIndex},
-    {"dram_wdata",      OutputAutoIndex},
-    {"dram_wstrb",      OutputAutoIndex},
-    {"dram_wlast",      OutputAutoIndex},
-    {"dram_bvalid",     InputAutoIndex},
-    {"dram_bready",     OutputAutoIndex},
-    {"dram_bresp",      InputAutoIndex},
-    {"dram_bid",        InputAutoIndex},
-    {"dram_arvalid",    OutputAutoIndex},
-    {"dram_arready",    InputAutoIndex},
-    {"dram_araddr",     OutputAutoIndex},
-    {"dram_arid",       OutputAutoIndex},
-    {"dram_arlen",      OutputAutoIndex},
-    {"dram_arsize",     OutputAutoIndex},
-    {"dram_arburst",    OutputAutoIndex},
-    {"dram_arlock",     OutputAutoIndex},
-    {"dram_arcache",    OutputAutoIndex},
-    {"dram_arprot",     OutputAutoIndex},
-    {"dram_arqos",      OutputAutoIndex},
-    {"dram_arregion",   OutputAutoIndex},
-    {"dram_rvalid",     InputAutoIndex},
-    {"dram_rready",     OutputAutoIndex},
-    {"dram_rdata",      InputAutoIndex},
-    {"dram_rresp",      InputAutoIndex},
-    {"dram_rid",        InputAutoIndex},
-    {"dram_rlast",      InputAutoIndex},
     {"putchar_valid",   OutputAppend},
     {"putchar_ready",   InputAppend},
     {"putchar_data",    OutputAppend},
@@ -283,9 +244,6 @@ struct ProcessLibWorker {
     }
 
     void process_module(Module *module) {
-        if (!module->get_bool_attribute(AttrClkRewritten))
-            log_error("Module %s is not processed by emu_rewrite_clock. Run emu_rewrite_clock first.\n", log_id(module));
-
         EmulibData &emulib = database.emulib[module->name];
 
         // Process emulib module interface ports & parameters
@@ -502,7 +460,7 @@ struct PackageWorker {
 
         // Fix up ports
         ScanChainData &sc = database.scanchain.at(database.top);
-        Wire *clk = dut_top->wire("\\emu_clk");
+        Wire *clk = dut_top->wire("\\emu_host_clk");
         Wire *ram_se = dut_top->wire("\\emu_ram_se");
         Wire *ram_sd = dut_top->wire("\\emu_ram_sd");
         Wire *ram_li = dut_top->wire("\\emu_ram_li");

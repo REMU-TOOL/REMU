@@ -55,8 +55,8 @@ module sim_top();
     reg     [31:0]  s_axilite_wdata = 0;
     wire            s_axilite_bvalid;
 
-    wire emu_clk, emu_rst;
-    wire emu_pause, emu_stall;
+    wire emu_host_clk, emu_host_rst;
+    wire emu_pause;
     wire emu_up_req, emu_down_req, emu_up_stat, emu_down_stat;
     wire emu_ff_se, emu_ram_se, emu_ram_sd;
     wire [63:0] emu_ff_di, emu_ff_do, emu_ram_di, emu_ram_do;
@@ -170,7 +170,7 @@ module sim_top();
     wire ref_clk;
     ClockGate ref_clk_gate(
         .CLK(clk),
-        .EN(!u_emu_system.controller.emu_stall),
+        .EN(u_emu_system.controller.emu_target_fire),
         .GCLK(ref_clk)
     );
 
@@ -433,7 +433,7 @@ module sim_top();
             $display("Benchmark finished with result = %d", result);
             finish = 1;
         end
-        if (resetn && !u_emu_system.controller.emu_stall) begin
+        if (resetn && u_emu_system.controller.emu_target_fire && !u_emu_system.emu_dut_rst) begin
             if (u_emu_system.dut.u_cpu.rf_wen !== emu_ref.u_cpu.rf_wen ||
                 u_emu_system.dut.u_cpu.rf_waddr !== emu_ref.u_cpu.rf_waddr ||
                 u_emu_system.dut.u_cpu.rf_wdata !== emu_ref.u_cpu.rf_wdata)

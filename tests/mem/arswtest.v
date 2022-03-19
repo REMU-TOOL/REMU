@@ -35,7 +35,7 @@ module sim_top();
     );
 
     EMU_DUT emu_dut(
-        .emu_clk            (clk),
+        .emu_host_clk       (clk),
         .emu_ff_se          (ff_scan),
         .emu_ff_di          (ff_dir ? ff_sdi : ff_sdo),
         .emu_ff_do          (ff_sdo),

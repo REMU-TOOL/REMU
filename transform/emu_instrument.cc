@@ -74,7 +74,7 @@ private:
     Wire *wire_ram_scan, *wire_ram_dir, *wire_ram_data_i, *wire_ram_data_o, *wire_ram_last_i, *wire_ram_last_o; // dir: 0=out 1=in
 
     void create_ports() {
-        wire_clk        = create_intf_port(module,  "clk",      1           );
+        wire_clk        = create_intf_port(module,  "host_clk", 1           );
         wire_ff_scan    = create_intf_port(module,  "ff_se",    1           );
         wire_ff_data_i  = create_intf_port(module,  "ff_di",    DATA_WIDTH  );
         wire_ff_data_o  = create_intf_port(module,  "ff_do",    DATA_WIDTH  );
@@ -110,9 +110,9 @@ private:
         for (auto &cell : ff_cells) {
             FfData ff(nullptr, cell);
 
-            // ignore FFs with emu_no_scachain attribute
+            // ignore cells whose clock is not rewritten
             Wire *reg = ff.sig_q.is_wire() ? ff.sig_q.as_wire() : nullptr;
-            if (reg && reg->has_attribute(AttrNoScanchain)) {
+            if (!cell->get_bool_attribute(AttrClkRewritten)) {
                 log("Ignoring FF %s.%s\n", log_id(module), log_id(reg));
                 ff_cells_new.push_back(cell);
                 continue;
@@ -172,8 +172,8 @@ private:
 
     void instrument_mems(std::vector<Mem> &mem_cells, ScanChain<MemInfo> &chain) {
         for (auto &mem : mem_cells) {
-            // ignore cells with emu_no_scanchain attribute
-            if (mem.has_attribute(AttrNoScanchain)) {
+            // ignore cells whose clock is not rewritten
+            if (!mem.get_bool_attribute(AttrClkRewritten)) {
                 log("Ignoring memory %s.%s\n", log_id(module), log_id(mem.cell));
                 continue;
             }
@@ -369,6 +369,10 @@ private:
 
     void restore_mem_rdport_ffs(std::vector<Mem> &mem_cells, ScanChain<FfInfo> &chain_ff) {
         for (auto &mem : mem_cells) {
+            // ignore cells whose clock is not rewritten
+            if (!mem.get_bool_attribute(AttrClkRewritten))
+                continue;
+
             for (int idx = 0; idx < GetSize(mem.rd_ports); idx++) {
                 auto &rd = mem.rd_ports[idx];
                 if (rd.clk_enable) {

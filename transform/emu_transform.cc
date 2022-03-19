@@ -75,20 +75,18 @@ struct EmuTransformPass : public ScriptPass {
 				run("hierarchy -check -top " + top_module);
 		}
 
-        run("emu_preproc_attr");
-        run("proc");
-        run("opt");
-        run("wreduce");
+        run("emu_preserve_top");
+		run("prep");
         run("memory_share");
-        run("memory_collect");
-        run("opt -fast");
-        run("check");
 
         run("emu_check");
         run("emu_opt_ram");
         run("opt_clean");
-        run("emu_rewrite_clock");
-		run("emu_prop_attr -a emu_no_scanchain");
+
+		run("uniquify");
+		run("hierarchy");
+
+        run("emu_handle_directive");
         run("emu_instrument");
         run("emu_package");
 
@@ -102,7 +100,7 @@ struct EmuTransformPass : public ScriptPass {
         if (!ldr_file.empty())
             run("emu_database write_loader -file " + ldr_file);
 
-        run("emu_postproc_attr");
+        run("emu_remove_keep");
         run("check");
 
         run("opt");
