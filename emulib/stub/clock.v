@@ -2,7 +2,6 @@
 `timescale 1 ns / 1 ps
 `default_nettype none
 
-(* keep, emulib_component = "clock" *)
 module EmuClock #(
     parameter CYCLE_PERIOD_PS = 10000,
     parameter PHASE_SHIFT_PS = 0

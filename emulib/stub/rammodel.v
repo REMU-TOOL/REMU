@@ -2,8 +2,7 @@
 `timescale 1ns / 1ps
 `default_nettype none
 
-(* keep, emulib_component = "rammodel" *)
-module RAMModel #(
+module EmuRam #(
     parameter   ADDR_WIDTH      = 32,
     parameter   DATA_WIDTH      = 64,
     parameter   ID_WIDTH        = 4,
@@ -12,8 +11,8 @@ module RAMModel #(
     parameter   W_DELAY         = 3
 )(
 
-    input  wire                     aclk,
-    input  wire                     aresetn,
+    input  wire                     clk,
+    input  wire                     rst,
 
     input  wire                     s_axi_awvalid,
     output wire                     s_axi_awready,

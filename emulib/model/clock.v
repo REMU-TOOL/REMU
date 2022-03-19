@@ -2,17 +2,20 @@
 `timescale 1ns / 1ps
 `default_nettype none
 
-(* keep, emulib_component = "clock" *)
+(* keep, __emu_directive = {
+    "rewrite_clk -ff_clk dut_ff_clk -ram_clk dut_ram_clk dut_clk;",
+    "extern dut_ff_clk dut_ram_clk;"
+} *)
+
 module EmuClock #(
     parameter CYCLE_PERIOD_PS = 10000,
     parameter PHASE_SHIFT_PS = 0
 )
 (
-    output wire clock
-);
+    output wire clock,
 
-    (* keep, emu_dut_clk *)
-    wire dut_clk;
+    input wire dut_clk
+);
 
     assign clock = dut_clk;
 

@@ -2,18 +2,20 @@
 `timescale 1 ns / 1 ps
 `default_nettype none
 
-(* keep, emulib_component = "reset" *)
+(* keep, __emu_directive = {
+    "extern dut_rst;"
+} *)
+
 module EmuReset #(
     parameter DURATION_NS = 20
 )
 (
-    output wire reset
+    output wire reset,
+
+    input wire dut_rst
 );
 
-    (* keep, emu_intf_port = "dut_rst" *)
-    wire _rst;
-
-    assign reset = _rst;
+    assign reset = dut_rst;
 
 endmodule
 

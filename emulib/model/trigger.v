@@ -2,15 +2,17 @@
 `timescale 1 ns / 1 ps
 `default_nettype none
 
-(* keep, emulib_component = "trigger" *)
+(* keep, __emu_directive = {
+    "extern dut_trig;"
+} *)
+
 module EmuTrigger(
-    input wire trigger
+    input wire trigger,
+
+    output wire dut_trig
 );
 
-    (* keep, emu_intf_port = "dut_trig" *)
-    wire _trig;
-
-    assign _trig = trigger;
+    assign dut_trig = trigger;
 
 endmodule
 
