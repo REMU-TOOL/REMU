@@ -111,8 +111,9 @@ module emu_uncore (
         else if (mem_valid && |mem_wstrb && mem_addr == 32'h10000000)
             uart_ack <= 1'b1;
 
-    PutCharDevice u_putchar (
+    EmuPutChar u_putchar (
         .clk    (clk),
+        .rst    (!resetn),
         .valid  (uart_ack),
         .data   (mem_wdata[7:0] & {8{mem_wstrb[0]}})
     );
@@ -162,7 +163,7 @@ module emu_uncore (
     assign mem_ready        = b_fire || r_fire || uart_ack;
     assign mem_rdata        = mem_axi_rdata;
 
-    RAMModel #(
+    EmuRam #(
         .ADDR_WIDTH     (32),
         .DATA_WIDTH     (32),
         .ID_WIDTH       (1),
@@ -170,8 +171,8 @@ module emu_uncore (
         .W_DELAY        (0)
     )
     u_rammodel (
-        .aclk           (clk),
-        .aresetn        (resetn),
+        .clk            (clk),
+        .rst            (!resetn),
         .s_axi_awvalid  (mem_axi_awvalid),
         .s_axi_awready  (mem_axi_awready),
         .s_axi_awaddr   (mem_axi_awaddr),
