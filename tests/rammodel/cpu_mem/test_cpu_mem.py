@@ -5,7 +5,13 @@ import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import First, RisingEdge, ClockCycles
 
+from cocotbext.axi import AxiBus, AxiMaster, AxiRam
+from cocotbext.axi.constants import AxiBurstType
+
+import logging
+
 CONFIG_FILE = '.build/config.json'
+INITMEM_FILE = '../../../design/picorv32/baremetal.bin'
 
 class TB:
     def __init__(self, dut):
@@ -15,6 +21,14 @@ class TB:
             self.config = json.load(f)
         self.ff_size = self.config['ff_size']
         self.mem_size = self.config['mem_size']
+        self.axi_ram = AxiRam(AxiBus.from_prefix(dut, 'host_axi'), dut.clk, dut.resetn, reset_active_level=False, size=0x10000)
+        self.axi_lsu_ram = AxiRam(AxiBus.from_prefix(dut, 'lsu_axi'), dut.clk, dut.resetn, reset_active_level=False, size=0x2000)
+        self.axi_ram.write_if.log.setLevel(logging.WARNING)
+        self.axi_ram.read_if.log.setLevel(logging.WARNING)
+        self.axi_lsu_ram.write_if.log.setLevel(logging.WARNING)
+        self.axi_lsu_ram.read_if.log.setLevel(logging.WARNING)
+        with open(INITMEM_FILE, 'rb') as f:
+            self.axi_ram.write(0, f.read())
 
     async def do_reset(self):
         self.dut._log.info("resetn asserted")
@@ -128,16 +142,18 @@ async def run_test(dut):
         await tb.do_down()
         data = await tb.do_save()
         cycle = dut.count.value
-        mem = dut.mem.value
+        mem = tb.axi_ram.read(0, None)
+        lsu_mem = tb.axi_lsu_ram.read(0, None)
         await tb.do_up()
-        return data, cycle, mem
+        return data, cycle, mem, lsu_mem
 
     async def load_checkpoint(checkpoint):
-        data, cycle, mem = checkpoint
+        data, cycle, mem, lsu_mem = checkpoint
         await tb.do_down()
         await tb.do_load(data)
         await tb.do_count_write(cycle)
-        dut.mem.value = mem
+        tb.axi_ram.write(0, mem)
+        tb.axi_lsu_ram.write(0, lsu_mem)
         await tb.do_up()
 
     checkpoints = []

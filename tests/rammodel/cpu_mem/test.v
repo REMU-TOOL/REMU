@@ -1,5 +1,7 @@
 `timescale 1ns / 1ps
 
+`include "axi.vh"
+
 module test(
 
     input                       clk,
@@ -34,7 +36,11 @@ module test(
 
     input                       step_write,
     input   [63:0]              step_wdata,
-    output                      step_trig
+    output                      step_trig,
+
+
+    `AXI4_MASTER_IF             (host_axi, 32, 32, 1),
+    `AXI4_MASTER_IF             (lsu_axi, 32, 32, 1)
 
 );
 
@@ -71,26 +77,6 @@ module test(
         .GCLK(emu_dut_ram_clk)
     );
 
-    wire              mem_axi_awvalid;
-	wire              mem_axi_awready;
-	wire       [31:0] mem_axi_awaddr;
-
-	wire              mem_axi_wvalid;
-	wire              mem_axi_wready;
-	wire       [31:0] mem_axi_wdata;
-	wire       [ 3:0] mem_axi_wstrb;
-
-	wire              mem_axi_bvalid;
-	wire              mem_axi_bready;
-
-	wire              mem_axi_arvalid;
-	wire              mem_axi_arready;
-	wire       [31:0] mem_axi_araddr;
-
-	wire              mem_axi_rvalid;
-	wire              mem_axi_rready;
-	wire       [31:0] mem_axi_rdata;
-
     wire putchar_valid, putchar_ready;
     wire [7:0] putchar_data;
 
@@ -101,8 +87,8 @@ module test(
             $write("%c", putchar_data);
 
     EMU_DUT emu_dut(
-        .emu_clk            (clk),
-        .emu_rst            (rst),
+        .emu_host_clk       (clk),
+        .emu_host_rst       (rst),
         .emu_ff_se          (ff_scan),
         .emu_ff_di          (ff_dir ? ff_sdi : ff_sdo),
         .emu_ff_do          (ff_sdo),
@@ -114,141 +100,21 @@ module test(
         .emu_dut_ram_clk    (emu_dut_ram_clk),
         .emu_dut_rst        (rst),
         .emu_dut_trig       (trig),
-        .emu_stall          (pause || dut_stall),
-        .emu_stall_gen      (dut_stall),
+        .emu_target_fire    (!pause && !dut_stall),
+        .emu_stall          (dut_stall),
         .emu_up_req         (up_req),
         .emu_down_req       (down_req),
         .emu_up_stat        (up),
         .emu_down_stat      (down),
-        .emu_auto_0_dram_awvalid        (mem_axi_awvalid),
-        .emu_auto_0_dram_awready        (mem_axi_awready),
-        .emu_auto_0_dram_awaddr         (mem_axi_awaddr),
-        .emu_auto_0_dram_awid           (),
-        .emu_auto_0_dram_awlen          (),
-        .emu_auto_0_dram_awsize         (),
-        .emu_auto_0_dram_awburst        (),
-        .emu_auto_0_dram_awlock         (),
-        .emu_auto_0_dram_awcache        (),
-        .emu_auto_0_dram_awprot         (),
-        .emu_auto_0_dram_awqos          (),
-        .emu_auto_0_dram_awregion       (),
-        .emu_auto_0_dram_wvalid         (mem_axi_wvalid),
-        .emu_auto_0_dram_wready         (mem_axi_wready),
-        .emu_auto_0_dram_wdata          (mem_axi_wdata),
-        .emu_auto_0_dram_wstrb          (mem_axi_wstrb),
-        .emu_auto_0_dram_wlast          (),
-        .emu_auto_0_dram_bvalid         (mem_axi_bvalid),
-        .emu_auto_0_dram_bready         (mem_axi_bready),
-        .emu_auto_0_dram_bresp          (2'b00),
-        .emu_auto_0_dram_bid            (1'd0),
-        .emu_auto_0_dram_arvalid        (mem_axi_arvalid),
-        .emu_auto_0_dram_arready        (mem_axi_arready),
-        .emu_auto_0_dram_araddr         (mem_axi_araddr),
-        .emu_auto_0_dram_arid           (),
-        .emu_auto_0_dram_arlen          (),
-        .emu_auto_0_dram_arsize         (),
-        .emu_auto_0_dram_arburst        (),
-        .emu_auto_0_dram_arlock         (),
-        .emu_auto_0_dram_arcache        (),
-        .emu_auto_0_dram_arprot         (),
-        .emu_auto_0_dram_arqos          (),
-        .emu_auto_0_dram_arregion       (),
-        .emu_auto_0_dram_rvalid         (mem_axi_rvalid),
-        .emu_auto_0_dram_rready         (mem_axi_rready),
-        .emu_auto_0_dram_rdata          (mem_axi_rdata),
-        .emu_auto_0_dram_rresp          (2'b00),
-        .emu_auto_0_dram_rid            (1'd0),
-        .emu_auto_0_dram_rlast          (1'b1),
+        `AXI4_CONNECT       (emu_axi_0_host_axi, host_axi),
+        `AXI4_CONNECT_NO_ID (emu_axi_1_lsu_axi, lsu_axi),
         .emu_putchar_valid              (putchar_valid),
         .emu_putchar_ready              (putchar_ready),
         .emu_putchar_data               (putchar_data)
     );
 
-    reg [7:0] mem [0:64*1024-1];
-
-    reg [31:0] reg_write_addr;
-    reg [31:0] reg_write_data;
-    reg [3:0] reg_write_strb;
-    reg reg_write_addr_valid, reg_write_data_valid, reg_write_resp_valid;
-    wire reg_write_addr_data_ok = reg_write_addr_valid && reg_write_data_valid;
-
-    always @(posedge clk) begin
-        if (rst) begin
-            reg_write_addr          <= 12'd0;
-            reg_write_data          <= 32'd0;
-            reg_write_strb          <= 4'd0;
-            reg_write_addr_valid    <= 1'b0;
-            reg_write_data_valid    <= 1'b0;
-            reg_write_resp_valid    <= 1'b0;
-        end
-        else begin
-            if (mem_axi_awvalid && mem_axi_awready) begin
-                reg_write_addr          <= mem_axi_awaddr;
-                reg_write_addr_valid    <= 1'b1;
-            end
-            if (mem_axi_wvalid && mem_axi_wready) begin
-                reg_write_data          <= mem_axi_wdata;
-                reg_write_strb          <= mem_axi_wstrb;
-                reg_write_data_valid    <= 1'b1;
-            end
-            if (reg_write_addr_data_ok) begin
-                reg_write_addr_valid    <= 1'b0;
-                reg_write_data_valid    <= 1'b0;
-                reg_write_resp_valid    <= 1'b1;
-            end
-            if (mem_axi_bvalid && mem_axi_bready) begin
-                reg_write_resp_valid    <= 1'b0;
-            end
-        end
-    end
-
-    always @(posedge clk) begin
-        if (reg_write_addr_data_ok) begin
-            if (reg_write_strb[0]) mem[reg_write_addr + 0] <= reg_write_data[ 7: 0];
-            if (reg_write_strb[1]) mem[reg_write_addr + 1] <= reg_write_data[15: 8];
-            if (reg_write_strb[2]) mem[reg_write_addr + 2] <= reg_write_data[23:16];
-            if (reg_write_strb[3]) mem[reg_write_addr + 3] <= reg_write_data[31:24];
-        end
-    end
-
-    assign mem_axi_awready    = !reg_write_addr_valid && !reg_write_resp_valid;
-    assign mem_axi_wready     = !reg_write_data_valid;
-    assign mem_axi_bvalid     = reg_write_resp_valid;
-
-    reg [31:0] reg_read_addr;
-    reg [31:0] reg_read_data;
-    reg reg_read_addr_valid, reg_read_data_valid;
-    wire reg_do_read = reg_read_addr_valid && !reg_read_data_valid;
-
-    always @(posedge clk) begin
-        if (rst) begin
-            reg_read_addr       <= 12'd0;
-            reg_read_data       <= 32'd0;
-            reg_read_addr_valid <= 1'b0;
-            reg_read_data_valid <= 1'b0;
-        end
-        else begin
-            if (mem_axi_arvalid && mem_axi_arready) begin
-                reg_read_addr       <= mem_axi_araddr;
-                reg_read_addr_valid <= 1'b1;
-            end
-            if (reg_do_read) begin
-                reg_read_data[ 7: 0] <= mem[reg_read_addr + 0];
-                reg_read_data[15: 8] <= mem[reg_read_addr + 1];
-                reg_read_data[23:16] <= mem[reg_read_addr + 2];
-                reg_read_data[31:24] <= mem[reg_read_addr + 3];
-                reg_read_data_valid <= 1'b1;
-            end
-            if (mem_axi_rvalid && mem_axi_rready) begin
-                reg_read_addr_valid <= 1'b0;
-                reg_read_data_valid <= 1'b0;
-            end
-        end
-    end
-
-    assign mem_axi_arready    = !reg_read_addr_valid;
-    assign mem_axi_rvalid     = reg_read_data_valid;
-    assign mem_axi_rdata      = reg_read_data;
+    assign lsu_axi_arid = 0;
+    assign lsu_axi_awid = 0;
 
     assign dut_clk_en = !pause && !dut_stall;
     assign emu_dut_ff_clk_en = !pause && !dut_stall || ff_scan;
@@ -260,8 +126,6 @@ module test(
             $dumpvars();
         end
     end
-
-    initial $readmemh("../../../design/picorv32/baremetal.hex", mem);
 
     always @(posedge clk)
         if (!resetn)
