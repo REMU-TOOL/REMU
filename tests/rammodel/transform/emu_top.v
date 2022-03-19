@@ -56,14 +56,14 @@ module emu_top #(
     EmuClock clock(clk);
     EmuReset reset(rst);
 
-    RAMModel #(
+    EmuRam #(
         .ADDR_WIDTH (ADDR_WIDTH),
         .DATA_WIDTH (DATA_WIDTH),
         .ID_WIDTH   (ID_WIDTH)
     )
     u_rammodel (
-        .aclk           (clk),
-        .aresetn        (!rst),
+        .clk            (clk),
+        .rst            (rst),
 
         .s_axi_awvalid  (s_axi_awvalid),
         .s_axi_awready  (s_axi_awready),

@@ -16,6 +16,7 @@ class TB:
         cocotb.fork(Clock(dut.clk, 10, units='ns').start())
         self.axi_master = AxiMaster(AxiBus.from_prefix(dut, 's_axi'), dut.dut_clk, dut.resetn, reset_active_level=False)
         self.axi_ram = AxiRam(AxiBus.from_prefix(dut, 'm_axi'), dut.clk, dut.resetn, reset_active_level=False, size=0x1000)
+        self.axi_lsu_ram = AxiRam(AxiBus.from_prefix(dut, 'lsu_axi'), dut.clk, dut.resetn, reset_active_level=False, size=0x2000)
         self.config = json.load(open(CONFIG_FILE, 'r'))
         self.ff_size = self.config['ff_size']
         self.mem_size = self.config['mem_size']
@@ -110,9 +111,9 @@ async def run_test(dut):
             test_data = bytearray([x % 256 for x in range(length)])
             dut._log.info("STEP %d: address=0x%x, length=0x%x, axsize=%d axburst=%s" % (step, addr, length, size, burst))
             await ClockCycles(dut.clk, random.randint(1, 20))
-            await tb.axi_master.write(addr, test_data, burst=burst, size=size)
+            await tb.axi_master.write(addr, test_data, burst=burst, size=size, awid=0)
             await ClockCycles(dut.clk, random.randint(1, 20))
-            data = await tb.axi_master.read(addr, length, burst=burst, size=size)
+            data = await tb.axi_master.read(addr, length, burst=burst, size=size, arid=0)
             assert data.data == test_data
 
     running = True

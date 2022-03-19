@@ -116,6 +116,8 @@ module test #(
     output                      up,
     output                      down,
 
+    `AXI4_MASTER_IF             (lsu_axi, 32, 32, 1),
+
     // for testbench use
     output                      dut_clk
 
@@ -200,8 +202,8 @@ module test #(
         .s_axi_rid      (s_axi_rid),
         .s_axi_rlast    (s_axi_rlast),
 
-        .emu_clk            (clk),
-        .emu_rst            (rst),
+        .emu_host_clk       (clk),
+        .emu_host_rst       (rst),
         .emu_ff_se          (ff_scan),
         .emu_ff_di          (ff_dir ? ff_sdi : ff_sdo),
         .emu_ff_do          (ff_sdo),
@@ -213,14 +215,18 @@ module test #(
         .emu_dut_ram_clk    (emu_dut_ram_clk),
         .emu_dut_rst        (rst),
         .emu_dut_trig       (),
-        .emu_stall          (pause || dut_stall),
-        .emu_stall_gen      (dut_stall),
+        .emu_target_fire    (!pause && !dut_stall),
+        .emu_stall          (dut_stall),
         .emu_up_req         (up_req),
         .emu_down_req       (down_req),
         .emu_up_stat        (up),
         .emu_down_stat      (down),
-        `AXI4_CONNECT       (emu_auto_0_dram, m_axi)
+        `AXI4_CONNECT       (emu_axi_0_host_axi, m_axi),
+        `AXI4_CONNECT_NO_ID (emu_axi_1_lsu_axi, lsu_axi)
     );
+
+    assign lsu_axi_arid = 0;
+    assign lsu_axi_awid = 0;
 
     assign dut_clk_en = !pause && !dut_stall;
     assign emu_dut_ff_clk_en = !pause && !dut_stall || ff_scan;
