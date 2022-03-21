@@ -1,4 +1,3 @@
-`resetall
 `timescale 1ns / 1ps
 `default_nettype none
 
@@ -21,4 +20,4 @@ module EmuClock #(
 
 endmodule
 
-`resetall
+`default_nettype wire

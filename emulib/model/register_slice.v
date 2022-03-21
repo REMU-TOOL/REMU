@@ -1,4 +1,3 @@
-`resetall
 `timescale 1ns / 1ps
 `default_nettype none
 
@@ -90,4 +89,4 @@ module emulib_register_slice #(
 
 endmodule
 
-`resetall
+`default_nettype wire

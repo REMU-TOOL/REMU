@@ -1,4 +1,3 @@
-`resetall
 `timescale 1ns / 1ps
 `default_nettype none
 
@@ -73,4 +72,4 @@ module emulib_rammodel_decoder_b #(
 
 endmodule
 
-`resetall
+`default_nettype wire

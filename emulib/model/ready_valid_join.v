@@ -1,4 +1,3 @@
-`resetall
 `timescale 1ns / 1ps
 `default_nettype none
 
@@ -26,4 +25,4 @@ module emulib_ready_valid_join #(
 
 endmodule
 
-`resetall
+`default_nettype wire
