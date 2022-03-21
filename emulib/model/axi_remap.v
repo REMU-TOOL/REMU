@@ -1,4 +1,3 @@
-`resetall
 `timescale 1ns / 1ps
 `default_nettype none
 
@@ -7,19 +6,19 @@
 module axi_remap #(
     parameter   ADDR_WIDTH      = 32,
     parameter   DATA_WIDTH      = 64,
-    parameter   ID_WIDTH        = 4
+    parameter   ID_WIDTH        = 4,
+    parameter   ADDR_BASE       = 'h0,
+    parameter   ADDR_MASK       = 'hffffffff
 )(
     input  wire                     clk,
     input  wire                     resetn,
     `AXI4_SLAVE_IF                  (s_axi, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
-    `AXI4_MASTER_IF                 (m_axi, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
-    input  wire [ADDR_WIDTH-1:0]    addr_base,
-    input  wire [ADDR_WIDTH-1:0]    addr_mask
+    `AXI4_MASTER_IF                 (m_axi, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)
 );
 
     assign  m_axi_awvalid   = s_axi_awvalid;
     assign  s_axi_awready   = m_axi_awready;
-    assign  m_axi_awaddr    = s_axi_awaddr & addr_mask | addr_base;
+    assign  m_axi_awaddr    = s_axi_awaddr & ADDR_MASK | ADDR_BASE;
     assign  m_axi_awprot    = s_axi_awprot;
     assign  m_axi_awid      = s_axi_awid;
     assign  m_axi_awlen     = s_axi_awlen;
@@ -40,7 +39,7 @@ module axi_remap #(
 
     assign  m_axi_arvalid   = s_axi_arvalid;
     assign  s_axi_arready   = m_axi_arready;
-    assign  m_axi_araddr    = s_axi_araddr & addr_mask | addr_base;
+    assign  m_axi_araddr    = s_axi_araddr & ADDR_MASK | ADDR_BASE;
     assign  m_axi_arprot    = s_axi_arprot;
     assign  m_axi_arid      = s_axi_arid;
     assign  m_axi_arlen     = s_axi_arlen;
@@ -57,4 +56,4 @@ module axi_remap #(
 
 endmodule
 
-`resetall
+`default_nettype wire
