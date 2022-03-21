@@ -158,8 +158,7 @@ module emulib_rammodel_backend #(
     emulib_fifo #(
         .WIDTH      (`AXI4_CUSTOM_A_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)),
         .DEPTH      (MAX_INFLIGHT),
-        .USE_BURST  (0),
-        .USE_SRSW   (0)
+        .USE_BURST  (0)
     ) a_fifo (
         .clk        (host_clk),
         .rst        (host_rst || fifo_clear),
@@ -217,8 +216,7 @@ module emulib_rammodel_backend #(
     emulib_fifo #(
         .WIDTH      (`AXI4_CUSTOM_W_PAYLOAD_WO_LAST_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)),
         .DEPTH      (W_FIFO_DEPTH),
-        .USE_BURST  (1),
-        .USE_SRSW   (1)
+        .USE_BURST  (1)
     ) w_fifo (
         .clk        (host_clk),
         .rst        (host_rst || fifo_clear),
@@ -279,8 +277,7 @@ module emulib_rammodel_backend #(
     emulib_fifo #(
         .WIDTH      (`AXI4_CUSTOM_B_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)),
         .DEPTH      (B_FIFO_DEPTH),
-        .USE_BURST  (0),
-        .USE_SRSW   (0)
+        .USE_BURST  (0)
     ) b_fifo (
         .clk        (host_clk),
         .rst        (host_rst || fifo_clear),
@@ -338,8 +335,7 @@ module emulib_rammodel_backend #(
     emulib_fifo #(
         .WIDTH      (`AXI4_CUSTOM_R_PAYLOAD_WO_LAST_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)),
         .DEPTH      (R_FIFO_DEPTH),
-        .USE_BURST  (1),
-        .USE_SRSW   (1)
+        .USE_BURST  (1)
     ) r_fifo (
         .clk        (host_clk),
         .rst        (host_rst || fifo_clear),
