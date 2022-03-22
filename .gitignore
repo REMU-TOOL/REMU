@@ -1,6 +1,8 @@
 *.o
 *.d
 *.so
+*.vpi
+*.vvp
 *.out
 *.log
 *.vcd
@@ -14,9 +16,9 @@ sim_build
 results.xml
 .config
 
-design/build/
+build/
+install/
 
-monitor/platform.h
-monitor/monitor
+design/build/
 
 .vscode/
