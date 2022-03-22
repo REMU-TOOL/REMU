@@ -79,44 +79,13 @@ $(DESIGN_SIM_BIN): $(SIMSRCS) $(VSRC) | $(DESIGN_OUTPUT_V)
 .platform-flow: $(DESIGN_OUTPUT_V)
 	make -C platform/$(VENDOR) PLAT=$(PLAT)
 
-##### Framework Compilation #####
-
-.PHONY: build
-build: yosys transform
-	mkdir -p $(YOSYS_DIR)/share/plugins
-	cp -f transform/transform.so $(YOSYS_DIR)/share/plugins
-	rm -rf $(YOSYS_DIR)/share/emulib
-	cp -rf emulib $(YOSYS_DIR)/share/
-
-.PHONY: yosys
-yosys:
-	cp yosys.conf yosys/Makefile.conf
-	+make -C yosys all
-
-.PHONY: transform
-transform: yosys
-	+make -C transform
-
 .PHONY: test
 test:
 	make -C tests
 
-.PHONY: monitor
-monitor:
-	make -C monitor VENDOR=$(VENDOR) PLAT=$(PLAT)
+.PHONY: clean test_clean
 
-.PHONY: clean test_clean transform_clean yosys_clean monitor_clean
-
-clean: yosys_clean transform_clean test_clean monitor_clean
-
-yosys_clean:
-	make -C yosys clean
-
-transform_clean:
-	make -C transform clean
+clean: test_clean
 
 test_clean:
 	make -C tests clean
-
-monitor_clean:
-	make -C monitor clean VENDOR=$(VENDOR) PLAT=$(PLAT)
