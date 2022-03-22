@@ -1,5 +1,7 @@
 #include "kernel/yosys.h"
 
+#include "yaml-cpp/yaml.h"
+
 #include "emu.h"
 
 using namespace Emu;
@@ -94,6 +96,60 @@ struct WriteConfigWorker : public EmuDatabaseWorker {
         json.end();
     }
 } WriteConfigWorker;
+
+struct WriteYAMLWorker : public EmuDatabaseWorker {
+    void operator()(std::string db_name, std::ostream &os) override {
+        Database &database = Database::databases.at(db_name);
+
+        if (database.top.empty()) {
+            log_warning("Database %s is incomplete and ignored\n", db_name.c_str());
+            return;
+        }
+
+        EmulibData &emulib = database.emulib.at(database.top);
+        ScanChainData &scanchain = database.scanchain.at(database.top);
+
+        YAML::Node node;
+
+        node["width"] = DATA_WIDTH;
+
+        for (auto &src : scanchain.ff) {
+            YAML::Node ff_node;
+            for (auto &c : src.info) {
+                YAML::Node src_node;
+                for (auto &s : c.name)
+                    src_node["name"].push_back(s);
+                src_node["offset"] = c.offset;
+                src_node["width"] = c.width;
+                ff_node.push_back(src_node);
+            }
+            node["ff"].push_back(ff_node);
+        }
+
+        for (auto &mem : scanchain.mem) {
+            YAML::Node mem_node;
+            for (auto &s : mem.name)
+                mem_node["name"].push_back(s);
+            mem_node["width"] = mem.mem_width;
+            mem_node["depth"] = mem.mem_depth;
+            mem_node["start_offset"] = mem.mem_start_offset;
+            node["mem"].push_back(mem_node);
+        }
+
+        for (auto &section : emulib) {
+            YAML::Node emulib_node;
+            for (auto &info : section.second) {
+                for (auto &s : info.name)
+                    emulib_node["name"].push_back(s);
+                for (auto &attr : info.attrs)
+                    emulib_node[attr.first] = attr.second;
+            }
+            node[section.first].push_back(emulib_node);
+        }
+
+        os << node;
+    }
+} WriteYAMLWorker;
 
 // FIXME: Use verilog_hier_name
 // This is a workaround to handle hierarchical names in genblks as yosys can only generate
@@ -224,6 +280,7 @@ struct EmuDatabasePass : public Pass {
 
         std::map<std::string, EmuDatabaseWorker&> cmdlist = {
             {"write_config",    WriteConfigWorker},
+            {"write_yaml",      WriteYAMLWorker},
             {"write_loader",    WriteLoaderWorker},
         };
 
