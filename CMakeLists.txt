@@ -35,6 +35,10 @@ install(DIRECTORY ${YOSYS_TMP_DESTDIR}/
 
 # Add emulation libraries
 
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/emulib/
+    DESTINATION share/yosys/emulib
+)
+
 # Add transform project
 
 add_subdirectory(transform)
