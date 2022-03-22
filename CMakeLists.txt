@@ -5,6 +5,7 @@ include(ExternalProject)
 project(emulator)
 
 set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # Add yaml-cpp project
 

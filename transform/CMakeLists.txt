@@ -8,6 +8,8 @@ set_target_properties(transform PROPERTIES PREFIX "")
 
 include_directories(${YOSYS_INCLUDE_DIR})
 
+target_link_libraries(transform PRIVATE yaml-cpp)
+
 target_compile_options(transform PRIVATE
     -Wall -Wextra -MD -MP -fPIC -Os
 )
