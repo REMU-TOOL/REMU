@@ -93,7 +93,7 @@ FfInfo::FfInfo(SigSpec sig) {
         if (c.is_wire()) {
             FfInfoChunk chunk;
             chunk.name = get_hier_name(c.wire);
-            chunk.is_public = is_public_id(c.wire->name) && !c.wire->get_bool_attribute(AttrModel);
+            chunk.is_public = is_public_id(c.wire->name);
             chunk.offset = c.offset;
             chunk.width = c.width;
             info.push_back(chunk);

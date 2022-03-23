@@ -244,24 +244,6 @@ struct ProcessLibWorker {
     }
 
     void process_module(Module *module) {
-        EmulibData &emulib = database.emulib[module->name];
-
-        // Process emulib module interface ports & parameters
-
-        std::string component = module->get_string_attribute(AttrEmulibComponent);
-        if (!component.empty()) {
-            promote_mod_intf_ports(module);
-
-            EmulibCellInfo info;
-
-            for (auto it : module->parameter_default_values)
-                info.attrs[it.first.str().substr(1)] = it.second.as_int();
-
-            emulib[component].push_back(info);
-
-            module->attributes.erase(AttrEmulibComponent);
-        }
-
         // Process submodules
 
         for (auto cell : module->cells())

@@ -13,20 +13,10 @@ const int TRIG_WIDTH = 32;
 
 const char
 
-    // Usage: specified in emulib stub modules to indicate the component name.
-    // Type: string
-    // Compatible: module
-    AttrEmulibComponent     [] = "\\emulib_component",
-
     // Usage: specified in model implementation to indicate internal signals.
     // Type: string
     // Compatible: wire
     AttrIntfPort            [] = "\\emu_intf_port",
-
-    // Usage: specified by emu_process_lib to indicate cells & wires loaded from model implementation.
-    // Type: bool
-    // Compatible: cell, wire
-    AttrModel               [] = "\\emu_model",
 
     // Usage: specified by emu_instrument to indicate completion of the pass.
     // Type: bool
