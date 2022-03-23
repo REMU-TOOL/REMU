@@ -97,6 +97,22 @@ struct WriteConfigWorker : public EmuDatabaseWorker {
     }
 } WriteConfigWorker;
 
+// FIXME: Use verilog_hier_name
+// This is a workaround to handle hierarchical names in genblks as yosys can only generate
+// such information in escaped ids. This breaks the support of escaped ids in user design.
+std::string simple_hier_name(const std::vector<std::string> &hier) {
+    std::ostringstream os;
+    bool first = true;
+    for (auto &name : hier) {
+        if (first)
+            first = false;
+        else
+            os << ".";
+        os << name;
+    }
+    return os.str();
+}
+
 struct WriteYAMLWorker : public EmuDatabaseWorker {
     void operator()(std::string db_name, std::ostream &os) override {
         Database &database = Database::databases.at(db_name);
@@ -118,8 +134,7 @@ struct WriteYAMLWorker : public EmuDatabaseWorker {
             YAML::Node ff_node;
             for (auto &c : src.info) {
                 YAML::Node src_node;
-                for (auto &s : c.name)
-                    src_node["name"].push_back(s);
+                src_node["name"] = simple_hier_name(c.name);
                 src_node["offset"] = c.offset;
                 src_node["width"] = c.width;
                 ff_node.push_back(src_node);
@@ -130,8 +145,7 @@ struct WriteYAMLWorker : public EmuDatabaseWorker {
         node["mem"] = YAML::Node(YAML::NodeType::Sequence);
         for (auto &mem : scanchain.mem) {
             YAML::Node mem_node;
-            for (auto &s : mem.name)
-                mem_node["name"].push_back(s);
+            mem_node["name"] = simple_hier_name(mem.name);
             mem_node["width"] = mem.mem_width;
             mem_node["depth"] = mem.mem_depth;
             mem_node["start_offset"] = mem.mem_start_offset;
@@ -141,8 +155,7 @@ struct WriteYAMLWorker : public EmuDatabaseWorker {
         for (auto &section : emulib) {
             YAML::Node emulib_node;
             for (auto &info : section.second) {
-                for (auto &s : info.name)
-                    emulib_node["name"].push_back(s);
+                emulib_node["name"] = simple_hier_name(info.name);
                 for (auto &attr : info.attrs)
                     emulib_node[attr.first] = attr.second;
             }
@@ -152,22 +165,6 @@ struct WriteYAMLWorker : public EmuDatabaseWorker {
         os << node;
     }
 } WriteYAMLWorker;
-
-// FIXME: Use verilog_hier_name
-// This is a workaround to handle hierarchical names in genblks as yosys can only generate
-// such information in escaped ids. This breaks the support of escaped ids in user design.
-std::string simple_hier_name(const std::vector<std::string> &hier) {
-    std::ostringstream os;
-    bool first = true;
-    for (auto &name : hier) {
-        if (first)
-            first = false;
-        else
-            os << ".";
-        os << name;
-    }
-    return os.str();
-}
 
 struct WriteLoaderWorker : public EmuDatabaseWorker {
     void operator()(std::string db_name, std::ostream &os) override {
