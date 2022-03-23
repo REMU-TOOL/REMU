@@ -53,7 +53,7 @@ launch:
 	$(if $(HOST),,$(error HOST is not specified))
 	$(if $(PORT),,$(error PORT is not specified))
 	rm -rf /tmp/ckpt
-	python3 -m host $(LOADMEM) $(DESIGN_BUILD_DIR)/config.json $(HOST) $(PORT) /tmp/ckpt
+	python3 -m host $(LOADMEM) $(DESIGN_BUILD_DIR)/config.yml $(HOST) $(PORT) /tmp/ckpt
 
 reconstruct: $(DESIGN_SIM_BIN)
 	$(if $(DESIGN),,$(error DESIGN is not specified))
@@ -61,7 +61,7 @@ reconstruct: $(DESIGN_SIM_BIN)
 	$(if $(PORT),,$(error PORT is not specified))
 	$(if $(STARTCYCLE),,$(error STARTCYCLE is not specified))
 	$(if $(RUNCYCLE),,$(error RUNCYCLE is not specified))
-	python3 -m host --dump $(STARTCYCLE) --dumpfile $(DESIGN_BUILD_DIR)/$(STARTCYCLE).hex $(DESIGN_BUILD_DIR)/config.json $(HOST) $(PORT) /tmp/ckpt
+	python3 -m host --dump $(STARTCYCLE) --dumpfile $(DESIGN_BUILD_DIR)/$(STARTCYCLE).hex $(DESIGN_BUILD_DIR)/config.yml $(HOST) $(PORT) /tmp/ckpt
 	$(DESIGN_SIM_BIN) +startcycle=$(STARTCYCLE) +runcycle=$(RUNCYCLE) +checkpoint=$(DESIGN_BUILD_DIR)/$(STARTCYCLE).hex +dumpfile=$(DESIGN_BUILD_DIR)/dump.vcd
 
 viewvcd:
@@ -70,7 +70,7 @@ viewvcd:
 
 $(DESIGN_OUTPUT_V): $(VSRC)
 	mkdir -p $(DESIGN_BUILD_DIR)
-	$(YOSYS) -m transform -p "emu_transform -top $(VTOP) -cfg $(DESIGN_BUILD_DIR)/config.json -ldr $(DESIGN_BUILD_DIR)/loader.vh" -o $@ $^
+	$(YOSYS) -m transform -p "emu_transform -top $(VTOP) -cfg $(DESIGN_BUILD_DIR)/config.yml -ldr $(DESIGN_BUILD_DIR)/loader.vh" -o $@ $^
 
 $(DESIGN_SIM_BIN): $(SIMSRCS) $(VSRC) | $(DESIGN_OUTPUT_V)
 	iverilog -I$(DESIGN_BUILD_DIR) -DRECONSTRUCT -s reconstruct -o $@ $^

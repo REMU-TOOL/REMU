@@ -6,7 +6,7 @@ BUILD_SRCS 	+= emu_top.v
 
 BUILD_DIR 	:= .build
 OUTPUT_FILE := $(BUILD_DIR)/output.v
-CONFIG_FILE	:= $(BUILD_DIR)/config.json
+CONFIG_FILE	:= $(BUILD_DIR)/config.yml
 LOADER_FILE := $(BUILD_DIR)/loader.vh
 
 SIM ?= icarus

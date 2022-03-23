@@ -1,5 +1,5 @@
 import random
-import json
+import yaml
 
 import cocotb
 from cocotb.clock import Clock
@@ -10,17 +10,14 @@ from cocotbext.axi.constants import AxiBurstType
 
 import logging
 
-CONFIG_FILE = '.build/config.json'
+CONFIG_FILE = '.build/config.yml'
 INITMEM_FILE = '../../../design/picorv32/baremetal.bin'
 
 class TB:
     def __init__(self, dut):
+        self.load_config(CONFIG_FILE)
         self.dut = dut
         cocotb.fork(Clock(dut.clk, 10, units='ns').start())
-        with open(CONFIG_FILE, 'r') as f:
-            self.config = json.load(f)
-        self.ff_size = self.config['ff_size']
-        self.mem_size = self.config['mem_size']
         self.axi_ram = AxiRam(AxiBus.from_prefix(dut, 'host_axi'), dut.clk, dut.resetn, reset_active_level=False, size=0x10000)
         self.axi_lsu_ram = AxiRam(AxiBus.from_prefix(dut, 'lsu_axi'), dut.clk, dut.resetn, reset_active_level=False, size=0x2000)
         self.axi_ram.write_if.log.setLevel(logging.WARNING)
@@ -29,6 +26,13 @@ class TB:
         self.axi_lsu_ram.read_if.log.setLevel(logging.WARNING)
         with open(INITMEM_FILE, 'rb') as f:
             self.axi_ram.write(0, f.read())
+
+    def load_config(self, path):
+        with open(path, 'r') as f:
+            self.config = yaml.load(f, Loader=yaml.Loader)
+        width = self.config['width']
+        self.ff_size = len(self.config['ff'])
+        self.mem_size = sum([x['depth'] * ((x['width'] + width - 1) // width) for x in self.config['mem']])
 
     async def do_reset(self):
         self.dut._log.info("resetn asserted")

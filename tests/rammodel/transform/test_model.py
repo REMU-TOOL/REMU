@@ -1,5 +1,5 @@
 import random
-import json
+import yaml
 
 import cocotb
 from cocotb.clock import Clock
@@ -8,18 +8,23 @@ from cocotb.triggers import RisingEdge, ClockCycles
 from cocotbext.axi import AxiBus, AxiMaster, AxiRam
 from cocotbext.axi.constants import AxiBurstType
 
-CONFIG_FILE = '.build/config.json'
+CONFIG_FILE = '.build/config.yml'
 
 class TB:
     def __init__(self, dut):
+        self.load_config(CONFIG_FILE)
         self.dut = dut
         cocotb.fork(Clock(dut.clk, 10, units='ns').start())
         self.axi_master = AxiMaster(AxiBus.from_prefix(dut, 's_axi'), dut.dut_clk, dut.resetn, reset_active_level=False)
         self.axi_ram = AxiRam(AxiBus.from_prefix(dut, 'm_axi'), dut.clk, dut.resetn, reset_active_level=False, size=0x1000)
         self.axi_lsu_ram = AxiRam(AxiBus.from_prefix(dut, 'lsu_axi'), dut.clk, dut.resetn, reset_active_level=False, size=0x2000)
-        self.config = json.load(open(CONFIG_FILE, 'r'))
-        self.ff_size = self.config['ff_size']
-        self.mem_size = self.config['mem_size']
+
+    def load_config(self, path):
+        with open(path, 'r') as f:
+            self.config = yaml.load(f, Loader=yaml.Loader)
+        width = self.config['width']
+        self.ff_size = len(self.config['ff'])
+        self.mem_size = sum([x['depth'] * ((x['width'] + width - 1) // width) for x in self.config['mem']])
 
     async def do_reset(self):
         self.dut._log.info("resetn asserted")

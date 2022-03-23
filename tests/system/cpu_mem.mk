@@ -16,7 +16,7 @@ EXTRA_IVFLAGS += -I$(ROOT_DIR)/emulib/include
 
 BUILD_DIR 	:= $(NAME).build
 OUTPUT_FILE := $(BUILD_DIR)/output.v
-CONFIG_FILE	:= $(BUILD_DIR)/config.json
+CONFIG_FILE	:= $(BUILD_DIR)/config.yml
 LOADER_FILE := $(BUILD_DIR)/loader.vh
 SIM_BIN 	:= $(BUILD_DIR)/sim
 DUMP_FILE 	:= $(BUILD_DIR)/dump.vcd
