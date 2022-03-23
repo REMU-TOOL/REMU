@@ -113,6 +113,7 @@ struct WriteYAMLWorker : public EmuDatabaseWorker {
 
         node["width"] = DATA_WIDTH;
 
+        node["ff"] = YAML::Node(YAML::NodeType::Sequence);
         for (auto &src : scanchain.ff) {
             YAML::Node ff_node;
             for (auto &c : src.info) {
@@ -126,6 +127,7 @@ struct WriteYAMLWorker : public EmuDatabaseWorker {
             node["ff"].push_back(ff_node);
         }
 
+        node["mem"] = YAML::Node(YAML::NodeType::Sequence);
         for (auto &mem : scanchain.mem) {
             YAML::Node mem_node;
             for (auto &s : mem.name)
