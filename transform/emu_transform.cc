@@ -91,14 +91,9 @@ struct EmuTransformPass : public ScriptPass {
         run("emu_package");
 
 		if (help_mode)
-			run("emu_database write_config -file <file> (if -cfg)");
-		else if (!cfg_file.empty())
-            run("emu_database write_config -file " + cfg_file);
-
-		if (help_mode)
 			run("emu_database write_yaml -file <file> (if -cfg)");
 		else if (!cfg_file.empty())
-            run("emu_database write_yaml -file " + cfg_file + ".yml"); // TODO
+            run("emu_database write_yaml -file " + cfg_file);
 
 		if (help_mode)
 			run("emu_database write_loader -file <file> (if -ldr)");
