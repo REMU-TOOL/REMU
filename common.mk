@@ -2,9 +2,9 @@ ROOT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 YOSYS_DIR := $(ROOT_DIR)/yosys
 
 ifeq ($(DEBUG),y)
-YOSYS := gdb --args $(YOSYS_DIR)/yosys
+YOSYS := gdb --args yosys
 else
-YOSYS := $(YOSYS_DIR)/yosys
+YOSYS := yosys
 endif
 
 RTLSRCS := $(wildcard $(ROOT_DIR)/emulib/rtl/*.v)
