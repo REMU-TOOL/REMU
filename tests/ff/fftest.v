@@ -61,7 +61,7 @@ module sim_top();
     );
 
     integer i, j;
-    reg [`LOAD_WIDTH-1:0] scandata [ROUND-1:0] [`CHAIN_FF_WORDS-1:0];
+    reg [`LOAD_FF_WIDTH-1:0] scandata [ROUND-1:0] [`CHAIN_FF_WORDS-1:0];
     reg [183:0] d_data [ROUND-1:0];
 
     always #5 clk = ~clk;

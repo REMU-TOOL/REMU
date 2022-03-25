@@ -76,8 +76,8 @@ module sim_top();
     reg [31:0] rdata_save1 [ROUND-1:0];
     reg [63:0] rdata_save2 [ROUND-1:0];
     reg [128:0] rdata_save3 [ROUND-1:0];
-    reg [`LOAD_WIDTH-1:0] scan_save [ROUND-1:0][`CHAIN_MEM_WORDS-1:0];
-    reg [`LOAD_WIDTH-1:0] ff_scan_save [ROUND-1:0][`CHAIN_FF_WORDS-1:0];
+    reg [`LOAD_MEM_WIDTH-1:0] scan_save [ROUND-1:0][`CHAIN_MEM_WORDS-1:0];
+    reg [`LOAD_FF_WIDTH-1:0] ff_scan_save [ROUND-1:0][`CHAIN_FF_WORDS-1:0];
 
     always #5 clk = ~clk;
 

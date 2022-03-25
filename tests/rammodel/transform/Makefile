@@ -6,7 +6,7 @@ BUILD_SRCS 	+= emu_top.v
 
 BUILD_DIR 	:= .build
 OUTPUT_FILE := $(BUILD_DIR)/output.v
-CONFIG_FILE	:= $(BUILD_DIR)/config.yml
+SC_YML_FILE := $(BUILD_DIR)/scanchain.yml
 LOADER_FILE := $(BUILD_DIR)/loader.vh
 
 SIM ?= icarus
@@ -35,7 +35,7 @@ include $(shell cocotb-config --makefiles)/Makefile.sim
 
 $(OUTPUT_FILE): $(BUILD_SRCS)
 	mkdir -p $(BUILD_DIR)
-	$(YOSYS) -m transform -p "emu_transform -top $(BUILD_TOP) -cfg $(CONFIG_FILE) -ldr $(LOADER_FILE)" -o $@ $^
+	$(YOSYS) -m transform -p "emu_transform -top $(BUILD_TOP) -sc_yaml $(SC_YML_FILE) -loader $(LOADER_FILE)" -o $@ $^
 
 sim: $(OUTPUT_FILE)
 

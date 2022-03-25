@@ -58,8 +58,8 @@ module sim_top();
     assign emu_ref.reset.reset = rst;
 
     integer i, j;
-    reg [`LOAD_WIDTH-1:0] mem_scan_save [N_CKPT-1:0][`CHAIN_MEM_WORDS-1:0];
-    reg [`LOAD_WIDTH-1:0] ff_scan_save [N_CKPT-1:0][`CHAIN_FF_WORDS-1:0];
+    reg [`LOAD_MEM_WIDTH-1:0] mem_scan_save [N_CKPT-1:0][`CHAIN_MEM_WORDS-1:0];
+    reg [`LOAD_FF_WIDTH-1:0] ff_scan_save [N_CKPT-1:0][`CHAIN_FF_WORDS-1:0];
     reg [63:0] cycle_save [N_CKPT-1:0], finish_cycle;
 
     always #5 clk = ~clk;

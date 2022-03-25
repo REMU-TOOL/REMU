@@ -10,7 +10,7 @@ from cocotbext.axi.constants import AxiBurstType
 
 import logging
 
-CONFIG_FILE = '.build/config.yml'
+CONFIG_FILE = '.build/scanchain.yml'
 INITMEM_FILE = '../../../design/picorv32/baremetal.bin'
 
 class TB:
@@ -30,9 +30,9 @@ class TB:
     def load_config(self, path):
         with open(path, 'r') as f:
             self.config = yaml.load(f, Loader=yaml.Loader)
-        width = self.config['width']
+        mem_width = self.config['mem_width']
         self.ff_size = len(self.config['ff'])
-        self.mem_size = sum([x['depth'] * ((x['width'] + width - 1) // width) for x in self.config['mem']])
+        self.mem_size = sum([x['depth'] * ((x['width'] + mem_width - 1) // mem_width) for x in self.config['mem']])
 
     async def do_reset(self):
         self.dut._log.info("resetn asserted")

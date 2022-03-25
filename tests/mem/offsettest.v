@@ -55,7 +55,7 @@ module sim_top();
 
     integer i, j;
     reg [79:0] data_save [ROUND-1:0][31:0];
-    reg [`LOAD_WIDTH-1:0] scan_save [ROUND-1:0][`CHAIN_MEM_WORDS-1:0];
+    reg [`LOAD_MEM_WIDTH-1:0] scan_save [ROUND-1:0][`CHAIN_MEM_WORDS-1:0];
 
     always #5 clk = ~clk;
 
