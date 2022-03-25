@@ -5,8 +5,6 @@ USING_YOSYS_NAMESPACE
 
 namespace Emu {
 
-std::map<std::string, Database> Database::databases;
-
 bool is_public_id(IdString id) {
     return id[0] == '\\';
 }
@@ -192,69 +190,6 @@ MemInfo::MemInfo(Mem &mem, int slices, std::vector<std::string> path) {
     mem_width = mem.width;
     mem_depth = mem.size;
     mem_start_offset = mem.start_offset;
-}
-
-JsonWriter &JsonWriter::key(const std::string &key) {
-    comma_and_newline();
-    indent();
-    os << "\"" << key << "\": ";
-    after_key = true;
-    return *this;
-}
-
-JsonWriter &JsonWriter::string(const std::string &str) {
-    value_preoutput();
-    os << "\"";
-    for (char c : str) {
-        switch (c) {
-            case '"':   os << "\\\"";   break;
-            case '\\':  os << "\\\\";   break;
-            default:    os << c;        break;
-        }
-    }
-    os << "\"";
-    after_key = false;
-    return *this;
-}
-
-JsonWriter &JsonWriter::enter_array() {
-    value_preoutput();
-    os << "[\n";
-    stack.push_back({']', false});
-    after_key = false;
-    return *this;
-}
-
-JsonWriter &JsonWriter::enter_object() {
-    value_preoutput();
-    os << "{\n";
-    stack.push_back({'}', false});
-    after_key = false;
-    return *this;
-}
-
-JsonWriter &JsonWriter::back() {
-    char c = stack.back().first;
-    stack.pop_back();
-    os << "\n";
-    indent();
-    os << c;
-    after_key = false;
-    return *this;
-}
-
-void JsonWriter::end() {
-    while (stack.size() > 0)
-        back();
-}
-
-JsonWriter::JsonWriter(std::ostream &os): os(os), after_key(false) {
-    os << "{\n";
-    stack.push_back({'}', false});
-}
-
-JsonWriter::~JsonWriter() {
-    end();
 }
 
 SigSpec measure_clk(Module *module, SigSpec clk, SigSpec gated_clk) {

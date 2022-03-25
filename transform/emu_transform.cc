@@ -58,8 +58,6 @@ struct EmuTransformPass : public ScriptPass {
 
 	void script() override {
 
-        run("emu_database reset");
-
 		std::string share_dirname = proc_share_dirname();
 
         run("read_verilog -I " + share_dirname + "emulib/include " +

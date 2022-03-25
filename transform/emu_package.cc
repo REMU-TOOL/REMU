@@ -150,9 +150,8 @@ struct RenameModuleWorker {
 struct ProcessLibWorker {
 
     Design *design;
-    Database &database;
 
-    ProcessLibWorker(Design *design, Database &database) : design(design), database(database) {}
+    ProcessLibWorker(Design *design) : design(design) {}
 
     void promote_mod_intf_ports(Module *module) {
         for (auto &wire : module->selected_wires()) {
@@ -215,7 +214,6 @@ struct ProcessLibWorker {
 
 struct PackageWorker {
 
-    Database &database;
     Design *design;
 
     void process_intf_ports(Module *module) {
@@ -329,8 +327,6 @@ struct PackageWorker {
         if (!dut_top)
             log_error("No top module found\n");
 
-        database.top = dut_top->name;
-
         // Create interface ports
         process_intf_ports(dut_top);
 
@@ -365,7 +361,7 @@ struct PackageWorker {
         add_controller(new_top, ff_words, mem_words);
     }
 
-    PackageWorker(Database &database, Design *design) : database(database), design(design) {}
+    PackageWorker(Design *design) : design(design) {}
 
 };
 
@@ -380,34 +376,23 @@ struct EmuPackagePass : public Pass {
         log("\n");
         log("This command packages the design for emulation by modifying the top module.\n");
         log("\n");
-        log("    -db <database>\n");
-        log("        specify the emulation database or the default one will be used.\n");
-        log("\n");
     }
 
     void execute(vector<string> args, Design* design) override {
         log_header(design, "Executing EMU_PACKAGE pass.\n");
         log_push();
 
-        std::string db_name;
-
         size_t argidx;
         for (argidx = 1; argidx < args.size(); argidx++)
         {
-            if (args[argidx] == "-db" && argidx+1 < args.size()) {
-                db_name = args[++argidx];
-                continue;
-            }
             break;
         }
         extra_args(args, argidx, design);
 
-        Database &db = Database::databases[db_name];
-
-        ProcessLibWorker lib_worker(design, db);
+        ProcessLibWorker lib_worker(design);
         lib_worker.run();
 
-        PackageWorker pkg_worker(db, design);
+        PackageWorker pkg_worker(design);
         pkg_worker.run();
 
         log_pop();
