@@ -39,8 +39,6 @@ const std::map<std::string, IntfProp> intf_list = {
     {"ram_sd",          InputShare},
     {"ram_di",          InputShare},
     {"ram_do",          OutputAppend},
-    {"ram_li",          InputShare},
-    {"ram_lo",          OutputAppend},
     {"target_fire",     InputShare},
     {"stall",           OutputOrReduce},
     {"up_req",          InputShare},
@@ -169,78 +167,16 @@ struct ProcessLibWorker {
     void propagate_submodule(Cell *cell) {
         Module* module = cell->module;
         Module *target = design->module(cell->type);
-        EmulibData &emulib = database.emulib[module->name];
-        ScanChainData &sc = database.scanchain[module->name];
 
         // promote submodule interfaces
         for (auto it : intf_list) {
             std::vector<Wire *> target_wires = get_intf_ports(target, it.first);
-            if (it.first != "ff_di" && it.first != "ff_do" &&
-                it.first != "ram_di" && it.first != "ram_do" &&
-                it.first != "ram_li" && it.first != "ram_lo") {
-                for (auto target_wire : target_wires) {
-                    Wire *wire = module->addWire(NEW_ID, target_wire);
-                    cell->setPort(target_wire->name, wire);
-                    promote_intf_port(module, it.first, wire);
-                }
+            for (auto target_wire : target_wires) {
+                Wire *wire = module->addWire(NEW_ID, target_wire);
+                cell->setPort(target_wire->name, wire);
+                promote_intf_port(module, it.first, wire);
             }
         }
-
-        // connect submodule scanchain
-
-        auto module_ff_di = get_intf_ports(module, "ff_di");
-        auto module_ram_di = get_intf_ports(module, "ram_di");
-        auto module_ram_lo = get_intf_ports(module, "ram_lo");
-        auto target_ff_di = get_intf_ports(target, "ff_di");
-        auto target_ff_do = get_intf_ports(target, "ff_do");
-        auto target_ram_di = get_intf_ports(target, "ram_di");
-        auto target_ram_do = get_intf_ports(target, "ram_do");
-        auto target_ram_li = get_intf_ports(target, "ram_li");
-        auto target_ram_lo = get_intf_ports(target, "ram_lo");
-
-        log_assert(GetSize(module_ff_di) == 1);
-        log_assert(GetSize(module_ram_di) == 1);
-        log_assert(GetSize(module_ram_lo) == 1);
-        log_assert(GetSize(target_ff_di) == 1);
-        log_assert(GetSize(target_ff_do) == 1);
-        log_assert(GetSize(target_ram_di) == 1);
-        log_assert(GetSize(target_ram_do) == 1);
-        log_assert(GetSize(target_ram_li) == 1);
-        log_assert(GetSize(target_ram_lo) == 1);
-
-        IdString ff_di_name = module_ff_di[0]->name;
-        IdString ram_di_name = module_ram_di[0]->name;
-        IdString ram_lo_name = module_ram_lo[0]->name;
-        module->rename(module_ff_di[0], NEW_ID);
-        module->rename(module_ram_di[0], NEW_ID);
-        module->rename(module_ram_lo[0], NEW_ID);
-        Wire *new_ff_di = module->addWire(ff_di_name, module_ff_di[0]);
-        Wire *new_ram_di = module->addWire(ram_di_name, module_ram_di[0]);
-        Wire *new_ram_lo = module->addWire(ram_lo_name, module_ram_lo[0]);
-        module_ff_di[0]->port_input = false;
-        module_ram_di[0]->port_input = false;
-        module_ram_lo[0]->port_output = false;
-
-        cell->setPort(target_ff_di[0]->name, new_ff_di);
-        cell->setPort(target_ram_di[0]->name, new_ram_di);
-        cell->setPort(target_ram_li[0]->name, module_ram_lo[0]);
-        cell->setPort(target_ff_do[0]->name, module_ff_di[0]);
-        cell->setPort(target_ram_do[0]->name, module_ram_di[0]);
-        cell->setPort(target_ram_lo[0]->name, new_ram_lo);
-
-        // import submodule model data
-        for (auto it : database.emulib[target->name]) {
-            auto &this_data = emulib[it.first];
-            for (auto &data : it.second)
-                this_data.push_back(data.nest(cell));
-        }
-
-        // import submodule scanchain data
-        auto target_sc = database.scanchain[target->name];
-        for (auto &ff : target_sc.ff)
-            sc.ff.push_back(ff.nest(cell));
-        for (auto &mem : target_sc.mem)
-            sc.mem.push_back(mem.nest(cell));
     }
 
     void process_module(Module *module) {
@@ -349,44 +285,8 @@ struct PackageWorker {
 
         module->fixup_ports();
     }
-
-    void generate_mem_last_i(Module *module, int depth, SigSpec clk, SigSpec scan, SigSpec dir, SigSpec last_i) {
-        const int cntbits = ceil_log2(depth + 1);
-
-        // generate last_i signal for mem scan chain
-        // delay 1 cycle for scan-out mode to prepare raddr
-
-        // reg [..] cnt;
-        // wire full = cnt == depth;
-        // always @(posedge clk)
-        //   if (!scan)
-        //     cnt <= 0;
-        //   else if (!full)
-        //     cnt <= cnt + 1;
-        // reg scan_r;
-        // always @(posedge clk) scan_r <= scan;
-        // wire ok = dir ? full : scan_r;
-        // reg ok_r;
-        // always @(posedge clk)
-        //    ok_r <= ok;
-        // assign last_i = ok && !ok_r;
-
-        SigSpec cnt = module->addWire(NEW_ID, cntbits);
-        SigSpec full = module->Eq(NEW_ID, cnt, Const(depth, cntbits));
-        module->addSdffe(NEW_ID, clk, module->Not(NEW_ID, full), module->Not(NEW_ID, scan),
-            module->Add(NEW_ID, cnt, Const(1, cntbits)), cnt, Const(0, cntbits)); 
-
-        SigSpec scan_r = module->addWire(NEW_ID);
-        module->addDff(NEW_ID, clk, scan, scan_r);
-
-        SigSpec ok = module->Mux(NEW_ID, scan_r, full, dir);
-        SigSpec ok_r = module->addWire(NEW_ID);
-        module->addDff(NEW_ID, clk, ok, ok_r);
-
-        module->connect(last_i, module->And(NEW_ID, ok, module->Not(NEW_ID, ok_r)));
-    }
     
-    void add_controller(Module *module) {
+    void add_controller(Module *module, int ff_words, int mem_words) {
         std::string share_dirname = proc_share_dirname();
         std::vector<std::string> read_verilog_argv = {
             "read_verilog",
@@ -402,14 +302,8 @@ struct PackageWorker {
         Module *ctrl_mod = design->module(ctrl_id);
         Cell *ctrl_cell = module->addCell(module->uniquify("\\controller"), ctrl_id);
 
-        ScanChainData & sc = database.scanchain[database.top];
-
-        ctrl_cell->setParam("\\CHAIN_FF_WORDS", Const(GetSize(sc.ff)));
-
-        int words = 0;
-        for (auto &mem : sc.mem)
-            words += mem.depth;
-        ctrl_cell->setParam("\\CHAIN_MEM_WORDS", Const(words));
+        ctrl_cell->setParam("\\CHAIN_FF_WORDS", Const(ff_words));
+        ctrl_cell->setParam("\\CHAIN_MEM_WORDS", Const(mem_words));
 
         for (auto id : ctrl_mod->ports) {
             Wire *port = module->wire(id);
@@ -440,18 +334,6 @@ struct PackageWorker {
         // Create interface ports
         process_intf_ports(dut_top);
 
-        // Fix up ports
-        ScanChainData &sc = database.scanchain.at(database.top);
-        Wire *clk = dut_top->wire("\\emu_host_clk");
-        Wire *ram_se = dut_top->wire("\\emu_ram_se");
-        Wire *ram_sd = dut_top->wire("\\emu_ram_sd");
-        Wire *ram_li = dut_top->wire("\\emu_ram_li");
-        Wire *ram_lo = dut_top->wire("\\emu_ram_lo");
-        ram_li->port_input = false;
-        ram_lo->port_output = false;
-        dut_top->fixup_ports();
-        generate_mem_last_i(dut_top, sc.mem_sc_depth(), clk, ram_se, ram_sd, ram_li);
-
         // Rename modules
 
         RenameModuleWorker rmworker(design);
@@ -476,8 +358,11 @@ struct PackageWorker {
             dut_cell->setPort(id, port);
         }
 
+        int ff_words = dut_top->attributes.at("\\emu_sc_ff_count").as_int();
+        int mem_words = dut_top->attributes.at("\\emu_sc_ram_count").as_int();
+
         // Instantiate controller module
-        add_controller(new_top);
+        add_controller(new_top, ff_words, mem_words);
     }
 
     PackageWorker(Database &database, Design *design) : database(database), design(design) {}

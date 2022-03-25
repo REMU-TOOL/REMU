@@ -88,11 +88,28 @@ std::string verilog_hier_name(const std::vector<std::string> &hier) {
     return os.str();
 }
 
-FfInfo::FfInfo(SigSpec sig) {
+// FIXME: Use verilog_hier_name
+// This is a workaround to handle hierarchical names in genblks as yosys can only generate
+// such information in escaped ids. This breaks the support of escaped ids in user design.
+std::string simple_hier_name(const std::vector<std::string> &hier) {
+    std::ostringstream os;
+    bool first = true;
+    for (auto &name : hier) {
+        if (first)
+            first = false;
+        else
+            os << ".";
+        os << name;
+    }
+    return os.str();
+}
+
+FfInfo::FfInfo(SigSpec sig, std::vector<std::string> path) {
     for (auto &c : sig.chunks())
         if (c.is_wire()) {
             FfInfoChunk chunk;
-            chunk.name = get_hier_name(c.wire);
+            chunk.name = path;
+            chunk.name.push_back(str_id(c.wire->name));
             chunk.is_public = is_public_id(c.wire->name);
             chunk.offset = c.offset;
             chunk.width = c.width;
@@ -100,11 +117,12 @@ FfInfo::FfInfo(SigSpec sig) {
         }
 }
 
-FfInfo::FfInfo(std::string str) {
+FfInfo::FfInfo(std::string str, std::vector<std::string> path) {
     std::istringstream s(str);
     FfInfoChunk chunk;
     int name_size;
     while (s >> name_size) {
+        chunk.name = path;
         while (name_size--) {
             std::string n;
             s >> n;
@@ -165,33 +183,15 @@ FfInfo FfInfo::extract(int offset, int length) {
     return res;
 }
 
-FfInfo FfInfo::nest(Cell *parent) {
-    FfInfo res = *this;
-    std::vector<std::string> hier = get_hier_name(parent);
-    bool is_public = is_public_id(parent->name);
-    for (auto &c : res.info) {
-        c.name.insert(c.name.begin(), hier.begin(), hier.end());
-        c.is_public &= is_public;
-    }
-    return res;
-}
-
-MemInfo::MemInfo(Yosys::Mem &mem, int slices) {
-    name = get_hier_name(mem.cell);
+MemInfo::MemInfo(Mem &mem, int slices, std::vector<std::string> path) {
+    name = path;
+    name.push_back(str_id(mem.cell->name));
     is_public = is_public_id(mem.cell->name);
     this->depth = mem.size * slices;
     this->slices = slices;
     mem_width = mem.width;
     mem_depth = mem.size;
     mem_start_offset = mem.start_offset;
-}
-
-MemInfo MemInfo::nest(Cell *parent) {
-    MemInfo res = *this;
-    std::vector<std::string> hier = get_hier_name(parent);
-    res.name.insert(res.name.begin(), hier.begin(), hier.end());
-    res.is_public &= is_public_id(parent->name);
-    return res;
 }
 
 JsonWriter &JsonWriter::key(const std::string &key) {

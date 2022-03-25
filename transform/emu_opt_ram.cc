@@ -591,9 +591,9 @@ struct MemoryDffWorker
         port.clk = ff.sig_clk;
         port.en = State::S1;
         // Add a wire to keep address FF from being optimized.
-        SigSpec wire_keep = module->addWire(NEW_ID, GetSize(ff.sig_d));
+        Wire *wire_keep = module->addWire(NEW_ID, GetSize(ff.sig_d));
         module->connect(wire_keep, ff.sig_q);
-        module->set_bool_attribute(ID::keep);
+        wire_keep->set_bool_attribute(ID::keep);
         port.addr = ff.sig_d;
         port.clk_enable = true;
         port.clk_polarity = ff.pol_clk;

@@ -13,10 +13,10 @@ struct EmuTransformPass : public ScriptPass {
 		log("\n");
 		log("This command runs an emulator transformation.\n");
 		log("\n");
-        log("    -cfg <file>\n");
-        log("        write generated configuration to the specified file\n");
-        log("    -ldr <file>\n");
-        log("        write generated simulation loader to the specified file\n");
+        log("    -sc_yaml <file>\n");
+        log("        write generated scan chain configuration in yaml to the specified file\n");
+        log("    -loader <file>\n");
+        log("        write verilog loader definition to the specified file\n");
 		log("    -top <module>\n");
 		log("        use the specified module as top module\n");
 		log("\n");
@@ -25,7 +25,7 @@ struct EmuTransformPass : public ScriptPass {
 		log("\n");
 	}
 
-	std::string cfg_file, ldr_file, top_module;
+	std::string sc_yaml, loader, top_module;
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
@@ -35,12 +35,12 @@ struct EmuTransformPass : public ScriptPass {
         size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-            if (args[argidx] == "-cfg" && argidx+1 < args.size()) {
-                cfg_file = args[++argidx];
+            if (args[argidx] == "-sc_yaml" && argidx+1 < args.size()) {
+                sc_yaml = args[++argidx];
                 continue;
             }
-            if (args[argidx] == "-ldr" && argidx+1 < args.size()) {
-                ldr_file = args[++argidx];
+            if (args[argidx] == "-loader" && argidx+1 < args.size()) {
+                loader = args[++argidx];
                 continue;
             }
             if (args[argidx] == "-top" && argidx+1 < args.size()) {
@@ -87,18 +87,20 @@ struct EmuTransformPass : public ScriptPass {
 		run("hierarchy");
 
         run("emu_handle_directive");
-        run("emu_instrument");
+
+		if (help_mode) {
+			run("emu_instrument [-yaml <sc_yaml>] [-loader <loader>]");
+		}
+		else {
+			std::string cmd = "emu_instrument";
+			if (!sc_yaml.empty())
+            	cmd += " -yaml " + sc_yaml;
+			if (!loader.empty())
+            	cmd += " -loader " + loader;
+			run(cmd);
+		}
+
         run("emu_package");
-
-		if (help_mode)
-			run("emu_database write_yaml -file <file> (if -cfg)");
-		else if (!cfg_file.empty())
-            run("emu_database write_yaml -file " + cfg_file);
-
-		if (help_mode)
-			run("emu_database write_loader -file <file> (if -ldr)");
-        if (!ldr_file.empty())
-            run("emu_database write_loader -file " + ldr_file);
 
         run("emu_remove_keep");
         run("check");

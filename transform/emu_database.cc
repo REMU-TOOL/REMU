@@ -26,7 +26,7 @@ struct WriteConfigWorker : public EmuDatabaseWorker {
         ScanChainData &scanchain = database.scanchain.at(database.top);
         JsonWriter json(os);
 
-        json.key("width").value(DATA_WIDTH);
+        //json.key("width").value(DATA_WIDTH);
 
         int ff_addr = 0;
         json.key("ff").enter_array();
@@ -97,22 +97,6 @@ struct WriteConfigWorker : public EmuDatabaseWorker {
     }
 } WriteConfigWorker;
 
-// FIXME: Use verilog_hier_name
-// This is a workaround to handle hierarchical names in genblks as yosys can only generate
-// such information in escaped ids. This breaks the support of escaped ids in user design.
-std::string simple_hier_name(const std::vector<std::string> &hier) {
-    std::ostringstream os;
-    bool first = true;
-    for (auto &name : hier) {
-        if (first)
-            first = false;
-        else
-            os << ".";
-        os << name;
-    }
-    return os.str();
-}
-
 struct WriteYAMLWorker : public EmuDatabaseWorker {
     void operator()(std::string db_name, std::ostream &os) override {
         Database &database = Database::databases.at(db_name);
@@ -127,14 +111,14 @@ struct WriteYAMLWorker : public EmuDatabaseWorker {
 
         YAML::Node node;
 
-        node["width"] = DATA_WIDTH;
+        //node["width"] = DATA_WIDTH;
 
         node["ff"] = YAML::Node(YAML::NodeType::Sequence);
         for (auto &src : scanchain.ff) {
             YAML::Node ff_node;
             for (auto &c : src.info) {
                 YAML::Node src_node;
-                src_node["name"] = simple_hier_name(c.name);
+                src_node["name"] = c.is_public ? simple_hier_name(c.name) : "";
                 src_node["offset"] = c.offset;
                 src_node["width"] = c.width;
                 ff_node.push_back(src_node);
@@ -180,7 +164,7 @@ struct WriteLoaderWorker : public EmuDatabaseWorker {
         int addr;
 
         os << "`define LOAD_DECLARE integer __load_i;\n";
-        os << "`define LOAD_WIDTH " << DATA_WIDTH << "\n";
+        //os << "`define LOAD_WIDTH " << DATA_WIDTH << "\n";
 
         os << "`define LOAD_FF(__LOAD_FF_DATA, __LOAD_OFFSET, __LOAD_DUT) \\\n";
         addr = 0;

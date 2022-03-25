@@ -60,15 +60,14 @@ struct DesignHierarchy {
         }
     }
 
-    Cell *instance_if(Module *module) const {
+    Cell *instance_of(Module *module) const {
         return inst_map.at(module);
     }
 
-    template <typename T>
-    Path path_of(T *obj) const {
+    Path path_of(Module *mod) const {
         Path res, stack;
 
-        for (Module *mod = obj->module; mod != top; mod = inst_map.at(mod)->module)
+        for (; mod != top; mod = inst_map.at(mod)->module)
             stack.push_back(mod);
 
         stack.push_back(top);
@@ -79,8 +78,39 @@ struct DesignHierarchy {
         return res;
     }
 
+    Path path_of(Cell *cell) const {
+        return path_of(cell->module);
+    }
+
+    Path path_of(Wire *wire) const {
+        return path_of(wire->module);
+    }
+
+    std::vector<std::string> scope_of(Module *mod) const {
+        std::vector<std::string> res, stack;
+
+        while (mod != top) {
+            Cell *cell = inst_map.at(mod);
+            stack.push_back(cell->name[0] == '\\' ? cell->name.substr(1) : cell->name.str());
+            mod = cell->module;
+        }
+
+        stack.push_back(top->name[0] == '\\' ? top->name.substr(1) : top->name.str());
+
+        for (auto it = stack.rbegin(); it != stack.rend(); ++it)
+            res.push_back(*it);
+
+        return res;
+    }
+
     void connect(Wire *lhs, Wire *rhs) {
         log_assert(GetSize(lhs) == GetSize(rhs));
+
+        // Fast path for connection in the same module
+        if (lhs->module == rhs->module) {
+            lhs->module->connect(lhs, rhs);
+            return;
+        }
 
         int size = GetSize(lhs);
 
@@ -94,26 +124,39 @@ struct DesignHierarchy {
             ++lit, ++rit)
             parent = *lit;
 
+        // Process wire name
+        IdString conn_name;
+        if (rhs->name[0] == '\\')
+            conn_name = rhs->name.str() + "_hierconn";
+        else if (lhs->name[0] == '\\')
+            conn_name = lhs->name.str() + "_hierconn";
+        else
+            conn_name = "\\hierconn";
+
+        if (lhs->name[0] != '\\')
+            lhs->module->rename(lhs, lhs->module->uniquify(conn_name));
+
+        if (rhs->name[0] != '\\')
+            rhs->module->rename(rhs, rhs->module->uniquify(conn_name));
+
         // Expose LHS
         Wire *lwire = lhs;
-        IdString lhsname = lhs->name.str() + "_hierconn";
         for (Module *scope = lpath.back(); scope != parent; ) {
             lwire->port_input = true; scope->fixup_ports();
             Cell *inst = inst_map.at(scope);
             scope = inst->module;
-            Wire *outer = scope->addWire(scope->uniquify(lhsname), size);
+            Wire *outer = scope->addWire(scope->uniquify(conn_name), size);
             inst->setPort(lwire->name, outer);
             lwire = outer;
         }
 
         // Expose RHS
         Wire *rwire = rhs;
-        IdString rhsname = rhs->name.str() + "_hierconn";
         for (Module *scope = rpath.back(); scope != parent; ) {
             rwire->port_output = true; scope->fixup_ports();
             Cell *inst = inst_map.at(scope);
             scope = inst->module;
-            Wire *outer = scope->addWire(scope->uniquify(rhsname), size);
+            Wire *outer = scope->addWire(scope->uniquify(conn_name), size);
             inst->setPort(rwire->name, outer);
             rwire = outer;
         }

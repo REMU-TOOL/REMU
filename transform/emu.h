@@ -8,7 +8,6 @@ namespace Emu {
 
 USING_YOSYS_NAMESPACE
 
-const int DATA_WIDTH = 64;
 const int TRIG_WIDTH = 32;
 
 const char
@@ -18,11 +17,6 @@ const char
     // Compatible: wire
     AttrIntfPort            [] = "\\emu_intf_port",
 
-    // Usage: specified by emu_instrument to indicate completion of the pass.
-    // Type: bool
-    // Compatible: module
-    AttrInstrumented        [] = "\\emu_instrumented",
-
     // Usage: specified by emu_rewrite_clock to indicate rewritten cells.
     // Type: bool
     // Compatible: cell
@@ -31,18 +25,9 @@ const char
 bool is_public_id(IdString id);
 std::string str_id(IdString id);
 
-template <typename T>
-std::vector<std::string> get_hier_name(T *obj) {
-    std::vector<std::string> hier;
-    if (obj->has_attribute(ID::hdlname))
-        hier = obj->get_hdlname_attribute();
-    else
-        hier.push_back(str_id(obj->name));
-    return hier;
-}
-
 std::string verilog_id(const std::string &name);
 std::string verilog_hier_name(const std::vector<std::string> &hier);
+std::string simple_hier_name(const std::vector<std::string> &hier);
 
 struct FfInfoChunk {
     std::vector<std::string> name;
@@ -61,11 +46,10 @@ struct FfInfoChunk {
 struct FfInfo {
     std::vector<FfInfoChunk> info;
     FfInfo() {}
-    FfInfo(SigSpec);
-    FfInfo(std::string);
+    FfInfo(SigSpec sig, std::vector<std::string> path = {});
+    FfInfo(std::string, std::vector<std::string> path = {});
     operator std::string();
     FfInfo extract(int offset, int length);
-    FfInfo nest(Cell *parent);
 };
 
 struct MemInfo {
@@ -77,8 +61,7 @@ struct MemInfo {
     int mem_depth;
     int mem_start_offset;
     MemInfo() {}
-    MemInfo(Mem &mem, int slices);
-    MemInfo nest(Cell *parent);
+    MemInfo(Mem &mem, int slices, std::vector<std::string> path = {});
 };
 
 struct ScanChainData {
@@ -97,13 +80,6 @@ struct ScanChainData {
 struct EmulibCellInfo {
     std::vector<std::string> name;
     std::map<std::string, int> attrs;
-
-    inline EmulibCellInfo nest(Cell *parent) const {
-        EmulibCellInfo res = *this;
-        std::vector<std::string> hier = get_hier_name(parent);
-        res.name.insert(res.name.begin(), hier.begin(), hier.end());
-        return res;
-    }
 };
 
 typedef std::map<std::string, std::vector<EmulibCellInfo>> EmulibData;
