@@ -11,7 +11,7 @@ include_directories(${YOSYS_INCLUDE_DIR})
 target_link_libraries(transform PRIVATE yaml-cpp)
 
 target_compile_options(transform PRIVATE
-    -Wall -Wextra -MD -MP -fPIC -Os
+    -Wall -Wextra -Os
 )
 
 target_compile_definitions(transform PRIVATE
