@@ -66,3 +66,7 @@ install(DIRECTORY ${CMAKE_SOURCE_DIR}/emulib/
 # Add transform project
 
 add_subdirectory(transform)
+
+# Add vpi project
+
+add_subdirectory(vpi)
