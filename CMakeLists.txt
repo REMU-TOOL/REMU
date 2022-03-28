@@ -34,29 +34,6 @@ install(DIRECTORY ${YOSYS_TMP_DESTDIR}/
     USE_SOURCE_PERMISSIONS
 )
 
-# Add iverilog project
-
-set(IVERILOG_TMP_DESTDIR    ${CMAKE_BINARY_DIR}/iverilog_destdir)
-
-set(IVERILOG_ROOT           ${CMAKE_SOURCE_DIR}/iverilog)
-set(IVERILOG_INCLUDE_DIR    ${IVERILOG_ROOT})
-
-set(IVERILOG_CONFIGURE      cd ${IVERILOG_ROOT} && sh autoconf.sh && ./configure --prefix=/)
-set(IVERILOG_MAKE           cd ${IVERILOG_ROOT} && $(MAKE))
-set(IVERILOG_INSTALL        cd ${IVERILOG_ROOT} && $(MAKE) DESTDIR=${IVERILOG_TMP_DESTDIR} install)
-
-ExternalProject_Add(iverilog
-    SOURCE_DIR          ${IVERILOG_ROOT}
-    CONFIGURE_COMMAND   ${IVERILOG_CONFIGURE}
-    BUILD_COMMAND       ${IVERILOG_MAKE}
-    INSTALL_COMMAND     ${IVERILOG_INSTALL}
-)
-
-install(DIRECTORY ${IVERILOG_TMP_DESTDIR}/
-    DESTINATION ${CMAKE_INSTALL_PREFIX}
-    USE_SOURCE_PERMISSIONS
-)
-
 # Add emulation libraries
 
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/emulib/
