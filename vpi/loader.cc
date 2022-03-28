@@ -2,9 +2,19 @@
 
 #include "loader.h"
 
-using namespace Reconstruct;
+struct load_cb_data {
+    std::string config_file;
+    std::string data_file;
+};
 
 static void load_value(vpiHandle obj, uint64_t data, int width, int offset) {
+    vpi_printf("%s[%d:%d] = 'h%lx\n",
+        vpi_get_str(vpiFullName, obj),
+        width + offset - 1,
+        offset,
+        data
+    );
+
     int size = vpi_get(vpiSize, obj);
 
     s_vpi_value value;
@@ -114,7 +124,7 @@ static PLI_INT32 load_cb(p_cb_data cb_data) {
     return 0;
 }
 
-Loader::Loader(std::string config_file, std::string data_file) {
+void Reconstruct::sc_load(std::string config_file, std::string data_file) {
     load_cb_data *user_data = new load_cb_data;
 
     user_data->config_file = config_file;
@@ -130,22 +140,4 @@ Loader::Loader(std::string config_file, std::string data_file) {
     cb_data.cb_rtn = load_cb;
     cb_data.user_data = reinterpret_cast<PLI_BYTE8 *>(user_data);
     vpi_register_cb(&cb_data);
-}
-
-Loader::Loader(std::vector<std::string> args) {
-    std::string config_file, data_file;
-
-    for (size_t i = 0; i < args.size(); ++i) {
-        if (args[i] == "-scanchain-yml" && i+1 < args.size()) {
-            config_file = args[++i];
-        }
-        if (args[i] == "-scanchain-data" && i+1 < args.size()) {
-            data_file = args[++i];
-        }
-    }
-
-    vpi_printf("Scan chain configuration: %s\n", config_file.c_str());
-    vpi_printf("Scan chain data: %s\n", data_file.c_str());
-
-    Loader(config_file, data_file);
 }
