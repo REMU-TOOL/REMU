@@ -24,7 +24,7 @@ target_compile_definitions(transform PRIVATE
 	YOSYS_ENABLE_COVER
 )
 
-add_dependencies(transform yosys yaml-cpp)
+add_dependencies(transform yosys)
 
 install(TARGETS transform
     LIBRARY DESTINATION share/yosys/plugins
