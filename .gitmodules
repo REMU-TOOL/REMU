@@ -4,6 +4,3 @@
 [submodule "yaml-cpp"]
 	path = yaml-cpp
 	url = https://github.com/jbeder/yaml-cpp
-[submodule "iverilog"]
-	path = iverilog
-	url = https://github.com/steveicarus/iverilog
