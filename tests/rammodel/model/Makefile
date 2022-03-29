@@ -1,31 +1,12 @@
-include ../../../common.mk
+SIM_TOP := rammodel_test
 
-SIM ?= icarus
-DUMP ?= n
+SIM_SRCS += test.v
 
-TOPLEVEL_LANG := verilog
+COCOTB_MODULE := test_model
 
-VERILOG_SOURCES += $(wildcard $(ROOT_DIR)/emulib/model/*.v)
-VERILOG_SOURCES += $(PWD)/test.v
+IVL_ARGS += -DSIM_LOG
+#IVL_ARGS += -DSIM_LOG_FIFO
+#IVL_ARGS += -DSIM_LOG_RAMMODEL_STATE_LSU_INS
+#IVL_ARGS += -DSIM_LOG_RAMMODEL_STATE_LSU_MC_STATE
 
-COMPILE_ARGS += -I$(ROOT_DIR)/emulib/include
-
-TOPLEVEL = rammodel_test
-
-MODULE = test_model
-
-DUMPFILE := $(MODULE).fst
-COMPILE_ARGS += -DDUMPFILE=\"$(DUMPFILE)\"
-COMPILE_ARGS += -DSIM_LOG
-#COMPILE_ARGS += -DSIM_LOG_FIFO
-#COMPILE_ARGS += -DSIM_LOG_RAMMODEL_STATE_LSU_INS
-#COMPILE_ARGS += -DSIM_LOG_RAMMODEL_STATE_LSU_MC_STATE
-
-ifeq ($(DUMP),y)
-PLUSARGS += -fst +DUMP
-endif
-
-include $(shell cocotb-config --makefiles)/Makefile.sim
-
-clean::
-	rm -f $(DUMPFILE)
+include ../../common.mk

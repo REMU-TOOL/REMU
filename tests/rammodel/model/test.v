@@ -63,11 +63,4 @@ module rammodel_test #(
     assign lsu_axi_arid = 0;
     assign lsu_axi_awid = 0;
 
-    initial begin
-        if ($test$plusargs("DUMP")) begin
-            $dumpfile(`DUMPFILE);
-            $dumpvars();
-        end
-    end
-
 endmodule

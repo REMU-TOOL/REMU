@@ -1,0 +1,2 @@
+singlecycle
+cpu_mem

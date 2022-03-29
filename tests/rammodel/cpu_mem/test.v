@@ -120,13 +120,6 @@ module test(
     assign emu_dut_ff_clk_en = !pause && !dut_stall || ff_scan;
     assign emu_dut_ram_clk_en = !pause && !dut_stall || ram_scan;
 
-    initial begin
-        if ($test$plusargs("DUMP")) begin
-            $dumpfile(`DUMPFILE);
-            $dumpvars();
-        end
-    end
-
     always @(posedge clk)
         if (!resetn)
             count <= 64'd0;

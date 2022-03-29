@@ -53,8 +53,8 @@ module emu_top #(
 );
 
     wire clk, rst;
-    EmuClock clock(clk);
-    EmuReset reset(rst);
+    EmuClock clock(.clock(clk));
+    EmuReset reset(.reset(rst));
 
     EmuRam #(
         .ADDR_WIDTH (ADDR_WIDTH),

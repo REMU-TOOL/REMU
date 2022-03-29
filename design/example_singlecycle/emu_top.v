@@ -7,9 +7,9 @@
 module emu_top();
 
     wire clk, rst, trig;
-    EmuClock clock(clk);
-    EmuReset reset(rst);
-    EmuTrigger trigger(trig);
+    EmuClock clock(.clock(clk));
+    EmuReset reset(.reset(rst));
+    EmuTrigger trigger(.trigger(trig));
 
     wire [31:0] PC;
     wire [31:0] Instruction;
