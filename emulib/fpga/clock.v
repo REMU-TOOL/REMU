@@ -6,11 +6,7 @@
     "extern dut_ff_clk dut_ram_clk;"
 } *)
 
-module EmuClock #(
-    parameter CYCLE_PERIOD_PS = 10000,
-    parameter PHASE_SHIFT_PS = 0
-)
-(
+module EmuClock (
     output wire clock,
 
     input wire dut_clk

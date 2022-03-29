@@ -61,7 +61,10 @@ struct EmuTransformPass : public ScriptPass {
 		std::string share_dirname = proc_share_dirname();
 
         run("read_verilog -I " + share_dirname + "emulib/include " +
-			share_dirname + "emulib/model/*.v");
+			share_dirname + "emulib/common/*.v");
+
+        run("read_verilog -I " + share_dirname + "emulib/include " +
+			share_dirname + "emulib/fpga/*.v");
 
 		if (help_mode) {
 			run("hierarchy -check {-top <top> | -auto-top}");

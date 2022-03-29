@@ -5,10 +5,7 @@
     "extern dut_rst;"
 } *)
 
-module EmuReset #(
-    parameter DURATION_NS = 20
-)
-(
+module EmuReset (
     output wire reset,
 
     input wire dut_rst
