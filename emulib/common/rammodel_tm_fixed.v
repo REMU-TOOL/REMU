@@ -3,14 +3,17 @@
 
 module emulib_rammodel_tm_fixed #(
     parameter   ADDR_WIDTH      = 32,
+    parameter   ID_WIDTH        = 4,
     parameter   R_DELAY         = 25,
     parameter   W_DELAY         = 3
 )(
+
     input  wire                     clk,
     input  wire                     rst,
 
     input  wire                     arvalid,
     output wire                     arready,
+    input  wire [ID_WIDTH-1:0]      arid,
     input  wire [ADDR_WIDTH-1:0]    araddr,
     input  wire [7:0]               arlen,
     input  wire [2:0]               arsize,
@@ -18,6 +21,7 @@ module emulib_rammodel_tm_fixed #(
 
     input  wire                     awvalid,
     output wire                     awready,
+    input  wire [ID_WIDTH-1:0]      awid,
     input  wire [ADDR_WIDTH-1:0]    awaddr,
     input  wire [7:0]               awlen,
     input  wire [2:0]               awsize,
@@ -27,8 +31,13 @@ module emulib_rammodel_tm_fixed #(
     output wire                     wready,
     input  wire                     wlast,
 
-    output wire                     rreq_valid,
-    output wire                     breq_valid
+    output wire                     bvalid,
+    input  wire                     bready,
+    output wire [ID_WIDTH-1:0]      bid,
+
+    output wire                     rvalid,
+    input  wire                     rready,
+    output wire [ID_WIDTH-1:0]      rid
 
 );
 
@@ -43,7 +52,7 @@ module emulib_rammodel_tm_fixed #(
             ar <= 1'b0;
         else if (arvalid && arready)
             ar <= 1'b1;
-        else if (rreq_valid && rlen == 8'd0)
+        else if (rvalid && rready && rlen == 8'd0)
             ar <= 1'b0;
     end
 
@@ -52,7 +61,7 @@ module emulib_rammodel_tm_fixed #(
             aw <= 1'b0;
         else if (awvalid && awready)
             aw <= 1'b1;
-        else if (breq_valid)
+        else if (bvalid && bready)
             aw <= 1'b0;
     end
 
@@ -61,7 +70,7 @@ module emulib_rammodel_tm_fixed #(
             w <= 1'b0;
         else if (wvalid && wready && wlast)
             w <= 1'b1;
-        else if (breq_valid)
+        else if (bvalid && bready)
             w <= 1'b0;
     end
 
@@ -88,16 +97,19 @@ module emulib_rammodel_tm_fixed #(
             rlen <= 8'd0;
         else if (arvalid && arready)
             rlen <= arlen;
-        else if (rreq_valid)
+        else if (rvalid && rready)
             rlen <= rlen - 8'd1;
     end
 
-    assign arready      = 1'b1;
-    assign awready      = 1'b1;
-    assign wready       = 1'b1;
+    assign arready      = !ar;
+    assign awready      = !aw;
+    assign wready       = aw;
 
-    assign rreq_valid   = ar && rcnt == 16'd0;
-    assign breq_valid   = aw && w && wcnt == 16'd0;
+    assign bvalid       = aw && w && wcnt == 16'd0;
+    assign bid          = 0; // TODO
+
+    assign rvalid       = ar && rcnt == 16'd0;
+    assign rid          = 0; // TODO
 
 endmodule
 

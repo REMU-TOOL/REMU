@@ -12,39 +12,54 @@ module emulib_rammodel_backend #(
     parameter   MAX_INFLIGHT    = 8
 )(
 
-    input  wire                 host_clk,
-    input  wire                 host_rst,
+    input  wire                     host_clk,
+    input  wire                     host_rst,
 
-    input  wire                 target_clk,
-    input  wire                 target_rst,
+    input  wire                     target_clk,
+    input  wire                     target_rst,
 
-    `AXI4_CUSTOM_A_SLAVE_IF     (frontend, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
-    `AXI4_CUSTOM_W_SLAVE_IF     (frontend, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
-    `AXI4_CUSTOM_B_MASTER_IF    (frontend, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
-    `AXI4_CUSTOM_R_MASTER_IF    (frontend, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
+    input  wire                     areq_valid,
+    input  wire                     areq_write,
+    input  wire [ID_WIDTH-1:0]      areq_id,
+    input  wire [ADDR_WIDTH-1:0]    areq_addr,
+    input  wire [7:0]               areq_len,
+    input  wire [2:0]               areq_size,
+    input  wire [1:0]               areq_burst,
 
-    input  wire                 rreq_valid,
-    input  wire [ID_WIDTH-1:0]  rreq_id,
+    input  wire                     wreq_valid,
+    input  wire [DATA_WIDTH-1:0]    wreq_data,
+    input  wire [DATA_WIDTH/8-1:0]  wreq_strb,
+    input  wire                     wreq_last,
 
-    input  wire                 breq_valid,
-    input  wire [ID_WIDTH-1:0]  breq_id,
+    input  wire                     breq_valid,
+    input  wire [ID_WIDTH-1:0]      breq_id,
 
-    `AXI4_MASTER_IF             (host_axi,      ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
-    `AXI4_MASTER_IF_NO_ID       (lsu_axi, 32, 32),
+    input  wire                     rreq_valid,
+    input  wire [ID_WIDTH-1:0]      rreq_id,
+    output wire [DATA_WIDTH-1:0]    rreq_data,
+    output wire                     rreq_last,
 
-    input  wire                 target_fire,
-    output wire                 stall,
+    `AXI4_MASTER_IF                 (host_axi,      ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
+    `AXI4_MASTER_IF_NO_ID           (lsu_axi, 32, 32),
 
-    input  wire                 up_req,
-    input  wire                 down_req,
-    output wire                 up_stat,
-    output wire                 down_stat
+    input  wire                     target_fire,
+    output wire                     stall,
+
+    input  wire                     up_req,
+    input  wire                     down_req,
+    output wire                     up_stat,
+    output wire                     down_stat
 
 );
 
     localparam  W_FIFO_DEPTH    = 256;
     localparam  B_FIFO_DEPTH    = 1;
     localparam  R_FIFO_DEPTH    = 256;
+
+    `AXI4_CUSTOM_A_WIRE(frontend, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_CUSTOM_W_WIRE(frontend, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_CUSTOM_B_WIRE(frontend, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_CUSTOM_R_WIRE(frontend, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
 
     // Decouple target reset
 
@@ -53,66 +68,29 @@ module emulib_rammodel_backend #(
 
     // Decouple frontend A, W, B, R
 
-    wire decoupled_avalid, decoupled_aready;
-    wire decoupled_wvalid, decoupled_wready;
-    wire decoupled_bvalid, decoupled_bready;
-    wire decoupled_rvalid, decoupled_rready;
+    assign frontend_avalid  = areq_valid && target_fire;
+    assign frontend_awrite  = areq_write;
+    assign frontend_aaddr   = areq_addr;
+    assign frontend_aid     = areq_id;
+    assign frontend_alen    = areq_len;
+    assign frontend_asize   = areq_size;
+    assign frontend_aburst  = areq_burst;
 
-    emulib_ready_valid_decouple #(
-        .DECOUPLE_S     (0),
-        .DECOUPLE_M     (1)
-    ) decouple_a (
-        .s_valid        (frontend_avalid),
-        .s_ready        (frontend_aready),
-        .m_valid        (decoupled_avalid),
-        .m_ready        (1'b1),
-        .couple         (target_fire)
-    );
+    assign frontend_wvalid  = wreq_valid && target_fire;
+    assign frontend_wdata   = wreq_data;
+    assign frontend_wstrb   = wreq_strb;
+    assign frontend_wlast   = wreq_last;
 
-    emulib_ready_valid_decouple #(
-        .DECOUPLE_S     (0),
-        .DECOUPLE_M     (1)
-    ) decouple_w (
-        .s_valid        (frontend_wvalid),
-        .s_ready        (frontend_wready),
-        .m_valid        (decoupled_wvalid),
-        .m_ready        (1'b1),
-        .couple         (target_fire)
-    );
+    assign frontend_bready  = breq_valid && target_fire;
 
-    emulib_ready_valid_decouple #(
-        .DECOUPLE_S     (1),
-        .DECOUPLE_M     (0)
-    ) decouple_target_b (
-        .s_valid        (decoupled_bvalid),
-        .s_ready        (decoupled_bready),
-        .m_valid        (frontend_bvalid),
-        .m_ready        (frontend_bready),
-        .couple         (target_fire)
-    );
-
-    emulib_ready_valid_decouple #(
-        .DECOUPLE_S     (1),
-        .DECOUPLE_M     (0)
-    ) decouple_target_r (
-        .s_valid        (decoupled_rvalid),
-        .s_ready        (decoupled_rready),
-        .m_valid        (frontend_rvalid),
-        .m_ready        (frontend_rready),
-        .couple         (target_fire)
-    );
-
-    // Decouple frontend BReq, RReq
-
-    wire decoupled_breq_valid = breq_valid && target_fire;
-    wire decoupled_rreq_valid = rreq_valid && target_fire;
+    assign frontend_rready  = rreq_valid && target_fire;
 
     // Generate stall signal
 
-    wire a_stall    = frontend_avalid && !decoupled_aready;
-    wire w_stall    = frontend_wvalid && !decoupled_wready;
-    wire breq_stall = breq_valid && !resp_bvalid;
-    wire rreq_stall = rreq_valid && !resp_rvalid;
+    wire a_stall    = areq_valid && !frontend_aready;
+    wire w_stall    = wreq_valid && !frontend_wready;
+    wire breq_stall = breq_valid && !frontend_bvalid;
+    wire rreq_stall = rreq_valid && !frontend_rvalid;
     wire rst_stall  = target_rst && !target_rst_ok;
 
     assign stall = a_stall || w_stall || breq_stall || rreq_stall;
@@ -141,8 +119,8 @@ module emulib_rammodel_backend #(
         .NUM_M      (1),
         .DATA_WIDTH (`AXI4_CUSTOM_A_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
     ) a_fifo_in_mux (
-        .s_valid    ({decoupled_avalid, a_fifo_load_avalid}),
-        .s_ready    ({decoupled_aready, a_fifo_load_aready}),
+        .s_valid    ({frontend_avalid, a_fifo_load_avalid}),
+        .s_ready    ({frontend_aready, a_fifo_load_aready}),
         .s_data     ({`AXI4_CUSTOM_A_PAYLOAD(frontend), `AXI4_CUSTOM_A_PAYLOAD(a_fifo_load)}),
         .s_sel      (a_fifo_in_mux_sel),
         .m_valid    (a_fifo_in_avalid),
@@ -199,8 +177,8 @@ module emulib_rammodel_backend #(
         .NUM_M      (1),
         .DATA_WIDTH (`AXI4_CUSTOM_W_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
     ) w_fifo_in_mux (
-        .s_valid    ({decoupled_wvalid, w_fifo_load_wvalid}),
-        .s_ready    ({decoupled_wready, w_fifo_load_wready}),
+        .s_valid    ({frontend_wvalid, w_fifo_load_wvalid}),
+        .s_ready    ({frontend_wready, w_fifo_load_wready}),
         .s_data     ({`AXI4_CUSTOM_W_PAYLOAD(frontend), `AXI4_CUSTOM_W_PAYLOAD(w_fifo_load)}),
         .s_sel      (w_fifo_in_mux_sel),
         .m_valid    (w_fifo_in_wvalid),
@@ -253,7 +231,6 @@ module emulib_rammodel_backend #(
     `AXI4_CUSTOM_B_WIRE(b_fifo_in,     ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
     `AXI4_CUSTOM_B_WIRE(b_fifo_out,    ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
     `AXI4_CUSTOM_B_WIRE(b_fifo_save,   ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
-    `AXI4_CUSTOM_B_WIRE(resp,          ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
 
     emulib_ready_valid_mux #(
         .NUM_S      (2),
@@ -299,9 +276,9 @@ module emulib_rammodel_backend #(
         .s_ready    (b_fifo_out_bready),
         .s_data     (`AXI4_CUSTOM_B_PAYLOAD(b_fifo_out)),
         .s_sel      (1'b1),
-        .m_valid    ({resp_bvalid, b_fifo_save_bvalid}),
-        .m_ready    ({resp_bready, b_fifo_save_bready}),
-        .m_data     ({`AXI4_CUSTOM_B_PAYLOAD(resp), `AXI4_CUSTOM_B_PAYLOAD(b_fifo_save)}),
+        .m_valid    ({frontend_bvalid, b_fifo_save_bvalid}),
+        .m_ready    ({frontend_bready, b_fifo_save_bready}),
+        .m_data     ({`AXI4_CUSTOM_B_PAYLOAD(frontend), `AXI4_CUSTOM_B_PAYLOAD(b_fifo_save)}),
         .m_sel      (b_fifo_out_mux_sel)
     );
 
@@ -311,7 +288,6 @@ module emulib_rammodel_backend #(
     `AXI4_CUSTOM_R_WIRE(r_fifo_in,     ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
     `AXI4_CUSTOM_R_WIRE(r_fifo_out,    ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
     `AXI4_CUSTOM_R_WIRE(r_fifo_save,   ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
-    `AXI4_CUSTOM_R_WIRE(resp,          ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
 
     emulib_ready_valid_mux #(
         .NUM_S      (2),
@@ -360,9 +336,9 @@ module emulib_rammodel_backend #(
         .s_ready    (r_fifo_out_rready),
         .s_data     (`AXI4_CUSTOM_R_PAYLOAD(r_fifo_out)),
         .s_sel      (1'b1),
-        .m_valid    ({resp_rvalid, r_fifo_save_rvalid}),
-        .m_ready    ({resp_rready, r_fifo_save_rready}),
-        .m_data     ({`AXI4_CUSTOM_R_PAYLOAD(resp), `AXI4_CUSTOM_R_PAYLOAD(r_fifo_save)}),
+        .m_valid    ({frontend_rvalid, r_fifo_save_rvalid}),
+        .m_ready    ({frontend_rready, r_fifo_save_rready}),
+        .m_data     ({`AXI4_CUSTOM_R_PAYLOAD(frontend), `AXI4_CUSTOM_R_PAYLOAD(r_fifo_save)}),
         .m_sel      (r_fifo_out_mux_sel)
     );
 
@@ -394,33 +370,6 @@ module emulib_rammodel_backend #(
         .m_ready    (gated_sched_wready),
         .couple     (sched_enable_w)
     );
-
-    // Gate B & R responses
-
-    emulib_ready_valid_decouple #(
-        .DECOUPLE_S (1),
-        .DECOUPLE_M (1)
-    ) gate_resp_b (
-        .s_valid    (resp_bvalid),
-        .s_ready    (resp_bready),
-        .m_valid    (decoupled_bvalid),
-        .m_ready    (decoupled_bready),
-        .couple     (decoupled_breq_valid)
-    );
-
-    emulib_ready_valid_decouple #(
-        .DECOUPLE_S (1),
-        .DECOUPLE_M (1)
-    ) gate_resp_r (
-        .s_valid    (resp_rvalid),
-        .s_ready    (resp_rready),
-        .m_valid    (decoupled_rvalid),
-        .m_ready    (decoupled_rready),
-        .couple     (decoupled_rreq_valid)
-    );
-
-    assign `AXI4_CUSTOM_B_PAYLOAD(frontend) = `AXI4_CUSTOM_B_PAYLOAD(resp);
-    assign `AXI4_CUSTOM_R_PAYLOAD(frontend) = `AXI4_CUSTOM_R_PAYLOAD(resp);
 
     // Route A to AW/AR
 
@@ -472,14 +421,17 @@ module emulib_rammodel_backend #(
     assign host_axi_arqos       = 4'd0;
     assign host_axi_arregion    = 4'd0;
 
+    // RReq payload
+
+    assign rreq_data    = frontend_rdata;
+    assign rreq_last    = frontend_rlast;
+
     // Scheduler & responser FSMs
 
     wire sched_afire    = sched_avalid && sched_aready;
     wire sched_wfire    = sched_wvalid && sched_wready;
     wire host_axi_bfire = host_axi_bvalid && host_axi_bready;
     wire host_axi_rfire = host_axi_rvalid && host_axi_rready;
-    wire resp_rfire     = resp_rvalid && resp_rready;
-    wire resp_bfire     = resp_bvalid && resp_bready;
 
     localparam [2:0]
         SCHED_IDLE  = 3'd0,
