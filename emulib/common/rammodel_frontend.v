@@ -106,6 +106,7 @@ module emulib_rammodel_frontend #(
 
     emulib_rammodel_tm_fixed #(
         .ADDR_WIDTH (ADDR_WIDTH),
+        .ID_WIDTH   (ID_WIDTH),
         .R_DELAY    (R_DELAY),
         .W_DELAY    (W_DELAY)
     )
