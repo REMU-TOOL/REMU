@@ -8,6 +8,12 @@ module EmuPutChar (
     input  wire [7:0]   data
 );
 
+    always @(posedge clk) begin
+        if (!rst && valid) begin
+            $write("%c", data);
+        end
+    end
+
 endmodule
 
 `default_nettype wire

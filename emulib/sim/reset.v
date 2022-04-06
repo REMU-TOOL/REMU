@@ -9,7 +9,7 @@ module EmuReset (
 
     initial begin
         reset = 1;
-        if (!$value$plusargs("reset_duration=%f", cycle)) begin
+        if (!$value$plusargs("reset_duration=%f", duration)) begin
             $display("WARNING: reset_duration is not specified");
             duration = 0;
         end

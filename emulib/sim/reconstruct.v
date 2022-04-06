@@ -7,7 +7,7 @@ module reconstruct();
     initial begin
         $dumpfile("dump.vcd");
         $dumpvars();
-        $emu_cycle(cycle);
+        //$emu_cycle(cycle);
     end
 
 endmodule
