@@ -78,14 +78,3 @@ $(DESIGN_SIM_BIN): $(SIMSRCS) $(VSRC) | $(DESIGN_OUTPUT_V)
 .PHONY: .platform-flow
 .platform-flow: $(DESIGN_OUTPUT_V)
 	make -C platform/$(VENDOR) PLAT=$(PLAT)
-
-.PHONY: test
-test:
-	make -C tests
-
-.PHONY: clean test_clean
-
-clean: test_clean
-
-test_clean:
-	make -C tests clean
