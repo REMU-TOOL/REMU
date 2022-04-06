@@ -48,6 +48,9 @@ module EmuRam #(
 
 );
 
+    // TODO: calculate size required by LSU using FIFO parameters
+    parameter LSU_PF_COUNT = 16;
+
     initial begin
         if (ADDR_WIDTH < 1 || ADDR_WIDTH > 64) begin
             $display("%m: ADDR_WIDTH is required to be in [1,64]");
@@ -59,6 +62,10 @@ module EmuRam #(
         end
         if (ID_WIDTH < 1 || ID_WIDTH > 16) begin
             $display("%m: ID_WIDTH is required to be in [1,16]");
+            $finish;
+        end
+        if (PF_COUNT <= 0) begin
+            $display("%m: PF_COUNT is required to be > 0");
             $finish;
         end
     end
