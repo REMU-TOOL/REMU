@@ -24,5 +24,5 @@ target_link_options(reconstruct PRIVATE
 )
 
 install(TARGETS reconstruct
-    LIBRARY DESTINATION share/emulator
+    LIBRARY DESTINATION share/recheck
 )
