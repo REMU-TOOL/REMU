@@ -3,7 +3,7 @@ TOOLCHAIN_PREFIX = /opt/riscv32imc/bin/riscv32-unknown-elf-
 
 OBJS = baremetal.o start.o
 
-all: baremetal.bin baremetal.hex
+all: baremetal.bin baremetal.hex baremetal.log
 
 %.o: %.c
 	$(TOOLCHAIN_PREFIX)gcc -c $(CFLAGS) $<
@@ -20,5 +20,8 @@ baremetal.bin: baremetal.elf
 baremetal.hex: baremetal.elf
 	$(TOOLCHAIN_PREFIX)objcopy -O verilog $< $@
 
+baremetal.log: baremetal.elf
+	$(TOOLCHAIN_PREFIX)objdump -d $< > $@
+
 clean:
-	rm -f *.elf *.o *.d *.map
+	rm -f *.elf *.o *.d *.map *.log
