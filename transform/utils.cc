@@ -102,7 +102,7 @@ std::string simple_hier_name(const std::vector<std::string> &hier) {
     return os.str();
 }
 
-FfInfo::FfInfo(SigSpec sig, std::vector<std::string> path) {
+FfInfo::FfInfo(SigSpec sig, Const initval, std::vector<std::string> path) : initval(initval) {
     for (auto &c : sig.chunks())
         if (c.is_wire()) {
             FfInfoChunk chunk;
@@ -131,6 +131,9 @@ FfInfo::FfInfo(std::string str, std::vector<std::string> path) {
         s >> chunk.width;
         info.push_back(chunk);
     }
+    std::string initstr;
+    s >> initstr;
+    initval.from_string(initstr);
 }
 
 FfInfo::operator std::string() {
@@ -148,6 +151,7 @@ FfInfo::operator std::string() {
             s << n << " ";
         s << c.is_public << " " << c.offset << " " << c.width;
     }
+    s << initval.as_string();
     return s.str();
 }
 
@@ -190,6 +194,7 @@ MemInfo::MemInfo(Mem &mem, int slices, std::vector<std::string> path) {
     mem_width = mem.width;
     mem_depth = mem.size;
     mem_start_offset = mem.start_offset;
+    init_data = mem.get_init_data();
 }
 
 SigSpec measure_clk(Module *module, SigSpec clk, SigSpec gated_clk) {

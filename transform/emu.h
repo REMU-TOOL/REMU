@@ -45,8 +45,9 @@ struct FfInfoChunk {
 
 struct FfInfo {
     std::vector<FfInfoChunk> info;
+    Const initval;
     FfInfo() {}
-    FfInfo(SigSpec sig, std::vector<std::string> path = {});
+    FfInfo(SigSpec sig, Const initval, std::vector<std::string> path = {});
     FfInfo(std::string, std::vector<std::string> path = {});
     operator std::string();
     FfInfo extract(int offset, int length);
@@ -60,6 +61,7 @@ struct MemInfo {
     int mem_width;
     int mem_depth;
     int mem_start_offset;
+    Const init_data;
     MemInfo() {}
     MemInfo(Mem &mem, int slices, std::vector<std::string> path = {});
 };

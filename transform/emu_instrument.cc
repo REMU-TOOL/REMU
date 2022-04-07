@@ -15,6 +15,31 @@ using namespace Emu::Interface;
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+bool is_const_zero(const Const &val) {
+    for (int i = 0; i < GetSize(val); i++)
+        if (val[i] == State::S1)
+            return false;
+    return true;
+}
+
+std::string const2hex(const Const &val) {
+    int len = (GetSize(val) + 3) / 4;
+    std::string res;
+    res.resize(len, ' ');
+
+    for (int i = 0; i < len; i++) {
+        int digit = val.extract(i*4, 4).as_int();
+        char c;
+        if (digit >= 10)
+            c = 'a' + digit - 10;
+        else
+            c = '0' + digit;
+        res[len-1-i] = c;
+    }
+
+    return res;
+}
+
 class InsertAccessorWorker {
 
     struct ScanChainBuilder {
@@ -100,13 +125,23 @@ class InsertAccessorWorker {
         std::vector<Cell *> ff_cells_new;
         SigSig sdi_q_list;
 
+        SigMap sigmap;
+        FfInitVals initvals;
+        sigmap.set(module);
+        initvals.set(&sigmap, module);
+
         for (auto &cell : ff_cells) {
-            FfData ff(nullptr, cell);
+            FfData ff(&initvals, cell);
 
             // ignore cells whose clock is not rewritten
-            Wire *reg = ff.sig_q.is_wire() ? ff.sig_q.as_wire() : nullptr;
             if (!cell->get_bool_attribute(AttrClkRewritten)) {
-                log("Ignoring FF %s.%s\n", log_id(module), log_id(reg));
+                if (ff.sig_q.is_wire())
+                    log("Ignoring FF %s.%s\n", log_id(module), log_id(ff.sig_q.as_wire()));
+                else
+                    for (auto &bit : ff.sig_q)
+                        if (bit.is_wire())
+                            log("Ignoring FF %s.%s[%d]\n",
+                                log_id(module), log_id(bit.wire), bit.offset);
                 ff_cells_new.push_back(cell);
                 continue;
             }
@@ -157,7 +192,7 @@ class InsertAccessorWorker {
             module->connect(sdi, ff_di);
             module->connect(ff_do, q);
             builder.append_ff(ff_di, ff_do);
-            ff_list.push_back(FfInfo(q, path));
+            ff_list.push_back(FfInfo(q, initvals(q), path));
         }
     }
 
@@ -399,7 +434,7 @@ class InsertAccessorWorker {
                         }
 
                         Wire *dummy = module->addWire(NEW_ID, GetSize(rd.data));
-                        FfInfo src(dummy, path);
+                        FfInfo src(dummy, Const(0, GetSize(rd.data)), path);
                         add_shadow_rdata(module, builder, rd, src);
                         continue;
                     }
@@ -565,14 +600,17 @@ public:
 
         node["ff"] = YAML::Node(YAML::NodeType::Sequence);
         for (auto &src : ff_list) {
-            YAML::Node ff_node;
+            YAML::Node ff_node, chunk_node;
             for (auto &c : src.info) {
                 YAML::Node src_node;
                 src_node["name"] = c.is_public ? simple_hier_name(c.name) : "";
                 src_node["offset"] = c.offset;
                 src_node["width"] = c.width;
-                ff_node.push_back(src_node);
+                chunk_node.push_back(src_node);
             }
+            ff_node["chunk"] = chunk_node;
+            if (!is_const_zero(src.initval))
+                ff_node["init"] = const2hex(src.initval);
             node["ff"].push_back(ff_node);
         }
 
@@ -583,6 +621,15 @@ public:
             mem_node["width"] = mem.mem_width;
             mem_node["depth"] = mem.mem_depth;
             mem_node["start_offset"] = mem.mem_start_offset;
+            if (!is_const_zero(mem.init_data)) {
+                YAML::Node init_node;
+                for (int i = 0; i < mem.mem_depth; i++) {
+                    Const word = mem.init_data.extract(i * mem.mem_width, mem.mem_width);
+                    for (int j = 0; j < mem.mem_width; j += ram_width)
+                        init_node.push_back(const2hex(word.extract(j, ram_width)));
+                }
+                mem_node["init"] = init_node;
+            }
             node["mem"].push_back(mem_node);
         }
 
