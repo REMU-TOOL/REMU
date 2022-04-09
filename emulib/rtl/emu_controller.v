@@ -355,11 +355,12 @@ module emu_controller #(
     always @* begin
         case (reg_read_addr)
             `EMU_STAT:              reg_read_data_wire = emu_stat;
-            `EMU_TRIG_STAT:         reg_read_data_wire = emu_trig_stat;
             `EMU_CYCLE_LO:          reg_read_data_wire = emu_cycle[31:0];
             `EMU_CYCLE_HI:          reg_read_data_wire = emu_cycle[63:32];
             `EMU_STEP:              reg_read_data_wire = emu_step;
             `EMU_CKPT_SIZE:         reg_read_data_wire = emu_ckpt_size;
+            `EMU_TRIG_STAT:         reg_read_data_wire = emu_trig_stat;
+            `EMU_TRIG_EN:           reg_read_data_wire = emu_trig_en;
             `EMU_DMA_ADDR_LO:       reg_read_data_wire = emu_dma_addr[31:0];
             `EMU_DMA_ADDR_HI:       reg_read_data_wire = emu_dma_addr[63:32];
             `EMU_DMA_STAT:          reg_read_data_wire = emu_dma_stat;
