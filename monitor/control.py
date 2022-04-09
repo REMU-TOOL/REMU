@@ -1,4 +1,3 @@
-from .platform import PlatformConfig
 from .devmem import DevMem
 from .utils import *
 
@@ -27,8 +26,8 @@ EMU_DMA_CTRL_START      = 0
 EMU_DMA_CTRL_DIRECTION  = 1
 
 class Controller:
-    def __init__(self, platcfg: PlatformConfig):
-        self.__ctrlmap = DevMem(platcfg.control.base, platcfg.control.size)
+    def __init__(self, base: int, size: int):
+        self.__ctrlmap = DevMem(base, size)
 
     def read_csr(self, offset: int):
         return self.__ctrlmap.read_u32(offset)

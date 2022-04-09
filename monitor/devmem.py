@@ -1,14 +1,15 @@
-from ctypes import sizeof
 import os
-import sys
 import mmap
 import numpy as np
 
 class DevMem:
-    def __init__(self, base, size):
+    def __init__(self, base: int, size: int):
         euid = os.geteuid()
         if euid != 0:
             raise EnvironmentError('Root permissions required.')
+
+        self.__base = base
+        self.__size = size
 
         self.__file = os.open('/dev/mem', os.O_RDWR | os.O_SYNC)
         self.__mmap = mmap.mmap(self.__file, size,
@@ -21,6 +22,18 @@ class DevMem:
         self.__mmap.close()
         os.close(self.__file)
 
+    @property
+    def base(self):
+        return self.__base
+
+    @property
+    def size(self):
+        return self.__size
+
+    @property
+    def mmap(self):
+        return self.__mmap
+
     def read_bytes(self, offset, n):
         return bytes(self.__u8[offset : offset + n])
 
@@ -32,3 +45,6 @@ class DevMem:
 
     def write_u32(self, offset, value):
         self.__u32[offset >> 2] = np.uint32(value)
+
+    def zeroize(self):
+        self.__u32.fill(0)

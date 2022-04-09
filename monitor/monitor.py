@@ -1,9 +1,10 @@
 import sys
 import asyncio
 
-from .platform import PlatformConfig
-from .devmem import DevMem
+from .checkpoint import Checkpoint
+from .config import EmulatorConfig
 from .control import Controller
+from .devmem import DevMem
 from .utils import *
 
 class TriggerEnableProperty:
@@ -13,7 +14,7 @@ class TriggerEnableProperty:
     def __getitem__(self, key: int):
         return get_bit(self.__ctrl.trig_en, key)
 
-    def __setitem__(self, key: int, value: bool):
+    def __setitem__(self, key: int, set: bool):
         value = set_bit(self.__ctrl.trig_en, key, set)
         self.__ctrl.trig_en = value
 
@@ -25,16 +26,27 @@ class TriggerStatusProperty:
         return get_bit(self.__ctrl.trig_stat, key)
 
 class Monitor:
-    def __init__(self, platcfg: PlatformConfig):
-        self.__platcfg = platcfg
-        self.__ctrl = Controller(platcfg)
-        self.__mem = DevMem(platcfg.memory.base, platcfg.memory.size)
+    def __init__(self, cfg: EmulatorConfig):
+        self.__cfg = cfg
+
+        self.__ctrl = Controller(cfg.ctrl.base, cfg.ctrl.size)
+        self.__mem: dict[str, DevMem] = {}
+        for seg in self.__cfg.memory:
+            base = self.__cfg.memory[seg].base
+            size = self.__cfg.memory[seg].size
+            print("Memory region: %08x - %08x (%s)" % (base, size, seg))
+            self.__mem[seg] = DevMem(base, size)
+
         self.__trigger_enable = TriggerEnableProperty(self.__ctrl)
         self.__trigger_status = TriggerStatusProperty(self.__ctrl)
 
         self.__ctrl.pause = True
         self.__ctrl.up_req = False
         self.__ctrl.down_req = False
+
+    @property
+    def mem(self):
+        return self.__mem
 
     @property
     def cycle(self) -> int:
@@ -60,14 +72,6 @@ class Monitor:
     def trigger_status(self):
         return self.__trigger_status
 
-    @property
-    def up(self):
-        return self.__ctrl.up_stat
-
-    @property
-    def down(self):
-        return self.__ctrl.down_stat
-
     async def run_for(self, cycle: int, ignore_trig: bool = False):
         old_trig_en = self.__ctrl.trig_en
         if ignore_trig:
@@ -81,50 +85,62 @@ class Monitor:
 
         self.__ctrl.trig_en = old_trig_en
 
-    async def go_up(self):
+    async def __go_up(self):
         self.__ctrl.up_req = True
         while not self.__ctrl.up_stat:
             await asyncio.sleep(0.1)
         self.__ctrl.up_req = False
 
-    async def go_down(self):
+    async def __go_down(self):
         self.__ctrl.down_req = True
         while not self.__ctrl.down_stat:
             await asyncio.sleep(0.1)
         self.__ctrl.down_req = False
 
-    async def __dma_transfer(self, dma_addr: int, load: bool):
-        self.__ctrl.dma_addr = dma_addr
+    async def __dma_transfer(self, load: bool):
+        self.__ctrl.dma_addr = 0
         self.__ctrl.dma_dir = load
         self.__ctrl.dma_start = True
         while self.__ctrl.dma_running:
             await asyncio.sleep(0.1)
 
-    async def sc_save(self, buff_off: int):
-        size = self.__ctrl.ckpt_size
-        if buff_off < 0 or buff_off + size > self.__platcfg.memory.size:
-            raise ValueError
+    async def save(self, cp: Checkpoint):
+        await self.__go_down()
+        await self.__dma_transfer(False)
+        cp.write_cycle(self.__ctrl.cycle)
+        for seg in self.__mem:
+            size = self.__cfg.memory[seg].size
+            map = self.__mem[seg].mmap
+            map.seek(0)
+            cp.write_file(seg, size, map)
+        await self.__go_up()
 
-        await self.__dma_transfer(
-            self.__platcfg.memory.hwbase + buff_off,
-            False
-        )
+    async def load(self, cp: Checkpoint):
+        await self.__go_down()
+        cp_cycle = cp.read_cycle()
+        cycle = self.__ctrl.cycle
+        if cp_cycle != cycle:
+            print(f"WARNING: checkpoint cycle {cp_cycle} differs from current cycle {cycle}")
+        for seg in self.__mem:
+            map = self.__mem[seg].mmap
+            map.seek(0)
+            cp.read_file(seg, map)
+        await self.__dma_transfer(True)
+        await self.__go_up()
 
-        return self.__mem.read_bytes(buff_off, size)
-
-    async def sc_load(self, data: bytes, buff_off: int):
-        size = self.__ctrl.ckpt_size
-        if len(data) != size:
-            raise ValueError
-        if buff_off < 0 or buff_off + size > self.__platcfg.memory.size:
-            raise ValueError
-
-        self.__mem.write_bytes(buff_off, data)
-
-        await self.__dma_transfer(
-            self.__platcfg.memory.hwbase + buff_off,
-            True
-        )
+    async def init_state(self, init_mem: "dict[str, str]"):
+        await self.__go_down()
+        self.__ctrl.cycle = 0
+        for seg in self.__mem:
+            mem = self.__mem[seg]
+            mem.zeroize()
+            if seg in init_mem:
+                file = init_mem[seg]
+                print(f"Initialize {seg} with file {file}")
+                with open(file, 'rb') as f:
+                    f.readinto(mem.mmap)
+        await self.__dma_transfer(True)
+        await self.__go_up()
 
     async def putchar_host(self):
         while True:
