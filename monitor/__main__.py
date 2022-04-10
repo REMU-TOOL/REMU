@@ -14,11 +14,11 @@ async def emu_main():
     parser.add_argument('--initmem', nargs=2, metavar=('name', 'file'), action='append', default=[], help='load memory from file for initialization')
     parser.add_argument('--period', metavar='cycle', type=int, action='store', default=100000, help='set checkpoint period')
     parser.add_argument('--rewind', metavar='cycle', type=int, action='store', help='rewind to cycles before a trigger and dump checkpoint')
-    parser.add_argument('--dumpfile', metavar='file', action='store', default='dump.ckpt', help='specify dump file name')
+    parser.add_argument('--dump', metavar='path', action='store', default='dump', help='specify dump file name')
     args = parser.parse_args()
 
     rewind = args.rewind
-    dumpfile = args.dumpfile
+    dump = args.dump
 
     cfg = EmulatorConfig(args.config)
     ckptmgr = CheckpointManager(args.checkpoint)
@@ -35,7 +35,8 @@ async def emu_main():
 
     if rewind != None:
         await emu.rewind(emu.cycle - rewind)
-        await emu.save(dumpfile)
+
+    await emu.save(dump)
 
     emu.close()
 

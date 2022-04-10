@@ -33,10 +33,10 @@ class LoadEvent(EmulatorEvent):
         self.__ckptmgr = ckptmgr
 
     async def execute(self, mon: Monitor):
-        print(f"[EMU] Cycle {self.cycle}: load checkpoint")
+        print(f"[EMU] Cycle {self.cycle}: load checkpoint begin")
         with self.__ckptmgr.open(self.cycle) as cp:
             await mon.load(cp)
-        print(f"[EMU] Cycle {self.cycle}: load checkpoint ok")
+        print(f"[EMU] Cycle {self.cycle}: load checkpoint end")
 
 class SaveEvent(EmulatorEvent):
     def __init__(self, cycle: int, ckptmgr: CheckpointManager):
@@ -44,10 +44,10 @@ class SaveEvent(EmulatorEvent):
         self.__ckptmgr = ckptmgr
 
     async def execute(self, mon: Monitor):
-        print(f"[EMU] Cycle {self.cycle}: save checkpoint")
-        with self.__ckptmgr.create(self.cycle) as cp:
+        print(f"[EMU] Cycle {self.cycle}: save checkpoint begin")
+        with self.__ckptmgr.open(self.cycle) as cp:
             await mon.save(cp)
-        print(f"[EMU] Cycle {self.cycle}: save checkpoint ok")
+        print(f"[EMU] Cycle {self.cycle}: save checkpoint end")
 
 class _InternalEventType:
     pass

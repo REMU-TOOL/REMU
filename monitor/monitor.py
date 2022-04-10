@@ -109,10 +109,8 @@ class Monitor:
         await self.__dma_transfer(False)
         cp.write_cycle(self.__ctrl.cycle)
         for seg in self.__mem:
-            size = self.__cfg.memory[seg].size
             map = self.__mem[seg].mmap
-            map.seek(0)
-            cp.write_file(seg, size, map)
+            cp.write_file(seg, map)
         await self.__go_up()
 
     async def load(self, cp: Checkpoint):
@@ -123,7 +121,6 @@ class Monitor:
             print(f"[EMU] WARNING: checkpoint cycle {cp_cycle} differs from current cycle {cycle}")
         for seg in self.__mem:
             map = self.__mem[seg].mmap
-            map.seek(0)
             cp.read_file(seg, map)
         await self.__dma_transfer(True)
         await self.__go_up()
