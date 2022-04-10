@@ -34,7 +34,7 @@ class Monitor:
         for seg in self.__cfg.memory:
             base = self.__cfg.memory[seg].base
             size = self.__cfg.memory[seg].size
-            print("Memory region: %08x - %08x (%s)" % (base, size, seg))
+            print("[EMU] Memory region: %08x - %08x (%s)" % (base, size, seg))
             self.__mem[seg] = DevMem(base, size)
 
         self.__trigger_enable = TriggerEnableProperty(self.__ctrl)
@@ -120,7 +120,7 @@ class Monitor:
         cp_cycle = cp.read_cycle()
         cycle = self.__ctrl.cycle
         if cp_cycle != cycle:
-            print(f"WARNING: checkpoint cycle {cp_cycle} differs from current cycle {cycle}")
+            print(f"[EMU] WARNING: checkpoint cycle {cp_cycle} differs from current cycle {cycle}")
         for seg in self.__mem:
             map = self.__mem[seg].mmap
             map.seek(0)
@@ -136,7 +136,7 @@ class Monitor:
             mem.zeroize()
             if seg in init_mem:
                 file = init_mem[seg]
-                print(f"Initialize {seg} with file {file}")
+                print(f"[EMU] Initialize {seg} with file {file}")
                 with open(file, 'rb') as f:
                     f.readinto(mem.mmap)
         await self.__dma_transfer(True)

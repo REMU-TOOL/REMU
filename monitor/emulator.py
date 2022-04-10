@@ -24,7 +24,7 @@ class ResetEvent(EmulatorEvent):
         self.__val = val
 
     async def execute(self, mon: Monitor):
-        print(f"Cycle {self.cycle}: reset={self.__val}")
+        print(f"[EMU] Cycle {self.cycle}: reset={self.__val}")
         mon.reset = self.__val
 
 class LoadEvent(EmulatorEvent):
@@ -33,9 +33,10 @@ class LoadEvent(EmulatorEvent):
         self.__ckptmgr = ckptmgr
 
     async def execute(self, mon: Monitor):
-        print(f"Cycle {self.cycle}: load checkpoint")
+        print(f"[EMU] Cycle {self.cycle}: load checkpoint")
         with self.__ckptmgr.open(self.cycle) as cp:
             await mon.load(cp)
+        print(f"[EMU] Cycle {self.cycle}: load checkpoint ok")
 
 class SaveEvent(EmulatorEvent):
     def __init__(self, cycle: int, ckptmgr: CheckpointManager):
@@ -43,20 +44,21 @@ class SaveEvent(EmulatorEvent):
         self.__ckptmgr = ckptmgr
 
     async def execute(self, mon: Monitor):
-        print(f"Cycle {self.cycle}: save checkpoint")
+        print(f"[EMU] Cycle {self.cycle}: save checkpoint")
         with self.__ckptmgr.create(self.cycle) as cp:
             await mon.save(cp)
+        print(f"[EMU] Cycle {self.cycle}: save checkpoint ok")
 
 class _InternalEventType:
     pass
 
 class _StartEvent(EmulatorEvent, _InternalEventType):
     async def execute(self, mon: Monitor):
-        print(f"Cycle {self.cycle}: start emulation")
+        print(f"[EMU] Cycle {self.cycle}: start emulation")
 
 class _BreakEvent(EmulatorEvent, _InternalEventType):
     async def execute(self, mon: Monitor):
-        print(f"Cycle {self.cycle}: stop emulation")
+        print(f"[EMU] Cycle {self.cycle}: stop emulation")
 
 class _PeriodicalSaveEvent(SaveEvent, _InternalEventType):
     pass
@@ -98,7 +100,7 @@ class Emulator:
         for i in range(32):
             if self.__mon.trigger_status[i] and self.__mon.trigger_enable[i]:
                 cycle = self.__mon.cycle
-                print(f"Cycle {cycle}: User trigger {i} activated")
+                print(f"[EMU] Cycle {cycle}: user trigger {i} activated")
                 triggered = True
         return triggered
 
@@ -160,12 +162,11 @@ class Emulator:
         self.__setup_event_list()
         self.__event_add(LoadEvent(prev, self.__ckptmgr))
         self.__event_add(_StartEvent(prev))
+        self.__event_add(SaveEvent(cycle, self.__ckptmgr))
         self.__event_add(_BreakEvent(cycle))
         await self.__event_loop()
 
     async def save(self, file: str):
-        with self.__ckptmgr.create(self.cycle) as cp:
-            await self.__mon.save(cp)
         self.__ckptmgr.save_as(self.__mon.cycle, file)
 
     @property
