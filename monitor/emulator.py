@@ -112,7 +112,7 @@ class Emulator:
         self.__event_list.pop(0)
 
     def __setup_event_list(self):
-        self.__event_list = self.__init_event_list
+        self.__event_list = self.__init_event_list.copy()
         self.__mon.cycle = 0
 
     async def __event_loop(self):
