@@ -19,13 +19,13 @@ class Checkpoint:
         pass
 
     def read_file(self, name: str, file: IO[bytes]):
-        gzipfile = gzip.GzipFile(self.__name + os.sep + name, 'rb')
+        gzipfile = gzip.GzipFile(self.__name + os.sep + name + '.gz', 'rb')
         file.seek(0)
         copyfileobj(gzipfile, file)
         gzipfile.close()
 
     def write_file(self, name: str, file: IO[bytes]):
-        gzipfile = gzip.GzipFile(self.__name + os.sep + name, 'wb')
+        gzipfile = gzip.GzipFile(self.__name + os.sep + name + '.gz', 'wb')
         file.seek(0)
         copyfileobj(file, gzipfile)
         gzipfile.close()
@@ -84,4 +84,4 @@ class CheckpointManager:
     def save_as(self, cycle: int, file: str):
         if not cycle in self.__cycle_list:
             raise ValueError
-        copytree(self.__ckpt_name(cycle), file)
+        copytree(self.__ckpt_name(cycle), file, dirs_exist_ok=True)
