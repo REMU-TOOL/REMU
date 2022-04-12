@@ -4,4 +4,4 @@ control:
 
 memory:
   base: 0x60000000
-  size: 0x10000000
+  size: 0x1ff00000
