@@ -234,10 +234,10 @@ module sim_top();
         while (!s_axilite_bvalid) #CYCLE;
         #CYCLE;
 
-        $display("=== set step count to 3 ===");
+        $display("=== set step count to 10 ===");
         s_axilite_awaddr = `EMU_STEP;
         s_axilite_awvalid = 1;
-        s_axilite_wdata = 32'h00000003;
+        s_axilite_wdata = 32'h0000000a;
         s_axilite_wvalid = 1;
         while (!s_axilite_bvalid) #CYCLE;
         #CYCLE;
