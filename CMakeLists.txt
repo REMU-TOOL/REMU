@@ -34,10 +34,15 @@ install(DIRECTORY ${YOSYS_TMP_DESTDIR}/
     USE_SOURCE_PERMISSIONS
 )
 
+# Install separate files
+
+install(PROGRAMS ${CMAKE_SOURCE_DIR}/recheck.sh DESTINATION bin RENAME recheck)
+install(FILES ${CMAKE_SOURCE_DIR}/recheck.tcl DESTINATION share/recheck)
+
 # Add emulation libraries
 
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/emulib/
-    DESTINATION share/yosys/emulib
+    DESTINATION share/recheck/emulib
 )
 
 # Add transform project
