@@ -276,7 +276,7 @@ bool RamModel::load_state_r(std::istream &stream) {
     if (stream.fail())
         return false;
 
-    while (count) {
+    while (count--) {
         RChannel payload;
         uint32_t data;
 
