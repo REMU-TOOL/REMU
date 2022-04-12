@@ -38,8 +38,8 @@ module EmuRam #(
 
     wire                     rreq_valid;
     wire [ID_WIDTH-1:0]      rreq_id;
-    wire [DATA_WIDTH-1:0]    rreq_data;
-    wire                     rreq_last;
+    reg  [DATA_WIDTH-1:0]    rreq_data;
+    reg                      rreq_last;
 
     emulib_rammodel_frontend #(
         .ADDR_WIDTH     (ADDR_WIDTH),
@@ -89,7 +89,7 @@ module EmuRam #(
         end
     end
 
-    always @(posedge clk or posedge breq_valid) begin
+    always @(clk, breq_valid) begin
         if (!rst && breq_valid) begin
             result = $rammodel_b_req(handle, breq_id);
             if (!result) begin
@@ -99,7 +99,7 @@ module EmuRam #(
         end
     end
 
-    always @(posedge clk or posedge rreq_valid) begin
+    always @(clk, rreq_valid) begin
         if (!rst && rreq_valid) begin
             result = $rammodel_r_req(handle, rreq_id, rreq_data, rreq_last);
             if (!result) begin

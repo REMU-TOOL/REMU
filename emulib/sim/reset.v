@@ -5,15 +5,19 @@ module EmuReset (
     output reg reset
 );
 
-    real duration;
+    // TODO: synchronous to clock
+    // TODO: specify duration
+
+    reg [63:0] startcycle, duration;
 
     initial begin
-        reset = 1;
-        if (!$value$plusargs("reset_duration=%f", duration)) begin
-            $display("WARNING: reset_duration is not specified");
+        startcycle = $get_init_cycle;
+        if (startcycle > 10)
             duration = 0;
-        end
-        #(duration) reset = 0;
+        else
+            duration = (10 - startcycle) * 10;
+        reset = 1;
+        #duration reset = 0;
     end
 
 endmodule

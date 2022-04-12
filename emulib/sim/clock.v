@@ -5,15 +5,19 @@ module EmuClock (
     output reg clock
 );
 
-    real cycle;
+    // TODO: specify cycle
+
+    reg [63:0] runcycle;
 
     initial begin
         clock = 1;
-        if (!$value$plusargs("clock_cycle=%f", cycle)) begin
-            $display("WARNING: clock_cycle is not specified");
-            cycle = 10;
+        forever #5 clock = ~clock;
+    end
+
+    initial begin
+        if ($value$plusargs("runcycle=%d", runcycle)) begin
+            #((runcycle+1)*10) $finish;
         end
-        forever #(cycle/2) clock = ~clock;
     end
 
 endmodule
