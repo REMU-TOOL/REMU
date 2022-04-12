@@ -34,7 +34,7 @@ class Monitor:
         for seg in self.__cfg.memory:
             base = self.__cfg.memory[seg].base
             size = self.__cfg.memory[seg].size
-            print("[EMU] Memory region: %08x - %08x (%s)" % (base, size, seg))
+            print("[EMU] Memory region: %08x - %08x (%s)" % (base, base + size, seg))
             self.__mem[seg] = DevMem(base, size)
 
         self.__trigger_enable = TriggerEnableProperty(self.__ctrl)
