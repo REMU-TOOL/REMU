@@ -100,7 +100,7 @@ class Emulator:
         for i in range(32):
             if self.__mon.trigger_status[i] and self.__mon.trigger_enable[i]:
                 cycle = self.__mon.cycle
-                print(f"[EMU] Cycle {cycle}: user trigger {i} activated")
+                print(f"[EMU] Cycle {cycle}: user trigger {i} activated at previous cycle")
                 triggered = True
         return triggered
 
@@ -149,10 +149,12 @@ class Emulator:
                 elif isinstance(event, _PeriodicalSaveEvent):
                     self.__event_add(_PeriodicalSaveEvent(event.cycle + self.checkpoint_period, self.__ckptmgr))
 
-    async def run(self, periodical_ckpt=False):
+    async def run(self, periodical_ckpt=False, timeout=0):
         await self.__mon.init_state(self.__init_mem)
         self.__setup_event_list()
         self.__event_add(_StartEvent(0))
+        if timeout > 0:
+            self.__event_add(_BreakEvent(timeout))
         if periodical_ckpt:
             self.__event_add(_PeriodicalSaveEvent(0, self.__ckptmgr))
         await self.__event_loop()
@@ -162,8 +164,16 @@ class Emulator:
         self.__setup_event_list()
         self.__event_add(LoadEvent(prev, self.__ckptmgr))
         self.__event_add(_StartEvent(prev))
-        self.__event_add(SaveEvent(cycle, self.__ckptmgr))
+        if prev != cycle:
+            self.__event_add(SaveEvent(cycle, self.__ckptmgr))
         self.__event_add(_BreakEvent(cycle))
+        await self.__event_loop()
+
+    async def resume(self, timeout=0):
+        cycle = self.__mon.cycle
+        self.__event_add(_StartEvent(cycle))
+        if timeout > 0:
+            self.__event_add(_BreakEvent(cycle + timeout))
         await self.__event_loop()
 
     async def save(self, file: str):

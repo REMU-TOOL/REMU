@@ -1,9 +1,8 @@
 import argparse
 import asyncio
-from monitor.checkpoint import CheckpointManager
 
-from monitor.config import EmulatorConfig
-
+from . import CheckpointManager
+from . import EmulatorConfig
 from . import Emulator
 from . import ResetEvent
 
@@ -12,11 +11,13 @@ async def emu_main():
     parser.add_argument('config', help='scan chain configuration file')
     parser.add_argument('checkpoint', help='checkpoint storage path')
     parser.add_argument('--initmem', nargs=2, metavar=('name', 'file'), action='append', default=[], help='load memory from file for initialization')
+    parser.add_argument('--timeout', metavar='cycle', type=int, action='store', default=0, help='set timeout cycles')
     parser.add_argument('--period', metavar='cycle', type=int, action='store', default=100000, help='set checkpoint period')
     parser.add_argument('--rewind', metavar='cycle', type=int, action='store', help='rewind to cycles before a trigger and dump checkpoint')
-    parser.add_argument('--dump', metavar='path', action='store', default='dump', help='specify dump file name')
+    parser.add_argument('--dump', metavar='path', action='store', help='specify dump file name')
     args = parser.parse_args()
 
+    timeout = args.timeout
     rewind = args.rewind
     dump = args.dump
 
@@ -31,12 +32,16 @@ async def emu_main():
     emu.init_event_add(ResetEvent(0, 1))
     emu.init_event_add(ResetEvent(10, 0))
 
-    await emu.run(True)
+    await emu.run(True, timeout)
 
-    if rewind != None:
-        await emu.rewind(emu.cycle - rewind)
+    if rewind:
+        cycle = emu.cycle - rewind
+        if cycle < 0:
+            cycle = 0
+        await emu.rewind(cycle)
 
-    await emu.save(dump)
+    if dump:
+        await emu.save(dump)
 
     emu.close()
 
