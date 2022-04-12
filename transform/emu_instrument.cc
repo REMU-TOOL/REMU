@@ -15,13 +15,6 @@ using namespace Emu::Interface;
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-bool is_const_zero(const Const &val) {
-    for (int i = 0; i < GetSize(val); i++)
-        if (val[i] == State::S1)
-            return false;
-    return true;
-}
-
 std::string const2hex(const Const &val) {
     int len = (GetSize(val) + 3) / 4;
     std::string res;
@@ -583,6 +576,31 @@ public:
 
     }
 
+    void write_init(std::string init_file) {
+        std::ofstream f;
+
+        f.open(init_file.c_str(), std::ofstream::binary);
+        if (f.fail()) {
+            log_error("Can't open file `%s' for writing: %s\n", init_file.c_str(), strerror(errno));
+        }
+
+        log("Writing to file `%s'\n", init_file.c_str());
+
+        for (auto &src : ff_list) {
+            f << const2hex(src.initval) << "\n";
+        }
+
+        for (auto &mem : ram_list) {
+            for (int i = 0; i < mem.mem_depth; i++) {
+                Const word = mem.init_data.extract(i * mem.mem_width, mem.mem_width);
+                for (int j = 0; j < mem.mem_width; j += ram_width)
+                    f << const2hex(word.extract(j, ram_width)) << "\n";
+            }
+        }
+
+        f.close();
+    }
+
     void write_yaml(std::string yaml_file) {
         std::ofstream f;
 
@@ -600,17 +618,14 @@ public:
 
         node["ff"] = YAML::Node(YAML::NodeType::Sequence);
         for (auto &src : ff_list) {
-            YAML::Node ff_node, chunk_node;
+            YAML::Node ff_node;
             for (auto &c : src.info) {
                 YAML::Node src_node;
                 src_node["name"] = c.is_public ? simple_hier_name(c.name) : "";
                 src_node["offset"] = c.offset;
                 src_node["width"] = c.width;
-                chunk_node.push_back(src_node);
+                ff_node.push_back(src_node);
             }
-            ff_node["chunk"] = chunk_node;
-            if (!is_const_zero(src.initval))
-                ff_node["init"] = const2hex(src.initval);
             node["ff"].push_back(ff_node);
         }
 
@@ -621,15 +636,6 @@ public:
             mem_node["width"] = mem.mem_width;
             mem_node["depth"] = mem.mem_depth;
             mem_node["start_offset"] = mem.mem_start_offset;
-            if (!is_const_zero(mem.init_data)) {
-                YAML::Node init_node;
-                for (int i = 0; i < mem.mem_depth; i++) {
-                    Const word = mem.init_data.extract(i * mem.mem_width, mem.mem_width);
-                    for (int j = 0; j < mem.mem_width; j += ram_width)
-                        init_node.push_back(const2hex(word.extract(j, ram_width)));
-                }
-                mem_node["init"] = init_node;
-            }
             node["mem"].push_back(mem_node);
         }
 
@@ -709,6 +715,8 @@ struct EmuInstrumentPass : public Pass {
         log("        specify the width of FF scan chain (default=64)\n");
         log("    -ram_width <width>\n");
         log("        specify the width of RAM scan chain (default=64)\n");
+        log("    -init <file>\n");
+        log("        write initial scan chain data to the specified file\n");
         log("    -yaml <file>\n");
         log("        write generated yaml configuration to the specified file\n");
         log("    -loader <file>\n");
@@ -719,7 +727,7 @@ struct EmuInstrumentPass : public Pass {
     void execute(vector<string> args, Design* design) override {
         log_header(design, "Executing EMU_INSTRUMENT pass.\n");
 
-        std::string yaml_file, loader_file;
+        std::string init_file, yaml_file, loader_file;
         int ff_width = 64, ram_width = 64;
 
         size_t argidx;
@@ -731,6 +739,10 @@ struct EmuInstrumentPass : public Pass {
             }
             if (args[argidx] == "-ram_width" && argidx+1 < args.size()) {
                 ram_width = std::stoi(args[++argidx]);
+                continue;
+            }
+            if (args[argidx] == "-init" && argidx+1 < args.size()) {
+                init_file = args[++argidx];
                 continue;
             }
             if (args[argidx] == "-yaml" && argidx+1 < args.size()) {
@@ -747,6 +759,9 @@ struct EmuInstrumentPass : public Pass {
 
         InsertAccessorWorker worker(design, ff_width, ram_width);
         worker.run();
+
+        if (!init_file.empty())
+            worker.write_init(init_file);
 
         if (!yaml_file.empty())
             worker.write_yaml(yaml_file);
