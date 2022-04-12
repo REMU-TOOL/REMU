@@ -7,3 +7,4 @@
 - Clean dont-care bits in AXI response for determinism
 - Variable scan chain width
 - Handle "little-endian" wires in Verilog (MSB < LSB)
+- Load init data in emulation
