@@ -1,5 +1,7 @@
 project(reconstruct)
 
+find_package(Boost 1.36.0 REQUIRED COMPONENTS filesystem iostreams)
+
 file(GLOB reconstruct-sources "*.cc")
 
 add_library(reconstruct SHARED ${reconstruct-sources})
@@ -11,8 +13,12 @@ find_program(iverilog-executable iverilog)
 get_filename_component(iverilog-bin-dir ${iverilog-executable} DIRECTORY)
 
 include_directories(${iverilog-bin-dir}/../include/iverilog)
+include_directories(${Boost_INCLUDE_DIRS})
 
-target_link_libraries(reconstruct PRIVATE yaml-cpp)
+target_link_libraries(reconstruct PRIVATE
+    yaml-cpp
+    ${Boost_LIBRARIES}
+)
 
 target_compile_options(reconstruct PRIVATE
     -Wall -Wextra -Wshadow -O2

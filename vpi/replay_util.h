@@ -1,11 +1,7 @@
-#ifndef _LOADER_H_
-#define _LOADER_H_
+#ifndef _REPLAY_UTIL_H_
+#define _REPLAY_REPLAY_UTIL_H__H_
 
-#include <string>
 #include <vector>
-#include <fstream>
-
-#include "yaml-cpp/yaml.h"
 
 #include <vpi_user.h>
 
@@ -71,7 +67,4 @@ inline void set_value(vpiHandle obj, T val) {
     vpi_put_value(obj, &value, 0, vpiNoDelay);
 }
 
-void loader_main(std::vector<std::string> args);
-void rammodel_main(std::vector<std::string> args);
-
-#endif // #ifndef _LOADER_H_
+#endif // #ifndef _REPLAY_UTIL_H_

@@ -1,16 +1,55 @@
-#include "replay.h"
+#include "replay_vpi.h"
+#include "replay_util.h"
 #include "rammodel.h"
+#include "checkpoint.h"
+#include "loader.h"
 
-#include <vector>
 #include <map>
+#include <string>
+#include <vector>
+
+#include <vpi_user.h>
 
 using namespace Replay;
 
-static std::vector<RamModel> rammodel_list;
-static std::map<std::string, std::string> rammodel_init_map;
+namespace {
 
-static int rammodel_new_tf(char* user_data) {
-    static_cast<void>(user_data);
+class Callback {
+
+    virtual void execute() {}
+
+    static PLI_INT32 __callback_routine(p_cb_data cb_data) {
+        auto callback = reinterpret_cast<Callback*>(cb_data->user_data);
+        callback->execute();
+        return 0;
+    }
+
+public:
+
+    void register_after_delay(uint64_t delay, bool start_time) {
+        s_vpi_time cb_time;
+        cb_time.type = vpiSimTime;
+        vpi_get_time(0, &cb_time);
+
+        uint64_t timeval = ((uint64_t)cb_time.high << 32) | cb_time.low;
+        timeval += delay;
+        cb_time.high = (uint32_t)(timeval >> 32);
+        cb_time.low  = (uint32_t)timeval;
+
+        s_cb_data cb_data;
+        cb_data.reason = start_time ? cbAtEndOfSimTime : cbAtEndOfSimTime;
+        cb_data.time = &cb_time;
+        cb_data.cb_rtn = __callback_routine;
+        cb_data.user_data = reinterpret_cast<PLI_BYTE8 *>(this);
+        vpi_register_cb(&cb_data);
+    }
+
+};
+
+std::vector<RamModel> rammodel_list;
+
+int rammodel_new_tf(char* user_data) {
+    auto checkpoint = reinterpret_cast<Checkpoint*>(user_data);
     vpiHandle callh = vpi_handle(vpiSysTfCall, 0);
     auto args = tf_get_args(callh);
 
@@ -26,32 +65,44 @@ static int rammodel_new_tf(char* user_data) {
     id_width    = get_value_as<uint32_t>(args[2]);
     pf_count    = get_value_as<uint32_t>(args[3]);
 
-    uint32_t index = rammodel_list.size();
+    size_t index = rammodel_list.size();
     rammodel_list.emplace_back(addr_width, data_width, id_width, pf_count);
 
     vpiHandle scope = vpi_handle(vpiScope, callh);
     std::string name = vpi_get_str(vpiFullName, scope);
-    vpi_printf("rammodel info: %s registered with handle %d\n", name.c_str(), index);
+    vpi_printf("rammodel info: %s registered with handle %ld\n", name.c_str(), index);
 
-    if (rammodel_init_map.find(name) != rammodel_init_map.end()) {
-        std::string file = rammodel_init_map.at(name);
-        vpi_printf("rammodel info: initializing %s with file %s\n", name.c_str(), file.c_str());
+    GzipReader data_reader(checkpoint->get_file_path(name + ".host_axi"));
+    if (data_reader.fail()) {
+        vpi_printf("ERROR: failed to open rammodel data file\n");
+        set_value(callh, -1);
+        return 0;
+    }
+    std::istream data_stream(data_reader.streambuf());
+    if (!rammodel_list[index].load_data(data_stream)) {
+        vpi_printf("ERROR: failed to load rammodel data from checkpoint\n");
+        set_value(callh, -1);
+        return 0;
+    }
 
-        std::ifstream stream(file, std::ios::binary);
-        if (stream.fail()) {
-            vpi_printf("ERROR: failed to open file %s\n", file.c_str());
-            set_value(callh, -1);
-            return 0;
-        }
-
-        rammodel_list[index].load_data(stream);
+    GzipReader state_reader(checkpoint->get_file_path(name + ".lsu_axi"));
+    if (state_reader.fail()) {
+        vpi_printf("ERROR: failed to open rammodel state file\n");
+        set_value(callh, -1);
+        return 0;
+    }
+    std::istream state_stream(state_reader.streambuf());
+    if (!rammodel_list[index].load_state(state_stream)) {
+        vpi_printf("ERROR: failed to load rammodel state from checkpoint\n");
+        set_value(callh, -1);
+        return 0;
     }
 
     set_value(callh, index);
     return 0;
 }
 
-static int rammodel_reset_tf(char* user_data) {
+int rammodel_reset_tf(char* user_data) {
     static_cast<void>(user_data);
     vpiHandle callh = vpi_handle(vpiSysTfCall, 0);
     auto args = tf_get_args(callh);
@@ -80,7 +131,7 @@ static int rammodel_reset_tf(char* user_data) {
     return 0;
 }
 
-static int rammodel_a_req_tf(char* user_data) {
+int rammodel_a_req_tf(char* user_data) {
     static_cast<void>(user_data);
     vpiHandle callh = vpi_handle(vpiSysTfCall, 0);
     auto args = tf_get_args(callh);
@@ -117,7 +168,7 @@ static int rammodel_a_req_tf(char* user_data) {
     return 0;
 }
 
-static int rammodel_w_req_tf(char* user_data) {
+int rammodel_w_req_tf(char* user_data) {
     static_cast<void>(user_data);
     vpiHandle callh = vpi_handle(vpiSysTfCall, 0);
     auto args = tf_get_args(callh);
@@ -151,7 +202,7 @@ static int rammodel_w_req_tf(char* user_data) {
     return 0;
 }
 
-static int rammodel_b_req_tf(char* user_data) {
+int rammodel_b_req_tf(char* user_data) {
     static_cast<void>(user_data);
     vpiHandle callh = vpi_handle(vpiSysTfCall, 0);
     auto args = tf_get_args(callh);
@@ -182,7 +233,7 @@ static int rammodel_b_req_tf(char* user_data) {
     return 0;
 }
 
-static int rammodel_b_ack_tf(char* user_data) {
+int rammodel_b_ack_tf(char* user_data) {
     static_cast<void>(user_data);
     vpiHandle callh = vpi_handle(vpiSysTfCall, 0);
     auto args = tf_get_args(callh);
@@ -211,7 +262,7 @@ static int rammodel_b_ack_tf(char* user_data) {
     return 0;
 }
 
-static int rammodel_r_req_tf(char* user_data) {
+int rammodel_r_req_tf(char* user_data) {
     static_cast<void>(user_data);
     vpiHandle callh = vpi_handle(vpiSysTfCall, 0);
     auto args = tf_get_args(callh);
@@ -245,7 +296,7 @@ static int rammodel_r_req_tf(char* user_data) {
     return 0;
 }
 
-static int rammodel_r_ack_tf(char* user_data) {
+int rammodel_r_ack_tf(char* user_data) {
     static_cast<void>(user_data);
     vpiHandle callh = vpi_handle(vpiSysTfCall, 0);
     auto args = tf_get_args(callh);
@@ -274,8 +325,60 @@ static int rammodel_r_ack_tf(char* user_data) {
     return 0;
 }
 
-static void register_tfs() {
+class CycleCallback : public Callback {
+    vpiHandle m_obj;
+    uint64_t m_cycle;
+    virtual void execute() override {
+        uint64_t val = get_value_as<uint64_t>(m_obj);
+        set_value(m_obj, val + 1);
+        register_after_delay(m_cycle, false);
+    }
+
+public:
+    CycleCallback(vpiHandle obj, uint64_t cycle) : m_obj(obj), m_cycle(cycle) {}
+};
+
+int cycle_sig_tf(char* user_data) {
+    auto checkpoint = reinterpret_cast<Checkpoint*>(user_data);
+    vpiHandle callh = vpi_handle(vpiSysTfCall, 0);
+    auto args = tf_get_args(callh);
+
+    if (args.size() != 1) {
+        vpi_printf("%s: wrong number of arguments\n", __func__);
+        return 0;
+    }
+
+    set_value(args[0], checkpoint->get_cycle());
+    auto callback = new CycleCallback(args[0], 10000); // TODO: set cycle value
+    callback->register_after_delay(10000, false);
+
+    return 0;
+}
+
+int get_init_cycle_tf(char* user_data) {
+    auto checkpoint = reinterpret_cast<Checkpoint*>(user_data);
+    vpiHandle callh = vpi_handle(vpiSysTfCall, 0);
+
+    set_value(callh, checkpoint->get_cycle());
+    return 0;
+}
+
+int get_init_cycle_sizetf(char* user_data) {
+    static_cast<void>(user_data);
+    return 64;
+}
+
+PLI_INT32 load_callback(p_cb_data cb_data) {
+    auto loader = reinterpret_cast<Loader*>(cb_data->user_data);
+    loader->load();
+    return 0;
+}
+
+}; // namespace
+
+void Replay::register_tfs(Checkpoint *checkpoint) {
     s_vpi_systf_data tf_data;
+    PLI_BYTE8 *user_data = reinterpret_cast<PLI_BYTE8 *>(checkpoint);
 
     tf_data.type        = vpiSysFunc;
     tf_data.sysfunctype = vpiIntFunc;
@@ -283,7 +386,7 @@ static void register_tfs() {
     tf_data.calltf      = rammodel_new_tf;
     tf_data.compiletf   = 0;
     tf_data.sizetf      = 0;
-    tf_data.user_data   = 0;
+    tf_data.user_data   = user_data;
     vpi_register_systf(&tf_data);
 
     tf_data.type        = vpiSysFunc;
@@ -292,7 +395,7 @@ static void register_tfs() {
     tf_data.calltf      = rammodel_reset_tf;
     tf_data.compiletf   = 0;
     tf_data.sizetf      = 0;
-    tf_data.user_data   = 0;
+    tf_data.user_data   = user_data;
     vpi_register_systf(&tf_data);
 
     tf_data.type        = vpiSysFunc;
@@ -301,7 +404,7 @@ static void register_tfs() {
     tf_data.calltf      = rammodel_a_req_tf;
     tf_data.compiletf   = 0;
     tf_data.sizetf      = 0;
-    tf_data.user_data   = 0;
+    tf_data.user_data   = user_data;
     vpi_register_systf(&tf_data);
 
     tf_data.type        = vpiSysFunc;
@@ -310,7 +413,7 @@ static void register_tfs() {
     tf_data.calltf      = rammodel_w_req_tf;
     tf_data.compiletf   = 0;
     tf_data.sizetf      = 0;
-    tf_data.user_data   = 0;
+    tf_data.user_data   = user_data;
     vpi_register_systf(&tf_data);
 
     tf_data.type        = vpiSysFunc;
@@ -319,7 +422,7 @@ static void register_tfs() {
     tf_data.calltf      = rammodel_b_req_tf;
     tf_data.compiletf   = 0;
     tf_data.sizetf      = 0;
-    tf_data.user_data   = 0;
+    tf_data.user_data   = user_data;
     vpi_register_systf(&tf_data);
 
     tf_data.type        = vpiSysFunc;
@@ -328,7 +431,7 @@ static void register_tfs() {
     tf_data.calltf      = rammodel_b_ack_tf;
     tf_data.compiletf   = 0;
     tf_data.sizetf      = 0;
-    tf_data.user_data   = 0;
+    tf_data.user_data   = user_data;
     vpi_register_systf(&tf_data);
 
     tf_data.type        = vpiSysFunc;
@@ -337,7 +440,7 @@ static void register_tfs() {
     tf_data.calltf      = rammodel_r_req_tf;
     tf_data.compiletf   = 0;
     tf_data.sizetf      = 0;
-    tf_data.user_data   = 0;
+    tf_data.user_data   = user_data;
     vpi_register_systf(&tf_data);
 
     tf_data.type        = vpiSysFunc;
@@ -346,19 +449,36 @@ static void register_tfs() {
     tf_data.calltf      = rammodel_r_ack_tf;
     tf_data.compiletf   = 0;
     tf_data.sizetf      = 0;
-    tf_data.user_data   = 0;
+    tf_data.user_data   = user_data;
+    vpi_register_systf(&tf_data);
+
+    tf_data.type        = vpiSysTask;
+    tf_data.tfname      = "$cycle_sig";
+    tf_data.calltf      = cycle_sig_tf;
+    tf_data.compiletf   = 0;
+    tf_data.sizetf      = 0;
+    tf_data.user_data   = user_data;
+    vpi_register_systf(&tf_data);
+
+    tf_data.type        = vpiSysFunc;
+    tf_data.sysfunctype = vpiSizedFunc;
+    tf_data.tfname      = "$get_init_cycle";
+    tf_data.calltf      = get_init_cycle_tf;
+    tf_data.compiletf   = 0;
+    tf_data.sizetf      = get_init_cycle_sizetf;
+    tf_data.user_data   = user_data;
     vpi_register_systf(&tf_data);
 }
 
-void rammodel_main(std::vector<std::string> args) {
-    register_tfs();
+void Replay::register_load_callback(Loader *loader) {
+    s_vpi_time cb_time;
+    cb_time.type = vpiSimTime;
+    vpi_get_time(0, &cb_time);
 
-    for (size_t i = 0; i < args.size(); i++) {
-        if (args[i] == "-rammodel-init" && i+2 < args.size()) {
-            std::string name = args[++i];
-            std::string file = args[++i];
-            rammodel_init_map[name] = file;
-        }
-    }
-
+    s_cb_data cb_data;
+    cb_data.reason = cbAtEndOfSimTime;
+    cb_data.time = &cb_time;
+    cb_data.cb_rtn = load_callback;
+    cb_data.user_data = reinterpret_cast<PLI_BYTE8 *>(loader);
+    vpi_register_cb(&cb_data);
 }

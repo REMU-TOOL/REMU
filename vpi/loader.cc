@@ -1,18 +1,27 @@
-#include "replay.h"
+#include "loader.h"
+#include "replay_util.h"
 
-struct load_cb_data {
-    std::string config_file;
-    std::string data_file;
-};
+using namespace Replay;
 
-static void load_value(vpiHandle obj, uint64_t data, int width, int offset) {
+namespace {
+
+void load_value(vpiHandle obj, uint64_t data, int width, int offset) {
+#if 0
+    vpi_printf("%s[%d:%d] = %lx\n",
+        vpi_get_str(vpiFullName, obj),
+        width + offset - 1,
+        offset,
+        data & ~(~0UL << width)
+    );
+#endif
+
     int size = vpi_get(vpiSize, obj);
 
     s_vpi_value value;
     value.format = vpiVectorVal;
     vpi_get_value(obj, &value);
 
-    for (int i = 0; i < size / 32; i++) {
+    for (int i = 0; i < (size + 31) / 32; i++) {
         auto &aval = value.value.vector[i].aval;
         auto &bval = value.value.vector[i].bval;
         int w = 32 - offset;
@@ -31,29 +40,7 @@ static void load_value(vpiHandle obj, uint64_t data, int width, int offset) {
     vpi_put_value(obj, &value, 0, vpiNoDelay);
 }
 
-static PLI_INT32 load_cb(p_cb_data cb_data) {
-    load_cb_data *user_data = reinterpret_cast<load_cb_data *>(cb_data->user_data);
-    YAML::Node config;
-    std::ifstream data_stream;
-
-    try {
-        config = YAML::LoadFile(user_data->config_file);
-    }
-    catch (YAML::BadFile &e) {
-        vpi_printf("ERROR: Cannot load yaml file %s\n", user_data->config_file.c_str());
-        delete user_data;
-        return -1;
-    }
-
-    data_stream.open(user_data->data_file, std::istream::binary);
-    if (data_stream.fail()) {
-        vpi_printf("ERROR: Can't open file %s\n", user_data->data_file.c_str());
-        delete user_data;
-        return -1;
-    }
-
-    // TODO: width
-
+void load_ff(std::istream &data_stream, YAML::Node &config) {
     const YAML::Node &ff_list = config["ff"];
     for (auto ff_it = ff_list.begin(); ff_it != ff_list.end(); ++ff_it) {
         const YAML::Node &ff = *ff_it;
@@ -80,7 +67,9 @@ static PLI_INT32 load_cb(p_cb_data cb_data) {
             data >>= width;
         }
     }
+}
 
+void load_mem(std::istream &data_stream, YAML::Node &config) {
     const YAML::Node &mem_list = config["mem"];
     for (auto mem_it = mem_list.begin(); mem_it != mem_list.end(); ++mem_it) {
         const YAML::Node &mem = *mem_it;
@@ -110,44 +99,32 @@ static PLI_INT32 load_cb(p_cb_data cb_data) {
             }
         }
     }
-
-    delete user_data;
-    return 0;
 }
 
-void sc_load(std::string config_file, std::string data_file) {
-    load_cb_data *user_data = new load_cb_data;
+}; // namespace
 
-    user_data->config_file = config_file;
-    user_data->data_file = data_file;
-
-    s_vpi_time cb_time;
-    cb_time.type = vpiSimTime;
-    vpi_get_time(0, &cb_time);
-
-    s_cb_data cb_data;
-    cb_data.reason = cbAtEndOfSimTime;
-    cb_data.time = &cb_time;
-    cb_data.cb_rtn = load_cb;
-    cb_data.user_data = reinterpret_cast<PLI_BYTE8 *>(user_data);
-    vpi_register_cb(&cb_data);
-}
-
-void loader_main(std::vector<std::string> args) {
-    std::string config_file, data_file;
-
-    for (size_t i = 0; i < args.size(); i++) {
-        if (args[i] == "-scanchain-yml" && i+1 < args.size()) {
-            config_file = args[++i];
-        }
-        if (args[i] == "-scanchain-data" && i+1 < args.size()) {
-            data_file = args[++i];
-        }
+bool Loader::load() {
+    YAML::Node config;
+    try {
+        config = YAML::LoadFile(m_sc_file);
+    }
+    catch (YAML::BadFile &e) {
+        vpi_printf("ERROR: Cannot load yaml file %s\n", m_sc_file.c_str());
+        return false;
     }
 
-    if (!config_file.empty() && !data_file.empty()) {
-        vpi_printf("Scan chain configuration: %s\n", config_file.c_str());
-        vpi_printf("Scan chain data: %s\n", data_file.c_str());
-        sc_load(config_file, data_file);
+    GzipReader reader(m_checkpoint.get_file_path("scanchain"));
+    if (reader.fail()) {
+        vpi_printf("ERROR: Can't open scanchain file\n");
+        return false;
     }
+
+    std::istream data_stream(reader.streambuf());
+
+    // TODO: width
+
+    load_ff(data_stream, config);
+    load_mem(data_stream, config);
+
+    return true;
 }
