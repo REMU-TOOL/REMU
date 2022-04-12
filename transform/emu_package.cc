@@ -285,7 +285,7 @@ struct PackageWorker {
     }
     
     void add_controller(Module *module, int ff_words, int mem_words) {
-        std::string share_dirname = proc_share_dirname();
+        std::string share_dirname = proc_share_dirname() + "../recheck/";
         std::vector<std::string> read_verilog_argv = {
             "read_verilog",
             "-lib",
