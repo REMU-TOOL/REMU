@@ -9,10 +9,9 @@ add_library(replay SHARED ${replay-sources})
 set_target_properties(replay PROPERTIES PREFIX "")
 set_target_properties(replay PROPERTIES SUFFIX ".vpi")
 
-find_program(iverilog-executable iverilog)
-get_filename_component(iverilog-bin-dir ${iverilog-executable} DIRECTORY)
+add_dependencies(replay iverilog)
 
-include_directories(${iverilog-bin-dir}/../include/iverilog)
+include_directories(${IVL_INCLUDE_DIR})
 include_directories(${Boost_INCLUDE_DIRS})
 
 target_link_libraries(replay PRIVATE
@@ -25,7 +24,7 @@ target_compile_options(replay PRIVATE
 )
 
 target_link_options(replay PRIVATE
-    -L${iverilog-bin-dir}/../lib
+    -L${IVL_TMP_DESTDIR}/lib
     -lveriuser -lvpi
 )
 
