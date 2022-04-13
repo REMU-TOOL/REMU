@@ -37,7 +37,7 @@ public:
         cb_time.low  = (uint32_t)timeval;
 
         s_cb_data cb_data;
-        cb_data.reason = start_time ? cbAtEndOfSimTime : cbAtEndOfSimTime;
+        cb_data.reason = start_time ? cbAtStartOfSimTime : cbAtEndOfSimTime;
         cb_data.time = &cb_time;
         cb_data.cb_rtn = __callback_routine;
         cb_data.user_data = reinterpret_cast<PLI_BYTE8 *>(this);
