@@ -150,6 +150,7 @@ class Emulator:
                     self.__event_add(_PeriodicalSaveEvent(event.cycle + self.checkpoint_period, self.__ckptmgr))
 
     async def run(self, periodical_ckpt=False, timeout=0):
+        print("[EMU] Run from initial state")
         await self.__mon.init_state(self.__init_mem)
         self.__setup_event_list()
         self.__event_add(_StartEvent(0))
@@ -160,6 +161,7 @@ class Emulator:
         await self.__event_loop()
 
     async def rewind(self, cycle: int):
+        print(f"[EMU] Rewind to cycle {cycle}")
         prev = self.__ckptmgr.recent_saved_cycle(cycle)
         self.__setup_event_list()
         self.__event_add(LoadEvent(prev, self.__ckptmgr))
