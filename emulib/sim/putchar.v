@@ -11,6 +11,7 @@ module EmuPutChar (
     always @(posedge clk) begin
         if (!rst && valid) begin
             $write("%c", data);
+            $fflush();
         end
     end
 
