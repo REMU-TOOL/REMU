@@ -38,6 +38,7 @@ public:
 
         s_cb_data cb_data;
         cb_data.reason = start_time ? cbAtStartOfSimTime : cbAtEndOfSimTime;
+        cb_data.obj = 0;
         cb_data.time = &cb_time;
         cb_data.cb_rtn = __callback_routine;
         cb_data.user_data = reinterpret_cast<PLI_BYTE8 *>(this);
@@ -477,6 +478,7 @@ void Replay::register_load_callback(Loader *loader) {
 
     s_cb_data cb_data;
     cb_data.reason = cbAtEndOfSimTime;
+    cb_data.obj = 0;
     cb_data.time = &cb_time;
     cb_data.cb_rtn = load_callback;
     cb_data.user_data = reinterpret_cast<PLI_BYTE8 *>(loader);
