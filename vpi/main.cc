@@ -24,10 +24,21 @@ void replay_startup_routine() {
         }
     }
 
+    if (checkpoint_path.empty()) {
+        vpi_printf("ERROR: -replay-checkpoint not specified\n");
+        return;
+    }
+
     auto checkpoint =  new Checkpoint(checkpoint_path);
-    auto loader = new Loader(scanchain_file, *checkpoint);
     register_tfs(checkpoint);
-    register_load_callback(loader);
+
+    if (scanchain_file.empty()) {
+        vpi_printf("WARNING: -replay-scanchain not specified, scan chain data will not be loaded\n");
+    }
+    else {
+        auto loader = new Loader(scanchain_file, *checkpoint);
+        register_load_callback(loader);
+    }
 }
 
 void (*vlog_startup_routines[])() = {
