@@ -52,7 +52,7 @@ $(DUMP_V):
 
 $(OUTPUT_FILE): $(EMU_SRCS)
 	mkdir -p $(BUILD_DIR)
-	yosys -m transform -p "emu_transform -top $(EMU_TOP) -sc_yaml $(SC_YML_FILE) -loader $(LOADER_FILE)" -o $@ $^
+	yosys -m transform -p "tcl $(shell recheck --tcl) -top $(EMU_TOP) -sc $(SC_YML_FILE) -ldr $(LOADER_FILE)" -o $@ $^
 
 $(SIM_BIN): $(SIM_SRCS)
 	mkdir -p $(BUILD_DIR)
