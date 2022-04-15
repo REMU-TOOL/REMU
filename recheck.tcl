@@ -35,29 +35,27 @@ if {$ldr_file != ""} {
     lappend emu_instrument_cmd -loader ${ldr_file}
 }
 
-yosys -import
+yosys read_verilog -I ${script_dir}/emulib/include ${script_dir}/emulib/common/*.v ${script_dir}/emulib/fpga/*.v
 
-read_verilog -I ${script_dir}/emulib/include ${script_dir}/emulib/common/*.v ${script_dir}/emulib/fpga/*.v
+yosys hierarchy -check -top ${top}
+yosys proc
+yosys opt_clean
+yosys memory_collect
+yosys memory_share
+yosys check
 
-hierarchy -check -top ${top}
-procs
-opt_clean
-memory_collect
-memory_share
-check
+yosys emu_check
+yosys emu_opt_ram
+yosys opt_clean
+yosys uniquify
+yosys hierarchy
 
-emu_check
-emu_opt_ram
-opt_clean
-uniquify
-hierarchy
+yosys emu_handle_directive
+yosys emu_instrument {*}$emu_instrument_cmd
+yosys emu_package
 
-emu_handle_directive
-emu_instrument {*}$emu_instrument_cmd
-emu_package
-
-emu_remove_keep
-check
-opt
-submod
-opt
+yosys emu_remove_keep
+yosys check
+yosys opt
+yosys submod
+yosys opt
