@@ -1,3 +1,5 @@
+yosys plugin -i transform
+
 set script_dir [file dirname [info script]]
 
 set top {}
