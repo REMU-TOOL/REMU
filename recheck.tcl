@@ -37,7 +37,7 @@ if {$ldr_file != ""} {
 
 yosys read_verilog -I ${script_dir}/emulib/include ${script_dir}/emulib/common/*.v ${script_dir}/emulib/fpga/*.v
 
-yosys hierarchy -check -top ${top}
+yosys hierarchy -check -top ${top} -purge_lib
 yosys proc
 yosys opt_clean
 yosys memory_collect
