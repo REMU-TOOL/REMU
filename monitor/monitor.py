@@ -77,11 +77,14 @@ class Monitor:
         if ignore_trig:
             self.__ctrl.trig_en = 0
 
-        self.__ctrl.step = cycle
-        self.__ctrl.pause = False
+        while cycle > 0:
+            step = min(cycle, 0xffffffff)
+            cycle -= step
+            self.__ctrl.step = step
+            self.__ctrl.pause = False
 
-        while not self.__ctrl.pause:
-            await asyncio.sleep(0.1)
+            while not self.__ctrl.pause:
+                await asyncio.sleep(0.1)
 
         self.__ctrl.trig_en = old_trig_en
 

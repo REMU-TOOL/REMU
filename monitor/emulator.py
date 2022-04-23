@@ -69,7 +69,6 @@ class Emulator:
         self.__ckptmgr = ckptmgr
         self.__mon = Monitor(cfg)
 
-        self.checkpoint_period = 100000
         self.__init_mem: dict[str, str] = {}
         self.__init_event_list: list[EmulatorEvent] = []
         self.__event_list: list[EmulatorEvent] = []
@@ -94,6 +93,14 @@ class Emulator:
 
     def init_event_clear(self):
         self.__init_event_list.clear()
+
+    def enable_user_trig(self):
+        for i in range(32):
+            self.__mon.trigger_enable[i] = True
+
+    def disable_user_trig(self):
+        for i in range(32):
+            self.__mon.trigger_enable[i] = False
 
     def __check_user_trig(self):
         triggered = False
@@ -149,15 +156,16 @@ class Emulator:
                 elif isinstance(event, _PeriodicalSaveEvent):
                     self.__event_add(_PeriodicalSaveEvent(event.cycle + self.checkpoint_period, self.__ckptmgr))
 
-    async def run(self, periodical_ckpt=False, timeout=0):
+    async def run(self, period=0, timeout=None):
         print("[EMU] Run from initial state")
         await self.__mon.init_state(self.__init_mem)
         self.__setup_event_list()
         self.__event_add(_StartEvent(0))
-        if timeout > 0:
+        self.__event_add(SaveEvent(0, self.__ckptmgr))
+        if timeout != None:
             self.__event_add(_BreakEvent(timeout))
-        if periodical_ckpt:
-            self.__event_add(_PeriodicalSaveEvent(0, self.__ckptmgr))
+        if period > 0:
+            self.__event_add(_PeriodicalSaveEvent(period, self.__ckptmgr))
         await self.__event_loop()
 
     async def rewind(self, cycle: int):
@@ -171,10 +179,10 @@ class Emulator:
         self.__event_add(_BreakEvent(cycle))
         await self.__event_loop()
 
-    async def resume(self, timeout=0):
+    async def resume(self, timeout=None):
         cycle = self.__mon.cycle
         self.__event_add(_StartEvent(cycle))
-        if timeout > 0:
+        if timeout != None:
             self.__event_add(_BreakEvent(cycle + timeout))
         await self.__event_loop()
 
