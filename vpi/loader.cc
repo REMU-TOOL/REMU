@@ -81,12 +81,14 @@ void load_mem(std::istream &data_stream, YAML::Node &config) {
         vpiHandle obj = vpi_handle_by_name(name.c_str(), 0);
         if (obj == 0) {
             vpi_printf("WARNING: %s cannot be referenced\n", name.c_str());
+            continue;
         }
 
         for (int i = 0; i < depth; i++) {
             vpiHandle word = vpi_handle_by_index(obj, i + start_offset);
             if (word == 0) {
                 vpi_printf("WARNING: %s[%d] cannot be referenced\n", name.c_str(), i + start_offset);
+                continue;
             }
 
             for (int j = 0; j < width; j += 64) {
