@@ -7,24 +7,6 @@ from .control import Controller
 from .devmem import DevMem
 from .utils import *
 
-class TriggerEnableProperty:
-    def __init__(self, ctrl: Controller):
-        self.__ctrl = ctrl
-
-    def __getitem__(self, key: int):
-        return get_bit(self.__ctrl.trig_en, key)
-
-    def __setitem__(self, key: int, set: bool):
-        value = set_bit(self.__ctrl.trig_en, key, set)
-        self.__ctrl.trig_en = value
-
-class TriggerStatusProperty:
-    def __init__(self, ctrl: Controller):
-        self.__ctrl = ctrl
-
-    def __getitem__(self, key: int):
-        return get_bit(self.__ctrl.trig_stat, key)
-
 class Monitor:
     def __init__(self, cfg: EmulatorConfig):
         self.__cfg = cfg
@@ -37,12 +19,12 @@ class Monitor:
             print("[EMU] Memory region: %08x - %08x (%s)" % (base, base + size, seg))
             self.__mem[seg] = DevMem(base, size)
 
-        self.__trigger_enable = TriggerEnableProperty(self.__ctrl)
-        self.__trigger_status = TriggerStatusProperty(self.__ctrl)
-
         self.__ctrl.pause = True
         self.__ctrl.up_req = False
         self.__ctrl.down_req = False
+
+        self.__putchar_task = None
+        self.__putchar_running = False
 
     @property
     def mem(self):
@@ -64,13 +46,15 @@ class Monitor:
     def reset(self, value: bool):
         self.__ctrl.reset = value
 
-    @property
-    def trigger_enable(self):
-        return self.__trigger_enable
+    def get_trigger_enable(self, key: int):
+        return get_bit(self.__ctrl.trig_en, key)
 
-    @property
-    def trigger_status(self):
-        return self.__trigger_status
+    def set_trigger_enable(self, key: int, set: bool):
+        value = set_bit(self.__ctrl.trig_en, key, set)
+        self.__ctrl.trig_en = value
+
+    def get_trigger_status(self, key: int):
+        return get_bit(self.__ctrl.trig_stat, key)
 
     async def run_for(self, cycle: int, ignore_trig: bool = False):
         old_trig_en = self.__ctrl.trig_en
@@ -142,12 +126,26 @@ class Monitor:
         await self.__dma_transfer(True)
         await self.__go_up()
 
-    async def putchar_host(self):
-        while True:
-            value = self.__ctrl.putchar
-            if (value & (1 << 31)) != 0:
-                char = value & 0xff
-                sys.stdout.write(chr(char))
-                sys.stdout.flush()
-            else:
-                await asyncio.sleep(0.1)
+    def __putchar(self):
+        value = self.__ctrl.putchar
+        if (value & (1 << 31)) != 0:
+            char = value & 0xff
+            sys.stdout.write(chr(char))
+            sys.stdout.flush()
+            return True
+        return False
+
+    async def __putchar_loop(self):
+        self.__putchar_running = True
+        while self.__putchar_running:
+            await asyncio.sleep(0.1)
+            while self.__putchar():
+                pass
+
+    async def putchar_start(self):
+        self.__putchar_task = asyncio.create_task(self.__putchar_loop())
+
+    async def putchar_stop(self):
+        if self.__putchar_running:
+            self.__putchar_running = False
+            await self.__putchar_task

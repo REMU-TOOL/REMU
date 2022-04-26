@@ -73,13 +73,9 @@ class Emulator:
         self.__init_event_list: list[EmulatorEvent] = []
         self.__event_list: list[EmulatorEvent] = []
 
-        for i in range(32):
-            self.__mon.trigger_enable[i] = True
-
-        self.__pc_task = asyncio.create_task(self.__mon.putchar_host())
+        self.enable_user_trig()
 
     def close(self):
-        self.__pc_task.cancel()
         self.__mon = None
 
     def init_mem_add(self, name: str, file: str):
@@ -96,20 +92,24 @@ class Emulator:
 
     def enable_user_trig(self):
         for i in range(32):
-            self.__mon.trigger_enable[i] = True
+            self.__mon.set_trigger_enable(i, True)
 
     def disable_user_trig(self):
         for i in range(32):
-            self.__mon.trigger_enable[i] = False
+            self.__mon.set_trigger_enable(i, False)
 
     def __check_user_trig(self):
         triggered = False
         for i in range(32):
-            if self.__mon.trigger_status[i] and self.__mon.trigger_enable[i]:
-                cycle = self.__mon.cycle
-                print(f"[EMU] Cycle {cycle}: user trigger {i} activated at previous cycle")
+            if self.__mon.get_trigger_status(i) and self.__mon.get_trigger_enable(i):
                 triggered = True
         return triggered
+
+    def __list_user_trig(self):
+        for i in range(32):
+            if self.__mon.get_trigger_status(i) and self.__mon.get_trigger_enable(i):
+                cycle = self.__mon.cycle
+                print(f"[EMU] Cycle {cycle}: user trigger {i} activated at previous cycle")
 
     def __event_add(self, event: EmulatorEvent):
         bisect.insort(self.__event_list, event)
@@ -125,6 +125,7 @@ class Emulator:
         self.__mon.cycle = 0
 
     async def __event_loop(self):
+        await self.__mon.putchar_start()
         dry_run = True
         while True:
             cycle = self.__mon.cycle
@@ -155,6 +156,8 @@ class Emulator:
                     break
                 elif isinstance(event, _PeriodicalSaveEvent):
                     self.__event_add(_PeriodicalSaveEvent(event.cycle + self.checkpoint_period, self.__ckptmgr))
+        await self.__mon.putchar_stop()
+        self.__list_user_trig()
 
     async def run(self, period=0, timeout=None):
         print("[EMU] Run from initial state")
@@ -174,8 +177,6 @@ class Emulator:
         self.__setup_event_list()
         self.__event_add(LoadEvent(prev, self.__ckptmgr))
         self.__event_add(_StartEvent(prev))
-        if prev != cycle:
-            self.__event_add(SaveEvent(cycle, self.__ckptmgr))
         self.__event_add(_BreakEvent(cycle))
         await self.__event_loop()
 
@@ -187,7 +188,8 @@ class Emulator:
         await self.__event_loop()
 
     async def save(self, file: str):
-        self.__ckptmgr.save_as(self.__mon.cycle, file)
+        with Checkpoint(file) as cp:
+            await self.__mon.save(cp)
 
     @property
     def cycle(self):

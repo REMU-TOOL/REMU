@@ -11,7 +11,7 @@ async def emu_main():
     parser.add_argument('config', help='scan chain configuration file')
     parser.add_argument('checkpoint', help='checkpoint storage path')
     parser.add_argument('--initmem', nargs=2, metavar=('name', 'file'), action='append', default=[], help='load memory from file for initialization')
-    parser.add_argument('--timeout', metavar='cycle', type=int, action='store', help='set timeout cycles (0 to disable)')
+    parser.add_argument('--timeout', metavar='cycle', type=int, action='store', help='set timeout cycles')
     parser.add_argument('--period', metavar='cycle', type=int, action='store', default=0, help='set checkpoint period (0 to disable)')
     parser.add_argument('--to', metavar='cycle', type=int, action='store', help='go to specified cycle from initial state')
     parser.add_argument('--rewind', metavar='cycle', type=int, action='store', help='go to specified cycle from a recent checkpoint')
@@ -28,20 +28,20 @@ async def emu_main():
     emu.init_event_add(ResetEvent(0, 1))
     emu.init_event_add(ResetEvent(10, 0))
 
-    if args.to:
+    if args.to != None:
         emu.disable_user_trig()
         await emu.run(args.period, args.to)
     else:
         emu.enable_user_trig()
         await emu.run(args.period, args.timeout)
 
-    if args.rewind:
+    if args.rewind != None:
         cycle = emu.cycle - args.rewind
         if cycle < 0:
             cycle = 0
         await emu.rewind(cycle)
 
-    if args.dump:
+    if args.dump != None:
         await emu.save(args.dump)
 
     emu.close()

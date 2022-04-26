@@ -80,8 +80,3 @@ class CheckpointManager:
             bisect.insort(self.__cycle_list, cycle)
         self.__save_info()
         return Checkpoint(self.__ckpt_name(cycle))
-
-    def save_as(self, cycle: int, file: str):
-        if not cycle in self.__cycle_list:
-            raise ValueError
-        copytree(self.__ckpt_name(cycle), file, dirs_exist_ok=True)
