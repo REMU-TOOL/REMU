@@ -20,7 +20,7 @@ set(YOSYS_INCLUDE_DIR   ${YOSYS_ROOT})
 
 set(YOSYS_CONFIGURE     cp ${CMAKE_SOURCE_DIR}/yosys.conf ${YOSYS_ROOT}/Makefile.conf)
 set(YOSYS_MAKE          cd ${YOSYS_ROOT} && $(MAKE))
-set(YOSYS_INSTALL       cd ${YOSYS_ROOT} && $(MAKE) DESTDIR=${YOSYS_TMP_DESTDIR} PREFIX= install)
+set(YOSYS_INSTALL       cd ${YOSYS_ROOT} && $(MAKE) DESTDIR=${YOSYS_TMP_DESTDIR} PREFIX=${CMAKE_INSTALL_PREFIX} install)
 
 ExternalProject_Add(yosys
     SOURCE_DIR          ${YOSYS_ROOT}
@@ -29,7 +29,7 @@ ExternalProject_Add(yosys
     INSTALL_COMMAND     ${YOSYS_INSTALL}
 )
 
-install(DIRECTORY ${YOSYS_TMP_DESTDIR}/
+install(DIRECTORY ${YOSYS_TMP_DESTDIR}/${CMAKE_INSTALL_PREFIX}/
     DESTINATION ${CMAKE_INSTALL_PREFIX}
     USE_SOURCE_PERMISSIONS
 )
@@ -41,7 +41,7 @@ set(IVL_TMP_DESTDIR     ${CMAKE_BINARY_DIR}/iverilog_destdir)
 set(IVL_ROOT            ${CMAKE_SOURCE_DIR}/iverilog)
 set(IVL_INCLUDE_DIR     ${IVL_ROOT})
 
-set(IVL_CONFIGURE       cd ${IVL_ROOT} && sh autoconf.sh && ./configure --prefix=/)
+set(IVL_CONFIGURE       cd ${IVL_ROOT} && sh autoconf.sh && ./configure --prefix=${CMAKE_INSTALL_PREFIX})
 set(IVL_MAKE            cd ${IVL_ROOT} && $(MAKE))
 set(IVL_INSTALL         cd ${IVL_ROOT} && $(MAKE) DESTDIR=${IVL_TMP_DESTDIR} install)
 
@@ -52,7 +52,7 @@ ExternalProject_Add(iverilog
     INSTALL_COMMAND     ${IVL_INSTALL}
 )
 
-install(DIRECTORY ${IVL_TMP_DESTDIR}/
+install(DIRECTORY ${IVL_TMP_DESTDIR}/${CMAKE_INSTALL_PREFIX}/
     DESTINATION ${CMAKE_INSTALL_PREFIX}
     USE_SOURCE_PERMISSIONS
 )
