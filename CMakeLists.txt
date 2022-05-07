@@ -34,29 +34,6 @@ install(DIRECTORY ${YOSYS_TMP_DESTDIR}/${CMAKE_INSTALL_PREFIX}/
     USE_SOURCE_PERMISSIONS
 )
 
-# Add iverilog project
-
-set(IVL_TMP_DESTDIR     ${CMAKE_BINARY_DIR}/iverilog_destdir)
-
-set(IVL_ROOT            ${CMAKE_SOURCE_DIR}/iverilog)
-set(IVL_INCLUDE_DIR     ${IVL_ROOT})
-
-set(IVL_CONFIGURE       cd ${IVL_ROOT} && sh autoconf.sh && ./configure --prefix=${CMAKE_INSTALL_PREFIX})
-set(IVL_MAKE            cd ${IVL_ROOT} && $(MAKE))
-set(IVL_INSTALL         cd ${IVL_ROOT} && $(MAKE) DESTDIR=${IVL_TMP_DESTDIR} install)
-
-ExternalProject_Add(iverilog
-    SOURCE_DIR          ${IVL_ROOT}
-    CONFIGURE_COMMAND   ${IVL_CONFIGURE}
-    BUILD_COMMAND       ${IVL_MAKE}
-    INSTALL_COMMAND     ${IVL_INSTALL}
-)
-
-install(DIRECTORY ${IVL_TMP_DESTDIR}/${CMAKE_INSTALL_PREFIX}/
-    DESTINATION ${CMAKE_INSTALL_PREFIX}
-    USE_SOURCE_PERMISSIONS
-)
-
 # Install separate files
 
 install(PROGRAMS ${CMAKE_SOURCE_DIR}/recheck.sh DESTINATION bin RENAME recheck)
