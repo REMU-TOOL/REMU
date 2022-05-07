@@ -284,9 +284,11 @@ class InsertAccessorWorker {
             module->connect(se, module->Or(NEW_ID, ram_sd, module->Not(NEW_ID, inc)));
             module->connect(we, module->And(NEW_ID, ram_sd, inc));
 
-            // add pause signal to ports
             for (auto &wr : mem.wr_ports) {
+                // add pause signal to ports
                 wr.en = module->Mux(NEW_ID, wr.en, Const(0, GetSize(wr.en)), ram_se);
+                // fix up addr width
+                wr.addr.extend_u0(abits);
             }
 
             // add accessor to write port 0
@@ -295,6 +297,11 @@ class InsertAccessorWorker {
             if (abits > 0)
                 wr.addr = module->Mux(NEW_ID, wr.addr, addr, ram_se);
             wr.data = module->Mux(NEW_ID, wr.data, wdata, ram_se);
+
+            for (auto &rd : mem.rd_ports) {
+                // fix up addr width
+                rd.addr.extend_u0(abits);
+            }
 
             // add accessor to read port 0
             auto &rd = mem.rd_ports[0];
