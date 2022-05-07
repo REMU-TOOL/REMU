@@ -43,7 +43,7 @@ yosys hierarchy -check -top ${top} -purge_lib
 yosys proc
 yosys opt_clean
 yosys memory_collect
-yosys memory_share
+yosys memory_share -nowiden
 yosys check
 
 yosys emu_check
