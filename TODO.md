@@ -26,3 +26,4 @@
 ## Miscellaneous
 
 - Load init data in emulation
+- Remove the cycle counter which can be implemented in DUT if needed
