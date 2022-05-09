@@ -268,20 +268,49 @@ struct ExternWorker {
         "_rlast",
     };
 
-    void extern_ports(const std::vector<std::string> &portnames, Module *module) {
+    void extern_ports(const std::vector<std::string> &portnames, Module *module, bool rename) {
+        std::vector<std::string> realportnames;
+
         for (auto &name : portnames) {
+            // wildcard name
+            if (name.back() == '*') {
+                size_t prefix_len = name.size() - 1;
+                std::string prefix = name.substr(0, prefix_len);
+                for (auto &id : module->ports) {
+                    if (id[0] == '\\' && id.substr(1, prefix_len) == prefix) {
+                        realportnames.push_back(id.substr(1));
+                    }
+                }
+            }
+            else {
+                realportnames.push_back(name);
+            }
+        }
+
+        for (auto &name : realportnames) {
             Wire *wire = module->wire("\\" + name);
             if (!wire)
                 log_error("Module %s: specified port %s not found\n", log_id(module), name.c_str());
 
-            log("Module %s: extern port %s\n", log_id(module), name.c_str());
+            std::string newname;
+            if (rename) {
+                Cell *cell = hier.instance_of(module);
+                newname = cell->name.substr(1) + "_" + name;
+            }
+            else {
+                newname = name;
+            }
+
+            log("Module %s: extern port %s as %s\n", log_id(module), name.c_str(), newname.c_str());
 
             // TODO: to be changed
-            promote_intf_port(module, name, wire);
-            module->fixup_ports();
-            continue;
+            if (!rename) {
+                promote_intf_port(module, name, wire);
+                module->fixup_ports();
+                continue;
+            }
 
-            IdString top_wire_id = wire->module->name.str() + "." + wire->name.substr(1);
+            IdString top_wire_id = "\\" + newname;
             Wire *top_wire = hier.top->addWire(top_wire_id, wire);
 
             if (wire->port_input)
@@ -389,11 +418,16 @@ struct ExternHandler : public DirectiveHandler {
     virtual void execute(std::vector<std::string> args, Module *module) override {
         std::vector<std::string> ports;
         bool axi = false;
+        bool rename = false;
 
         size_t argidx;
         for (argidx = 1; argidx < args.size(); argidx++) {
             if (args[argidx] == "-axi") {
                 axi = true;
+                continue;
+            }
+            if (args[argidx] == "-rename") {
+                rename = true;
                 continue;
             }
             break;
@@ -407,7 +441,7 @@ struct ExternHandler : public DirectiveHandler {
         if (axi)
             worker.extern_axi_ports(ports, module);
         else
-            worker.extern_ports(ports, module);
+            worker.extern_ports(ports, module, rename);
     }
 } ExternHandler;
 
