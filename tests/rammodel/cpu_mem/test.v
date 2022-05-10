@@ -106,8 +106,8 @@ module test(
         .emu_down_req       (down_req),
         .emu_up_stat        (up),
         .emu_down_stat      (down),
-        `AXI4_CONNECT       (emu_axi_0_host_axi, host_axi),
-        `AXI4_CONNECT_NO_ID (emu_axi_1_lsu_axi, lsu_axi),
+        `AXI4_CONNECT       (uncore_u_rammodel_host_axi, host_axi),
+        `AXI4_CONNECT_NO_ID (uncore_u_rammodel_lsu_axi, lsu_axi),
         .emu_putchar_valid              (putchar_valid),
         .emu_putchar_ready              (putchar_ready),
         .emu_putchar_data               (putchar_data)

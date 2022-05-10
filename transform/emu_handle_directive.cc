@@ -226,48 +226,6 @@ struct RewriteClockWorker {
 struct ExternWorker {
     DesignHierarchy hier;
 
-    pool<std::string> axi_suffixes = {
-        "_awvalid",
-        "_awready",
-        "_awaddr",
-        "_awprot",
-        "_awid",
-        "_awlen",
-        "_awsize",
-        "_awburst",
-        "_awlock",
-        "_awcache",
-        "_awqos",
-        "_awregion",
-        "_wvalid",
-        "_wready",
-        "_wdata",
-        "_wstrb",
-        "_wlast",
-        "_bvalid",
-        "_bready",
-        "_bresp",
-        "_bid",
-        "_arvalid",
-        "_arready",
-        "_araddr",
-        "_arprot",
-        "_arid",
-        "_arlen",
-        "_arsize",
-        "_arburst",
-        "_arlock",
-        "_arcache",
-        "_arqos",
-        "_arregion",
-        "_rvalid",
-        "_rready",
-        "_rdata",
-        "_rresp",
-        "_rid",
-        "_rlast",
-    };
-
     void extern_ports(const std::vector<std::string> &portnames, Module *module, bool rename) {
         std::vector<std::string> realportnames;
 
@@ -294,8 +252,18 @@ struct ExternWorker {
 
             std::string newname;
             if (rename) {
-                Cell *cell = hier.instance_of(module);
-                newname = cell->name.substr(1) + "_" + name;
+                Module *scope = module;
+                std::vector<Cell *> stack;
+                while (Cell *cell = hier.instance_of(scope)) {
+                    stack.push_back(cell);
+                    scope = cell->module;
+                }
+                std::ostringstream ss;
+                for (auto it = stack.rbegin(); it != stack.rend(); ++it) {
+                    ss << (*it)->name.substr(1) << "_";
+                }
+                ss << name;
+                newname = ss.str();
             }
             else {
                 newname = name;
@@ -319,32 +287,6 @@ struct ExternWorker {
                 hier.connect(top_wire, wire);
         }
         hier.top->fixup_ports();
-    }
-
-    void extern_axi_ports(const std::vector<std::string> &axinames, Module *module) {
-        int count = 0;
-        if (hier.top->has_attribute("\\__emu_axi_count"))
-            count = hier.top->attributes.at("\\__emu_axi_count").as_int();
-
-        for (auto &name : axinames) {
-            log("Module %s: extern axi port %s\n", log_id(module), name.c_str());
-            for (auto &suffix : axi_suffixes) {
-                Wire *wire = module->wire("\\" + name + suffix);
-                if (wire) {
-                    IdString top_wire_id = stringf("\\emu_axi_%d_", count) + wire->name.substr(1);
-                    Wire *top_wire = hier.top->addWire(top_wire_id, wire);
-
-                    if (wire->port_input)
-                        hier.connect(wire, top_wire);
-                    else
-                        hier.connect(top_wire, wire);
-                }
-            }
-            count++;
-        }
-        hier.top->fixup_ports();
-
-        hier.top->attributes["\\__emu_axi_count"] = Const(count);
     }
 
     ExternWorker(Design *design) : hier(design) {}
@@ -417,15 +359,10 @@ struct ExternHandler : public DirectiveHandler {
     ExternHandler() : DirectiveHandler("extern") {}
     virtual void execute(std::vector<std::string> args, Module *module) override {
         std::vector<std::string> ports;
-        bool axi = false;
         bool rename = false;
 
         size_t argidx;
         for (argidx = 1; argidx < args.size(); argidx++) {
-            if (args[argidx] == "-axi") {
-                axi = true;
-                continue;
-            }
             if (args[argidx] == "-rename") {
                 rename = true;
                 continue;
@@ -438,10 +375,7 @@ struct ExternHandler : public DirectiveHandler {
             log_error("Module %s: extern: port list required\n", log_id(module));
 
         ExternWorker worker(module->design);
-        if (axi)
-            worker.extern_axi_ports(ports, module);
-        else
-            worker.extern_ports(ports, module, rename);
+        worker.extern_ports(ports, module, rename);
     }
 } ExternHandler;
 

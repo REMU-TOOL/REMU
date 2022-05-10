@@ -58,6 +58,8 @@ struct DesignHierarchy {
                     inst_map[tpl] = cell;
             }
         }
+
+        inst_map[top] = nullptr;
     }
 
     Cell *instance_of(Module *module) const {

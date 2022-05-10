@@ -7,8 +7,8 @@
 (* keep, __emu_directive = {
     "extern host_clk;",
     "extern host_rst;",
-    "extern -axi host_axi;",
-    "extern -axi lsu_axi;",
+    "extern -rename host_axi_*;",
+    "extern -rename lsu_axi_*;",
     "extern target_fire;",
     "extern stall;",
     "extern up_req;",

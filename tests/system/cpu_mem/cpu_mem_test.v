@@ -54,8 +54,8 @@ module sim_top();
         .s_axilite_bresp            (),
 
         `AXI4_CONNECT               (m_axi, m_axi),
-        `AXI4_CONNECT               (emu_axi_0_host_axi, mem_axi),
-        `AXI4_CONNECT_NO_ID         (emu_axi_1_lsu_axi, lsu_axi)
+        `AXI4_CONNECT               (uncore_u_rammodel_host_axi, mem_axi),
+        `AXI4_CONNECT_NO_ID         (uncore_u_rammodel_lsu_axi, lsu_axi)
     );
 
     assign mem_axi_bresp = 2'b00;

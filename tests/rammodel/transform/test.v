@@ -221,8 +221,8 @@ module test #(
         .emu_down_req       (down_req),
         .emu_up_stat        (up),
         .emu_down_stat      (down),
-        `AXI4_CONNECT       (emu_axi_0_host_axi, m_axi),
-        `AXI4_CONNECT_NO_ID (emu_axi_1_lsu_axi, lsu_axi)
+        `AXI4_CONNECT       (u_rammodel_host_axi, m_axi),
+        `AXI4_CONNECT_NO_ID (u_rammodel_lsu_axi, lsu_axi)
     );
 
     assign lsu_axi_arid = 0;
