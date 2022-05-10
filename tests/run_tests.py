@@ -2,6 +2,28 @@
 
 import os
 import sys
+import subprocess
+
+def run_cmd(cmd, log):
+    process = subprocess.Popen(
+        'stdbuf -o0 ' + cmd,
+        shell=True,
+        bufsize=0,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT
+    )
+
+    tee_process = subprocess.Popen(
+        f"tee {log}",
+        shell=True,
+        bufsize=0,
+        stdin=process.stdout
+    )
+
+    process.wait()
+    tee_process.wait()
+    return process.returncode
 
 def get_list(suite=None):
     path = os.path.dirname(__file__) + "/"
@@ -69,17 +91,19 @@ FAIL_TEXT = "\033[31m[FAIL]\033[39m"
 path = os.path.dirname(__file__)
 
 if command == 'run':
+    os.makedirs(f"{path}/log", exist_ok=True)
     results = []
 
     for (suite, test) in included_tests:
         print(f"Running {suite}.{test} ...", file=sys.stderr)
-        rc = os.system(f"cd {path} && stdbuf -o0 make -C {suite}/{test} | tee {suite}.{test}.log")
+        log = f"{path}/log/{suite}.{test}.log"
+        rc = run_cmd(f"make -C {path}/{suite}/{test}", log)
         passed = True
 
         if rc != 0:
             passed = False
 
-        with open(f"{path}/{suite}.{test}.log", 'r') as f:
+        with open(log, 'r') as f:
             text = f.read()
             if 'failed' in text: # workaround for cocotb test
                 passed = False
@@ -93,4 +117,4 @@ elif command == 'clean':
     for (suite, test) in included_tests:
         print(f"Cleaning {suite}.{test} ...", file=sys.stderr)
         os.system(f"cd {path} && make -C {suite}/{test} clean")
-        os.system(f"cd {path} && rm -f {suite}.{test}.log")
+        os.system(f"cd {path} && rm -rf log")

@@ -21,4 +21,6 @@ install/
 
 design/build/
 
+tests/log/
+
 .vscode/
