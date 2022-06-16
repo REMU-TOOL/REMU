@@ -28,17 +28,17 @@ module EmuTrace #(
     wire decoupled_valid = target_fire && valid;
     wire rs_ready;
 
-    emulib_register_slice #(
+    emulib_pipeline_skid_buffer #(
         .DATA_WIDTH (DATA_WIDTH)
     ) u_reg_slice (
         .clk        (host_clk),
-        .resetn     (!host_rst),
-        .s_valid    (decoupled_valid),
-        .s_data     (data),
-        .s_ready    (rs_ready),
-        .m_valid    (trace_valid),
-        .m_data     (trace_data),
-        .m_ready    (trace_ready)
+        .rst        (host_rst),
+        .i_valid    (decoupled_valid),
+        .i_data     (data),
+        .i_ready    (rs_ready),
+        .o_valid    (trace_valid),
+        .o_data     (trace_data),
+        .o_ready    (trace_ready)
     );
 
     assign stall = valid && !rs_ready;
