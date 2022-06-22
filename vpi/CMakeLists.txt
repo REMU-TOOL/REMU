@@ -1,8 +1,9 @@
-project(replay)
-
 find_package(Boost 1.36.0 REQUIRED COMPONENTS filesystem iostreams)
 
+project(replay)
+
 file(GLOB replay-sources "*.cc")
+list(REMOVE_ITEM replay-sources "scdump.cc")
 
 add_library(replay SHARED ${replay-sources})
 
@@ -27,4 +28,23 @@ target_link_options(replay PRIVATE
 
 install(TARGETS replay
     LIBRARY DESTINATION share/recheck
+)
+
+project(scdump)
+
+add_executable(scdump
+    scdump.cc
+    loader.cc
+    checkpoint.cc
+)
+
+include_directories(${Boost_INCLUDE_DIRS})
+
+target_link_libraries(scdump PRIVATE
+    yaml-cpp
+    ${Boost_LIBRARIES}
+)
+
+install(TARGETS scdump
+    DESTINATION bin
 )
