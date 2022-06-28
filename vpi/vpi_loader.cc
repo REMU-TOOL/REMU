@@ -31,14 +31,17 @@ void vpi_load_value(vpiHandle obj, uint64_t data, int width, int offset) {
     value.format = vpiVectorVal;
     vpi_get_value(obj, &value);
 
-    for (int i = 0; i < size; i += 32) {
+    int start = offset & ~31;
+    int end = std::min(offset + width, size);
+    for (int i = start; i < end; i += 32) {
         auto &aval = value.value.vector[i/32].aval;
         auto &bval = value.value.vector[i/32].bval;
         int o = std::max(std::min(offset - i, 32), 0);
         int w = std::max(std::min(32 - o, offset + width - i), 0);
         int mask = bitmask<int>(w) << o;
-        aval = ((data >> i) & mask) | (aval & ~mask);
+        aval = ((data << o) & mask) | (aval & ~mask);
         bval = bval & ~mask;
+        data >>= w;
     }
 
     vpi_put_value(obj, &value, 0, vpiNoDelay);
