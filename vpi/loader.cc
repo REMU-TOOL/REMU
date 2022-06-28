@@ -59,7 +59,7 @@ bool BaseLoader::load() {
         config = YAML::LoadFile(m_sc_file);
     }
     catch (YAML::BadFile &e) {
-        std::cerr << "ERROR: Cannot load yaml file" << m_sc_file << std::endl;
+        std::cerr << "ERROR: Cannot load yaml file " << m_sc_file << std::endl;
         return false;
     }
 
