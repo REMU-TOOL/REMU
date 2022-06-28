@@ -83,6 +83,8 @@ void DesignHierarchy::set(Design *design) {
             !module->get_bool_attribute(ID::top))
             log_error("Module %s is not unique. Run uniquify first.\n", log_id(module));
 
+        children_dict[module].clear();
+
         for (auto cell : module->cells()) {
             Module *tpl = design->module(cell->type);
             if (tpl) {
@@ -144,12 +146,28 @@ void DesignConnectivity::analyze() {
             if (hier.design->has(cell->type)) {
                 Module *tpl = hier.design->module(cell->type);
                 for (IdString port : tpl->ports) {
+                    if (!cell->hasPort(port))
+                        continue;
+
                     Wire *tpl_wire = tpl->wire(port);
-                    SigSpec port_sig = cell->getPort(port);
-                    if (tpl_wire->port_input)
-                        sigmap.add(tpl_wire, port_sig);
-                    if (tpl_wire->port_output)
-                        sigmap.add(port_sig, tpl_wire);
+                    SigSpec outer = cell->getPort(port);
+                    SigSpec inner = SigSpec(tpl_wire);
+
+                    if (tpl_wire->port_input && tpl_wire->port_output)
+                        log_error("DesignConnectivity: inout port %s is currently unsupported\n",
+                            hier.full_name_of(tpl_wire).c_str()
+                        );
+
+                    if (tpl_wire->port_input) {
+                        bool is_signed = outer.is_wire() && outer.as_wire()->is_signed;
+                        outer.extend_u0(GetSize(inner), is_signed);
+                        sigmap.add(inner, outer);
+                    }
+                    if (tpl_wire->port_output) {
+                        bool is_signed = tpl_wire->is_signed;
+                        inner.extend_u0(GetSize(outer), is_signed);
+                        sigmap.add(outer, inner);
+                    }
                 }
             }
         }
