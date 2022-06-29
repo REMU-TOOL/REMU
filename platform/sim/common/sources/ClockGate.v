@@ -3,13 +3,13 @@
 module ClockGate(
     input CLK,
     input EN,
-    output GCLK
+    output OCLK
 );
 
     reg en_latch;
     always @(CLK or EN)
         if (~CLK)
             en_latch = EN;
-    assign GCLK = CLK & en_latch;
+    assign OCLK = CLK & en_latch;
 
 endmodule

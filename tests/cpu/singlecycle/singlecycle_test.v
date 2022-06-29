@@ -21,13 +21,13 @@ module sim_top();
     ClockGate dut_ff_gate(
         .CLK(clk),
         .EN(!pause || ff_scan),
-        .GCLK(dut_ff_clk)
+        .OCLK(dut_ff_clk)
     );
 
     ClockGate dut_ram_gate(
         .CLK(clk),
         .EN(!pause || ram_scan),
-        .GCLK(dut_ram_clk)
+        .OCLK(dut_ram_clk)
     );
 
     EMU_DUT emu_dut(
@@ -49,7 +49,7 @@ module sim_top();
     ClockGate ref_gate(
         .CLK(clk),
         .EN(!pause),
-        .GCLK(ref_clk)
+        .OCLK(ref_clk)
     );
 
     emu_top emu_ref();

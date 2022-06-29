@@ -171,7 +171,7 @@ module sim_top();
     ClockGate ref_clk_gate(
         .CLK(clk),
         .EN(u_emu_system.controller.emu_target_fire),
-        .GCLK(ref_clk)
+        .OCLK(ref_clk)
     );
 
     assign emu_ref.clock.clock = ref_clk;

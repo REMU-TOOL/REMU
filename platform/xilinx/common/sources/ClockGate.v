@@ -3,11 +3,11 @@
 module ClockGate(
     input CLK,
     input EN,
-    output GCLK
+    output OCLK
 );
 
     BUFGCE u_bufgce (
-        .O(GCLK),
+        .O(OCLK),
         .CE(EN),
         .I(CLK)
     );

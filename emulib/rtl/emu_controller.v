@@ -48,7 +48,7 @@ module emu_controller #(
     ClockGate clk_gate(
         .CLK(clk),
         .EN(emu_host_clk_en),
-        .GCLK(emu_host_clk)
+        .OCLK(emu_host_clk)
     );
 
     wire emu_dut_clk_en;
@@ -57,14 +57,14 @@ module emu_controller #(
     ClockGate dut_ff_clk_gate(
         .CLK(clk),
         .EN(emu_dut_ff_clk_en),
-        .GCLK(emu_dut_ff_clk)
+        .OCLK(emu_dut_ff_clk)
     );
 
     wire emu_dut_ram_clk_en;
     ClockGate dut_ram_clk_gate(
         .CLK(clk),
         .EN(emu_dut_ram_clk_en),
-        .GCLK(emu_dut_ram_clk)
+        .OCLK(emu_dut_ram_clk)
     );
 
     /*
