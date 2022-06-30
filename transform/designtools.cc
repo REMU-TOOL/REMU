@@ -73,12 +73,13 @@ escape:
     return "\\" + name + " ";
 }
 
-void DesignHierarchy::set(Design *design) {
-    this->design = design;
-    top = design->top_module();
-    inst_dict.clear();
+void DesignInfo::setup() {
 
-    for (auto module : design->modules()) {
+    comb_cell_types.setup_internals();
+    comb_cell_types.setup_stdcells();
+    ct.setup();
+
+    for (auto module : design_->modules()) {
         if (!module->get_bool_attribute(ID::unique) &&
             !module->get_bool_attribute(ID::top))
             log_error("Module %s is not unique. Run uniquify first.\n", log_id(module));
@@ -86,7 +87,7 @@ void DesignHierarchy::set(Design *design) {
         children_dict[module].clear();
 
         for (auto cell : module->cells()) {
-            Module *tpl = design->module(cell->type);
+            Module *tpl = design_->module(cell->type);
             if (tpl) {
                 inst_dict[tpl] = cell;
                 children_dict[module].insert(tpl);
@@ -94,57 +95,17 @@ void DesignHierarchy::set(Design *design) {
         }
     }
 
-    inst_dict[top] = nullptr;
-}
-
-DesignHierarchy::Path DesignHierarchy::path_of(Module *mod) const {
-    Path res, stack;
-
-    for (; mod != top; mod = inst_dict.at(mod)->module)
-        stack.push_back(mod);
-
-    stack.push_back(top);
-
-    for (auto it = stack.rbegin(); it != stack.rend(); ++it)
-        res.push_back(*it);
-
-    return res;
-}
-
-std::vector<std::string> DesignHierarchy::scope_of(Module *mod) const {
-    std::vector<std::string> res, stack;
-
-    while (mod != top) {
-        Cell *cell = inst_dict.at(mod);
-        stack.push_back(name_of(cell->name));
-        mod = cell->module;
-    }
-
-    stack.push_back(name_of(top->name));
-
-    for (auto it = stack.rbegin(); it != stack.rend(); ++it)
-        res.push_back(*it);
-
-    return res;
-}
-
-void DesignConnectivity::analyze() {
-
-    ct.clear();
-    ct.setup();
-    sigmap.clear();
-    signal_drivers.clear();
-    signal_consumers.clear();
+    inst_dict[top_] = nullptr;
 
     // Add wire connections to sigmap
 
-    for (Module *module : hier.design->modules()) {
+    for (Module *module : design_->modules()) {
         for (auto &conn : module->connections())
             sigmap.add(conn.first, conn.second);
 
         for (Cell *cell : module->cells()) {
-            if (hier.design->has(cell->type)) {
-                Module *tpl = hier.design->module(cell->type);
+            if (design_->has(cell->type)) {
+                Module *tpl = design_->module(cell->type);
                 for (IdString port : tpl->ports) {
                     if (!cell->hasPort(port))
                         continue;
@@ -155,7 +116,7 @@ void DesignConnectivity::analyze() {
 
                     if (tpl_wire->port_input && tpl_wire->port_output)
                         log_error("DesignConnectivity: inout port %s is currently unsupported\n",
-                            hier.full_name_of(tpl_wire).c_str()
+                            full_name_of(tpl_wire).c_str()
                         );
 
                     if (tpl_wire->port_input) {
@@ -175,7 +136,7 @@ void DesignConnectivity::analyze() {
 
     // Add port connections to driver & consumer dict
 
-    for (Module *module : hier.design->modules()) {
+    for (Module *module : design_->modules()) {
         for (Cell *cell : module->cells()) {
             if (ct.cell_known(cell->type)) {
                 for (auto &conn : cell->connections()) {
@@ -199,21 +160,51 @@ void DesignConnectivity::analyze() {
 
     for (auto &it : signal_drivers) {
         if (it.second.size() > 1) {
-            log("Multiple drivers found for signal %s:\n", hier.full_name_of(it.first).c_str());
+            log("Multiple drivers found for signal %s:\n", full_name_of(it.first).c_str());
             for (auto &driver : it.second) {
                 std::string name;
                 std::ostringstream ss;
-                ss << hier.full_name_of(driver.cell) << "[" << driver.offset << "]";
+                ss << full_name_of(driver.cell) << "[" << driver.offset << "]";
                 name = ss.str();
                 log("    %s\n", name.c_str());
             }
             log_error("Multiple drivers are not allowed\n");
         }
     }
-
 }
 
-pool<SigBit> DesignConnectivity::find_dependencies(pool<SigBit> target, pool<SigBit> candidate) {
+DesignInfo::Path DesignInfo::path_of(Module *mod) const {
+    Path res, stack;
+
+    for (; mod != top_; mod = inst_dict.at(mod)->module)
+        stack.push_back(mod);
+
+    stack.push_back(top_);
+
+    for (auto it = stack.rbegin(); it != stack.rend(); ++it)
+        res.push_back(*it);
+
+    return res;
+}
+
+std::vector<std::string> DesignInfo::scope_of(Module *mod) const {
+    std::vector<std::string> res, stack;
+
+    while (mod != top_) {
+        Cell *cell = inst_dict.at(mod);
+        stack.push_back(name_of(cell->name));
+        mod = cell->module;
+    }
+
+    stack.push_back(name_of(top_->name));
+
+    for (auto it = stack.rbegin(); it != stack.rend(); ++it)
+        res.push_back(*it);
+
+    return res;
+}
+
+pool<SigBit> DesignInfo::find_dependencies(pool<SigBit> target, pool<SigBit> candidate) {
     bool find_all = candidate.empty();
     pool<SigBit> result;
     pool<SigBit> visited;
@@ -273,11 +264,11 @@ void HierconnBuilder::connect(Wire *lhs, Wire *rhs) {
 
     int size = GetSize(lhs);
 
-    auto lpath = hier.path_of(lhs);
-    auto rpath = hier.path_of(rhs);
+    auto lpath = designinfo.path_of(lhs);
+    auto rpath = designinfo.path_of(rhs);
 
     // Find parent in common
-    Module *parent = hier.top;
+    Module *parent = designinfo.top();
     for (auto lit = lpath.begin(), rit = rpath.begin();
         lit != lpath.end() && rit != rpath.end() && *lit == *rit;
         ++lit, ++rit)
@@ -302,7 +293,7 @@ void HierconnBuilder::connect(Wire *lhs, Wire *rhs) {
     Wire *lwire = lhs;
     for (Module *scope = lpath.back(); scope != parent; ) {
         lwire->port_input = true; scope->fixup_ports();
-        Cell *inst = hier.instance_of(scope);
+        Cell *inst = designinfo.instance_of(scope);
         scope = inst->module;
         Wire *outer = scope->addWire(scope->uniquify(conn_name), size);
         inst->setPort(lwire->name, outer);
@@ -313,7 +304,7 @@ void HierconnBuilder::connect(Wire *lhs, Wire *rhs) {
     Wire *rwire = rhs;
     for (Module *scope = rpath.back(); scope != parent; ) {
         rwire->port_output = true; scope->fixup_ports();
-        Cell *inst = hier.instance_of(scope);
+        Cell *inst = designinfo.instance_of(scope);
         scope = inst->module;
         Wire *outer = scope->addWire(scope->uniquify(conn_name), size);
         inst->setPort(rwire->name, outer);
@@ -322,89 +313,6 @@ void HierconnBuilder::connect(Wire *lhs, Wire *rhs) {
 
     // Connect topmost wires
     parent->connect(lwire, rwire);
-}
-
-void ClockTreeAnalyzer::analyze() {
-    std::queue<SigBit> worklist;
-
-    clocks.clear();
-
-    // Add clock signals of all ffs & mems to work list
-
-    pool<SigBit> siglist;
-
-    for (Module *module : hier.design->modules()) {
-        for (Cell *cell : module->cells()) {
-            if (RTLIL::builtin_ff_cell_types().count(cell->type) == 0)
-                continue;
-
-            FfData ff(nullptr, cell);
-            if (!ff.has_clk)
-                continue;
-
-            siglist.insert(ff.sig_clk);
-        }
-
-        auto memlist = Mem::get_all_memories(module);
-        for (auto &mem : memlist) {
-            for (auto &rd : mem.rd_ports)
-                if (rd.clk_enable)
-                    siglist.insert(rd.clk);
-            for (auto &wr : mem.wr_ports)
-                if (wr.clk_enable)
-                    siglist.insert(wr.clk);
-        }
-    }
-
-    for (SigBit sig : siglist)
-        worklist.push(sig);
-
-    while (!worklist.empty()) {
-        SigBit clk = worklist.front();
-        worklist.pop();
-
-        if (!clk.is_wire())
-            continue;
-
-        // Add this clock
-
-        clocks.promote(clk);
-
-        // Find & add the source clock in this module
-
-        Module *module = clk.wire->module;
-        SigMap &sigmap = sigmap_cache[module];
-        sigmap.apply(clk);
-        clocks.promote(clk);
-
-        // Identify & add input clock from parent module
-
-        if (clk.wire->port_input) {
-            Cell *inst = hier.instance_of(module);
-            SigBit parent_clk = inst->getPort(clk.wire->name)[clk.offset];
-            clocks.merge(clk, parent_clk);
-            worklist.push(parent_clk);
-        }
-
-        // Identify & add output clock from child module
-
-        ModWalker &modwalker = modwalker_cache[module];
-
-        pool<ModWalker::PortBit> portbits;
-        modwalker.get_drivers(portbits, SigSpec(clk));
-
-        for (auto &portbit : portbits) {
-            Cell *cell = portbit.cell;
-
-            Module *tpl = hier.design->module(cell->type);
-            if (tpl == nullptr)
-                continue;
-
-            SigBit child_clk = SigBit(tpl->wire(portbit.port), portbit.offset);
-            clocks.merge(clk, child_clk);
-            worklist.push(child_clk);
-        }
-    }
 }
 
 PRIVATE_NAMESPACE_BEGIN
@@ -416,8 +324,7 @@ struct DtFindDriverPass : public Pass {
         extra_args(args, 1, design);
         log_header(design, "Executing DT_FIND_DRIVER pass.\n");
 
-        DesignHierarchy hier(design);
-        DesignConnectivity conn(hier);
+        DesignInfo info(design);
 
         pool<SigBit> selection;
         for (Module *module : design->selected_modules())
@@ -426,10 +333,10 @@ struct DtFindDriverPass : public Pass {
                     selection.insert(bit);
 
         for (SigBit &bit : selection) {
-            log("Drivers of %s:\n", hier.full_name_of(bit).c_str());
-            auto portbits = conn.get_drivers(bit);
+            log("Drivers of %s:\n", info.full_name_of(bit).c_str());
+            auto portbits = info.get_drivers(bit);
             for (auto &portbit : portbits) {
-                log("  - %s.%s[%d]\n", hier.full_name_of(portbit.cell).c_str(), log_id(portbit.port), portbit.offset);
+                log("  - %s.%s[%d]\n", info.full_name_of(portbit.cell).c_str(), log_id(portbit.port), portbit.offset);
             }
             log("------------------------------\n");
         }
@@ -443,8 +350,7 @@ struct DtFindConsumerPass : public Pass {
         extra_args(args, 1, design);
         log_header(design, "Executing DT_FIND_CONSUMER pass.\n");
 
-        DesignHierarchy hier(design);
-        DesignConnectivity conn(hier);
+        DesignInfo info(design);
 
         pool<SigBit> selection;
         for (Module *module : design->selected_modules())
@@ -453,10 +359,10 @@ struct DtFindConsumerPass : public Pass {
                     selection.insert(bit);
 
         for (SigBit &bit : selection) {
-            log("Consumers of %s:\n", hier.full_name_of(bit).c_str());
-            auto portbits = conn.get_consumers(bit);
+            log("Consumers of %s:\n", info.full_name_of(bit).c_str());
+            auto portbits = info.get_consumers(bit);
             for (auto &portbit : portbits) {
-                log("  - %s.%s[%d]\n", hier.full_name_of(portbit.cell).c_str(), log_id(portbit.port), portbit.offset);
+                log("  - %s.%s[%d]\n", info.full_name_of(portbit.cell).c_str(), log_id(portbit.port), portbit.offset);
             }
             log("------------------------------\n");
         }
@@ -470,8 +376,7 @@ struct DtFindDependencyPass : public Pass {
         extra_args(args, 1, design);
         log_header(design, "Executing DT_FIND_DEPENDENCY pass.\n");
 
-        DesignHierarchy hier(design);
-        DesignConnectivity conn(hier);
+        DesignInfo info(design);
 
         pool<SigBit> selection;
         for (Module *module : design->selected_modules())
@@ -480,10 +385,10 @@ struct DtFindDependencyPass : public Pass {
                     selection.insert(bit);
 
         for (SigBit &bit : selection) {
-            log("Dependencies of %s:\n", hier.full_name_of(bit).c_str());
-            auto deps = conn.find_dependencies({bit}, {});
+            log("Dependencies of %s:\n", info.full_name_of(bit).c_str());
+            auto deps = info.find_dependencies({bit}, {});
             for (auto &dep : deps) {
-                log("  - %s\n", hier.full_name_of(dep).c_str());
+                log("  - %s\n", info.full_name_of(dep).c_str());
             }
             log("------------------------------\n");
         }

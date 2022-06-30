@@ -41,16 +41,54 @@ struct ModWalkerCache {
 
 // Hierarchy representation for a uniquified design
 
-struct DesignHierarchy {
+class DesignInfo {
+
+public:
 
     using Path = std::vector<Module *>;
 
-    Design *design;
-    Module *top;
+    struct PortBit {
+        Cell *cell;
+        IdString port;
+        int offset;
+
+        bool operator<(const PortBit &other) const {
+            if (cell != other.cell)
+                return cell < other.cell;
+            if (port != other.port)
+                return port < other.port;
+            return offset < other.offset;
+        }
+
+        bool operator==(const PortBit &other) const {
+            return cell == other.cell && port == other.port && offset == other.offset;
+        }
+
+        unsigned int hash() const {
+            return mkhash_add(mkhash(cell->name.hash(), port.hash()), offset);
+        }
+    };
+
+private:
+
+    Design *design_;
+    Module *top_;
     dict<Module *, Cell *> inst_dict;
     dict<Module *, pool<Module *>> children_dict;
 
-    void set(Design *design);
+    CellTypes ct;
+    SigMap sigmap;
+    dict<SigBit, pool<PortBit>> signal_drivers;
+    dict<SigBit, pool<PortBit>> signal_consumers;
+
+    CellTypes comb_cell_types;
+
+    void setup();
+
+public:
+
+    Design *design() const { return design_; }
+    Module *top() const { return top_; }
 
     Cell *instance_of(Module *module) const {
         return inst_dict.at(module);
@@ -107,46 +145,6 @@ struct DesignHierarchy {
             return Const(bit.data).as_string();
     }
 
-    DesignHierarchy(Design *design) {
-        set(design);
-    }
-
-};
-
-struct DesignConnectivity {
-
-    struct PortBit {
-        Cell *cell;
-        IdString port;
-        int offset;
-
-        bool operator<(const PortBit &other) const {
-            if (cell != other.cell)
-                return cell < other.cell;
-            if (port != other.port)
-                return port < other.port;
-            return offset < other.offset;
-        }
-
-        bool operator==(const PortBit &other) const {
-            return cell == other.cell && port == other.port && offset == other.offset;
-        }
-
-        unsigned int hash() const {
-            return mkhash_add(mkhash(cell->name.hash(), port.hash()), offset);
-        }
-    };
-
-    DesignHierarchy &hier;
-    CellTypes ct;
-    SigMap sigmap;
-    dict<SigBit, pool<PortBit>> signal_drivers;
-    dict<SigBit, pool<PortBit>> signal_consumers;
-
-    CellTypes comb_cell_types;
-
-    void analyze();
-
     pool<PortBit> get_drivers(SigBit bit) const {
         sigmap.apply(bit);
         if (signal_drivers.count(bit) > 0)
@@ -166,10 +164,8 @@ struct DesignConnectivity {
     // Find signals in candidate (if not empty) list combinationally depended on by target list
     pool<SigBit> find_dependencies(pool<SigBit> target, pool<SigBit> candidate);
 
-    DesignConnectivity(DesignHierarchy &hier) : hier(hier) {
-        comb_cell_types.setup_internals();
-        comb_cell_types.setup_stdcells();
-        analyze();
+    DesignInfo(Design *design) : design_(design), top_(design->top_module()) {
+        setup();
     }
 
 };
@@ -177,34 +173,9 @@ struct DesignConnectivity {
 // Hierarchical connection builder
 
 struct HierconnBuilder {
-    DesignHierarchy &hier;
+    DesignInfo &designinfo;
     void connect(Wire *lhs, Wire *rhs);
-    HierconnBuilder(DesignHierarchy &hier) : hier(hier) {}
-};
-
-// Design clock tree analyzer
-
-struct ClockTreeAnalyzer {
-
-    DesignHierarchy &hier;
-    mfp<SigBit> clocks;
-    SigMapCache sigmap_cache;
-    ModWalkerCache modwalker_cache;
-
-    void analyze();
-
-    void add_root_clock(SigBit clock) {
-        clocks.promote(clock);
-    }
-
-    SigBit find_root_clock(SigBit clock) {
-        return clocks.find(clock);
-    }
-
-    ClockTreeAnalyzer(DesignHierarchy &hier) : hier(hier) {
-        analyze();
-    }
-
+    HierconnBuilder(DesignInfo &info) : designinfo(info) {}
 };
 
 } // namespace Emu
