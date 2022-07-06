@@ -3,7 +3,6 @@
 
 #include "kernel/yosys.h"
 #include "kernel/celltypes.h"
-#include "kernel/modtools.h"
 
 #include <sstream>
 
@@ -18,26 +17,6 @@ public:
 };
 
 extern class VerilogIdEscape VerilogIdEscape;
-
-struct SigMapCache {
-    dict<Module*, SigMap> module_sigmap;
-
-    SigMap &operator[](Module *module) {
-        if (!module_sigmap.count(module))
-            module_sigmap.insert({module, SigMap(module)});
-        return module_sigmap.at(module);
-    }
-};
-
-struct ModWalkerCache {
-    dict<Module*, ModWalker> module_walker;
-
-    ModWalker &operator[](Module *module) {
-        if (!module_walker.count(module))
-            module_walker.insert({module, ModWalker(module->design, module)});
-        return module_walker.at(module);
-    }
-};
 
 // Hierarchy representation for a uniquified design
 
@@ -83,9 +62,9 @@ private:
 
     CellTypes comb_cell_types;
 
-    void setup();
-
 public:
+
+    void setup(Design *design);
 
     Design *design() const { return design_; }
     Module *top() const { return top_; }
@@ -138,11 +117,44 @@ public:
     std::string full_name_of(SigBit bit) const {
         if (bit.is_wire()) {
             std::ostringstream ss;
-            ss << full_name_of(bit.wire) << "[" << bit.offset << "]";
+            ss << full_name_of(bit.wire);
+            if (bit.wire->width != 1)
+                ss << stringf("[%d]", bit.wire->start_offset + bit.offset);
+            return ss.str();
+        }
+        else
+            return Const(bit.data).as_string();
+    }
+
+    std::string full_name_of(SigChunk chunk) const {
+        if (chunk.is_wire()) {
+            std::ostringstream ss;
+            ss << full_name_of(chunk.wire);
+            if (chunk.size() != chunk.wire->width) {
+                if (chunk.size() == 1)
+                    ss << stringf("[%d]", chunk.wire->start_offset + chunk.offset);
+                else if (chunk.wire->upto)
+                    ss << stringf("[%d:%d]", (chunk.wire->width - (chunk.offset + chunk.width - 1) - 1) + chunk.wire->start_offset,
+                            (chunk.wire->width - chunk.offset - 1) + chunk.wire->start_offset);
+                else
+                    ss << stringf("[%d:%d]", chunk.wire->start_offset + chunk.offset + chunk.width - 1,
+                            chunk.wire->start_offset + chunk.offset);
+            }
             return ss.str();
         }
         else 
-            return Const(bit.data).as_string();
+            return Const(chunk.data).as_string();
+    }
+
+    bool check_hier_attr(IdString attr, Module *module) {
+        return module->get_bool_attribute(attr) ||
+            (instance_of(module) && check_hier_attr(attr, instance_of(module)));
+    }
+
+    template <typename T>
+    bool check_hier_attr(IdString attr, T *obj) {
+        return obj->get_bool_attribute(attr) ||
+            check_hier_attr(attr, obj->module);
     }
 
     pool<PortBit> get_drivers(SigBit bit) const {
@@ -164,8 +176,10 @@ public:
     // Find signals in candidate (if not empty) list combinationally depended on by target list
     pool<SigBit> find_dependencies(pool<SigBit> target, pool<SigBit> candidate);
 
-    DesignInfo(Design *design) : design_(design), top_(design->top_module()) {
-        setup();
+    DesignInfo() : design_(nullptr), top_(nullptr) {}
+
+    DesignInfo(Design *design) {
+        setup(design);
     }
 
 };

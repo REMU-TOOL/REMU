@@ -73,22 +73,31 @@ escape:
     return "\\" + name + " ";
 }
 
-void DesignInfo::setup() {
+void DesignInfo::setup(Design *design) {
 
+    design_ = design;
+    top_ = design->top_module();
+
+    inst_dict.clear();
+    children_dict.clear();
+
+    ct.clear();
+    ct.setup();
+    sigmap.clear();
+    signal_consumers.clear();
+    signal_drivers.clear();
+
+    comb_cell_types.clear();
     comb_cell_types.setup_internals();
     comb_cell_types.setup_stdcells();
-    ct.setup();
 
-    for (auto module : design_->modules()) {
-        if (!module->get_bool_attribute(ID::unique) &&
-            !module->get_bool_attribute(ID::top))
-            log_error("Module %s is not unique. Run uniquify first.\n", log_id(module));
-
+    for (auto module : design->modules()) {
         children_dict[module].clear();
-
         for (auto cell : module->cells()) {
-            Module *tpl = design_->module(cell->type);
+            Module *tpl = design->module(cell->type);
             if (tpl) {
+                if (inst_dict.count(tpl) != 0)
+                    log_error("Module %s is not unique. Run uniquify first.\n", log_id(tpl));
                 inst_dict[tpl] = cell;
                 children_dict[module].insert(tpl);
             }
@@ -99,13 +108,13 @@ void DesignInfo::setup() {
 
     // Add wire connections to sigmap
 
-    for (Module *module : design_->modules()) {
+    for (Module *module : design->modules()) {
         for (auto &conn : module->connections())
             sigmap.add(conn.first, conn.second);
 
         for (Cell *cell : module->cells()) {
-            if (design_->has(cell->type)) {
-                Module *tpl = design_->module(cell->type);
+            if (design->has(cell->type)) {
+                Module *tpl = design->module(cell->type);
                 for (IdString port : tpl->ports) {
                     if (!cell->hasPort(port))
                         continue;
@@ -115,7 +124,7 @@ void DesignInfo::setup() {
                     SigSpec inner = SigSpec(tpl_wire);
 
                     if (tpl_wire->port_input && tpl_wire->port_output)
-                        log_error("DesignConnectivity: inout port %s is currently unsupported\n",
+                        log_error("inout port %s is currently unsupported\n",
                             full_name_of(tpl_wire).c_str()
                         );
 
@@ -136,7 +145,7 @@ void DesignInfo::setup() {
 
     // Add port connections to driver & consumer dict
 
-    for (Module *module : design_->modules()) {
+    for (Module *module : design->modules()) {
         for (Cell *cell : module->cells()) {
             if (ct.cell_known(cell->type)) {
                 for (auto &conn : cell->connections()) {
@@ -162,11 +171,10 @@ void DesignInfo::setup() {
         if (it.second.size() > 1) {
             log("Multiple drivers found for signal %s:\n", full_name_of(it.first).c_str());
             for (auto &driver : it.second) {
-                std::string name;
-                std::ostringstream ss;
-                ss << full_name_of(driver.cell) << "[" << driver.offset << "]";
-                name = ss.str();
-                log("    %s\n", name.c_str());
+                log("    %s.%s[%d]\n",
+                    full_name_of(driver.cell).c_str(),
+                    log_id(driver.port),
+                    driver.offset);
             }
             log_error("Multiple drivers are not allowed\n");
         }
