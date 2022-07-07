@@ -77,14 +77,14 @@ public:
         return children_dict.at(module);
     }
 
-    Path path_of(Module *mod) const;
+    Path path_of(Module *mod, Module *scope = nullptr) const;
 
-    Path path_of(Cell *cell) const {
-        return path_of(cell->module);
+    Path path_of(Cell *cell, Module *scope = nullptr) const {
+        return path_of(cell->module, scope);
     }
 
-    Path path_of(Wire *wire) const {
-        return path_of(wire->module);
+    Path path_of(Wire *wire, Module *scope = nullptr) const {
+        return path_of(wire->module, scope);
     }
 
     std::string name_of(IdString &id) const {
@@ -92,32 +92,36 @@ public:
         return VerilogIdEscape(name);
     }
 
+    // obsolete
     std::vector<std::string> scope_of(Module *mod) const;
 
-    std::string full_name_of(Module *mod) const {
+    std::string hier_name_of(Module *mod, Module *scope = nullptr) const {
         std::ostringstream ss;
         bool is_first = true;
-        for (std::string name : scope_of(mod)) {
+        for (Module *m : path_of(mod, scope)) {
             if (is_first)
                 is_first = false;
             else
                 ss << ".";
-            ss << name;
+            if (m == top_)
+                ss << name_of(m->name);
+            else
+                ss << name_of(inst_dict.at(m)->name);
         }
         return ss.str();
     }
 
     template <typename T>
-    std::string full_name_of(T *obj) const {
+    std::string hier_name_of(T *obj, Module *scope = nullptr) const {
         std::ostringstream ss;
-        ss << full_name_of(obj->module) << "." << name_of(obj->name);
+        ss << hier_name_of(obj->module, scope) << "." << name_of(obj->name);
         return ss.str();
     }
 
-    std::string full_name_of(SigBit bit) const {
+    std::string hier_name_of(SigBit bit, Module *scope = nullptr) const {
         if (bit.is_wire()) {
             std::ostringstream ss;
-            ss << full_name_of(bit.wire);
+            ss << hier_name_of(bit.wire, scope);
             if (bit.wire->width != 1)
                 ss << stringf("[%d]", bit.wire->start_offset + bit.offset);
             return ss.str();
@@ -126,10 +130,10 @@ public:
             return Const(bit.data).as_string();
     }
 
-    std::string full_name_of(SigChunk chunk) const {
+    std::string hier_name_of(SigChunk chunk, Module *scope = nullptr) const {
         if (chunk.is_wire()) {
             std::ostringstream ss;
-            ss << full_name_of(chunk.wire);
+            ss << hier_name_of(chunk.wire, scope);
             if (chunk.size() != chunk.wire->width) {
                 if (chunk.size() == 1)
                     ss << stringf("[%d]", chunk.wire->start_offset + chunk.offset);
@@ -188,7 +192,7 @@ public:
 
 struct HierconnBuilder {
     DesignInfo &designinfo;
-    void connect(Wire *lhs, Wire *rhs);
+    void connect(Wire *lhs, Wire *rhs, std::string suggest_name = "");
     HierconnBuilder(DesignInfo &info) : designinfo(info) {}
 };
 

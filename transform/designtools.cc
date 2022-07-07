@@ -125,7 +125,7 @@ void DesignInfo::setup(Design *design) {
 
                     if (tpl_wire->port_input && tpl_wire->port_output)
                         log_error("inout port %s is currently unsupported\n",
-                            full_name_of(tpl_wire).c_str()
+                            hier_name_of(tpl_wire).c_str()
                         );
 
                     if (tpl_wire->port_input) {
@@ -169,10 +169,10 @@ void DesignInfo::setup(Design *design) {
 
     for (auto &it : signal_drivers) {
         if (it.second.size() > 1) {
-            log("Multiple drivers found for signal %s:\n", full_name_of(it.first).c_str());
+            log("Multiple drivers found for signal %s:\n", hier_name_of(it.first).c_str());
             for (auto &driver : it.second) {
                 log("    %s.%s[%d]\n",
-                    full_name_of(driver.cell).c_str(),
+                    hier_name_of(driver.cell).c_str(),
                     log_id(driver.port),
                     driver.offset);
             }
@@ -181,16 +181,18 @@ void DesignInfo::setup(Design *design) {
     }
 }
 
-DesignInfo::Path DesignInfo::path_of(Module *mod) const {
+DesignInfo::Path DesignInfo::path_of(Module *mod, Module *scope) const {
     Path res, stack;
 
-    for (; mod != top_; mod = inst_dict.at(mod)->module)
+    while (true) {
         stack.push_back(mod);
+        Cell *cell = inst_dict.at(mod);
+        if (!cell) break;
+        mod = cell->module;
+        if (mod == scope) break;
+    }
 
-    stack.push_back(top_);
-
-    for (auto it = stack.rbegin(); it != stack.rend(); ++it)
-        res.push_back(*it);
+    res.insert(res.end(), stack.rbegin(), stack.rend());
 
     return res;
 }
@@ -261,7 +263,7 @@ pool<SigBit> DesignInfo::find_dependencies(pool<SigBit> target, pool<SigBit> can
     return result;
 }
 
-void HierconnBuilder::connect(Wire *lhs, Wire *rhs) {
+void HierconnBuilder::connect(Wire *lhs, Wire *rhs, std::string suggest_name) {
     log_assert(GetSize(lhs) == GetSize(rhs));
 
     // Fast path for connection in the same module
@@ -284,7 +286,9 @@ void HierconnBuilder::connect(Wire *lhs, Wire *rhs) {
 
     // Process wire name
     IdString conn_name;
-    if (rhs->name[0] == '\\')
+    if (!suggest_name.empty())
+        conn_name = "\\" + suggest_name;
+    else if (rhs->name[0] == '\\')
         conn_name = rhs->name.str() + "_hierconn";
     else if (lhs->name[0] == '\\')
         conn_name = lhs->name.str() + "_hierconn";
@@ -319,6 +323,14 @@ void HierconnBuilder::connect(Wire *lhs, Wire *rhs) {
         rwire = outer;
     }
 
+    // Make one of the wires anonymous
+    if (lwire != lhs || rwire != rhs) {
+        if (rwire != rhs)
+            parent->rename(rwire, NEW_ID);
+        else if (lwire != lhs)
+            parent->rename(lwire, NEW_ID);
+    }
+
     // Connect topmost wires
     parent->connect(lwire, rwire);
 }
@@ -341,10 +353,10 @@ struct DtFindDriverPass : public Pass {
                     selection.insert(bit);
 
         for (SigBit &bit : selection) {
-            log("Drivers of %s:\n", info.full_name_of(bit).c_str());
+            log("Drivers of %s:\n", info.hier_name_of(bit).c_str());
             auto portbits = info.get_drivers(bit);
             for (auto &portbit : portbits) {
-                log("  - %s.%s[%d]\n", info.full_name_of(portbit.cell).c_str(), log_id(portbit.port), portbit.offset);
+                log("  - %s.%s[%d]\n", info.hier_name_of(portbit.cell).c_str(), log_id(portbit.port), portbit.offset);
             }
             log("------------------------------\n");
         }
@@ -367,10 +379,10 @@ struct DtFindConsumerPass : public Pass {
                     selection.insert(bit);
 
         for (SigBit &bit : selection) {
-            log("Consumers of %s:\n", info.full_name_of(bit).c_str());
+            log("Consumers of %s:\n", info.hier_name_of(bit).c_str());
             auto portbits = info.get_consumers(bit);
             for (auto &portbit : portbits) {
-                log("  - %s.%s[%d]\n", info.full_name_of(portbit.cell).c_str(), log_id(portbit.port), portbit.offset);
+                log("  - %s.%s[%d]\n", info.hier_name_of(portbit.cell).c_str(), log_id(portbit.port), portbit.offset);
             }
             log("------------------------------\n");
         }
@@ -393,10 +405,10 @@ struct DtFindDependencyPass : public Pass {
                     selection.insert(bit);
 
         for (SigBit &bit : selection) {
-            log("Dependencies of %s:\n", info.full_name_of(bit).c_str());
+            log("Dependencies of %s:\n", info.hier_name_of(bit).c_str());
             auto deps = info.find_dependencies({bit}, {});
             for (auto &dep : deps) {
-                log("  - %s\n", info.full_name_of(dep).c_str());
+                log("  - %s\n", info.hier_name_of(dep).c_str());
             }
             log("------------------------------\n");
         }
