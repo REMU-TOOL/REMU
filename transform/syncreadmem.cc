@@ -26,7 +26,8 @@
 #include "kernel/ff.h"
 #include "kernel/ffmerge.h"
 
-#include "emu.h"
+#include "transform.h"
+#include "database.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -220,13 +221,15 @@ struct MemQueryCache
 
 struct MemoryDffWorker
 {
-    
+
+    EmulationDatabase &database;
     Module *module;
     ModWalker modwalker;
     FfInitVals initvals;
     FfMergeHelper merger;
 
-    MemoryDffWorker(Module *module) : module(module), modwalker(module->design)
+    MemoryDffWorker(Module *module, EmulationDatabase &database)
+        : database(database), module(module), modwalker(module->design)
     {
         modwalker.setup(module);
         initvals.set(&modwalker.sigmap, module);
@@ -542,8 +545,8 @@ struct MemoryDffWorker
                 log("    Write port %d: non-transparent.\n", pi);
             }
         }
-        mem.set_string_attribute(stringf("\\emu_orig_rdata[%d]", idx), FfInfo(ff.sig_q, ff.val_init));
         mem.emit();
+        database.mem_sr_data.insert({mem.cell, idx});
     }
 
     void handle_rd_port_addr(Mem &mem, int idx)
@@ -599,8 +602,8 @@ struct MemoryDffWorker
         port.clk_polarity = ff.pol_clk;
         for (int i = 0; i < GetSize(mem.wr_ports); i++)
             port.transparency_mask[i] = true;
-        mem.set_string_attribute(stringf("\\emu_orig_raddr[%d]", idx), FfInfo(ff.sig_q, ff.val_init));
         mem.emit();
+        database.mem_sr_addr.insert({mem.cell, idx});
         log("merged address FF to cell.\n");
     }
 
@@ -623,33 +626,15 @@ struct MemoryDffWorker
     }
 };
 
-struct EmuOptRam : public Pass {
-    EmuOptRam() : Pass("emu_opt_ram", "identify synchronous memory port registers in emulator transformation") { }
-    void help() override
-    {
-        //   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
-        log("\n");
-        log("    emu_opt_ram [options] [selection]\n");
-        log("\n");
-        log("This pass is same to memory_dff except that it identifies synchronous memory port\n");
-        log("registers in emulator transformation.\n");
-        log("\n");
-    }
-    void execute(std::vector<std::string> args, RTLIL::Design *design) override
-    {
-        log_header(design, "Executing EMU_OPT_RAM pass.\n");
-
-        size_t argidx;
-        for (argidx = 1; argidx < args.size(); argidx++) {
-            break;
-        }
-        extra_args(args, argidx, design);
-
-        for (auto mod : design->selected_modules()) {
-            MemoryDffWorker worker(mod);
-            worker.run();
-        }
-    }
-} MemoryDffPass;
-
 PRIVATE_NAMESPACE_END
+
+void IdentifySyncReadMem::execute(EmulationRewriter &rewriter) {
+    auto &designinfo = rewriter.design();
+    Design *design = designinfo.design();
+    log_header(design, "Executing IdentifySyncReadMem.\n");
+    for (auto mod : design->modules()) {
+        MemoryDffWorker worker(mod, rewriter.database());
+        worker.run();
+    }
+    Pass::call(design, "opt_clean");
+}
