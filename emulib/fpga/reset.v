@@ -1,16 +1,13 @@
 `timescale 1 ns / 1 ps
 `default_nettype none
 
-(* keep, __emu_directive = {
-    "extern dut_rst;"
-} *)
-
+(* keep *)
 module EmuReset (
-    output wire reset,
-
-    input wire dut_rst
+    output wire reset
 );
 
+    (* __emu_dut_rst *)
+    wire dut_rst;
     assign reset = dut_rst;
 
 endmodule

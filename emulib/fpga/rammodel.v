@@ -4,19 +4,6 @@
 `include "axi.vh"
 `include "axi_custom.vh"
 
-(* keep, __emu_directive = {
-    "extern host_clk;",
-    "extern host_rst;",
-    "extern -rename host_axi_*;",
-    "extern -rename lsu_axi_*;",
-    "extern target_fire;",
-    "extern stall;",
-    "extern up_req;",
-    "extern down_req;",
-    "extern up_stat;",
-    "extern down_stat;"
-} *)
-
 module EmuRam #(
     parameter   ADDR_WIDTH      = 32,
     parameter   DATA_WIDTH      = 64,
@@ -30,21 +17,7 @@ module EmuRam #(
     input  wire                 clk,
     input  wire                 rst,
 
-    `AXI4_SLAVE_IF              (s_axi,    ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
-
-    input  wire                 host_clk,
-    input  wire                 host_rst,
-
-    `AXI4_MASTER_IF             (host_axi,      ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
-    `AXI4_MASTER_IF_NO_ID       (lsu_axi, 32, 32),
-
-    input  wire                 target_fire,
-    output wire                 stall,
-
-    input  wire                 up_req,
-    input  wire                 down_req,
-    output wire                 up_stat,
-    output wire                 down_stat
+    `AXI4_SLAVE_IF              (s_axi,    ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)
 
 );
 
@@ -88,8 +61,9 @@ module EmuRam #(
 
     wire                     rreq_valid;
     wire [ID_WIDTH-1:0]      rreq_id;
-    wire [DATA_WIDTH-1:0]    rreq_data;
-    wire                     rreq_last;
+
+    wire [DATA_WIDTH-1:0]    rresp_data;
+    wire                     rresp_last;
 
     emulib_rammodel_frontend #(
         .ADDR_WIDTH     (ADDR_WIDTH),
@@ -124,8 +98,9 @@ module EmuRam #(
 
         .rreq_valid             (rreq_valid),
         .rreq_id                (rreq_id),
-        .rreq_data              (rreq_data),
-        .rreq_last              (rreq_last)
+
+        .rresp_data             (rresp_data),
+        .rresp_last             (rresp_last)
 
     );
 
@@ -138,11 +113,8 @@ module EmuRam #(
     )
     backend (
 
-        .host_clk               (host_clk),
-        .host_rst               (host_rst),
-
-        .target_clk             (clk),
-        .target_rst             (rst),
+        .clk                    (clk),
+        .rst                    (rst),
 
         .areq_valid             (areq_valid),
         .areq_write             (areq_write),
@@ -162,19 +134,9 @@ module EmuRam #(
 
         .rreq_valid             (rreq_valid),
         .rreq_id                (rreq_id),
-        .rreq_data              (rreq_data),
-        .rreq_last              (rreq_last),
 
-        `AXI4_CONNECT           (host_axi, host_axi),
-        `AXI4_CONNECT_NO_ID     (lsu_axi, lsu_axi),
-
-        .target_fire            (target_fire),
-        .stall                  (stall),
-
-        .up_req                 (up_req),
-        .down_req               (down_req),
-        .up_stat                (up_stat),
-        .down_stat              (down_stat)
+        .rresp_data             (rresp_data),
+        .rresp_last             (rreap_last)
 
     );
 

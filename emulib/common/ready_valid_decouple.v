@@ -5,11 +5,11 @@ module emulib_ready_valid_decouple #(
     parameter   DECOUPLE_S  = 1,
     parameter   DECOUPLE_M  = 1
 )(
-    input  wire     s_valid,
-    output wire     s_ready,
+    input  wire     i_valid,
+    output wire     i_ready,
 
-    output wire     m_valid,
-    input  wire     m_ready,
+    output wire     o_valid,
+    input  wire     o_ready,
 
     input  wire     couple
 );

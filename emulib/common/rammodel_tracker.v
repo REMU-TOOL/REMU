@@ -41,16 +41,16 @@ module emulib_rammodel_tracker #(
     `AXI4_CUSTOM_A_WIRE(arb, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
 
     emulib_ready_valid_arb #(
-        .NUM_S      (2),
+        .NUM_I      (2),
         .DATA_WIDTH (`AXI4_CUSTOM_A_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
     ) aw_ar_arb (
-        .s_valid    ({axi_awvalid, axi_arvalid}),
-        .s_ready    ({axi_awready, axi_arready}),
-        .s_data     ({`AXI4_CUSTOM_A_PAYLOAD_FROM_AW(axi), `AXI4_CUSTOM_A_PAYLOAD_FROM_AR(axi)}),
-        .m_valid    (arb_avalid),
-        .m_ready    (arb_aready),
-        .m_data     (`AXI4_CUSTOM_A_PAYLOAD(arb)),
-        .m_sel      ()
+        .i_valid    ({axi_awvalid, axi_arvalid}),
+        .i_ready    ({axi_awready, axi_arready}),
+        .i_data     ({`AXI4_CUSTOM_A_PAYLOAD_FROM_AW(axi), `AXI4_CUSTOM_A_PAYLOAD_FROM_AR(axi)}),
+        .o_valid    (arb_avalid),
+        .o_ready    (arb_aready),
+        .o_data     (`AXI4_CUSTOM_A_PAYLOAD(arb)),
+        .o_sel      ()
     );
 
     // In-flight counter

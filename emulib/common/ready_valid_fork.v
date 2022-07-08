@@ -4,11 +4,11 @@
 module emulib_ready_valid_fork #(
     parameter   BRANCHES    = 2
 )(
-    input  wire                 s_valid,
-    output wire                 s_ready,
+    input  wire                 i_valid,
+    output wire                 i_ready,
 
-    output reg  [BRANCHES-1:0]  m_valid,
-    input  wire [BRANCHES-1:0]  m_ready
+    output reg  [BRANCHES-1:0]  o_valid,
+    input  wire [BRANCHES-1:0]  o_ready
 );
 
     integer i, j;

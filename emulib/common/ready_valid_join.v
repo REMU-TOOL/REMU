@@ -4,11 +4,11 @@
 module emulib_ready_valid_join #(
     parameter   BRANCHES    = 2
 )(
-    input  wire [BRANCHES-1:0]  s_valid,
-    output reg  [BRANCHES-1:0]  s_ready,
+    input  wire [BRANCHES-1:0]  i_valid,
+    output reg  [BRANCHES-1:0]  i_ready,
 
-    output wire                 m_valid,
-    input  wire                 m_ready
+    output wire                 o_valid,
+    input  wire                 o_ready
 );
 
     integer i, j;

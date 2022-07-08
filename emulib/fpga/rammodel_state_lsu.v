@@ -138,10 +138,10 @@ module emulib_rammodel_state_lsu #(
         .DECOUPLE_M(1),
         .DECOUPLE_S(1)
     ) gate_fifo_save_a (
-        .s_valid    (fifo_save_avalid),
-        .s_ready    (fifo_save_aready),
-        .m_valid    (gated_fifo_save_avalid),
-        .m_ready    (gated_fifo_save_aready),
+        .i_valid    (fifo_save_avalid),
+        .i_ready    (fifo_save_aready),
+        .o_valid    (gated_fifo_save_avalid),
+        .o_ready    (gated_fifo_save_aready),
         .couple     (save_sel_a)
     );
 
@@ -151,10 +151,10 @@ module emulib_rammodel_state_lsu #(
         .DECOUPLE_M(1),
         .DECOUPLE_S(1)
     ) gate_fifo_save_w (
-        .s_valid    (fifo_save_wvalid),
-        .s_ready    (fifo_save_wready),
-        .m_valid    (gated_fifo_save_wvalid),
-        .m_ready    (gated_fifo_save_wready),
+        .i_valid    (fifo_save_wvalid),
+        .i_ready    (fifo_save_wready),
+        .o_valid    (gated_fifo_save_wvalid),
+        .o_ready    (gated_fifo_save_wready),
         .couple     (save_sel_w)
     );
 
@@ -164,10 +164,10 @@ module emulib_rammodel_state_lsu #(
         .DECOUPLE_M(1),
         .DECOUPLE_S(1)
     ) gate_fifo_save_b (
-        .s_valid    (fifo_save_bvalid),
-        .s_ready    (fifo_save_bready),
-        .m_valid    (gated_fifo_save_bvalid),
-        .m_ready    (gated_fifo_save_bready),
+        .i_valid    (fifo_save_bvalid),
+        .i_ready    (fifo_save_bready),
+        .o_valid    (gated_fifo_save_bvalid),
+        .o_ready    (gated_fifo_save_bready),
         .couple     (save_sel_b)
     );
 
@@ -177,10 +177,10 @@ module emulib_rammodel_state_lsu #(
         .DECOUPLE_M(1),
         .DECOUPLE_S(1)
     ) gate_fifo_save_r (
-        .s_valid    (fifo_save_rvalid),
-        .s_ready    (fifo_save_rready),
-        .m_valid    (gated_fifo_save_rvalid),
-        .m_ready    (gated_fifo_save_rready),
+        .i_valid    (fifo_save_rvalid),
+        .i_ready    (fifo_save_rready),
+        .o_valid    (gated_fifo_save_rvalid),
+        .o_ready    (gated_fifo_save_rready),
         .couple     (save_sel_r)
     );
 
@@ -190,10 +190,10 @@ module emulib_rammodel_state_lsu #(
         .DECOUPLE_M(1),
         .DECOUPLE_S(1)
     ) gate_fifo_load_a (
-        .s_valid    (gated_fifo_load_avalid),
-        .s_ready    (gated_fifo_load_aready),
-        .m_valid    (fifo_load_avalid),
-        .m_ready    (fifo_load_aready),
+        .i_valid    (gated_fifo_load_avalid),
+        .i_ready    (gated_fifo_load_aready),
+        .o_valid    (fifo_load_avalid),
+        .o_ready    (fifo_load_aready),
         .couple     (load_sel_a)
     );
 
@@ -203,10 +203,10 @@ module emulib_rammodel_state_lsu #(
         .DECOUPLE_M(1),
         .DECOUPLE_S(1)
     ) gate_fifo_load_w (
-        .s_valid    (gated_fifo_load_wvalid),
-        .s_ready    (gated_fifo_load_wready),
-        .m_valid    (fifo_load_wvalid),
-        .m_ready    (fifo_load_wready),
+        .i_valid    (gated_fifo_load_wvalid),
+        .i_ready    (gated_fifo_load_wready),
+        .o_valid    (fifo_load_wvalid),
+        .o_ready    (fifo_load_wready),
         .couple     (load_sel_w)
     );
 
@@ -216,10 +216,10 @@ module emulib_rammodel_state_lsu #(
         .DECOUPLE_M(1),
         .DECOUPLE_S(1)
     ) gate_fifo_load_b (
-        .s_valid    (gated_fifo_load_bvalid),
-        .s_ready    (gated_fifo_load_bready),
-        .m_valid    (fifo_load_bvalid),
-        .m_ready    (fifo_load_bready),
+        .i_valid    (gated_fifo_load_bvalid),
+        .i_ready    (gated_fifo_load_bready),
+        .o_valid    (fifo_load_bvalid),
+        .o_ready    (fifo_load_bready),
         .couple     (load_sel_b)
     );
 
@@ -229,10 +229,10 @@ module emulib_rammodel_state_lsu #(
         .DECOUPLE_M(1),
         .DECOUPLE_S(1)
     ) gate_fifo_load_r (
-        .s_valid    (gated_fifo_load_rvalid),
-        .s_ready    (gated_fifo_load_rready),
-        .m_valid    (fifo_load_rvalid),
-        .m_ready    (fifo_load_rready),
+        .i_valid    (gated_fifo_load_rvalid),
+        .i_ready    (gated_fifo_load_rready),
+        .o_valid    (fifo_load_rvalid),
+        .o_ready    (fifo_load_rready),
         .couple     (load_sel_r)
     );
 
@@ -405,75 +405,75 @@ module emulib_rammodel_state_lsu #(
     wire [31:0] mux_load_count_data;
 
     emulib_ready_valid_mux #(
-        .NUM_S      (5),
-        .NUM_M      (1),
+        .NUM_I      (5),
+        .NUM_O      (1),
         .DATA_WIDTH (32)
     ) mux_save (
-        .s_valid    ({
+        .i_valid    ({
             mux_save_count_valid,
             encoder_a_valid,
             encoder_w_valid,
             encoder_b_valid,
             encoder_r_valid
         }),
-        .s_ready    ({
+        .i_ready    ({
             mux_save_count_ready,
             encoder_a_ready,
             encoder_w_ready,
             encoder_b_ready,
             encoder_r_ready
         }),
-        .s_data     ({
+        .i_data     ({
             mux_save_count_data,
             encoder_a_data,
             encoder_w_data,
             encoder_b_data,
             encoder_r_data
         }),
-        .s_sel      ({
+        .i_sel      ({
             save_sel_count,
             save_sel_a,
             save_sel_w,
             save_sel_b,
             save_sel_r
         }),
-        .m_valid    (s_write_data_valid),
-        .m_ready    (s_write_data_ready),
-        .m_data     (s_write_data),
-        .m_sel      (1'b1)
+        .o_valid    (s_write_data_valid),
+        .o_ready    (s_write_data_ready),
+        .o_data     (s_write_data),
+        .o_sel      (1'b1)
     );
 
     emulib_ready_valid_mux #(
-        .NUM_S      (1),
-        .NUM_M      (5),
+        .NUM_I      (1),
+        .NUM_O      (5),
         .DATA_WIDTH (32)
     ) mux_load (
-        .s_valid    (m_read_data_valid),
-        .s_ready    (m_read_data_ready),
-        .s_data     (m_read_data),
-        .s_sel      (1'b1),
-        .m_valid    ({
+        .i_valid    (m_read_data_valid),
+        .i_ready    (m_read_data_ready),
+        .i_data     (m_read_data),
+        .i_sel      (1'b1),
+        .o_valid    ({
             mux_load_count_valid,
             decoder_a_valid,
             decoder_w_valid,
             decoder_b_valid,
             decoder_r_valid
         }),
-        .m_ready    ({
+        .o_ready    ({
             mux_load_count_ready,
             decoder_a_ready,
             decoder_w_ready,
             decoder_b_ready,
             decoder_r_ready
         }),
-        .m_data     ({
+        .o_data     ({
             mux_load_count_data,
             decoder_a_data,
             decoder_w_data,
             decoder_b_data,
             decoder_r_data
         }),
-        .m_sel      ({
+        .o_sel      ({
             load_sel_count,
             load_sel_a,
             load_sel_w,
