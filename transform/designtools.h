@@ -87,9 +87,14 @@ public:
         return path_of(wire->module, scope);
     }
 
-    std::string name_of(IdString &id) const {
+    std::string name_of(const IdString &id) const {
         std::string name = id[0] == '\\' ? id.substr(1) : id.str();
-        return VerilogIdEscape(name);
+        // since Yosys names an element inside a genblk with
+        // both names in an escaped identifier ("\\genblk1.xxx")
+        // use of VerilogIdEscape will result in incorrect hier names
+        // so we have to return unescaped names and restrict the user
+        // not to use escaped identifiers
+        return name; // VerilogIdEscape(name);
     }
 
     // obsolete
