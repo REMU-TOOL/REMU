@@ -91,11 +91,19 @@ void DesignInfo::setup(Design *design) {
     comb_cell_types.setup_internals();
     comb_cell_types.setup_stdcells();
 
-    for (auto module : design->modules()) {
+    std::queue<Module *> worklist;
+
+    worklist.push(top_);
+
+    while (!worklist.empty()) {
+        Module *module = worklist.front();
+        worklist.pop();
+
         children_dict[module].clear();
         for (auto cell : module->cells()) {
             Module *tpl = design->module(cell->type);
             if (tpl) {
+                worklist.push(tpl);
                 if (inst_dict.count(tpl) != 0)
                     log_error("Module %s is not unique. Run uniquify first.\n", log_id(tpl));
                 inst_dict[tpl] = cell;
@@ -108,7 +116,15 @@ void DesignInfo::setup(Design *design) {
 
     // Add wire connections to sigmap
 
-    for (Module *module : design->modules()) {
+    worklist.push(top_);
+
+    while (!worklist.empty()) {
+        Module *module = worklist.front();
+        worklist.pop();
+
+        for (Module *child : children_dict.at(module))
+            worklist.push(child);
+
         for (auto &conn : module->connections())
             sigmap.add(conn.first, conn.second);
 
@@ -145,7 +161,15 @@ void DesignInfo::setup(Design *design) {
 
     // Add port connections to driver & consumer dict
 
-    for (Module *module : design->modules()) {
+    worklist.push(top_);
+
+    while (!worklist.empty()) {
+        Module *module = worklist.front();
+        worklist.pop();
+
+        for (Module *child : children_dict.at(module))
+            worklist.push(child);
+
         for (Cell *cell : module->cells()) {
             if (ct.cell_known(cell->type)) {
                 for (auto &conn : cell->connections()) {

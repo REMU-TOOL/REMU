@@ -31,7 +31,8 @@ struct PortWorker {
     DesignInfo &designinfo;
     HierconnBuilder hierconn;
 
-    void process_dut_clock(Module *module);
+    void process_dut_clock_reset(Module *module);
+    void process_dut_reset(Module *module);
     void process_common_port(Module *module);
     void process_extern_intf(Module *module);
 
@@ -42,12 +43,15 @@ struct PortWorker {
 
 };
 
-void PortWorker::process_dut_clock(Module *module) {
-    std::vector<Wire *> clocks;
+void PortWorker::process_dut_clock_reset(Module *module) {
+    std::vector<Wire *> clocks, resets;
 
-    for (Wire *wire : module->wires())
+    for (Wire *wire : module->wires()) {
         if (wire->get_bool_attribute(Attr::DUTClock))
             clocks.push_back(wire);
+        else if (wire->get_bool_attribute(Attr::DUTReset))
+            resets.push_back(wire);
+    }
 
     Module *wrapper = rewriter.wrapper();
     Wire *run_mode = rewriter.wire("run_mode")->get(wrapper);
@@ -66,6 +70,19 @@ void PortWorker::process_dut_clock(Module *module) {
         module->connect(clk, dut_clk->get(module));
 
         rewriter.database().dutclocks[name] = {};
+    }
+
+    for (Wire *rst : resets) {
+        std::string name = designinfo.hier_name_of(rst, rewriter.target());
+        name = simple_id_escape(name);
+        rewriter.define_wire(name, 1, PORT_INPUT);
+
+        auto dut_rst = rewriter.wire(name);
+
+        Module *module = rst->module;
+        module->connect(rst, dut_rst->get(module));
+
+        rewriter.database().dutresets[name] = {};
     }
 }
 
@@ -112,7 +129,7 @@ void PortWorker::run() {
         Module *module = work_queue.front();
         work_queue.pop();
 
-        process_dut_clock(module);
+        process_dut_clock_reset(module);
         process_common_port(module);
 
         // Add children modules to work queue

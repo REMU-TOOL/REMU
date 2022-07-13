@@ -27,21 +27,20 @@ std::string simple_id_escape(std::string name) {
 
 struct InterfaceWorker {
 
-    EmulationRewriter &rewriter;
-    DesignInfo &designinfo;
+    DesignInfo designinfo;
     HierconnBuilder hierconn;
 
     void process_extern_intf(Module *module);
 
     void run();
 
-    InterfaceWorker(EmulationRewriter &rewriter)
-        : rewriter(rewriter), designinfo(rewriter.design()), hierconn(designinfo) {}
+    InterfaceWorker(Design *design)
+        : designinfo(design), hierconn(designinfo) {}
 
 };
 
 void InterfaceWorker::process_extern_intf(Module *module) {
-    Module *wrapper = rewriter.wrapper();
+    Module *top = designinfo.top();
 
     for (auto portid : module->ports) {
         Wire *wire = module->wire(portid);
@@ -55,14 +54,14 @@ void InterfaceWorker::process_extern_intf(Module *module) {
 
         // TODO: process type attributes
 
-        std::string newname = designinfo.hier_name_of(wire, rewriter.wrapper());
+        std::string newname = designinfo.hier_name_of(wire, top);
         newname = simple_id_escape(newname);
 
         log("Exposing port %s as %s\n", designinfo.hier_name_of(wire).c_str(), newname.c_str());
 
         // Create a connection
 
-        Wire *top_wire = wrapper->addWire("\\" + newname, wire->width);
+        Wire *top_wire = top->addWire("\\" + newname, wire->width);
         top_wire->port_input = wire->port_input;
         top_wire->port_output = wire->port_output;
 
@@ -72,14 +71,14 @@ void InterfaceWorker::process_extern_intf(Module *module) {
             hierconn.connect(top_wire, wire, wire->name.substr(1));
     }
 
-    wrapper->fixup_ports();
+    top->fixup_ports();
 }
 
 void InterfaceWorker::run() {
     std::queue<Module *> work_queue;
 
     // Add top module to work queue
-    work_queue.push(rewriter.wrapper());
+    work_queue.push(designinfo.top());
 
     while (!work_queue.empty()) {
         // Get the first module from work queue
@@ -89,15 +88,21 @@ void InterfaceWorker::run() {
         process_extern_intf(module);
 
         // Add children modules to work queue
-        for (Module *sub : rewriter.design().children_of(module))
+        for (Module *sub : designinfo.children_of(module))
             work_queue.push(sub);
     }
 }
 
-PRIVATE_NAMESPACE_END
+struct EmuInterfacePass : public Pass {
+    EmuInterfacePass() : Pass("emu_interface", "create interface signals for emulation") { }
 
-void InterfaceTransform::execute(EmulationRewriter &rewriter) {
-    log_header(rewriter.design().design(), "Executing InterfaceTransform.\n");
-    InterfaceWorker worker(rewriter);
-    worker.run();
-}
+    void execute(vector<string> args, Design* design) override {
+        (void)args;
+        log_header(design, "Executing EMU_INTERFACE pass.\n");
+
+        InterfaceWorker worker(design);
+        worker.run();
+    }
+} EmuInterfacePass;
+
+PRIVATE_NAMESPACE_END

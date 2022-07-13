@@ -11,65 +11,63 @@ USING_YOSYS_NAMESPACE
 
 PRIVATE_NAMESPACE_BEGIN
 
+class AXILiteSinkNode {
+
+    std::string name;
+
+protected:
+
+    EmulationRewriter &rewriter;
+    Cell *cell;
+
+    friend class AXILiteBridge;
+
+protected:
+
+    AXILiteSinkNode(std::string name, EmulationRewriter &rewriter)
+        : name(name), rewriter(rewriter), cell(nullptr) {}
+
+};
+
 // AXILiteBridge uses 12-bit addressing
-// high 6 bits are used for sink node addressing
-// low 6 bits are for node internal use
+// high 6 bits are used to address sink nodes
+// low 6 bits are for node internal addressing
 
 class AXILiteBridge {
 
-    Module *wrapper;
+    EmulationRewriter &rewriter;
     std::vector<Cell *> cells;
 
 public:
 
-    int add_sink(Cell *cell) {
+    void connect(AXILiteSinkNode &&node) {
+        log_assert(node.cell);
         log_assert(cells.size() < 64);
-        cells.push_back(cell);
-        return cells.size() - 1;
+        int address = cells.size();
+        cells.push_back(node.cell);
+        rewriter.database().ctrl_addrs[node.name] = address;
     }
 
     void emit();
 
-    AXILiteBridge(Module *wrapper) : wrapper(wrapper) {}
+    AXILiteBridge(EmulationRewriter &rewriter) : rewriter(rewriter) {}
 
 };
 
+struct ScanchainCtrl : public AXILiteSinkNode {
+    ScanchainCtrl(EmulationRewriter &rewriter);
+};
+
 struct PlatformWorker {
-
     EmulationRewriter &rewriter;
-    DesignInfo &designinfo;
-    EmulationDatabase &database;
-    Module *wrapper;
-    bool raw;
-
-    AXILiteBridge *bridge;
-
-    void create_sc_ctrl();
-
     void run();
-
-    PlatformWorker(EmulationRewriter &rewriter, bool raw) :
-        rewriter(rewriter),
-        designinfo(rewriter.design()),
-        database(rewriter.database()),
-        wrapper(rewriter.wrapper()),
-        raw(raw)
-    {
-        if (raw)
-            bridge = nullptr;
-        else
-            bridge = new AXILiteBridge(wrapper);
-    }
-
-    ~PlatformWorker() {
-        if (bridge)
-            delete bridge;
-    }
-
+    PlatformWorker(EmulationRewriter &rewriter) :
+        rewriter(rewriter) {}
 };
 
 void AXILiteBridge::emit()
 {
+    Module *wrapper = rewriter.wrapper();
     SigSpec rdata_pmux_b, rdata_pmux_s;
 
     Wire *ctrl_wen    = wrapper->addWire("\\ctrl_wen");
@@ -109,7 +107,8 @@ void AXILiteBridge::emit()
     cell->setPort("\\ctrl_rdata",   ctrl_rdata);
 }
 
-void PlatformWorker::create_sc_ctrl()
+ScanchainCtrl::ScanchainCtrl(EmulationRewriter &rewriter)
+    : AXILiteSinkNode("sc_ctrl", rewriter)
 {
     auto host_clk  = rewriter.wire("host_clk");
     auto host_rst  = rewriter.wire("host_rst");
@@ -122,45 +121,51 @@ void PlatformWorker::create_sc_ctrl()
     auto ram_di    = rewriter.wire("ram_di");
     auto ram_do    = rewriter.wire("ram_do");
 
-    if (raw) {
-        host_clk->make_external(false);
-        host_rst->make_external(false);
-        ff_se->make_external(false);
-        ff_di->make_external(false);
-        ff_do->make_external(false);
-        ram_sr->make_external(false);
-        ram_se->make_external(false);
-        ram_sd->make_external(false);
-        ram_di->make_external(false);
-        ram_do->make_external(false);
-    }
-    else {
-        Cell *sc_ctrl = wrapper->addCell("\\sc_ctrl", "\\ScanchainCtrl");
-        sc_ctrl->setPort("\\host_clk", host_clk->get(wrapper));
-        sc_ctrl->setPort("\\host_rst", host_rst->get(wrapper));
-        sc_ctrl->setPort("\\ff_se", ff_se->get(wrapper));
-        sc_ctrl->setPort("\\ff_di", ff_di->get(wrapper));
-        sc_ctrl->setPort("\\ff_do", ff_do->get(wrapper));
-        sc_ctrl->setPort("\\ram_sr", ram_sr->get(wrapper));
-        sc_ctrl->setPort("\\ram_se", ram_se->get(wrapper));
-        sc_ctrl->setPort("\\ram_sd", ram_sd->get(wrapper));
-        sc_ctrl->setPort("\\ram_di", ram_di->get(wrapper));
-        sc_ctrl->setPort("\\ram_do", ram_do->get(wrapper));
-        database.scctrl_base = bridge->add_sink(sc_ctrl);
-    }
+    ff_se   ->make_internal();
+    ff_di   ->make_internal();
+    ff_do   ->make_internal();
+    ram_sr  ->make_internal();
+    ram_se  ->make_internal();
+    ram_sd  ->make_internal();
+    ram_di  ->make_internal();
+    ram_do  ->make_internal();
+
+    Module *wrapper = rewriter.wrapper();
+    cell = wrapper->addCell("\\sc_ctrl", "\\ScanchainCtrl");
+
+    int ff_count = GetSize(rewriter.database().scanchain_ff);
+    cell->setParam("\\FF_COUNT", Const(ff_count));
+
+    int mem_count = 0;
+    for (auto &mem : rewriter.database().scanchain_ram)
+        mem_count += mem.depth;
+    cell->setParam("\\MEM_COUNT", Const(mem_count));
+
+    cell->setParam("\\FF_WIDTH", Const(rewriter.database().ff_width));
+    cell->setParam("\\MEM_WIDTH", Const(rewriter.database().ram_width));
+
+    cell->setPort("\\host_clk", host_clk->get(wrapper));
+    cell->setPort("\\host_rst", host_rst->get(wrapper));
+    cell->setPort("\\ff_se",    ff_se->get(wrapper));
+    cell->setPort("\\ff_di",    ff_di->get(wrapper));
+    cell->setPort("\\ff_do",    ff_do->get(wrapper));
+    cell->setPort("\\ram_sr",   ram_sr->get(wrapper));
+    cell->setPort("\\ram_se",   ram_se->get(wrapper));
+    cell->setPort("\\ram_sd",   ram_sd->get(wrapper));
+    cell->setPort("\\ram_di",   ram_di->get(wrapper));
+    cell->setPort("\\ram_do",   ram_do->get(wrapper));
 }
 
-
 void PlatformWorker::run() {
-    create_sc_ctrl();
-    if (!raw)
-        bridge->emit();
+    AXILiteBridge bridge(rewriter);
+    bridge.connect(ScanchainCtrl(rewriter));
+    bridge.emit();
 }
 
 PRIVATE_NAMESPACE_END
 
 void PlatformTransform::execute(EmulationRewriter &rewriter) {
     log_header(rewriter.design().design(), "Executing PlatformTransform.\n");
-    PlatformWorker worker(rewriter, raw);
+    PlatformWorker worker(rewriter);
     worker.run();
 }

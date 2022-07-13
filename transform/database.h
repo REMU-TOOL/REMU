@@ -57,13 +57,19 @@ struct ClockInfo {
     std::string ram_clk;
 };
 
+struct ResetInfo {
+    // TODO: duration, etc.
+    int dummy;
+};
+
 struct EmulationDatabase {
 
     // written by PlatformTransform
-    int scctrl_base = 0;
+    dict<std::string, int> ctrl_addrs;
 
     // written by PortTransform
     dict<std::string, ClockInfo> dutclocks;
+    dict<std::string, ResetInfo> dutresets;
 
     // written by InsertScanchain
     int ff_width = 0;

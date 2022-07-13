@@ -11,11 +11,12 @@ USING_YOSYS_NAMESPACE
 
 class EmulationRewriter;
 
-enum PutPolicy {
-    PUT_NONE,
-    PUT_ONCE,
-    PUT_ANDREDUCE,
-    PUT_ORREDUCE,
+enum PortType {
+    PORT_NONE,
+    PORT_INPUT,
+    PORT_OUTPUT,
+    PORT_OUTPUT_ANDREDUCE,
+    PORT_OUTPUT_ORREDUCE,
 };
 
 enum WireType {
@@ -30,11 +31,11 @@ protected:
     EmulationRewriter &rewriter;
     std::string name_;
     int width_;
-    PutPolicy put_policy;
+    PortType port_type;
     dict<Module *, Wire *> handles;
     Module *wrapper;
     Cell *reduce_cell; // for PORT_OUTPUT_ANDREDUCE and PORT_OUTPUT_ORREDUCE
-    bool driven; // for PORT_OUTPUT
+    bool driven;
 
     friend class EmulationRewriter;
 
@@ -47,11 +48,12 @@ public:
     Wire *get(Module *module);
     void put(Wire *wire);
 
-    void make_external(bool is_output) {
+    void make_internal() {
         Wire *wire = handles.at(wrapper);
-        wire->port_input = !is_output;
-        wire->port_output = is_output;
+        wire->port_input = false;
+        wire->port_output = false;
         wrapper->fixup_ports();
+        port_type = PORT_NONE;
     }
 
     RewriterWire(const RewriterWire &) = delete;
@@ -59,7 +61,7 @@ public:
 
 protected:
 
-    RewriterWire(EmulationRewriter &rewriter, std::string name, int width, PutPolicy put_policy, Module *wrapper);
+    RewriterWire(EmulationRewriter &rewriter, std::string name, int width, PortType put_policy, Module *wrapper);
     virtual ~RewriterWire() {}
 
 };
@@ -107,10 +109,12 @@ public:
     }
 
     void update_design() {
-        designinfo.setup(designinfo.design());
+        Design *design = designinfo.design();
+        log_header(design, "Updating design hierarchy.\n");
+        designinfo.setup(design);
     }
 
-    void define_wire(std::string name, int width = 1, PutPolicy put_policy = PUT_NONE) {
+    void define_wire(std::string name, int width = 1, PortType put_policy = PORT_NONE) {
         log_assert(wires.count(name) == 0);
         wires[name] = new RewriterWire(*this, name, width, put_policy, wrapper_);
     }

@@ -28,15 +28,16 @@ Wire *RewriterWire::get(Module *module) {
 void RewriterWire::put(Wire *wire) {
     Wire *promoted_wire = rewriter.promote(wire);
 
-    switch (put_policy) {
-        case PUT_ONCE:
+    switch (port_type) {
+        case PORT_NONE:
+        case PORT_OUTPUT:
             log_assert(!driven);
             wrapper->connect(handles.at(wrapper), promoted_wire);
             driven = true;
             break;
 
-        case PUT_ANDREDUCE:
-        case PUT_ORREDUCE:
+        case PORT_OUTPUT_ANDREDUCE:
+        case PORT_OUTPUT_ORREDUCE:
             log_assert(wire->width == 1);
             reduce_cell->setPort(ID::A, {
                 reduce_cell->getPort(ID::A),
@@ -50,27 +51,48 @@ void RewriterWire::put(Wire *wire) {
     }
 }
 
-RewriterWire::RewriterWire(EmulationRewriter &rewriter, std::string name, int width, PutPolicy put_policy, Module *wrapper)
-    : rewriter(rewriter), name_(name), width_(width), put_policy(put_policy), wrapper(wrapper), reduce_cell(nullptr), driven(false)
+RewriterWire::RewriterWire(EmulationRewriter &rewriter, std::string name, int width, PortType port_type, Module *wrapper)
+    : rewriter(rewriter), name_(name), width_(width), port_type(port_type), wrapper(wrapper), reduce_cell(nullptr), driven(false)
 {
 
     Wire *wire = wrapper->addWire(wrapper->uniquify("\\" + name), width);
     wire->set_bool_attribute(ID::keep);
 
-    if (put_policy == PUT_ANDREDUCE) {
-        log_assert(width == 1);
-        reduce_cell = wrapper->addReduceAnd(NEW_ID, State::S1, wire);
+    switch (port_type) {
+        case PORT_INPUT:
+            wire->port_input = true;
+            wrapper->fixup_ports();
+            break;
+        case PORT_OUTPUT:
+        case PORT_OUTPUT_ANDREDUCE:
+        case PORT_OUTPUT_ORREDUCE:
+            wire->port_output = true;
+            wrapper->fixup_ports();
+            break;
+        default:
+            break;
     }
-    else if (put_policy == PUT_ORREDUCE) {
-        log_assert(width == 1);
-        reduce_cell = wrapper->addReduceOr(NEW_ID, State::S0, wire);
+
+    switch (port_type) {
+        case PORT_OUTPUT_ANDREDUCE:
+            log_assert(width == 1);
+            reduce_cell = wrapper->addReduceAnd(NEW_ID, State::S1, wire);
+            driven = true;
+            break;
+        case PORT_OUTPUT_ORREDUCE:
+            log_assert(width == 1);
+            reduce_cell = wrapper->addReduceOr(NEW_ID, State::S0, wire);
+            driven = true;
+            break;
+        default:
+            break;
     }
 
     handles[wrapper] = wire;
 }
 
 RewriterClock::RewriterClock(EmulationRewriter &rewriter, std::string name, Module *wrapper)
-    : RewriterWire(rewriter, name, 1, PUT_NONE, wrapper)
+    : RewriterWire(rewriter, name, 1, PORT_NONE, wrapper)
 {
     gate_cell = wrapper->addCell(wrapper->uniquify("\\" + name + "_gate"), "\\ClockGate");
     gate_cell->setPort("\\CLK", rewriter.wire("host_clk")->get(wrapper));
@@ -92,8 +114,8 @@ Wire *EmulationRewriter::promote(Wire *wire) {
 }
 
 void EmulationRewriter::setup_wires(int ff_width, int ram_width) {
-    define_wire("run_mode");
-    define_wire("scan_mode");
+    define_wire("run_mode",     1,  PORT_INPUT);
+    define_wire("scan_mode",    1,  PORT_INPUT);
 
     define_clock("mdl_clk");
     define_clock("mdl_clk_ff");
@@ -104,32 +126,33 @@ void EmulationRewriter::setup_wires(int ff_width, int ram_width) {
         wire("mdl_rst")->get(wrapper_),
         wire("host_rst")->get(wrapper_));
 
-    define_wire("ff_se");               // FF scan enable
-    define_wire("ff_di", ff_width);     // FF scan data in
-    define_wire("ff_do", ff_width);     // FF scan data out
-    define_wire("ram_sr");              // RAM scan reset
-    define_wire("ram_se");              // RAM scan enable
-    define_wire("ram_sd");              // RAM scan direction (0=out 1=in)
-    define_wire("ram_di", ram_width);   // RAM scan data in
-    define_wire("ram_do", ram_width);   // RAM scan data out
+    define_wire("ff_se",    1,          PORT_INPUT);    // FF scan enable
+    define_wire("ff_di",    ff_width,   PORT_INPUT);    // FF scan data in
+    define_wire("ff_do",    ff_width,   PORT_OUTPUT);   // FF scan data out
+    define_wire("ram_sr",   1,          PORT_INPUT);    // RAM scan reset
+    define_wire("ram_se",   1,          PORT_INPUT);    // RAM scan enable
+    define_wire("ram_sd",   1,          PORT_INPUT);    // RAM scan direction (0=out 1=in)
+    define_wire("ram_di",   ram_width,  PORT_INPUT);    // RAM scan data in
+    define_wire("ram_do",   ram_width,  PORT_OUTPUT);   // RAM scan data out
 
-    define_wire("up_req");
-    define_wire("down_req");
-    define_wire("up_ack", 1, PUT_ANDREDUCE);
-    define_wire("down_ack", 1, PUT_ANDREDUCE);
+    define_wire("up_req",   1,  PORT_INPUT);
+    define_wire("down_req", 1,  PORT_INPUT);
+    define_wire("up_ack",   1,  PORT_OUTPUT_ANDREDUCE);
+    define_wire("down_ack", 1,  PORT_OUTPUT_ANDREDUCE);
 }
 
 EmulationRewriter::EmulationRewriter(Design *design) {
     target_ = design->top_module();
+    if (target_ == nullptr)
+        log_error("no top module found\n");
+
     target_->attributes.erase(ID::top);
     wrapper_ = design->addModule("\\EMU_SYSTEM");
     wrapper_->set_bool_attribute(ID::top);
     wrapper_->addCell("\\target", target_->name);
 
-    define_wire("host_clk");
-    define_wire("host_rst");
-    wire("host_clk")->make_external(false);
-    wire("host_rst")->make_external(false);
+    define_wire("host_clk", 1,  PORT_INPUT);
+    define_wire("host_rst", 1,  PORT_INPUT);
 
     designinfo.setup(design);
 }

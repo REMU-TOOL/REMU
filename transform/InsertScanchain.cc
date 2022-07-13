@@ -544,24 +544,14 @@ void ScanchainWorker::run()
         ram_clk_en = wrapper->Or(NEW_ID, ram_clk_en, ram_se);
         ram_clk->setEnable(ram_clk_en);
     }
-
-    // Save FF & RAM word counts
-
-    /*
-    designinfo.top()->attributes["\\emu_sc_ff_count"] = Const(GetSize(database.scanchain_ff));
-
-    int words = 0;
-    for (auto &mem : database.scanchain_ram)
-        words += mem.depth;
-
-    designinfo.top()->attributes["\\emu_sc_ram_count"] = Const(words);
-    */
 }
 
 PRIVATE_NAMESPACE_END
 
 void InsertScanchain::execute(EmulationRewriter &rewriter) {
-    log_header(rewriter.design().design(), "Executing InsertScanchain.\n");
+    Design *design = rewriter.design().design();
+
+    log_header(design, "Executing InsertScanchain.\n");
     ScanchainWorker worker(rewriter);
     worker.run();
 }

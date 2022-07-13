@@ -15,33 +15,6 @@ struct Transform {
     virtual ~Transform() {}
 };
 
-class TransformFlow {
-
-    EmulationRewriter &rewriter;
-    std::vector<Transform *> list;
-
-public:
-
-    void add(Transform *transform) {
-        list.push_back(transform);
-    }
-
-    void run() {
-        for (auto &transform : list) {
-            transform->execute(rewriter);
-            rewriter.update_design();
-        }
-    }
-
-    TransformFlow(EmulationRewriter &rewriter) : rewriter(rewriter) {}
-
-    ~TransformFlow() {
-        for (auto &transform : list)
-            delete transform;
-    }
-
-};
-
 struct IdentifySyncReadMem : public Transform {
     virtual void execute(EmulationRewriter &rewriter) override;
 };
@@ -63,16 +36,6 @@ struct InsertScanchain : public Transform {
 };
 
 struct PlatformTransform : public Transform {
-    bool raw;
-    virtual void execute(EmulationRewriter &rewriter) override;
-    PlatformTransform(bool raw) : raw(raw) {}
-};
-
-struct DesignIntegration : public Transform {
-    virtual void execute(EmulationRewriter &rewriter) override;
-};
-
-struct InterfaceTransform : public Transform {
     virtual void execute(EmulationRewriter &rewriter) override;
 };
 

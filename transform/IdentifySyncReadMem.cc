@@ -593,23 +593,19 @@ struct MemoryDffWorker
         ff.unmap_ce_srst();
         port.clk = ff.sig_clk;
         port.en = State::S1;
-        // Add a wire to keep address FF from being optimized.
-        Wire *wire_keep = module->addWire(NEW_ID, GetSize(ff.sig_d));
-        module->connect(wire_keep, ff.sig_q);
-        wire_keep->set_bool_attribute(ID::keep);
         port.addr = ff.sig_d;
         port.clk_enable = true;
         port.clk_polarity = ff.pol_clk;
         for (int i = 0; i < GetSize(mem.wr_ports); i++)
             port.transparency_mask[i] = true;
         mem.emit();
-        database.mem_sr_addr.insert({mem.cell, idx});
         log("merged address FF to cell.\n");
+        database.mem_sr_addr.insert({mem.cell, idx});
     }
 
     void run()
     {
-        std::vector<Mem> memories = Mem::get_selected_memories(module);
+        std::vector<Mem> memories = Mem::get_all_memories(module);
         for (auto &mem : memories) {
             QuickConeSat qcsat(modwalker);
             for (int i = 0; i < GetSize(mem.rd_ports); i++) {
@@ -636,5 +632,4 @@ void IdentifySyncReadMem::execute(EmulationRewriter &rewriter) {
         MemoryDffWorker worker(mod, rewriter.database());
         worker.run();
     }
-    Pass::call(design, "opt_clean");
 }

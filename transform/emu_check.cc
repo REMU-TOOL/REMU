@@ -82,6 +82,6 @@ struct EmuCheckPass : public Pass {
             emu_check(module);
         }
     }
-} EmuLintPass;
+} EmuCheckPass;
 
 PRIVATE_NAMESPACE_END
