@@ -16,12 +16,11 @@ module AXILiteToCtrl (
     output reg  [11:0]  ctrl_raddr,
     input  wire [31:0]  ctrl_rdata,
 
-    (* __emu_extern_intf_addr_pages = 1 *)
     (* __emu_extern_intf = "s_axilite" *)
     input  wire         s_axilite_awvalid,
     (* __emu_extern_intf = "s_axilite" *)
     output wire         s_axilite_awready,
-    (* __emu_extern_intf = "s_axilite", __emu_extern_intf_type = "address" *)
+    (* __emu_extern_intf = "s_axilite" *)
     input  wire [11:0]  s_axilite_awaddr,
     (* __emu_extern_intf = "s_axilite" *)
     input  wire [2:0]   s_axilite_awprot,
@@ -43,7 +42,7 @@ module AXILiteToCtrl (
     input  wire         s_axilite_arvalid,
     (* __emu_extern_intf = "s_axilite" *)
     output wire         s_axilite_arready,
-    (* __emu_extern_intf = "s_axilite", __emu_extern_intf_type = "address" *)
+    (* __emu_extern_intf = "s_axilite" *)
     input  wire [11:0]  s_axilite_araddr,
     (* __emu_extern_intf = "s_axilite" *)
     input  wire [2:0]   s_axilite_arprot,

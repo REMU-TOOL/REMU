@@ -4,13 +4,13 @@
 `include "axi.vh"
 
 module ScanchainCtrl #(
-    parameter       FF_WORDS        = 0,
-    parameter       MEM_WORDS       = 0,
+    parameter       FF_COUNT        = 0,
+    parameter       MEM_COUNT       = 0,
     parameter       FF_WIDTH        = 64,
     parameter       MEM_WIDTH       = 64,
 
-    parameter       __CKPT_FF_CNT   = (FF_WORDS * FF_WIDTH + 63) / 64,
-    parameter       __CKPT_MEM_CNT  = (MEM_WORDS * MEM_WIDTH + 63) / 64,
+    parameter       __CKPT_FF_CNT   = (FF_COUNT * FF_WIDTH + 63) / 64,
+    parameter       __CKPT_MEM_CNT  = (MEM_COUNT * MEM_WIDTH + 63) / 64,
     parameter       __CKPT_CNT      = __CKPT_FF_CNT + __CKPT_MEM_CNT,
     parameter       __CKPT_PAGES    = (__CKPT_CNT * 8 + 'hfff) / 'h1000
 )(
@@ -159,7 +159,7 @@ module ScanchainCtrl #(
 
     wire r_idle, w_idle;
 
-    simple_dma #(
+    emulib_simple_dma #(
         .ADDR_WIDTH     (32),
         .DATA_WIDTH     (64),
         .COUNT_WIDTH    ($clog2(__CKPT_CNT))
@@ -206,7 +206,7 @@ module ScanchainCtrl #(
     // DUT & scan logic
 
     // operation sequence
-    // (<L> = last data, N = FF_WORDS or MEM_WORDS)
+    // (<L> = last data, N = FF_COUNT or MEM_COUNT)
     // scan-out:
     // FF SCAN      0   1   1   ..  1   0   0   0   0   ..  0   0
     // FF LAST      0   0   0   ..  1   0   0   0   0   ..  0   0
@@ -253,9 +253,9 @@ module ScanchainCtrl #(
             STATE_IDLE:         state_next = dma_running ? STATE_SEND_ADDR : STATE_IDLE;
             STATE_SEND_ADDR:    state_next = dma_addr_ready ? STATE_SEND_COUNT : STATE_SEND_ADDR;
             STATE_SEND_COUNT:   state_next = dma_count_ready ? STATE_FF_RESET : STATE_SEND_COUNT;
-            STATE_FF_RESET:     state_next = FF_WORDS == 0 ? STATE_RAM_RESET : STATE_FF_SCAN;
+            STATE_FF_RESET:     state_next = FF_COUNT == 0 ? STATE_RAM_RESET : STATE_FF_SCAN;
             STATE_FF_SCAN:      state_next = ff_last ? STATE_RAM_RESET : STATE_FF_SCAN;
-            STATE_RAM_RESET:    state_next = MEM_WORDS == 0 ? STATE_IDLE :
+            STATE_RAM_RESET:    state_next = MEM_COUNT == 0 ? STATE_IDLE :
                                             (dma_direction ? STATE_RAM_SCAN : STATE_RAM_PREP_1);
             STATE_RAM_PREP_1:   state_next = STATE_RAM_PREP_2;
             STATE_RAM_PREP_2:   state_next = STATE_RAM_SCAN;
@@ -264,8 +264,8 @@ module ScanchainCtrl #(
         endcase
     end
 
-    localparam CNT_BITS_FF  = $clog2(FF_WORDS + 1);
-    localparam CNT_BITS_RAM = $clog2(MEM_WORDS + 1);
+    localparam CNT_BITS_FF  = $clog2(FF_COUNT + 1);
+    localparam CNT_BITS_RAM = $clog2(MEM_COUNT + 1);
 
     reg [CNT_BITS_FF-1:0] ff_cnt;
     reg [CNT_BITS_RAM-1:0] ram_cnt;
@@ -284,14 +284,14 @@ module ScanchainCtrl #(
             ram_cnt <= ram_cnt + 1;
     end
 
-    assign ff_last = state == STATE_FF_SCAN && ff_cnt == FF_WORDS - 1;
-    assign ram_last = state == STATE_RAM_SCAN && ram_cnt == MEM_WORDS - 1;
+    assign ff_last = state == STATE_FF_SCAN && ff_cnt == FF_COUNT - 1;
+    assign ram_last = state == STATE_RAM_SCAN && ram_cnt == MEM_COUNT - 1;
 
     wire scan_valid = dma_direction ? read_data_valid : write_data_ready;
 
     assign ff_se = scan_valid && state == STATE_FF_SCAN;
 
-    if (FF_WORDS == 0)
+    if (FF_COUNT == 0)
         assign ff_di = 64'd0; // to avoid combinational logic loop
     else
         assign ff_di = dma_direction ? read_data : ff_do;
