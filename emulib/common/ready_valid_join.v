@@ -14,14 +14,14 @@ module emulib_ready_valid_join #(
     integer i, j;
 
     always @* begin
-        s_ready = {BRANCHES{m_ready}};
+        i_ready = {BRANCHES{o_ready}};
         for (i = 0; i < BRANCHES; i = i + 1)
             for (j = 0; j < BRANCHES; j = j + 1)
                 if (i != j)
-                    s_ready[i] = s_ready[i] && s_valid[j];
+                    i_ready[i] = i_ready[i] && i_valid[j];
     end
 
-    assign m_valid = &s_valid;
+    assign o_valid = &i_valid;
 
 endmodule
 

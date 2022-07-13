@@ -14,14 +14,14 @@ module emulib_ready_valid_fork #(
     integer i, j;
 
     always @* begin
-        m_valid = {BRANCHES{s_valid}};
+        o_valid = {BRANCHES{i_valid}};
         for (i = 0; i < BRANCHES; i = i + 1)
             for (j = 0; j < BRANCHES; j = j + 1)
                 if (i != j)
-                    m_valid[i] = m_valid[i] && m_ready[j];
+                    o_valid[i] = o_valid[i] && o_ready[j];
     end
 
-    assign s_ready = &m_ready;
+    assign i_ready = &o_ready;
 
 endmodule
 

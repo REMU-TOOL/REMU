@@ -15,14 +15,14 @@ module emulib_ready_valid_decouple #(
 );
 
     if (DECOUPLE_S)
-        assign s_ready = m_ready && couple;
+        assign i_ready = o_ready && couple;
     else
-        assign s_ready = m_ready;
+        assign i_ready = o_ready;
 
     if (DECOUPLE_M)
-        assign m_valid = s_valid && couple;
+        assign o_valid = i_valid && couple;
     else
-        assign m_valid = s_valid;
+        assign o_valid = i_valid;
 
 endmodule
 

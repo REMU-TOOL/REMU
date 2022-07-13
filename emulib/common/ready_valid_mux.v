@@ -17,8 +17,8 @@ module emulib_ready_valid_mux #(
     input  wire [NUM_O-1:0]             o_sel
 );
 
-    wire valid = |(s_valid & s_sel);
-    wire ready = |(m_ready & m_sel);
+    wire valid = |(i_valid & i_sel);
+    wire ready = |(o_ready & o_sel);
 
     reg [DATA_WIDTH-1:0] data;
     integer i;
@@ -26,13 +26,13 @@ module emulib_ready_valid_mux #(
     always @* begin
         data = {DATA_WIDTH{1'b0}};
         for (i = 0; i < NUM_I; i = i + 1)
-            if (s_sel[i])
-                data = s_data[i * DATA_WIDTH +: DATA_WIDTH];
+            if (i_sel[i])
+                data = i_data[i * DATA_WIDTH +: DATA_WIDTH];
     end
 
-    assign m_data  = {NUM_O{data}};
-    assign m_valid = {NUM_O{valid}} & m_sel;
-    assign s_ready = {NUM_I{ready}} & s_sel;
+    assign o_data  = {NUM_O{data}};
+    assign o_valid = {NUM_O{valid}} & o_sel;
+    assign i_ready = {NUM_I{ready}} & i_sel;
 
 endmodule
 

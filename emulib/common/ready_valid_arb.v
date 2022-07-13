@@ -18,18 +18,18 @@ module emulib_ready_valid_arb #(
     integer i;
 
     always @* begin
-        m_sel = {NUM_I{1'b0}};
-        m_data = {DATA_WIDTH{1'b0}};
+        o_sel = {NUM_I{1'b0}};
+        o_data = {DATA_WIDTH{1'b0}};
         for (i = 0; i < NUM_I; i = i + 1) begin
-            if (s_valid[i]) begin
-                m_sel = {{(NUM_I-1){1'b0}}, 1'b1} << i;
-                m_data = s_data[i * DATA_WIDTH +: DATA_WIDTH];
+            if (i_valid[i]) begin
+                o_sel = {{(NUM_I-1){1'b0}}, 1'b1} << i;
+                o_data = i_data[i * DATA_WIDTH +: DATA_WIDTH];
             end
         end
     end
 
-    assign s_ready = {NUM_I{m_ready}} & m_sel;
-    assign m_valid = |s_valid;
+    assign i_ready = {NUM_I{o_ready}} & o_sel;
+    assign o_valid = |i_valid;
 
 endmodule
 
