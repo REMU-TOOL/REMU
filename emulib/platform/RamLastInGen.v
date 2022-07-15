@@ -19,12 +19,12 @@ module RamLastInGen #(
     localparam CNTBITS = $clog2(DEPTH + 1);
 
     reg [CNTBITS-1:0] in_cnt;
-    wire in_full = in_cnt == depth;
+    wire in_full = in_cnt == DEPTH;
 
     always @(posedge clk)
         if (ram_sr)
             in_cnt <= 0;
-        else if (!in_full)
+        else if (ram_se && !in_full)
             in_cnt <= in_cnt + 1;
 
     // scan out flag
@@ -39,11 +39,12 @@ module RamLastInGen #(
 
     // posedge capture
 
-    wire start = dir ? in_full : out_flag;
+    wire start = ram_sd ? in_full : out_flag;
     reg start_r;
 
     always @(posedge clk)
-        start_r <= start;
+        if (ram_se)
+            start_r <= start;
 
     assign ram_li = start && !start_r;
 

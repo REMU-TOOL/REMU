@@ -296,6 +296,8 @@ module ScanchainCtrl #(
     else
         assign ff_di = dma_direction ? read_data : ff_do;
 
+    assign ram_sr = state == STATE_RAM_RESET;
+
     assign ram_se = scan_valid && (
         state == STATE_RAM_PREP_1 ||
         state == STATE_RAM_PREP_2 ||
