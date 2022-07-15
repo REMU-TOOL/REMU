@@ -18,7 +18,7 @@ DUMP_V      := $(BUILD_DIR)/_dump.v
 
 SIM_SRCS += $(wildcard $(EMULIB_DIR)/common/*.v)
 SIM_SRCS += $(wildcard $(EMULIB_DIR)/fpga/*.v)
-SIM_SRCS += $(wildcard $(EMULIB_DIR)/rtl/*.v)
+SIM_SRCS += $(wildcard $(EMULIB_DIR)/platform/*.v)
 SIM_SRCS += $(wildcard $(TEST_DIR)/../platform/sim/common/sources/*.v)
 
 ifeq ($(DUMP),y)
@@ -52,7 +52,7 @@ $(DUMP_V):
 
 $(OUTPUT_FILE): $(EMU_SRCS)
 	mkdir -p $(BUILD_DIR)
-	yosys -m transform -p "tcl $(shell recheck --tcl) -top $(EMU_TOP) -sc $(SC_YML_FILE) -ldr $(LOADER_FILE)" -o $@ $^
+	yosys -m transform -p "emu_transform -top $(EMU_TOP) -yaml $(SC_YML_FILE) -loader $(LOADER_FILE) -raw_plat" -o $@ $^
 
 $(SIM_BIN): $(SIM_SRCS)
 	mkdir -p $(BUILD_DIR)

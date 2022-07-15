@@ -1,16 +1,20 @@
 `timescale 1 ns / 1 ps
 
 module offset(
+    (* __emu_extern_intf = "test" *)
     input   [5:0]           raddr,
+    (* __emu_extern_intf = "test" *)
     output  [79:0]          rdata,
+    (* __emu_extern_intf = "test" *)
     input                   wen,
+    (* __emu_extern_intf = "test" *)
     input   [5:0]           waddr,
+    (* __emu_extern_intf = "test" *)
     input   [79:0]          wdata
 );
 
-    wire clk, rst;
+    wire clk;
     EmuClock clock(.clock(clk));
-    EmuReset reset(.reset(rst));
 
     mem #(
         .WIDTH(80),
@@ -20,7 +24,6 @@ module offset(
     )
     u_mem (
         .clk(clk),
-        .rst(rst),
         .ren(1'b0),
         .raddr(raddr),
         .rdata(rdata),

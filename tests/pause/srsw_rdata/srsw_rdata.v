@@ -1,11 +1,17 @@
 `timescale 1 ns / 1 ps
 
 module srsw_rdata(
+    (* __emu_extern_intf = "test" *)
     input wen,
+    (* __emu_extern_intf = "test" *)
     input [1:0] waddr,
+    (* __emu_extern_intf = "test" *)
     input [31:0] wdata,
+    (* __emu_extern_intf = "test" *)
     input ren,
+    (* __emu_extern_intf = "test" *)
     input [1:0] raddr,
+    (* __emu_extern_intf = "test" *)
     output [31:0] rdata
 );
 

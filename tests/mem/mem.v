@@ -8,7 +8,6 @@ module mem #(
     parameter AWIDTH = $clog2(OFFSET+DEPTH)
 )(
     input                   clk,
-    input                   rst,
     input                   ren,
     input   [AWIDTH-1:0]    raddr,
     output  [WIDTH-1:0]     rdata,
@@ -27,8 +26,7 @@ module mem #(
         reg [WIDTH-1:0] o;
 
         always @(posedge clk) begin
-            if (rst) o <= 0;
-            else if (ren) o <= mem[raddr];
+            if (ren) o <= mem[raddr];
         end
 
         assign rdata = o;

@@ -7,10 +7,11 @@ module sim_top();
     parameter ROUND = 4;
 
     reg clk = 0, rst = 1;
-    reg pause = 0;
+    reg run_mode = 1, scan_mode = 0;
     reg ff_scan = 0, ff_dir = 0;
     reg [63:0] ff_sdi = 0;
     wire [63:0] ff_sdo;
+    reg ram_scan_reset = 0;
     reg ram_scan = 0, ram_dir = 0;
     reg [63:0] ram_sdi = 0;
     wire [63:0] ram_sdo;
@@ -20,37 +21,23 @@ module sim_top();
     reg wen;
     wire [79:0] rdata;
 
-    wire dut_ff_clk, dut_ram_clk;
-
-    ClockGate dut_ff_gate(
-        .CLK(clk),
-        .EN(!pause || ff_scan),
-        .OCLK(dut_ff_clk)
-    );
-
-    ClockGate dut_ram_gate(
-        .CLK(clk),
-        .EN(!pause || ram_scan),
-        .OCLK(dut_ram_clk)
-    );
-
-    EMU_DUT emu_dut(
-        .emu_host_clk       (clk),
-        .emu_ff_se          (ff_scan),
-        .emu_ff_di          (ff_dir ? ff_sdi : ff_sdo),
-        .emu_ff_do          (ff_sdo),
-        .emu_ram_se         (ram_scan),
-        .emu_ram_sd         (ram_dir),
-        .emu_ram_di         (ram_sdi),
-        .emu_ram_do         (ram_sdo),
-        .emu_dut_ff_clk     (dut_ff_clk),
-        .emu_dut_ram_clk    (dut_ram_clk),
-        .emu_dut_rst        (rst),
-        .raddr(raddr),
-        .rdata(rdata),
-        .wen(wen),
-        .waddr(waddr),
-        .wdata(wdata)
+    EMU_SYSTEM emu_dut(
+        .host_clk       (clk),
+        .run_mode       (run_mode),
+        .scan_mode      (scan_mode),
+        .ff_se          (ff_scan),
+        .ff_di          (ff_dir ? ff_sdi : ff_sdo),
+        .ff_do          (ff_sdo),
+        .ram_sr         (ram_scan_reset),
+        .ram_se         (ram_scan),
+        .ram_sd         (ram_dir),
+        .ram_di         (ram_sdi),
+        .ram_do         (ram_sdo),
+        .target_raddr(raddr),
+        .target_rdata(rdata),
+        .target_wen(wen),
+        .target_waddr(waddr),
+        .target_wdata(wdata)
     );
 
     integer i, j;
@@ -73,43 +60,59 @@ module sim_top();
                 #10;
                 wen = 0;
                 data_save[i][j] = wdata;
-                $display("round %d: mem[%h]=%h", i, waddr, wdata);
+                $display("round %0d: mem[%h]=%h", i, waddr, wdata);
             end
-            pause = 1;
+            run_mode = 0; #10; scan_mode = 1;
+            ram_scan_reset = 1;
             #10;
+            ram_scan_reset = 0;
             ram_scan = 1;
             ram_dir = 0;
             #20;
             for (j=0; j<`CHAIN_MEM_WORDS; j=j+1) begin
+                // randomize backpressure
+                ram_scan = 0;
+                while (!ram_scan) begin
+                    #10;
+                    ram_scan = $random;
+                end
                 scan_save[i][j] = ram_sdo;
-                $display("round %d: scan data %d: %h", i, j, ram_sdo);
+                $display("round %0d: scan data %h: %h", i, j, ram_sdo);
                 #10;
             end
             ram_scan = 0;
             #10;
-            pause = 0;
+            scan_mode = 0; #10; run_mode = 1;
         end
         #10;
         $display("restore checkpoint");
         for (i=0; i<ROUND; i=i+1) begin
-            pause = 1;
+            run_mode = 0; #10; scan_mode = 1;
+            ram_scan_reset = 1;
             #10;
+            ram_scan_reset = 0;
             ram_scan = 1;
             ram_dir = 1;
             for (j=0; j<`CHAIN_MEM_WORDS; j=j+1) begin
+                // randomize backpressure
+                ram_scan = 0;
+                while (!ram_scan) begin
+                    #10;
+                    ram_scan = $random;
+                end
                 ram_sdi = scan_save[i][j];
                 #10;
             end
             #10;
             ram_scan = 0;
             #10;
-            pause = 0;
+            scan_mode = 0; #10; run_mode = 1;
             for (j=0; j<64; j=j+1) begin
                 raddr = j;
                 #10;
-                $display("round %d: mem[%h]=%h", i, raddr, rdata);
+                $display("round %0d: mem[%h]=%h", i, raddr, rdata);
                 if (rdata !== data_save[i][j]) begin
-                    $display("ERROR: data mismatch while dumping");
+                    $display("ERROR: data mismatch after restoring");
                     $fatal;
                 end
             end
