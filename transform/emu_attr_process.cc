@@ -50,6 +50,7 @@ struct EmuRemoveKeepPass : public Pass {
 
         for (auto mod : design->modules()) {
             log("Processing module %s...\n", log_id(mod));
+            mod->set_bool_attribute(ID::keep, false);
 
             for (auto cell : mod->selected_cells())
                 cell->set_bool_attribute(ID::keep, false);

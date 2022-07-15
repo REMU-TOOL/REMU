@@ -8,74 +8,20 @@ using namespace Emu;
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-void integrate_models(Design *design) {
-    std::string share_dirname = proc_share_dirname() + "../recheck/";
-
-    Pass::call(design, {
-        "read_verilog",
-        share_dirname + "emulib/stub/*.v"
-    });
-
-    Pass::call(design, "hierarchy");
-    Pass::call(design, "proc");
-    Pass::call(design, "opt_clean");
-    Pass::call(design, "check");
-
-    Pass::call(design, "hierarchy -purge_lib");
-
-    Pass::call(design, {
-        "read_verilog",
-        "-I",
-        share_dirname + "emulib/include",
-        share_dirname + "emulib/common/*.v",
-        share_dirname + "emulib/fpga/*.v"
-    });
-
-    Pass::call(design, "hierarchy");
-    Pass::call(design, "proc");
-    Pass::call(design, "opt_clean");
-    Pass::call(design, "memory_collect");
-    Pass::call(design, "memory_share -nowiden");
-
-    Pass::call(design, "rename -src");
-    Pass::call(design, "emu_check");
-    Pass::call(design, "uniquify");
-}
-
-void integrate_controllers(Design *design) {
-    std::string share_dirname = proc_share_dirname() + "../recheck/";
-
-    Pass::call(design, {
-        "read_verilog",
-        "-I",
-        share_dirname + "emulib/include",
-        "-lib",
-        share_dirname + "emulib/platform/*.v"
-    });
-
-    Pass::call(design, "hierarchy");
-    Pass::call(design, "proc");
-    Pass::call(design, "opt");
-
-    Pass::call(design, "emu_interface");
-
-    Pass::call(design, "emu_remove_keep");
-    Pass::call(design, "submod");
-}
-
 struct TransformHelper {
 
+    EmulationDatabase &database;
     EmulationRewriter &rewriter;
 
     void run(Transform &&transform) {
-        transform.execute(rewriter);
+        transform.execute(database, rewriter);
         rewriter.update_design();
     }
 
-    TransformHelper(EmulationRewriter &rewriter) : rewriter(rewriter) {}
+    TransformHelper(EmulationDatabase &database, EmulationRewriter &rewriter)
+        : database(database), rewriter(rewriter) {}
 
 };
-
 
 struct EmuTransformPass : public Pass {
     EmuTransformPass() : Pass("emu_transform", "perform emulation transformation") { }
@@ -94,6 +40,8 @@ struct EmuTransformPass : public Pass {
         log("        specify the width of FF scan chain (default=64)\n");
         log("    -ram_width <width>\n");
         log("        specify the width of RAM scan chain (default=64)\n");
+        log("    -elab <file>\n");
+        log("        write elaborated verilog design to the specified file\n");
         log("    -init <file>\n");
         log("        write initial scan chain data to the specified file\n");
         log("    -yaml <file>\n");
@@ -105,13 +53,95 @@ struct EmuTransformPass : public Pass {
         log("\n");
     }
 
+    std::string top, elab_file, init_file, yaml_file, loader_file;
+    int ff_width = 64, ram_width = 64;
+    bool raw_plat = false;
+
+    void elaborate(Design *design) {
+        log_header(design, "Executing design elaboration.\n");
+        log_push();
+
+        std::string share_dirname = proc_share_dirname() + "../recheck/";
+
+        Pass::call(design, {
+            "read_verilog",
+            share_dirname + "emulib/stub/*.v"
+        });
+
+        if (top.empty())
+            Pass::call(design, "hierarchy -auto-top");
+        else
+            Pass::call(design, "hierarchy -top " + top);
+
+        Pass::call(design, "emu_preserve_top");
+        Pass::call(design, "proc");
+        Pass::call(design, "opt");
+        Pass::call(design, "check");
+
+        if (!elab_file.empty())
+            Pass::call(design, "write_verilog " + elab_file);
+
+        log_pop();
+    }
+
+    void pre_integrate(Design *design) {
+        log_header(design, "Executing pre-transform integration.\n");
+        log_push();
+
+        std::string share_dirname = proc_share_dirname() + "../recheck/";
+
+        Pass::call(design, {
+            "read_verilog",
+            "-I",
+            share_dirname + "emulib/include",
+            share_dirname + "emulib/common/*.v",
+            share_dirname + "emulib/fpga/*.v"
+        });
+
+        Pass::call(design, "hierarchy -purge_lib");
+        Pass::call(design, "proc");
+        Pass::call(design, "opt_clean");
+        Pass::call(design, "memory_collect");
+        Pass::call(design, "memory_share -nowiden");
+
+        Pass::call(design, "emu_check");
+        Pass::call(design, "uniquify");
+        Pass::call(design, "hierarchy");
+
+        log_pop();
+    }
+
+    void post_integrate(Design *design) {
+        log_header(design, "Executing post-transform integration.\n");
+        log_push();
+
+        std::string share_dirname = proc_share_dirname() + "../recheck/";
+
+        Pass::call(design, {
+            "read_verilog",
+            "-I",
+            share_dirname + "emulib/include",
+            "-lib",
+            share_dirname + "emulib/platform/*.v"
+        });
+
+        Pass::call(design, "hierarchy");
+        Pass::call(design, "proc");
+        Pass::call(design, "opt");
+
+        Pass::call(design, "emu_interface");
+
+        Pass::call(design, "emu_remove_keep");
+        Pass::call(design, "submod");
+        Pass::call(design, "uniquify");
+        Pass::call(design, "hierarchy");
+
+        log_pop();
+    }
+
     void execute(vector<string> args, Design* design) override {
         log_header(design, "Executing EMU_TRANSFORM pass.\n");
         log_push();
-
-        std::string top, init_file, yaml_file, loader_file;
-        int ff_width = 64, ram_width = 64;
-        bool raw_plat = false;
 
         size_t argidx;
         for (argidx = 1; argidx < args.size(); argidx++)
@@ -126,6 +156,10 @@ struct EmuTransformPass : public Pass {
             }
             if (args[argidx] == "-ram_width" && argidx+1 < args.size()) {
                 ram_width = std::stoi(args[++argidx]);
+                continue;
+            }
+            if (args[argidx] == "-elab" && argidx+1 < args.size()) {
+                elab_file = args[++argidx];
                 continue;
             }
             if (args[argidx] == "-init" && argidx+1 < args.size()) {
@@ -148,17 +182,16 @@ struct EmuTransformPass : public Pass {
         }
         extra_args(args, argidx, design);
 
-        if (top.empty())
-            Pass::call(design, "hierarchy -auto-top");
-        else
-            Pass::call(design, "hierarchy -top " + top);
+        elaborate(design);
 
-        integrate_models(design);
+        pre_integrate(design);
+
+        EmulationDatabase database;
 
         EmulationRewriter rewriter(design);
         rewriter.setup_wires(ff_width, ram_width);
 
-        TransformHelper helper(rewriter);
+        TransformHelper helper(database, rewriter);
 
         helper.run(IdentifySyncReadMem());
         helper.run(PortTransform());
@@ -168,18 +201,18 @@ struct EmuTransformPass : public Pass {
         if (!raw_plat)
             helper.run(PlatformTransform());
 
-        integrate_controllers(design);
+        post_integrate(design);
 
         log_header(design, "Writing output files.\n");
 
         if (!init_file.empty())
-            rewriter.database().write_init(init_file);
+            database.write_init(init_file);
 
         if (!yaml_file.empty())
-            rewriter.database().write_yaml(yaml_file);
+            database.write_yaml(yaml_file);
 
         if (!loader_file.empty())
-            rewriter.database().write_loader(loader_file);
+            database.write_loader(loader_file);
 
         log_pop();
     }

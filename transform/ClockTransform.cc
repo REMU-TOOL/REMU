@@ -15,14 +15,15 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct ClockWorker {
 
+    EmulationDatabase &database;
     EmulationRewriter &rewriter;
     DesignInfo &designinfo;
 
     void rewrite(SigBit orig_clk, RewriterWire *ff_clk, RewriterWire *ram_clk);
     void run();
 
-    ClockWorker(EmulationRewriter &rewriter)
-        : rewriter(rewriter), designinfo(rewriter.design()) {}
+    ClockWorker(EmulationDatabase &database, EmulationRewriter &rewriter)
+        : database(database), rewriter(rewriter), designinfo(rewriter.design()) {}
 
 };
 
@@ -120,7 +121,7 @@ void ClockWorker::run() {
 
     // Rewrite DUT clocks
 
-    for (auto &it : rewriter.database().dutclocks) {
+    for (auto &it : database.dutclocks) {
         auto clk = rewriter.clock(it.first);
 
         if (it.second.ff_clk.empty()) {
@@ -147,8 +148,8 @@ void ClockWorker::run() {
 
 PRIVATE_NAMESPACE_END
 
-void ClockTransform::execute(EmulationRewriter &rewriter) {
+void ClockTransform::execute(EmulationDatabase &database, EmulationRewriter &rewriter) {
     log_header(rewriter.design().design(), "Executing ClockTransform.\n");
-    ClockWorker worker(rewriter);
+    ClockWorker worker(database, rewriter);
     worker.run();
 }

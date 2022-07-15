@@ -52,15 +52,15 @@ struct ScanchainWorker {
 
     void instrument_ffs(Module *module, ScanchainBuilder &builder);
     void instrument_mems(Module *module, ScanchainBuilder &builder);
-    void add_shadow_rdata(Module *module, ScanchainBuilder &builder, Mem &mem, int rd_index, bool anonymous = false);
+    void add_shadow_rdata(Module *module, ScanchainBuilder &builder, Mem &mem, int rd_index);
     void restore_mem_rdport_ffs(Module *module, ScanchainBuilder &builder);
     void instrument_module(Module *module, ScanchainBuilder &builder);
 
 public:
 
-    ScanchainWorker(EmulationRewriter &rewriter) :
+    ScanchainWorker(EmulationDatabase &database, EmulationRewriter &rewriter) :
         rewriter(rewriter), designinfo(rewriter.design()),
-        database(rewriter.database()),
+        database(database),
         extractor(designinfo, rewriter.target())
     {
         ff_width = rewriter.wire("ff_di")->width();
@@ -74,6 +74,7 @@ public:
 void ScanchainWorker::instrument_ffs(Module *module, ScanchainBuilder &builder)
 {
     Wire *scan_mode = rewriter.wire("scan_mode")->get(module);
+    Wire *ff_se     = rewriter.wire("ff_se")->get(module);
 
     // process clock, reset, enable signals and insert sdi
     // Original:
@@ -162,7 +163,7 @@ void ScanchainWorker::instrument_ffs(Module *module, ScanchainBuilder &builder)
         int pad = ff_width - r;
         Wire *d = module->addWire(module->uniquify("\\pad_d"), pad);
         Wire *q = module->addWire(module->uniquify("\\pad_q"), pad);
-        module->addDff(NEW_ID, rewriter.wire("mdl_clk_ff")->get(module), d, q);
+        module->addDffe(NEW_ID, rewriter.wire("host_clk")->get(module), ff_se, d, q);
         sdi_q_list.first.append(d);
         sdi_q_list.second.append(q);
     }
@@ -286,6 +287,9 @@ void ScanchainWorker::instrument_mems(Module *module, ScanchainBuilder &builder)
         wr.data = module->Mux(NEW_ID, wr.data, wdata, scan_mode);
 
         for (auto &rd : mem.rd_ports) {
+            // mask reset in scan mode
+            if (rd.clk_enable)
+                rd.srst = module->And(NEW_ID, rd.srst, module->Not(NEW_ID, scan_mode));
             // fix up addr width
             rd.addr.extend_u0(abits);
         }
@@ -304,7 +308,7 @@ void ScanchainWorker::instrument_mems(Module *module, ScanchainBuilder &builder)
         else {
             // delay 1 cycle for asynchronous read ports
             SigSpec rdata_reg = module->addWire(module->uniquify(name + "_rdata_reg"), mem.width);
-            module->addDff(NEW_ID, rd.clk, rd.data, rdata_reg);
+            module->addDffe(NEW_ID, host_clk, ram_se, rd.data, rdata_reg);
             module->connect(rdata, rdata_reg);
         }
 
@@ -319,11 +323,11 @@ void ScanchainWorker::instrument_mems(Module *module, ScanchainBuilder &builder)
             sdo = sdi;
             sdi = module->addWire(module->uniquify(name + "_sdi"), ram_width);
 
-            // always @(posedge rd.clk)
-            //   r <= se ? sdi : rdata[off+:len];
+            // always @(posedge host_clk)
+            //   if (ram_se) r <= se ? sdi : rdata[off+:len];
             // assign sdo = r;
             SigSpec rdata_slice = {Const(0, ram_width - len), rdata.extract(off, len)};
-            module->addDff(NEW_ID, rd.clk, 
+            module->addDffe(NEW_ID, host_clk, ram_se,
                 module->Mux(NEW_ID, rdata_slice, sdi, se), sdo);
             module->connect(wdata.extract(off, len), sdo.extract(0, len));
         }
@@ -339,35 +343,37 @@ void ScanchainWorker::instrument_mems(Module *module, ScanchainBuilder &builder)
     }
 }
 
-void ScanchainWorker::add_shadow_rdata(Module *module, ScanchainBuilder &builder, Mem &mem, int rd_index, bool anonymous)
+void ScanchainWorker::add_shadow_rdata(Module *module, ScanchainBuilder &builder, Mem &mem, int rd_index)
 {
-    Wire *mdl_clk_ff = rewriter.wire("mdl_clk_ff")->get(module);
-    Wire *scan_mode = rewriter.wire("scan_mode")->get(module);
+    Wire *host_clk  = rewriter.wire("host_clk")->get(module);
+    Wire *ff_se     = rewriter.wire("ff_se")->get(module);
+    Wire *ram_se    = rewriter.wire("ram_se")->get(module);
 
     auto &rd = mem.rd_ports[rd_index];
+    SigSpec orig_rdata = rd.data;
 
     int total_width = GetSize(rd.data);
 
     std::string name = mem.memid.str() + stringf("_rd_%d", rd_index);
 
     // reg a = 1'b0, b = 1'b1;
-    // always @(posedge mdl_clk_ff) a <= b;
-    // always @(posedge rd.clk) if (rd.en && !scan_mode) b <= ~a;
+    // always @(posedge host_clk) a <= b;
+    // always @(posedge rd.clk) if ((rd.en || rd.srst) && !ram_se) b <= ~b;
     // wire sel = a ^ b;
     // reg [..] shadow_rdata = rd.init_value;
     // assign output = sel ? rdata : shadow_rdata;
-    // always @(posedge mdl_clk_ff) begin
-    //   if (sel || scan_mode) shadow_rdata <= scan_mode ? sdi : output;
+    // always @(posedge host_clk) begin
+    //   if (sel || ff_se) shadow_rdata <= ff_se ? sdi : output;
     // end
 
     Wire *a = module->addWire(module->uniquify(name + "_a"));
     Wire *b = module->addWire(module->uniquify(name + "_b"));
     a->attributes[ID::init] = Const(0, 1);
     b->attributes[ID::init] = Const(1, 1);
-    module->addDff(NEW_ID, mdl_clk_ff, b, a);
+    module->addDff(NEW_ID, host_clk, b, a);
     module->addDffe(NEW_ID, rd.clk,
-        module->And(NEW_ID, rd.en, module->Not(NEW_ID, scan_mode)),
-        module->Not(NEW_ID, a), b);
+        module->And(NEW_ID, module->Or(NEW_ID, rd.en, rd.srst), module->Not(NEW_ID, ram_se)),
+        module->Not(NEW_ID, b), b);
     SigSpec sel = module->Xor(NEW_ID, a, b);
 
     Wire *shadow_rdata = module->addWire(module->uniquify(name + "_shadow_rdata"), total_width);
@@ -380,9 +386,9 @@ void ScanchainWorker::add_shadow_rdata(Module *module, ScanchainBuilder &builder
     SigSig sdi_q_list;
     sdi_q_list.first = module->addWire(module->uniquify(name + "_sdi"), total_width);
     sdi_q_list.second = shadow_rdata;
-    module->addDffe(NEW_ID, mdl_clk_ff,
-        module->Or(NEW_ID, sel, scan_mode),
-        module->Mux(NEW_ID, output, sdi_q_list.first, scan_mode),
+    module->addDffe(NEW_ID, host_clk,
+        module->Or(NEW_ID, sel, ff_se),
+        module->Mux(NEW_ID, output, sdi_q_list.first, ff_se),
         shadow_rdata);
 
     // pad to align data width
@@ -391,7 +397,7 @@ void ScanchainWorker::add_shadow_rdata(Module *module, ScanchainBuilder &builder
         int pad = ff_width - r;
         Wire *d = module->addWire(module->uniquify(name + "_pad_d"), pad);
         Wire *q = module->addWire(module->uniquify(name + "_pad_q"), pad);
-        module->addDff(NEW_ID, mdl_clk_ff, d, q);
+        module->addDffe(NEW_ID, host_clk, ff_se, d, q);
         sdi_q_list.first.append(d);
         sdi_q_list.second.append(q);
     }
@@ -407,9 +413,8 @@ void ScanchainWorker::add_shadow_rdata(Module *module, ScanchainBuilder &builder
         module->connect(sdi, ff_di);
         module->connect(ff_do, q);
         builder.append_ff(ff_di, ff_do);
-        if (!anonymous)
-            database.scanchain_ff.push_back(extractor.ff(
-                rd.data.extract(i, w), rd.init_value.extract(i, w)));
+        database.scanchain_ff.push_back(extractor.ff(
+            orig_rdata.extract(i, w), rd.init_value.extract(i, w)));
     }
 
     mem.emit();
@@ -427,7 +432,7 @@ void ScanchainWorker::restore_mem_rdport_ffs(Module *module, ScanchainBuilder &b
             auto &rd = mem.rd_ports[idx];
             if (rd.clk_enable) {
                 if (database.mem_sr_addr.count({mem.cell, idx}) > 0)
-                    add_shadow_rdata(module, builder, mem, idx, true);
+                    add_shadow_rdata(module, builder, mem, idx);
                 else if (database.mem_sr_data.count({mem.cell, idx}) > 0)
                     add_shadow_rdata(module, builder, mem, idx);
                 else
@@ -466,7 +471,7 @@ void ScanchainWorker::run()
     pool<Module *> visited;
     std::vector<Module *> stack;
 
-    stack.push_back(wrapper);
+    stack.push_back(rewriter.target());
 
     while (!stack.empty()) {
         Module *module = stack.back();
@@ -533,7 +538,7 @@ void ScanchainWorker::run()
     mdl_clk_ram_en = wrapper->Or(NEW_ID, mdl_clk_ram_en, ram_se);
     mdl_clk_ram->setEnable(mdl_clk_ram_en);
 
-    for (auto &it : rewriter.database().dutclocks) {
+    for (auto &it : database.dutclocks) {
         auto ff_clk = rewriter.clock(it.second.ff_clk);
         SigBit ff_clk_en = ff_clk->getEnable();
         ff_clk_en = wrapper->Or(NEW_ID, ff_clk_en, ff_se);
@@ -548,10 +553,8 @@ void ScanchainWorker::run()
 
 PRIVATE_NAMESPACE_END
 
-void InsertScanchain::execute(EmulationRewriter &rewriter) {
-    Design *design = rewriter.design().design();
-
-    log_header(design, "Executing InsertScanchain.\n");
-    ScanchainWorker worker(rewriter);
+void InsertScanchain::execute(EmulationDatabase &database, EmulationRewriter &rewriter) {
+    log_header(rewriter.design().design(), "Executing InsertScanchain.\n");
+    ScanchainWorker worker(database, rewriter);
     worker.run();
 }

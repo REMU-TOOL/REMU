@@ -26,6 +26,7 @@ std::vector<std::string> split_string(std::string s, char delim) {
 
 struct RTLModelWorker {
 
+    EmulationDatabase &database;
     EmulationRewriter &rewriter;
     DesignInfo &designinfo;
 
@@ -53,8 +54,8 @@ struct RTLModelWorker {
 
     void run();
 
-    RTLModelWorker(EmulationRewriter &rewriter)
-        : rewriter(rewriter), designinfo(rewriter.design()) {}
+    RTLModelWorker(EmulationDatabase &database, EmulationRewriter &rewriter)
+        : database(database), rewriter(rewriter), designinfo(rewriter.design()) {}
 
 };
 
@@ -371,7 +372,7 @@ void RTLModelWorker::emit() {
 
     // TODO: support multiple clocks
 
-    for (auto &it : rewriter.database().dutclocks) {
+    for (auto &it : database.dutclocks) {
         auto clk = rewriter.clock(it.first);
         SigBit en = clk->getEnable();
         en = wrapper->And(NEW_ID, en, tick->get(wrapper));
@@ -386,8 +387,8 @@ void RTLModelWorker::run() {
 
 PRIVATE_NAMESPACE_END
 
-void TargetTransform::execute(EmulationRewriter &rewriter) {
+void TargetTransform::execute(EmulationDatabase &database, EmulationRewriter &rewriter) {
     log_header(rewriter.design().design(), "Executing TargetTransform.\n");
-    RTLModelWorker worker(rewriter);
+    RTLModelWorker worker(database, rewriter);
     worker.run();
 }

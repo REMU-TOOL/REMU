@@ -208,12 +208,11 @@ void DesignInfo::setup(Design *design) {
 DesignInfo::Path DesignInfo::path_of(Module *mod, Module *scope) const {
     Path res, stack;
 
-    while (true) {
+    while (mod != scope) {
         stack.push_back(mod);
         Cell *cell = inst_dict.at(mod);
         if (!cell) break;
         mod = cell->module;
-        if (mod == scope) break;
     }
 
     res.insert(res.end(), stack.rbegin(), stack.rend());

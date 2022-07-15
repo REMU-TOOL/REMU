@@ -53,7 +53,7 @@ FfInfo FfMemInfoExtractor::ff(const SigSpec &sig, const Const &initval) {
 
 MemInfo FfMemInfoExtractor::mem(const Mem &mem, int slices) {
     MemInfo res;
-    res.name = design.hier_name_of(mem.module, target) + "." + design.name_of(mem.memid);
+    res.name = design.hier_name_of(mem.memid, mem.module, target);
     res.depth = mem.size * slices;
     res.slices = slices;
     res.mem_width = mem.width;

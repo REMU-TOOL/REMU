@@ -27,6 +27,7 @@ std::string simple_id_escape(std::string name) {
 
 struct PortWorker {
 
+    EmulationDatabase &database;
     EmulationRewriter &rewriter;
     DesignInfo &designinfo;
     HierconnBuilder hierconn;
@@ -38,8 +39,8 @@ struct PortWorker {
 
     void run();
 
-    PortWorker(EmulationRewriter &rewriter)
-        : rewriter(rewriter), designinfo(rewriter.design()), hierconn(designinfo) {}
+    PortWorker(EmulationDatabase &database, EmulationRewriter &rewriter)
+        : database(database), rewriter(rewriter), designinfo(rewriter.design()), hierconn(designinfo) {}
 
 };
 
@@ -69,7 +70,7 @@ void PortWorker::process_dut_clock_reset(Module *module) {
         Module *module = clk->module;
         module->connect(clk, dut_clk->get(module));
 
-        rewriter.database().dutclocks[name] = {};
+        database.dutclocks[name] = {};
     }
 
     for (Wire *rst : resets) {
@@ -82,7 +83,7 @@ void PortWorker::process_dut_clock_reset(Module *module) {
         Module *module = rst->module;
         module->connect(rst, dut_rst->get(module));
 
-        rewriter.database().dutresets[name] = {};
+        database.dutresets[name] = {};
     }
 }
 
@@ -140,8 +141,8 @@ void PortWorker::run() {
 
 PRIVATE_NAMESPACE_END
 
-void PortTransform::execute(EmulationRewriter &rewriter) {
+void PortTransform::execute(EmulationDatabase &database, EmulationRewriter &rewriter) {
     log_header(rewriter.design().design(), "Executing PortTransform.\n");
-    PortWorker worker(rewriter);
+    PortWorker worker(database, rewriter);
     worker.run();
 }

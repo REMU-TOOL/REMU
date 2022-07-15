@@ -100,8 +100,6 @@ private:
     Module *wrapper_;
     Module *target_;
 
-    EmulationDatabase database_;
-
 public:
 
     DesignInfo &design() {
@@ -138,9 +136,6 @@ public:
     Module *target() const { return target_; }
 
     void setup_wires(int ff_width, int ram_width);
-
-    EmulationDatabase &database() { return database_; }
-    const EmulationDatabase &database() const { return database_; }
 
     EmulationRewriter(Design *design);
 

@@ -89,12 +89,12 @@ public:
 
     std::string name_of(const IdString &id) const {
         std::string name = id[0] == '\\' ? id.substr(1) : id.str();
-        // since Yosys names an element inside a genblk with
-        // both names in an escaped identifier ("\\genblk1.xxx")
-        // use of VerilogIdEscape will result in incorrect hier names
-        // so we have to return unescaped names and restrict the user
-        // not to use escaped identifiers
-        return name; // VerilogIdEscape(name);
+        return VerilogIdEscape(name);
+    }
+
+    template <typename T>
+    std::string name_of(T* obj) const {
+        return name_of(obj->name);
     }
 
     // obsolete
@@ -116,11 +116,17 @@ public:
         return ss.str();
     }
 
+    std::string hier_name_of(IdString name, Module *parent, Module *scope = nullptr) const {
+        std::string hier = hier_name_of(parent, scope);
+        if (!hier.empty())
+            hier += ".";
+        hier += name_of(name);
+        return hier;
+    }
+
     template <typename T>
     std::string hier_name_of(T *obj, Module *scope = nullptr) const {
-        std::ostringstream ss;
-        ss << hier_name_of(obj->module, scope) << "." << name_of(obj->name);
-        return ss.str();
+        return hier_name_of(obj->name, obj->module, scope);
     }
 
     std::string hier_name_of(SigBit bit, Module *scope = nullptr) const {

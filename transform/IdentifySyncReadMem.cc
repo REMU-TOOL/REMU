@@ -34,6 +34,22 @@ PRIVATE_NAMESPACE_BEGIN
 
 using namespace Emu;
 
+void remove_ff_bits(const pool<std::pair<Cell *, int>> &bits, FfInitVals &initvals) {
+    dict<Cell *, pool<int>> ff_bits;
+    for (auto it : bits)
+        ff_bits[it.first].insert(it.second);
+    for (auto it : ff_bits) {
+        FfData ff(&initvals, it.first);
+        std::vector<int> keep_bits;
+        for (int i = 0; i < ff.width; i++)
+            if (it.second.count(i) == 0)
+                keep_bits.push_back(i);
+        FfData new_ff = ff.slice(keep_bits);
+        new_ff.cell = ff.cell;
+        new_ff.emit();
+    }
+}
+
 struct MuxData {
     int base_idx;
     int size;
@@ -547,6 +563,7 @@ struct MemoryDffWorker
         }
         mem.emit();
         database.mem_sr_data.insert({mem.cell, idx});
+        remove_ff_bits(bits, initvals);
     }
 
     void handle_rd_port_addr(Mem &mem, int idx)
@@ -624,12 +641,12 @@ struct MemoryDffWorker
 
 PRIVATE_NAMESPACE_END
 
-void IdentifySyncReadMem::execute(EmulationRewriter &rewriter) {
+void IdentifySyncReadMem::execute(EmulationDatabase &database, EmulationRewriter &rewriter) {
     auto &designinfo = rewriter.design();
     Design *design = designinfo.design();
     log_header(design, "Executing IdentifySyncReadMem.\n");
     for (auto mod : design->modules()) {
-        MemoryDffWorker worker(mod, rewriter.database());
+        MemoryDffWorker worker(mod, database);
         worker.run();
     }
 }

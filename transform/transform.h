@@ -10,33 +10,33 @@ namespace Emu {
 USING_YOSYS_NAMESPACE
 
 struct Transform {
-    virtual void execute(EmulationRewriter &rewriter) = 0;
+    virtual void execute(EmulationDatabase &database, EmulationRewriter &rewriter) = 0;
     Transform() {}
     virtual ~Transform() {}
 };
 
 struct IdentifySyncReadMem : public Transform {
-    virtual void execute(EmulationRewriter &rewriter) override;
+    virtual void execute(EmulationDatabase &database, EmulationRewriter &rewriter) override;
 };
 
 struct PortTransform : public Transform {
-    virtual void execute(EmulationRewriter &rewriter) override;
+    virtual void execute(EmulationDatabase &database, EmulationRewriter &rewriter) override;
 };
 
 struct TargetTransform : public Transform {
-    virtual void execute(EmulationRewriter &rewriter) override;
+    virtual void execute(EmulationDatabase &database, EmulationRewriter &rewriter) override;
 };
 
 struct ClockTransform : public Transform {
-    virtual void execute(EmulationRewriter &rewriter) override;
+    virtual void execute(EmulationDatabase &database, EmulationRewriter &rewriter) override;
 };
 
 struct InsertScanchain : public Transform {
-    virtual void execute(EmulationRewriter &rewriter) override;
+    virtual void execute(EmulationDatabase &database, EmulationRewriter &rewriter) override;
 };
 
 struct PlatformTransform : public Transform {
-    virtual void execute(EmulationRewriter &rewriter) override;
+    virtual void execute(EmulationDatabase &database, EmulationRewriter &rewriter) override;
 };
 
 } // namespace Emu

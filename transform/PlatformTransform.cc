@@ -17,6 +17,7 @@ class AXILiteSinkNode {
 
 protected:
 
+    EmulationDatabase &database;
     EmulationRewriter &rewriter;
     Cell *cell;
 
@@ -24,8 +25,8 @@ protected:
 
 protected:
 
-    AXILiteSinkNode(std::string name, EmulationRewriter &rewriter)
-        : name(name), rewriter(rewriter), cell(nullptr) {}
+    AXILiteSinkNode(std::string name, EmulationDatabase &database, EmulationRewriter &rewriter)
+        : name(name), database(database), rewriter(rewriter), cell(nullptr) {}
 
 };
 
@@ -35,6 +36,7 @@ protected:
 
 class AXILiteBridge {
 
+    EmulationDatabase &database;
     EmulationRewriter &rewriter;
     std::vector<Cell *> cells;
 
@@ -45,24 +47,26 @@ public:
         log_assert(cells.size() < 64);
         int address = cells.size();
         cells.push_back(node.cell);
-        rewriter.database().ctrl_addrs[node.name] = address;
+        database.ctrl_addrs[node.name] = address;
     }
 
     void emit();
 
-    AXILiteBridge(EmulationRewriter &rewriter) : rewriter(rewriter) {}
+    AXILiteBridge(EmulationDatabase &database, EmulationRewriter &rewriter)
+        : database(database), rewriter(rewriter) {}
 
 };
 
 struct ScanchainCtrl : public AXILiteSinkNode {
-    ScanchainCtrl(EmulationRewriter &rewriter);
+    ScanchainCtrl(EmulationDatabase &database, EmulationRewriter &rewriter);
 };
 
 struct PlatformWorker {
+    EmulationDatabase &database;
     EmulationRewriter &rewriter;
     void run();
-    PlatformWorker(EmulationRewriter &rewriter) :
-        rewriter(rewriter) {}
+    PlatformWorker(EmulationDatabase &database, EmulationRewriter &rewriter)
+        : database(database), rewriter(rewriter) {}
 };
 
 void AXILiteBridge::emit()
@@ -107,8 +111,8 @@ void AXILiteBridge::emit()
     cell->setPort("\\ctrl_rdata",   ctrl_rdata);
 }
 
-ScanchainCtrl::ScanchainCtrl(EmulationRewriter &rewriter)
-    : AXILiteSinkNode("sc_ctrl", rewriter)
+ScanchainCtrl::ScanchainCtrl(EmulationDatabase &database, EmulationRewriter &rewriter)
+    : AXILiteSinkNode("sc_ctrl", database, rewriter)
 {
     auto host_clk  = rewriter.wire("host_clk");
     auto host_rst  = rewriter.wire("host_rst");
@@ -133,16 +137,16 @@ ScanchainCtrl::ScanchainCtrl(EmulationRewriter &rewriter)
     Module *wrapper = rewriter.wrapper();
     cell = wrapper->addCell("\\sc_ctrl", "\\ScanchainCtrl");
 
-    int ff_count = GetSize(rewriter.database().scanchain_ff);
+    int ff_count = GetSize(database.scanchain_ff);
     cell->setParam("\\FF_COUNT", Const(ff_count));
 
     int mem_count = 0;
-    for (auto &mem : rewriter.database().scanchain_ram)
+    for (auto &mem : database.scanchain_ram)
         mem_count += mem.depth;
     cell->setParam("\\MEM_COUNT", Const(mem_count));
 
-    cell->setParam("\\FF_WIDTH", Const(rewriter.database().ff_width));
-    cell->setParam("\\MEM_WIDTH", Const(rewriter.database().ram_width));
+    cell->setParam("\\FF_WIDTH", Const(database.ff_width));
+    cell->setParam("\\MEM_WIDTH", Const(database.ram_width));
 
     cell->setPort("\\host_clk", host_clk->get(wrapper));
     cell->setPort("\\host_rst", host_rst->get(wrapper));
@@ -157,15 +161,15 @@ ScanchainCtrl::ScanchainCtrl(EmulationRewriter &rewriter)
 }
 
 void PlatformWorker::run() {
-    AXILiteBridge bridge(rewriter);
-    bridge.connect(ScanchainCtrl(rewriter));
+    AXILiteBridge bridge(database, rewriter);
+    bridge.connect(ScanchainCtrl(database, rewriter));
     bridge.emit();
 }
 
 PRIVATE_NAMESPACE_END
 
-void PlatformTransform::execute(EmulationRewriter &rewriter) {
+void PlatformTransform::execute(EmulationDatabase &database, EmulationRewriter &rewriter) {
     log_header(rewriter.design().design(), "Executing PlatformTransform.\n");
-    PlatformWorker worker(rewriter);
+    PlatformWorker worker(database, rewriter);
     worker.run();
 }
