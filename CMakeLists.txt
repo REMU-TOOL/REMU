@@ -34,10 +34,9 @@ install(DIRECTORY ${YOSYS_TMP_DESTDIR}/${CMAKE_INSTALL_PREFIX}/
     USE_SOURCE_PERMISSIONS
 )
 
-# Install separate files
+# Install individual files
 
 install(PROGRAMS ${CMAKE_SOURCE_DIR}/recheck.sh DESTINATION bin RENAME recheck)
-install(FILES ${CMAKE_SOURCE_DIR}/recheck.tcl DESTINATION share/recheck)
 
 # Add emulation libraries
 

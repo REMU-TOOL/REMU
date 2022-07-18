@@ -9,7 +9,6 @@ Options:
     --iv-srcs       simulation sources for iverilog
     --iv-flags      iverilog flags
     --vvp-flags     vvp flags
-    --tcl           transform tcl script file for yosys
 
 EOF
 } >&2
@@ -28,7 +27,6 @@ fi
 IV_SRCS=$(find $EMULIB_DIR/common $EMULIB_DIR/sim -name "*.v")
 IV_FLAGS="-I$EMULIB_DIR/include -s reconstruct"
 VVP_FLAGS="-M $RECHECK_DIR -m replay"
-TCL=$RECHECK_DIR/recheck.tcl
 
 if [ $# -eq 0 ]; then
     help
@@ -46,10 +44,6 @@ for opt; do
         ;;
         --vvp-flags)
             echo $VVP_FLAGS
-            exit
-        ;;
-        --tcl)
-            echo $TCL
             exit
         ;;
     esac
