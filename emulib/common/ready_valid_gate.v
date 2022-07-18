@@ -1,7 +1,7 @@
 `timescale 1ns / 1ps
 `default_nettype none
 
-module emulib_ready_valid_decouple #(
+module emulib_ready_valid_gate #(
     parameter   DECOUPLE_S  = 1,
     parameter   DECOUPLE_M  = 1
 )(
@@ -11,16 +11,16 @@ module emulib_ready_valid_decouple #(
     output wire     o_valid,
     input  wire     o_ready,
 
-    input  wire     couple
+    input  wire     enable
 );
 
     if (DECOUPLE_S)
-        assign i_ready = o_ready && couple;
+        assign i_ready = o_ready && enable;
     else
         assign i_ready = o_ready;
 
     if (DECOUPLE_M)
-        assign o_valid = i_valid && couple;
+        assign o_valid = i_valid && enable;
     else
         assign o_valid = i_valid;
 

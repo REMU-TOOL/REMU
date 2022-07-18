@@ -134,7 +134,7 @@ module emulib_rammodel_state_lsu #(
     `AXI4_CUSTOM_B_WIRE(gated_fifo_load, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
     `AXI4_CUSTOM_R_WIRE(gated_fifo_load, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
 
-    emulib_ready_valid_decouple #(
+    emulib_ready_valid_gate #(
         .DECOUPLE_M(1),
         .DECOUPLE_S(1)
     ) gate_fifo_save_a (
@@ -142,12 +142,12 @@ module emulib_rammodel_state_lsu #(
         .i_ready    (fifo_save_aready),
         .o_valid    (gated_fifo_save_avalid),
         .o_ready    (gated_fifo_save_aready),
-        .couple     (save_sel_a)
+        .enable     (save_sel_a)
     );
 
     assign `AXI4_CUSTOM_A_PAYLOAD(gated_fifo_save) = `AXI4_CUSTOM_A_PAYLOAD(fifo_save);
 
-    emulib_ready_valid_decouple #(
+    emulib_ready_valid_gate #(
         .DECOUPLE_M(1),
         .DECOUPLE_S(1)
     ) gate_fifo_save_w (
@@ -155,12 +155,12 @@ module emulib_rammodel_state_lsu #(
         .i_ready    (fifo_save_wready),
         .o_valid    (gated_fifo_save_wvalid),
         .o_ready    (gated_fifo_save_wready),
-        .couple     (save_sel_w)
+        .enable     (save_sel_w)
     );
 
     assign `AXI4_CUSTOM_W_PAYLOAD(gated_fifo_save) = `AXI4_CUSTOM_W_PAYLOAD(fifo_save);
 
-    emulib_ready_valid_decouple #(
+    emulib_ready_valid_gate #(
         .DECOUPLE_M(1),
         .DECOUPLE_S(1)
     ) gate_fifo_save_b (
@@ -168,12 +168,12 @@ module emulib_rammodel_state_lsu #(
         .i_ready    (fifo_save_bready),
         .o_valid    (gated_fifo_save_bvalid),
         .o_ready    (gated_fifo_save_bready),
-        .couple     (save_sel_b)
+        .enable     (save_sel_b)
     );
 
     assign `AXI4_CUSTOM_B_PAYLOAD(gated_fifo_save) = `AXI4_CUSTOM_B_PAYLOAD(fifo_save);
 
-    emulib_ready_valid_decouple #(
+    emulib_ready_valid_gate #(
         .DECOUPLE_M(1),
         .DECOUPLE_S(1)
     ) gate_fifo_save_r (
@@ -181,12 +181,12 @@ module emulib_rammodel_state_lsu #(
         .i_ready    (fifo_save_rready),
         .o_valid    (gated_fifo_save_rvalid),
         .o_ready    (gated_fifo_save_rready),
-        .couple     (save_sel_r)
+        .enable     (save_sel_r)
     );
 
     assign `AXI4_CUSTOM_R_PAYLOAD(gated_fifo_save) = `AXI4_CUSTOM_R_PAYLOAD(fifo_save);
 
-    emulib_ready_valid_decouple #(
+    emulib_ready_valid_gate #(
         .DECOUPLE_M(1),
         .DECOUPLE_S(1)
     ) gate_fifo_load_a (
@@ -194,12 +194,12 @@ module emulib_rammodel_state_lsu #(
         .i_ready    (gated_fifo_load_aready),
         .o_valid    (fifo_load_avalid),
         .o_ready    (fifo_load_aready),
-        .couple     (load_sel_a)
+        .enable     (load_sel_a)
     );
 
     assign `AXI4_CUSTOM_A_PAYLOAD(fifo_load) = `AXI4_CUSTOM_A_PAYLOAD(gated_fifo_load);
 
-    emulib_ready_valid_decouple #(
+    emulib_ready_valid_gate #(
         .DECOUPLE_M(1),
         .DECOUPLE_S(1)
     ) gate_fifo_load_w (
@@ -207,12 +207,12 @@ module emulib_rammodel_state_lsu #(
         .i_ready    (gated_fifo_load_wready),
         .o_valid    (fifo_load_wvalid),
         .o_ready    (fifo_load_wready),
-        .couple     (load_sel_w)
+        .enable     (load_sel_w)
     );
 
     assign `AXI4_CUSTOM_W_PAYLOAD(fifo_load) = `AXI4_CUSTOM_W_PAYLOAD(gated_fifo_load);
 
-    emulib_ready_valid_decouple #(
+    emulib_ready_valid_gate #(
         .DECOUPLE_M(1),
         .DECOUPLE_S(1)
     ) gate_fifo_load_b (
@@ -220,12 +220,12 @@ module emulib_rammodel_state_lsu #(
         .i_ready    (gated_fifo_load_bready),
         .o_valid    (fifo_load_bvalid),
         .o_ready    (fifo_load_bready),
-        .couple     (load_sel_b)
+        .enable     (load_sel_b)
     );
 
     assign `AXI4_CUSTOM_B_PAYLOAD(fifo_load) = `AXI4_CUSTOM_B_PAYLOAD(gated_fifo_load);
 
-    emulib_ready_valid_decouple #(
+    emulib_ready_valid_gate #(
         .DECOUPLE_M(1),
         .DECOUPLE_S(1)
     ) gate_fifo_load_r (
@@ -233,7 +233,7 @@ module emulib_rammodel_state_lsu #(
         .i_ready    (gated_fifo_load_rready),
         .o_valid    (fifo_load_rvalid),
         .o_ready    (fifo_load_rready),
-        .couple     (load_sel_r)
+        .enable     (load_sel_r)
     );
 
     assign `AXI4_CUSTOM_R_PAYLOAD(fifo_load) = `AXI4_CUSTOM_R_PAYLOAD(gated_fifo_load);

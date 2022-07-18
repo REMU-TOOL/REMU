@@ -239,7 +239,7 @@ module emulib_rammodel_backend #(
     (* __emu_extern_intf = "lsu_axi" *)
     output wire [31:0]              lsu_axi_wdata,
     (* __emu_extern_intf = "lsu_axi" *)
-    output wire [7:0]               lsu_axi_wstrb,
+    output wire [3:0]               lsu_axi_wstrb,
     (* __emu_extern_intf = "lsu_axi" *)
     output wire                     lsu_axi_wlast,
     (* __emu_extern_intf = "lsu_axi" *)
@@ -377,7 +377,7 @@ module emulib_rammodel_backend #(
         .NUM_O      (1),
         .DATA_WIDTH (DATA_WIDTH+1)
     ) rresp_mux (
-        .i_valid    ({frontend_bvalid, rresp_empty_valid}),
+        .i_valid    ({frontend_rvalid, rresp_empty_valid}),
         .i_ready    ({frontend_rready, rresp_empty_ready}),
         .i_data     ({{frontend_rdata, frontend_rlast}, {DATA_WIDTH+1{1'b0}}}),
         .i_sel      ({rreq_valid, !rreq_valid}),
@@ -650,7 +650,7 @@ module emulib_rammodel_backend #(
     wire gated_sched_avalid, gated_sched_aready;
     wire gated_sched_wvalid, gated_sched_wready;
 
-    emulib_ready_valid_decouple #(
+    emulib_ready_valid_gate #(
         .DECOUPLE_S (1),
         .DECOUPLE_M (1)
     ) gate_sched_a (
@@ -658,10 +658,10 @@ module emulib_rammodel_backend #(
         .i_ready    (sched_aready),
         .o_valid    (gated_sched_avalid),
         .o_ready    (gated_sched_aready),
-        .couple     (sched_enable_a)
+        .enable     (sched_enable_a)
     );
 
-    emulib_ready_valid_decouple #(
+    emulib_ready_valid_gate #(
         .DECOUPLE_S (1),
         .DECOUPLE_M (1)
     ) gate_sched_w (
@@ -669,7 +669,7 @@ module emulib_rammodel_backend #(
         .i_ready    (sched_wready),
         .o_valid    (gated_sched_wvalid),
         .o_ready    (gated_sched_wready),
-        .couple     (sched_enable_w)
+        .enable     (sched_enable_w)
     );
 
     // Route A to AW/AR

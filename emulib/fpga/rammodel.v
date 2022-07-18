@@ -136,7 +136,7 @@ module EmuRam #(
         .rreq_id                (rreq_id),
 
         .rresp_data             (rresp_data),
-        .rresp_last             (rreap_last)
+        .rresp_last             (rresp_last)
 
     );
 
