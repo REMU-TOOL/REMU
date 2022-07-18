@@ -17,7 +17,7 @@ class TB:
 
     async def do_reset(self):
         self.dut._log.info("reset asserted")
-        self.dut.pause.value = 0
+        self.dut.run_mode.value = 1
         self.dut.up_req.value = 0
         self.dut.down_req.value = 0
         self.dut.target_rst.value = 1
@@ -69,13 +69,18 @@ async def run_test(dut):
     async def pause_resume_worker_func():
         while running:
             await ClockCycles(dut.host_clk, random.randint(1, 500))
-            dut.pause.value = 1
+            dut.run_mode.value = 0
+            dut._log.info("pause requested")
+            #while dut.finishing.value != 1:
+            #    await RisingEdge(dut.host_clk)
+            dut._log.info("pause acknowledged")
             await ClockCycles(dut.host_clk, random.randint(1, 3))
             await tb.do_down()
             await ClockCycles(dut.host_clk, random.randint(1, 5))
             await tb.do_up()
             await ClockCycles(dut.host_clk, random.randint(1, 3))
-            dut.pause.value = 0
+            dut.run_mode.value = 1
+            dut._log.info("resumed")
 
     read_write_worker = cocotb.fork(read_write_worker_func())
     pause_resume_worker = cocotb.fork(pause_resume_worker_func())

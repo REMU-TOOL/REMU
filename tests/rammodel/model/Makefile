@@ -2,7 +2,7 @@ SIM_TOP := rammodel_test
 
 SIM_SRCS += test.v
 
-COCOTB_MODULE := test_model
+COCOTB_MODULE := testbench
 
 IVL_ARGS += -DSIM_LOG
 #IVL_ARGS += -DSIM_LOG_FIFO
