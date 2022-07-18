@@ -6,7 +6,7 @@ module EmuReset (
     output wire reset
 );
 
-    (* __emu_dut_rst *)
+    (* __emu_user_rst *)
     wire dut_rst;
     assign reset = dut_rst;
 

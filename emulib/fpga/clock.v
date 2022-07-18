@@ -6,7 +6,7 @@ module EmuClock (
     output wire clock
 );
 
-    (* __emu_dut_clk *)
+    (* __emu_user_clk *)
     wire dut_clk;
     assign clock = dut_clk;
 
