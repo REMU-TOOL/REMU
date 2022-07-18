@@ -48,9 +48,9 @@ void PortWorker::process_dut_clock_reset(Module *module) {
     std::vector<Wire *> clocks, resets;
 
     for (Wire *wire : module->wires()) {
-        if (wire->get_bool_attribute(Attr::DUTClock))
+        if (wire->get_bool_attribute(Attr::UserClock))
             clocks.push_back(wire);
-        else if (wire->get_bool_attribute(Attr::DUTReset))
+        else if (wire->get_bool_attribute(Attr::UserReset))
             resets.push_back(wire);
     }
 
@@ -70,7 +70,7 @@ void PortWorker::process_dut_clock_reset(Module *module) {
         Module *module = clk->module;
         module->connect(clk, dut_clk->get(module));
 
-        database.dutclocks[name] = {};
+        database.user_clocks[name] = {};
     }
 
     for (Wire *rst : resets) {
@@ -83,7 +83,7 @@ void PortWorker::process_dut_clock_reset(Module *module) {
         Module *module = rst->module;
         module->connect(rst, dut_rst->get(module));
 
-        database.dutresets[name] = {};
+        database.user_resets[name] = {};
     }
 }
 

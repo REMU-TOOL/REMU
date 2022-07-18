@@ -121,7 +121,7 @@ void ClockWorker::run() {
 
     // Rewrite DUT clocks
 
-    for (auto &it : database.dutclocks) {
+    for (auto &it : database.user_clocks) {
         auto clk = rewriter.clock(it.first);
 
         if (it.second.ff_clk.empty()) {

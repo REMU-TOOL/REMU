@@ -62,14 +62,19 @@ struct ResetInfo {
     int dummy;
 };
 
+struct TrigInfo {
+    std::string desc;
+};
+
 struct EmulationDatabase {
 
     // written by PlatformTransform
     dict<std::string, int> ctrl_addrs;
 
     // written by PortTransform
-    dict<std::string, ClockInfo> dutclocks;
-    dict<std::string, ResetInfo> dutresets;
+    dict<std::string, ClockInfo> user_clocks;
+    dict<std::string, ResetInfo> user_resets;
+    dict<std::string, TrigInfo> user_trigs;
 
     // written by InsertScanchain
     int ff_width = 0;

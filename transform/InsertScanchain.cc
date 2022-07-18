@@ -538,7 +538,7 @@ void ScanchainWorker::run()
     mdl_clk_ram_en = wrapper->Or(NEW_ID, mdl_clk_ram_en, ram_se);
     mdl_clk_ram->setEnable(mdl_clk_ram_en);
 
-    for (auto &it : database.dutclocks) {
+    for (auto &it : database.user_clocks) {
         auto ff_clk = rewriter.clock(it.second.ff_clk);
         SigBit ff_clk_en = ff_clk->getEnable();
         ff_clk_en = wrapper->Or(NEW_ID, ff_clk_en, ff_se);
