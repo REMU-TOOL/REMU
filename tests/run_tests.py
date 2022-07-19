@@ -9,7 +9,7 @@ def run_cmd(cmd, log):
         'stdbuf -o0 ' + cmd,
         shell=True,
         bufsize=0,
-        stdin=subprocess.DEVNULL,
+        stdin=sys.stdin,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT
     )

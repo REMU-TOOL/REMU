@@ -2,6 +2,8 @@ TEST_DIR   := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 EMULIB_DIR := $(realpath $(TEST_DIR)/../emulib)
 DESIGN_DIR := $(realpath $(TEST_DIR)/../design)
 
+YOSYS ?= yosys
+
 DUMP ?= n
 
 EMU_INCLUDE := $(EMULIB_DIR)/include
@@ -72,7 +74,7 @@ $(SIMCTRL_V):
 
 $(OUTPUT_FILE): $(EMU_SRCS)
 	@mkdir -p $(BUILD_DIR)
-	yosys -m transform -p "emu_transform $(TRANSFORM_ARGS)" -o $@ $^
+	$(YOSYS) -m transform -p "emu_transform $(TRANSFORM_ARGS)" -o $@ $^
 
 $(SIM_BIN): $(SIM_SRCS)
 	@mkdir -p $(BUILD_DIR)
