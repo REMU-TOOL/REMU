@@ -9,8 +9,11 @@ module test #(
     parameter   ID_WIDTH        = 4
 )(
 
-    input                       clk,
-    input                       resetn,
+    input                       host_clk,
+    input                       host_rst,
+
+    output                      target_clk,
+    input                       target_rst,
 
     input                       s_axi_awvalid,
     output                      s_axi_awready,
@@ -106,130 +109,81 @@ module test #(
     input                       ff_dir,
     input   [63:0]              ff_sdi,
     output  [63:0]              ff_sdo,
+    input                       ram_scan_reset,
     input                       ram_scan,
     input                       ram_dir,
     input   [63:0]              ram_sdi,
     output  [63:0]              ram_sdo,
 
-    input                       up_req,
-    input                       down_req,
-    output                      up,
-    output                      down,
-
-    `AXI4_MASTER_IF             (lsu_axi, 32, 32, 1),
-
-    // for testbench use
-    output                      dut_clk
+    input                       run_mode,
+    input                       scan_mode,
+    output                      idle
 
 );
 
-    //reg clk = 0, rst = 1;
-    wire rst = !resetn;
-    //reg pause = 0;
-    //reg ff_scan = 0, ff_dir = 0;
-    //reg [63:0] ff_sdi = 0;
-    //wire [63:0] ff_sdo;
-    //reg ram_scan = 0, ram_dir = 0;
-    //reg [63:0] ram_sdi = 0;
-    //wire [63:0] ram_sdo;
+    EMU_SYSTEM emu_dut(
 
-    wire dut_stall;
+        .target_s_axi_awvalid  (s_axi_awvalid),
+        .target_s_axi_awready  (s_axi_awready),
+        .target_s_axi_awaddr   (s_axi_awaddr),
+        .target_s_axi_awid     (s_axi_awid),
+        .target_s_axi_awlen    (s_axi_awlen),
+        .target_s_axi_awsize   (s_axi_awsize),
+        .target_s_axi_awburst  (s_axi_awburst),
+        .target_s_axi_awlock   (s_axi_awlock),
+        .target_s_axi_awcache  (s_axi_awcache),
+        .target_s_axi_awprot   (s_axi_awprot),
+        .target_s_axi_awqos    (s_axi_awqos),
+        .target_s_axi_awregion (s_axi_awregion),
 
-    wire dut_clk, dut_clk_en;
-    ClockGate clk_gate(
-        .CLK(clk),
-        .EN(dut_clk_en),
-        .OCLK(dut_clk)
+        .target_s_axi_wvalid   (s_axi_wvalid),
+        .target_s_axi_wready   (s_axi_wready),
+        .target_s_axi_wdata    (s_axi_wdata),
+        .target_s_axi_wstrb    (s_axi_wstrb),
+        .target_s_axi_wlast    (s_axi_wlast),
+
+        .target_s_axi_bvalid   (s_axi_bvalid),
+        .target_s_axi_bready   (s_axi_bready),
+        .target_s_axi_bresp    (s_axi_bresp),
+        .target_s_axi_bid      (s_axi_bid),
+
+        .target_s_axi_arvalid  (s_axi_arvalid),
+        .target_s_axi_arready  (s_axi_arready),
+        .target_s_axi_araddr   (s_axi_araddr),
+        .target_s_axi_arid     (s_axi_arid),
+        .target_s_axi_arlen    (s_axi_arlen),
+        .target_s_axi_arsize   (s_axi_arsize),
+        .target_s_axi_arburst  (s_axi_arburst),
+        .target_s_axi_arlock   (s_axi_arlock),
+        .target_s_axi_arcache  (s_axi_arcache),
+        .target_s_axi_arprot   (s_axi_arprot),
+        .target_s_axi_arqos    (s_axi_arqos),
+        .target_s_axi_arregion (s_axi_arregion),
+
+        .target_s_axi_rvalid   (s_axi_rvalid),
+        .target_s_axi_rready   (s_axi_rready),
+        .target_s_axi_rdata    (s_axi_rdata),
+        .target_s_axi_rresp    (s_axi_rresp),
+        .target_s_axi_rid      (s_axi_rid),
+        .target_s_axi_rlast    (s_axi_rlast),
+
+        .host_clk       (host_clk),
+        .host_rst       (host_rst),
+        .ff_se          (ff_scan),
+        .ff_di          (ff_dir ? ff_sdi : ff_sdo),
+        .ff_do          (ff_sdo),
+        .ram_sr         (ram_scan_reset),
+        .ram_se         (ram_scan),
+        .ram_sd         (ram_dir),
+        .ram_di         (ram_sdi),
+        .ram_do         (ram_sdo),
+        .reset_dut_rst  (target_rst),
+        .run_mode       (run_mode),
+        .scan_mode      (scan_mode),
+        .idle           (idle),
+        `AXI4_CONNECT       (target_u_rammodel_backend_host_axi, m_axi)
     );
 
-    wire emu_dut_ff_clk, emu_dut_ff_clk_en;
-    ClockGate dut_ff_clk_gate(
-        .CLK(clk),
-        .EN(emu_dut_ff_clk_en),
-        .OCLK(emu_dut_ff_clk)
-    );
-
-    wire emu_dut_ram_clk, emu_dut_ram_clk_en;
-    ClockGate dut_ram_clk_gate(
-        .CLK(clk),
-        .EN(emu_dut_ram_clk_en),
-        .OCLK(emu_dut_ram_clk)
-    );
-
-    EMU_DUT emu_dut(
-
-        .s_axi_awvalid  (s_axi_awvalid),
-        .s_axi_awready  (s_axi_awready),
-        .s_axi_awaddr   (s_axi_awaddr),
-        .s_axi_awid     (s_axi_awid),
-        .s_axi_awlen    (s_axi_awlen),
-        .s_axi_awsize   (s_axi_awsize),
-        .s_axi_awburst  (s_axi_awburst),
-        .s_axi_awlock   (s_axi_awlock),
-        .s_axi_awcache  (s_axi_awcache),
-        .s_axi_awprot   (s_axi_awprot),
-        .s_axi_awqos    (s_axi_awqos),
-        .s_axi_awregion (s_axi_awregion),
-
-        .s_axi_wvalid   (s_axi_wvalid),
-        .s_axi_wready   (s_axi_wready),
-        .s_axi_wdata    (s_axi_wdata),
-        .s_axi_wstrb    (s_axi_wstrb),
-        .s_axi_wlast    (s_axi_wlast),
-
-        .s_axi_bvalid   (s_axi_bvalid),
-        .s_axi_bready   (s_axi_bready),
-        .s_axi_bresp    (s_axi_bresp),
-        .s_axi_bid      (s_axi_bid),
-
-        .s_axi_arvalid  (s_axi_arvalid),
-        .s_axi_arready  (s_axi_arready),
-        .s_axi_araddr   (s_axi_araddr),
-        .s_axi_arid     (s_axi_arid),
-        .s_axi_arlen    (s_axi_arlen),
-        .s_axi_arsize   (s_axi_arsize),
-        .s_axi_arburst  (s_axi_arburst),
-        .s_axi_arlock   (s_axi_arlock),
-        .s_axi_arcache  (s_axi_arcache),
-        .s_axi_arprot   (s_axi_arprot),
-        .s_axi_arqos    (s_axi_arqos),
-        .s_axi_arregion (s_axi_arregion),
-
-        .s_axi_rvalid   (s_axi_rvalid),
-        .s_axi_rready   (s_axi_rready),
-        .s_axi_rdata    (s_axi_rdata),
-        .s_axi_rresp    (s_axi_rresp),
-        .s_axi_rid      (s_axi_rid),
-        .s_axi_rlast    (s_axi_rlast),
-
-        .emu_host_clk       (clk),
-        .emu_host_rst       (rst),
-        .emu_ff_se          (ff_scan),
-        .emu_ff_di          (ff_dir ? ff_sdi : ff_sdo),
-        .emu_ff_do          (ff_sdo),
-        .emu_ram_se         (ram_scan),
-        .emu_ram_sd         (ram_dir),
-        .emu_ram_di         (ram_sdi),
-        .emu_ram_do         (ram_sdo),
-        .emu_dut_ff_clk     (emu_dut_ff_clk),
-        .emu_dut_ram_clk    (emu_dut_ram_clk),
-        .emu_dut_rst        (rst),
-        .emu_dut_trig       (),
-        .emu_target_fire    (!pause && !dut_stall),
-        .emu_stall          (dut_stall),
-        .emu_up_req         (up_req),
-        .emu_down_req       (down_req),
-        .emu_up_stat        (up),
-        .emu_down_stat      (down),
-        `AXI4_CONNECT       (u_rammodel_host_axi, m_axi),
-        `AXI4_CONNECT_NO_ID (u_rammodel_lsu_axi, lsu_axi)
-    );
-
-    assign lsu_axi_arid = 0;
-    assign lsu_axi_awid = 0;
-
-    assign dut_clk_en = !pause && !dut_stall;
-    assign emu_dut_ff_clk_en = !pause && !dut_stall || ff_scan;
-    assign emu_dut_ram_clk_en = !pause && !dut_stall || ram_scan;
+    assign target_clk = emu_dut.clock_dut_clk;
 
 endmodule
