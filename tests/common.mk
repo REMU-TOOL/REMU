@@ -14,25 +14,31 @@ SIM_BIN     := $(BUILD_DIR)/sim
 DUMP_FILE   := $(BUILD_DIR)/dump.fst
 RESULTS_XML := $(BUILD_DIR)/results.xml
 
-DUMP_V      := $(BUILD_DIR)/_dump.v
+SIMCTRL_V   := $(BUILD_DIR)/simctrl.v
 
 SIM_SRCS += $(wildcard $(EMULIB_DIR)/common/*.v)
 SIM_SRCS += $(wildcard $(EMULIB_DIR)/fpga/*.v)
 SIM_SRCS += $(wildcard $(EMULIB_DIR)/platform/*.v)
 SIM_SRCS += $(wildcard $(TEST_DIR)/../platform/sim/common/sources/*.v)
+SIM_SRCS += $(SIMCTRL_V)
+SIM_TOP += _simctrl
 
-ifeq ($(DUMP),y)
-SIM_SRCS += $(DUMP_V)
-SIM_TOP += _dump
+TRANSFORM_ARGS += -top $(EMU_TOP)
+TRANSFORM_ARGS += -yaml $(SC_YML_FILE)
+TRANSFORM_ARGS += -loader $(LOADER_FILE)
+ifneq ($(PLAT_MAP),y)
+TRANSFORM_ARGS += -no_plat
 endif
 
-ifeq ($(EMU_TOP),)
-else
+ifeq ($(TIMEOUT),)
+TIMEOUT = 1000000
+endif
+
+ifneq ($(EMU_TOP),)
 SIM_SRCS += $(OUTPUT_FILE)
 endif
 
-ifeq ($(COCOTB_MODULE),)
-else
+ifneq ($(COCOTB_MODULE),)
 VVP_ARGS += -M $(shell cocotb-config --lib-dir) -m $(shell cocotb-config --lib-name vpi icarus)
 sim: export MODULE = $(COCOTB_MODULE)
 sim: export COCOTB_RESULTS_FILE = $(RESULTS_XML)
@@ -44,18 +50,32 @@ IVL_ARGS += $(foreach top,$(SIM_TOP),-s $(top))
 
 PLUSARGS += -fst
 
+ifeq ($(DUMP),y)
+PLUSARGS += +dump
+endif
+
 .DEFAULT_GOAL := sim
 
-$(DUMP_V):
-	mkdir -p $(BUILD_DIR)
-	echo "module _dump(); initial begin \$$dumpfile(\"$(DUMP_FILE)\"); \$$dumpvars(); end endmodule" > $(DUMP_V)
+$(SIMCTRL_V):
+	@mkdir -p $(BUILD_DIR)
+	@echo "\`timescale 1ns/1ps" > $@
+	@echo "module _simctrl;" >> $@
+	@echo "initial begin" >> $@
+	@echo "if (\$$test\$$plusargs(\"dump\")) begin" >> $@
+	@echo "\$$dumpfile(\"$(DUMP_FILE)\");" >> $@
+	@echo "\$$dumpvars;" >> $@
+	@echo "end" >> $@
+	@echo "#$(TIMEOUT) \$$display(\"timeout\");" >> $@
+	@echo "\$$fatal;" >> $@
+	@echo "end" >> $@
+	@echo "endmodule" >> $@
 
 $(OUTPUT_FILE): $(EMU_SRCS)
-	mkdir -p $(BUILD_DIR)
-	yosys -m transform -p "emu_transform -top $(EMU_TOP) -yaml $(SC_YML_FILE) -loader $(LOADER_FILE) -raw_plat" -o $@ $^
+	@mkdir -p $(BUILD_DIR)
+	yosys -m transform -p "emu_transform $(TRANSFORM_ARGS)" -o $@ $^
 
 $(SIM_BIN): $(SIM_SRCS)
-	mkdir -p $(BUILD_DIR)
+	@mkdir -p $(BUILD_DIR)
 	iverilog $(IVL_ARGS) -o $@ $^
 
 .PHONY: sim
