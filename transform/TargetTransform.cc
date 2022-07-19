@@ -303,17 +303,21 @@ void RTLModelWorker::emit() {
     SigSpec finishing;
 
     // TODO: handle combinationally connected channels
+    for (auto &it : rtl_channel_deps) {
+        if (!it.second.empty())
+            log_error("combinational dependency in channels are currently unsupported\n");
+    }
 
     rewriter.define_wire("tick");
 
     auto mdl_clk = rewriter.clock("mdl_clk");
     auto mdl_rst = rewriter.wire("mdl_rst");
+
+    auto run_mode = rewriter.wire("run_mode");
     auto scan_mode = rewriter.wire("scan_mode");
 
-    SigBit non_scan_mode = wrapper->Not(NEW_ID, scan_mode->get(wrapper));
-
     SigBit mdl_clk_en = mdl_clk->getEnable();
-    mdl_clk_en = wrapper->And(NEW_ID, mdl_clk_en, non_scan_mode);
+    mdl_clk_en = wrapper->And(NEW_ID, mdl_clk_en, wrapper->Not(NEW_ID, scan_mode->get(wrapper)));
     mdl_clk->setEnable(mdl_clk_en);
 
     auto tick = rewriter.wire("tick");
@@ -353,10 +357,12 @@ void RTLModelWorker::emit() {
         );
 
         if (channel.direction == CHANNEL_INPUT) {
-            module->connect(valid, module->Not(NEW_ID, done));
+            // assign valid = !done && run_mode;
+            module->connect(valid, module->And(NEW_ID, module->Not(NEW_ID, done), run_mode->get(module)));
         }
         else {
-            module->connect(ready, module->Not(NEW_ID, done));
+            // assign ready = !done && run_mode;
+            module->connect(ready, module->And(NEW_ID, module->Not(NEW_ID, done), run_mode->get(module)));
         }
 
         Wire *channel_finishing = module->addWire(module->uniquify("\\" + name + "_finishing"));
