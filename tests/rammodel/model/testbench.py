@@ -13,13 +13,10 @@ class TB:
         cocotb.fork(Clock(dut.host_clk, 10, units='ns').start())
         self.axi_master = AxiMaster(AxiBus.from_prefix(dut, 's_axi'), dut.target_clk, dut.target_rst)
         self.axi_ram = AxiRam(AxiBus.from_prefix(dut, 'host_axi'), dut.host_clk, dut.host_rst, size=0x1000)
-        self.axi_lsu_ram = AxiRam(AxiBus.from_prefix(dut, 'lsu_axi'), dut.host_clk, dut.host_rst, size=0x2000)
 
     async def do_reset(self):
         self.dut._log.info("reset asserted")
         self.dut.run_mode.value = 1
-        self.dut.up_req.value = 0
-        self.dut.down_req.value = 0
         self.dut.target_rst.value = 1
         self.dut.host_rst.value = 1
         await RisingEdge(self.dut.host_clk)
@@ -27,22 +24,6 @@ class TB:
         self.dut.host_rst.value = 0
         self.dut._log.info("reset deasserted")
         await RisingEdge(self.dut.host_clk)
-
-    async def do_up(self):
-        self.dut._log.info("up requested")
-        self.dut.up_req.value = 1
-        while self.dut.up.value != 1:
-            await RisingEdge(self.dut.host_clk)
-        self.dut.up_req.value = 0
-        self.dut._log.info("up acknowledged")
-
-    async def do_down(self):
-        self.dut._log.info("down requested")
-        self.dut.down_req.value = 1
-        while self.dut.down.value != 1:
-            await RisingEdge(self.dut.host_clk)
-        self.dut.down_req.value = 0
-        self.dut._log.info("down acknowledged")
 
 @cocotb.test()
 async def run_test(dut):
@@ -71,14 +52,10 @@ async def run_test(dut):
             await ClockCycles(dut.host_clk, random.randint(1, 500))
             dut.run_mode.value = 0
             dut._log.info("pause requested")
-            #while dut.finishing.value != 1:
-            #    await RisingEdge(dut.host_clk)
+            while dut.idle.value != 1:
+                await RisingEdge(dut.host_clk)
             dut._log.info("pause acknowledged")
-            await ClockCycles(dut.host_clk, random.randint(1, 3))
-            await tb.do_down()
             await ClockCycles(dut.host_clk, random.randint(1, 5))
-            await tb.do_up()
-            await ClockCycles(dut.host_clk, random.randint(1, 3))
             dut.run_mode.value = 1
             dut._log.info("resumed")
 
