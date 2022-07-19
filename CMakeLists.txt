@@ -19,7 +19,7 @@ set(YOSYS_ROOT          ${CMAKE_SOURCE_DIR}/yosys)
 set(YOSYS_INCLUDE_DIR   ${YOSYS_ROOT})
 
 set(YOSYS_CONFIGURE     cp ${CMAKE_SOURCE_DIR}/yosys.conf ${YOSYS_ROOT}/Makefile.conf)
-set(YOSYS_MAKE          cd ${YOSYS_ROOT} && $(MAKE))
+set(YOSYS_MAKE          cd ${YOSYS_ROOT} && $(MAKE) $<$<CONFIG:Debug>:DEBUG=1>)
 set(YOSYS_INSTALL       cd ${YOSYS_ROOT} && $(MAKE) DESTDIR=${YOSYS_TMP_DESTDIR} PREFIX=${CMAKE_INSTALL_PREFIX} install)
 
 ExternalProject_Add(yosys
