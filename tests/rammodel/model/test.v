@@ -18,10 +18,10 @@ module rammodel_test #(
     `AXI4_MASTER_IF             (host_axi,  ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
 
     input                       run_mode,
-    output                      idle,
-    output                      finishing
+    output                      idle
 );
 
+    wire finishing;
     wire tick = run_mode && finishing;
     ClockGate clk_gate(
         .CLK(host_clk),
