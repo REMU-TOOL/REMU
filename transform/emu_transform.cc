@@ -48,7 +48,7 @@ struct EmuTransformPass : public Pass {
         log("        write generated yaml configuration to the specified file\n");
         log("    -loader <file>\n");
         log("        write verilog loader definition to the specified file\n");
-        log("    -raw_plat\n");
+        log("    -no_plat\n");
         log("        export raw wires in platform transformation\n");
         log("\n");
     }
@@ -174,7 +174,7 @@ struct EmuTransformPass : public Pass {
                 loader_file = args[++argidx];
                 continue;
             }
-            if (args[argidx] == "-raw_plat") {
+            if (args[argidx] == "-no_plat") {
                 raw_plat = true;
                 continue;
             }
