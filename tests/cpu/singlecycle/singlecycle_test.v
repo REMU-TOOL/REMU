@@ -29,7 +29,7 @@ module sim_top();
         .ram_sd         (ram_dir),
         .ram_di         (ram_sdi),
         .ram_do         (ram_sdo),
-        .reset_dut_rst  (rst)
+        .reset_reset    (rst)
     );
 
     wire ref_clk;

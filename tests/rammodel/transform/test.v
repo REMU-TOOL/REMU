@@ -175,13 +175,13 @@ module test #(
         .ram_sd         (ram_dir),
         .ram_di         (ram_sdi),
         .ram_do         (ram_sdo),
-        .reset_dut_rst  (target_rst),
+        .reset_reset    (target_rst),
         .run_mode       (run_mode),
         .scan_mode      (scan_mode),
         .idle           (idle),
         `AXI4_CONNECT       (target_u_rammodel_backend_host_axi, m_axi)
     );
 
-    assign target_clk = emu_dut.clock_dut_clk;
+    assign target_clk = emu_dut.clock_clock;
 
 endmodule
