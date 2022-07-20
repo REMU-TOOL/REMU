@@ -102,6 +102,11 @@ RewriterClock::RewriterClock(EmulationRewriter &rewriter, std::string name, Modu
 
 Wire *EmulationRewriter::promote(Wire *wire) {
     while (wire->module != wrapper_) {
+        if (wire->port_input) {
+            Wire *new_wire = wire->module->addWire(wire->module->uniquify(wire->name), wire->width);
+            wire->module->connect(new_wire, wire);
+            wire = new_wire;
+        }
         wire->port_output = true;
         wire->module->fixup_ports();
         Cell *inst_cell = designinfo.instance_of(wire->module);
