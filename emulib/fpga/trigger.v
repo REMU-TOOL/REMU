@@ -3,12 +3,12 @@
 
 (* keep *)
 module EmuTrigger #(
-    parameter DESC = ""
+    parameter DESC = "<empty>"
 )(
     input wire trigger
 );
 
-    (* __emu_user_trig *)
+    (* __emu_user_trig, __emu_user_trig_desc = DESC *)
     wire dut_trig;
     assign dut_trig = trigger;
 

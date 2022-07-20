@@ -1,51 +1,77 @@
 `timescale 1ns / 1ps
 `default_nettype none
 
-(* keep, __emu_directive = {
-    "extern host_clk;",
-    "extern host_rst;",
-    "extern target_fire;",
-    "extern stall;",
-    "extern putchar_valid;",
-    "extern putchar_ready;",
-    "extern putchar_data;"
-} *)
-
+(* keep, __emu_model_imp *)
 module EmuPutChar (
+
+    (* __emu_model_common_port = "mdl_clk" *)
+    input  wire         mdl_clk,
+    (* __emu_model_common_port = "mdl_rst" *)
+    input  wire         mdl_rst,
+
     input  wire         clk,
+
+    // Reset Channel
+
+    (* __emu_model_channel_name = "rst"*)
+    (* __emu_model_channel_direction = "in" *)
+    (* __emu_model_channel_payload = "rst" *)
+    (* __emu_model_channel_valid = "tk_rst_valid" *)
+    (* __emu_model_channel_ready = "tk_rst_ready" *)
+
+    input  wire         tk_rst_valid,
+    output wire         tk_rst_ready,
+
     input  wire         rst,
+
+    // Data Channel
+
+    (* __emu_model_channel_name = "data"*)
+    (* __emu_model_channel_direction = "in" *)
+    (* __emu_model_channel_payload = "valid data" *)
+    (* __emu_model_channel_valid = "tk_data_valid" *)
+    (* __emu_model_channel_ready = "tk_data_ready" *)
+
+    input  wire         tk_data_valid,
+    output wire         tk_data_ready,
+
     input  wire         valid,
     input  wire [7:0]   data,
 
-    input  wire         host_clk,
-    input  wire         host_rst,
-    input  wire         target_fire,
-    output wire         stall,
+    (* __emu_model_common_port = "putchar_valid" *)
     output wire         putchar_valid,
+    (* __emu_model_common_port = "putchar_ready" *)
     input  wire         putchar_ready,
+    (* __emu_model_common_port = "putchar_data" *)
     output wire [7:0]   putchar_data
+
 );
 
-    wire decoupled_rst      = target_fire && rst;
-    wire decoupled_valid    = target_fire && valid;
+    wire fifo_clear;
 
-    wire fifo_iready;
+    reset_token_handler resetter (
+        .mdl_clk        (mdl_clk),
+        .mdl_rst        (mdl_rst),
+        .tk_rst_valid   (tk_rst_valid),
+        .tk_rst_ready   (tk_rst_ready),
+        .tk_rst         (rst),
+        .allow_rst      (1'b1),
+        .rst_out        (fifo_clear)
+    );
 
-    emulib_fifo #(
+    emulib_ready_valid_fifo #(
         .WIDTH      (8),
         .DEPTH      (16)
     ) char_fifo (
-        .clk        (host_clk),
-        .rst        (host_rst || decoupled_rst),
-        .ivalid     (decoupled_valid),
-        .iready     (fifo_iready),
+        .clk        (mdl_clk),
+        .rst        (mdl_rst || fifo_clear),
+        .ivalid     (tk_data_valid && valid),
+        .iready     (tk_data_ready),
         .idata      (data),
         .ovalid     (putchar_valid),
         .oready     (putchar_ready),
         .odata      (putchar_data)
     );
-
-    assign stall = valid && !fifo_iready;
 
 endmodule
 

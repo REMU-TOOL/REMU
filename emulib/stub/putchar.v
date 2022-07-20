@@ -1,6 +1,7 @@
 `timescale 1ns / 1ps
 `default_nettype none
 
+(* keep *)
 module EmuPutChar (
     input  wire         clk,
     input  wire         rst,

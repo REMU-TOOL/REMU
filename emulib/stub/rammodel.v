@@ -1,6 +1,7 @@
 `timescale 1ns / 1ps
 `default_nettype none
 
+(* keep *)
 module EmuRam #(
     parameter   ADDR_WIDTH      = 32,
     parameter   DATA_WIDTH      = 64,

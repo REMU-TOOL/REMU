@@ -328,7 +328,7 @@ void RTLModelWorker::emit() {
         Cell *model_cell = rewriter.design().instance_of(channel.module);
         Module *module = model_cell->module;
 
-        log("Emitting channel %s.%s\n", designinfo.hier_name_of(module).c_str(), name.c_str());
+        log("Emitting channel %s.%s\n", designinfo.hier_name_of(model_cell).c_str(), name.c_str());
 
         SigSpec clk = mdl_clk->get(module);
         SigSpec rst = mdl_rst->get(module);

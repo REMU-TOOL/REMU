@@ -2,7 +2,7 @@
 `default_nettype none
 
 module EmuTrigger #(
-    parameter DESC = ""
+    parameter DESC = "<empty>"
 )(
     input wire trigger
 );
