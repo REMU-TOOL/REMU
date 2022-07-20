@@ -4,14 +4,20 @@
 
 module test(
 
-    input                       clk,
-    input                       resetn,
+    input                       host_clk,
+    input                       host_rst,
 
-    output                      trig,
+    output                      target_clk,
+    input                       target_rst,
 
-    output reg                  pause,
     input                       do_pause,
     input                       do_resume,
+
+    output reg                  run_mode,
+    input                       scan_mode,
+    output                      idle,
+
+    output                      trig,
 
     input                       ff_scan,
     input                       ff_dir,
@@ -22,14 +28,6 @@ module test(
     input   [63:0]              ram_sdi,
     output  [63:0]              ram_sdo,
 
-    input                       up_req,
-    input                       down_req,
-    output                      up,
-    output                      down,
-
-    // for testbench use
-    output                      dut_clk,
-
     output reg  [63:0]          count,
     input                       count_write,
     input   [63:0]              count_wdata,
@@ -39,99 +37,58 @@ module test(
     output                      step_trig,
 
 
-    `AXI4_MASTER_IF             (host_axi, 32, 32, 1),
-    `AXI4_MASTER_IF             (lsu_axi, 32, 32, 1)
+    `AXI4_MASTER_IF             (host_axi, 32, 32, 1)
 
 );
 
-    //reg clk = 0, rst = 1;
-    wire rst = !resetn;
-    //reg pause = 0;
-    //reg ff_scan = 0, ff_dir = 0;
-    //reg [63:0] ff_sdi = 0;
-    //wire [63:0] ff_sdo;
-    //reg ram_scan = 0, ram_dir = 0;
-    //reg [63:0] ram_sdi = 0;
-    //wire [63:0] ram_sdo;
-
-    wire dut_stall;
-
-    wire dut_clk, dut_clk_en;
-    ClockGate clk_gate(
-        .CLK(clk),
-        .EN(dut_clk_en),
-        .OCLK(dut_clk)
-    );
-
-    wire emu_dut_ff_clk, emu_dut_ff_clk_en;
-    ClockGate dut_ff_clk_gate(
-        .CLK(clk),
-        .EN(emu_dut_ff_clk_en),
-        .OCLK(emu_dut_ff_clk)
-    );
-
-    wire emu_dut_ram_clk, emu_dut_ram_clk_en;
-    ClockGate dut_ram_clk_gate(
-        .CLK(clk),
-        .EN(emu_dut_ram_clk_en),
-        .OCLK(emu_dut_ram_clk)
-    );
+    wire tick;
 
     wire putchar_valid, putchar_ready;
     wire [7:0] putchar_data;
 
     assign putchar_ready = 1'b1;
 
-    always @(posedge clk)
-        if (dut_clk_en && putchar_valid)
+    always @(posedge host_clk)
+        if (run_mode && putchar_valid)
             $write("%c", putchar_data);
 
-    EMU_DUT emu_dut(
-        .emu_host_clk       (clk),
-        .emu_host_rst       (rst),
-        .emu_ff_se          (ff_scan),
-        .emu_ff_di          (ff_dir ? ff_sdi : ff_sdo),
-        .emu_ff_do          (ff_sdo),
-        .emu_ram_se         (ram_scan),
-        .emu_ram_sd         (ram_dir),
-        .emu_ram_di         (ram_sdi),
-        .emu_ram_do         (ram_sdo),
-        .emu_dut_ff_clk     (emu_dut_ff_clk),
-        .emu_dut_ram_clk    (emu_dut_ram_clk),
-        .emu_dut_rst        (rst),
-        .emu_dut_trig       (trig),
-        .emu_target_fire    (!pause && !dut_stall),
-        .emu_stall          (dut_stall),
-        .emu_up_req         (up_req),
-        .emu_down_req       (down_req),
-        .emu_up_stat        (up),
-        .emu_down_stat      (down),
-        `AXI4_CONNECT       (uncore_u_rammodel_host_axi, host_axi),
-        `AXI4_CONNECT_NO_ID (uncore_u_rammodel_lsu_axi, lsu_axi),
-        .emu_putchar_valid              (putchar_valid),
-        .emu_putchar_ready              (putchar_ready),
-        .emu_putchar_data               (putchar_data)
+    EMU_SYSTEM emu_dut(
+        .host_clk       (host_clk),
+        .host_rst       (host_rst),
+        .ff_se          (ff_scan),
+        .ff_di          (ff_dir ? ff_sdi : ff_sdo),
+        .ff_do          (ff_sdo),
+        .ram_sr         (ram_scan_reset),
+        .ram_se         (ram_scan),
+        .ram_sd         (ram_dir),
+        .ram_di         (ram_sdi),
+        .ram_do         (ram_sdo),
+        .reset_dut_rst  (target_rst),
+        .run_mode       (run_mode),
+        .scan_mode      (scan_mode),
+        .idle           (idle),
+        .trap_trig_dut_trig       (trig),
+        `AXI4_CONNECT       (target_uncore_u_rammodel_backend_host_axi, host_axi),
+        .putchar_valid              (putchar_valid),
+        .putchar_ready              (putchar_ready),
+        .putchar_data               (putchar_data)
     );
 
-    assign lsu_axi_arid = 0;
-    assign lsu_axi_awid = 0;
+    assign target_clk = emu_dut.clock_dut_clk;
+    assign tick = emu_dut.tick;
 
-    assign dut_clk_en = !pause && !dut_stall;
-    assign emu_dut_ff_clk_en = !pause && !dut_stall || ff_scan;
-    assign emu_dut_ram_clk_en = !pause && !dut_stall || ram_scan;
-
-    always @(posedge clk)
-        if (!resetn)
+    always @(posedge host_clk)
+        if (host_rst)
             count <= 64'd0;
         else if (count_write)
             count <= count_wdata;
-        else if (dut_clk_en)
+        else if (run_mode && tick)
             count <= count + 64'd1;
 
     reg [63:0] step, step_next;
 
-    always @(posedge clk)
-        if (!resetn)
+    always @(posedge host_clk)
+        if (host_rst)
             step <= 64'd0;
         else
             step <= step_next;
@@ -141,17 +98,51 @@ module test(
             step_next = step_wdata;
         else if (step == 64'd0)
             step_next = 64'd0;
-        else if (dut_clk_en)
+        else if (run_mode && tick)
             step_next = step - 64'd1;
+        else
+            step_next = step;
 
     assign step_trig = step != 64'd0 && step_next == 64'd0;
 
-    always @(posedge clk)
-        if (!resetn)
-            pause <= 1'b0;
-        else if (trig || step_trig || do_pause)
-            pause <= 1'b1;
+    always @(posedge host_clk)
+        if (host_rst)
+            run_mode <= 1'b1;
+        else if ((trig || step_trig || do_pause) && tick)
+            run_mode <= 1'b0;
         else if (do_resume)
-            pause <= 1'b0;
+            run_mode <= 1'b1;
+
+    wire [31:0] cpuregs_x1  = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[1];
+    wire [31:0] cpuregs_x2  = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[2];
+    wire [31:0] cpuregs_x3  = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[3];
+    wire [31:0] cpuregs_x4  = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[4];
+    wire [31:0] cpuregs_x5  = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[5];
+    wire [31:0] cpuregs_x6  = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[6];
+    wire [31:0] cpuregs_x7  = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[7];
+    wire [31:0] cpuregs_x8  = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[8];
+    wire [31:0] cpuregs_x9  = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[9];
+    wire [31:0] cpuregs_x10 = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[10];
+    wire [31:0] cpuregs_x11 = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[11];
+    wire [31:0] cpuregs_x12 = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[12];
+    wire [31:0] cpuregs_x13 = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[13];
+    wire [31:0] cpuregs_x14 = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[14];
+    wire [31:0] cpuregs_x15 = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[15];
+    wire [31:0] cpuregs_x16 = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[16];
+    wire [31:0] cpuregs_x17 = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[17];
+    wire [31:0] cpuregs_x18 = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[18];
+    wire [31:0] cpuregs_x19 = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[19];
+    wire [31:0] cpuregs_x20 = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[20];
+    wire [31:0] cpuregs_x21 = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[21];
+    wire [31:0] cpuregs_x22 = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[22];
+    wire [31:0] cpuregs_x23 = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[23];
+    wire [31:0] cpuregs_x24 = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[24];
+    wire [31:0] cpuregs_x25 = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[25];
+    wire [31:0] cpuregs_x26 = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[26];
+    wire [31:0] cpuregs_x27 = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[27];
+    wire [31:0] cpuregs_x28 = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[28];
+    wire [31:0] cpuregs_x29 = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[29];
+    wire [31:0] cpuregs_x30 = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[30];
+    wire [31:0] cpuregs_x31 = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[31];
 
 endmodule
