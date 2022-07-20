@@ -2,6 +2,7 @@
 
 #include "emu.h"
 #include "transform.h"
+#include "interface.h"
 
 using namespace Emu;
 
@@ -129,7 +130,12 @@ struct EmuTransformPass : public Pass {
         Pass::call(design, "proc");
         Pass::call(design, "opt");
 
-        Pass::call(design, "emu_interface");
+        log_pop();
+    }
+
+    void final_cleanup(Design *design) {
+        log_header(design, "Executing final cleanup.\n");
+        log_push();
 
         Pass::call(design, "emu_remove_keep");
         Pass::call(design, "submod");
@@ -202,6 +208,11 @@ struct EmuTransformPass : public Pass {
             helper.run(PlatformTransform());
 
         post_integrate(design);
+
+        ExportInterfaceWorker intf_worker(database, design);
+        intf_worker.run();
+
+        final_cleanup(design);
 
         log_header(design, "Writing output files.\n");
 

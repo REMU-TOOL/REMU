@@ -2,7 +2,7 @@
 
 #include "emu.h"
 #include "attr.h"
-#include "transform.h"
+#include "interface.h"
 
 #include <queue>
 
@@ -25,21 +25,9 @@ std::string simple_id_escape(std::string name) {
     return name;
 }
 
-struct InterfaceWorker {
+PRIVATE_NAMESPACE_END
 
-    DesignInfo designinfo;
-    HierconnBuilder hierconn;
-
-    void process_extern_intf(Module *module);
-
-    void run();
-
-    InterfaceWorker(Design *design)
-        : designinfo(design), hierconn(designinfo) {}
-
-};
-
-void InterfaceWorker::process_extern_intf(Module *module) {
+void ExportInterfaceWorker::process_module(Module *module) {
     Module *top = designinfo.top();
 
     for (auto portid : module->ports) {
@@ -74,7 +62,10 @@ void InterfaceWorker::process_extern_intf(Module *module) {
     top->fixup_ports();
 }
 
-void InterfaceWorker::run() {
+void ExportInterfaceWorker::run()
+{
+    log_header(designinfo.design(), "Exporting interfaces.\n");
+
     std::queue<Module *> work_queue;
 
     // Add top module to work queue
@@ -85,24 +76,10 @@ void InterfaceWorker::run() {
         Module *module = work_queue.front();
         work_queue.pop();
 
-        process_extern_intf(module);
+        process_module(module);
 
         // Add children modules to work queue
         for (Module *sub : designinfo.children_of(module))
             work_queue.push(sub);
     }
 }
-
-struct EmuInterfacePass : public Pass {
-    EmuInterfacePass() : Pass("emu_interface", "create interface signals for emulation") { }
-
-    void execute(vector<string> args, Design* design) override {
-        (void)args;
-        log_header(design, "Executing EMU_INTERFACE pass.\n");
-
-        InterfaceWorker worker(design);
-        worker.run();
-    }
-} EmuInterfacePass;
-
-PRIVATE_NAMESPACE_END
