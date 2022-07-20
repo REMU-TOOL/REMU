@@ -103,8 +103,6 @@ module test #(
     input   [ID_WIDTH-1:0]      m_axi_rid,
     input                       m_axi_rlast,
 
-    input                       pause,
-
     input                       ff_scan,
     input                       ff_dir,
     input   [63:0]              ff_sdi,
