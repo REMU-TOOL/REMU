@@ -1,14 +1,11 @@
 `timescale 1 ns / 1 ps
 `default_nettype none
 
-(* keep *)
+(* keep, noblackbox *)
 module EmuReset (
+    (* __emu_user_rst *)
     output wire reset
 );
-
-    (* __emu_user_rst *)
-    wire dut_rst;
-    assign reset = dut_rst;
 
 endmodule
 

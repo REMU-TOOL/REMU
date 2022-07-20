@@ -1,14 +1,11 @@
 `timescale 1ns / 1ps
 `default_nettype none
 
-(* keep *)
+(* keep, noblackbox *)
 module EmuClock (
+    (* __emu_user_clk *)
     output wire clock
 );
-
-    (* __emu_user_clk *)
-    wire dut_clk;
-    assign clock = dut_clk;
 
 endmodule
 
