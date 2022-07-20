@@ -114,31 +114,30 @@ Wire *EmulationRewriter::promote(Wire *wire) {
 }
 
 void EmulationRewriter::setup_wires(int ff_width, int ram_width) {
-    define_wire("run_mode",     1,  PORT_INPUT);
-    define_wire("scan_mode",    1,  PORT_INPUT);
+    define_wire("run_mode",         1,  PORT_INPUT);
+    define_wire("scan_mode",        1,  PORT_INPUT);
+
+    define_wire("ff_se",            1,          PORT_INPUT);    // FF scan enable
+    define_wire("ff_di",            ff_width,   PORT_INPUT);    // FF scan data in
+    define_wire("ff_do",            ff_width,   PORT_OUTPUT);   // FF scan data out
+    define_wire("ram_sr",           1,          PORT_INPUT);    // RAM scan reset
+    define_wire("ram_se",           1,          PORT_INPUT);    // RAM scan enable
+    define_wire("ram_sd",           1,          PORT_INPUT);    // RAM scan direction (0=out 1=in)
+    define_wire("ram_di",           ram_width,  PORT_INPUT);    // RAM scan data in
+    define_wire("ram_do",           ram_width,  PORT_OUTPUT);   // RAM scan data out
+
+    define_wire("idle",             1,  PORT_OUTPUT_ANDREDUCE);
+
+    define_wire("putchar_valid",    1,  PORT_OUTPUT);
+    define_wire("putchar_ready",    1,  PORT_INPUT);
+    define_wire("putchar_data",     8,  PORT_OUTPUT);
 
     define_clock("mdl_clk");
     define_clock("mdl_clk_ff");
     define_clock("mdl_clk_ram");
 
     define_wire("mdl_rst");
-    wrapper_->connect(
-        wire("mdl_rst")->get(wrapper_),
-        wire("host_rst")->get(wrapper_));
-
-    define_wire("ff_se",    1,          PORT_INPUT);    // FF scan enable
-    define_wire("ff_di",    ff_width,   PORT_INPUT);    // FF scan data in
-    define_wire("ff_do",    ff_width,   PORT_OUTPUT);   // FF scan data out
-    define_wire("ram_sr",   1,          PORT_INPUT);    // RAM scan reset
-    define_wire("ram_se",   1,          PORT_INPUT);    // RAM scan enable
-    define_wire("ram_sd",   1,          PORT_INPUT);    // RAM scan direction (0=out 1=in)
-    define_wire("ram_di",   ram_width,  PORT_INPUT);    // RAM scan data in
-    define_wire("ram_do",   ram_width,  PORT_OUTPUT);   // RAM scan data out
-
-    define_wire("up_req",   1,  PORT_INPUT);
-    define_wire("down_req", 1,  PORT_INPUT);
-    define_wire("up_ack",   1,  PORT_OUTPUT_ANDREDUCE);
-    define_wire("down_ack", 1,  PORT_OUTPUT_ANDREDUCE);
+    wire("mdl_rst")->put(wire("host_rst")->get(wrapper_));
 }
 
 EmulationRewriter::EmulationRewriter(Design *design) {

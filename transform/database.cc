@@ -100,12 +100,12 @@ void EmulationDatabase::write_yaml(std::string yaml_file) {
 
     log("Writing to file `%s'\n", yaml_file.c_str());
 
-    YAML::Node node;
+    YAML::Node root;
 
-    node["ff_width"]  = ff_width;
-    node["mem_width"] = ram_width;
+    root["ff_width"]  = ff_width;
+    root["mem_width"] = ram_width;
 
-    node["ff"] = YAML::Node(YAML::NodeType::Sequence);
+    root["ff"] = YAML::Node(YAML::NodeType::Sequence);
     for (auto &src : scanchain_ff) {
         YAML::Node ff_node;
         for (auto &c : src.info) {
@@ -116,10 +116,10 @@ void EmulationDatabase::write_yaml(std::string yaml_file) {
             src_node["is_src"] = c.is_src;
             ff_node.push_back(src_node);
         }
-        node["ff"].push_back(ff_node);
+        root["ff"].push_back(ff_node);
     }
 
-    node["mem"] = YAML::Node(YAML::NodeType::Sequence);
+    root["mem"] = YAML::Node(YAML::NodeType::Sequence);
     for (auto &mem : scanchain_ram) {
         YAML::Node mem_node;
         mem_node["name"] = mem.name;
@@ -127,10 +127,34 @@ void EmulationDatabase::write_yaml(std::string yaml_file) {
         mem_node["depth"] = mem.mem_depth;
         mem_node["start_offset"] = mem.mem_start_offset;
         mem_node["is_src"] = mem.is_src;
-        node["mem"].push_back(mem_node);
+        root["mem"].push_back(mem_node);
     }
 
-    f << node;
+    root["clock"] = YAML::Node(YAML::NodeType::Sequence);
+    for (auto &it : user_clocks) {
+        YAML::Node node;
+        node["name"] = it.first;
+        root["clock"].push_back(node);
+    }
+
+    root["reset"] = YAML::Node(YAML::NodeType::Sequence);
+    for (auto &it : user_resets) {
+        YAML::Node node;
+        node["name"] = it.first;
+        node["index"] = it.second.index;
+        root["reset"].push_back(node);
+    }
+
+    root["trigger"] = YAML::Node(YAML::NodeType::Sequence);
+    for (auto &it : user_trigs) {
+        YAML::Node node;
+        node["name"] = it.first;
+        node["index"] = it.second.index;
+        node["desc"] = it.second.desc;
+        root["trigger"].push_back(node);
+    }
+
+    f << root;
     f.close();
 }
 

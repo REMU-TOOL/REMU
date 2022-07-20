@@ -59,19 +59,17 @@ struct ClockInfo {
 
 struct ResetInfo {
     // TODO: duration, etc.
-    int dummy;
+    int index = -1;
 };
 
 struct TrigInfo {
     std::string desc;
+    int index = -1;
 };
 
 struct EmulationDatabase {
 
-    // written by PlatformTransform
-    dict<std::string, int> ctrl_addrs;
-
-    // written by PortTransform
+    // written by PortTransform, ClockTransform, PlatformTransform
     dict<std::string, ClockInfo> user_clocks;
     dict<std::string, ResetInfo> user_resets;
     dict<std::string, TrigInfo> user_trigs;

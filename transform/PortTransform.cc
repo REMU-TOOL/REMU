@@ -32,11 +32,9 @@ struct PortWorker {
     DesignInfo &designinfo;
     HierconnBuilder hierconn;
 
-    void process_dut_clock_reset(Module *module);
+    void process_user_sigs(Module *module);
     void process_dut_reset(Module *module);
     void process_common_port(Module *module);
-    void process_extern_intf(Module *module);
-
     void run();
 
     PortWorker(EmulationDatabase &database, EmulationRewriter &rewriter)
@@ -44,14 +42,16 @@ struct PortWorker {
 
 };
 
-void PortWorker::process_dut_clock_reset(Module *module) {
-    std::vector<Wire *> clocks, resets;
+void PortWorker::process_user_sigs(Module *module) {
+    std::vector<Wire *> clocks, resets, trigs;
 
     for (Wire *wire : module->wires()) {
         if (wire->get_bool_attribute(Attr::UserClock))
             clocks.push_back(wire);
         else if (wire->get_bool_attribute(Attr::UserReset))
             resets.push_back(wire);
+        else if (wire->get_bool_attribute(Attr::UserTrig))
+            trigs.push_back(wire);
     }
 
     Module *wrapper = rewriter.wrapper();
@@ -84,6 +84,19 @@ void PortWorker::process_dut_clock_reset(Module *module) {
         module->connect(rst, dut_rst->get(module));
 
         database.user_resets[name] = {};
+    }
+
+    for (Wire *trig : trigs) {
+        std::string name = designinfo.hier_name_of(trig, rewriter.target());
+        name = simple_id_escape(name);
+        rewriter.define_wire(name, 1, PORT_OUTPUT);
+
+        auto dut_trig = rewriter.wire(name);
+        dut_trig->put(trig);
+
+        TrigInfo info;
+        info.desc = trig->get_string_attribute(Attr::UserTrigDesc);
+        database.user_trigs[name] = info;
     }
 }
 
@@ -130,7 +143,7 @@ void PortWorker::run() {
         Module *module = work_queue.front();
         work_queue.pop();
 
-        process_dut_clock_reset(module);
+        process_user_sigs(module);
         process_common_port(module);
 
         // Add children modules to work queue
