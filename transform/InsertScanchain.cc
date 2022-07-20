@@ -219,9 +219,7 @@ void ScanchainWorker::instrument_mems(Module *module, ScanchainBuilder &builder)
         log("Rewriting mem cell %s\n",
             designinfo.hier_name_of(mem.cell).c_str());
 
-        const int init_addr = mem.start_offset;
-        const int last_addr = mem.start_offset + mem.size - 1;
-        const int abits = ceil_log2(last_addr);
+        const int abits = ceil_log2(mem.size);
         const int slices = (mem.width + ram_width - 1) / ram_width;
 
         SigSpec inc = module->addWire(module->uniquify(name + "_inc"));
@@ -230,15 +228,15 @@ void ScanchainWorker::instrument_mems(Module *module, ScanchainBuilder &builder)
         // reg [..] addr;
         // wire [..] addr_next = addr + 1;
         // always @(posedge host_clk)
-        //   if (ram_sr) addr <= init_addr;
+        //   if (ram_sr) addr <= 0;
         //   else if (ram_se && inc) addr <= addr_next;
         SigSpec addr = module->addWire(module->uniquify(name + "_addr"), abits);
         SigSpec addr_next = module->Add(NEW_ID, addr, Const(1, abits));
         module->addSdffe(NEW_ID, host_clk, module->And(NEW_ID, ram_se, inc), ram_sr,
-            addr_next, addr, Const(init_addr, abits));
+            addr_next, addr, Const(0, abits));
 
-        // assign addr_is_last = addr == last_addr;
-        SigSpec addr_is_last = module->Eq(NEW_ID, addr, Const(last_addr, abits));
+        // assign addr_is_last = addr == mem.size - 1;
+        SigSpec addr_is_last = module->Eq(NEW_ID, addr, Const(mem.size - 1, abits));
 
         // shift counter
         // always @(posedge host_clk)
@@ -272,18 +270,22 @@ void ScanchainWorker::instrument_mems(Module *module, ScanchainBuilder &builder)
         module->connect(se, module->Or(NEW_ID, ram_sd, module->Not(NEW_ID, inc)));
         module->connect(we, module->And(NEW_ID, ram_sd, inc));
 
+        int extended_addr_len = abits > 32 ? abits : 32;
+
         for (auto &wr : mem.wr_ports) {
             // add pause signal to ports
             wr.en = module->Mux(NEW_ID, wr.en, Const(0, GetSize(wr.en)), scan_mode);
             // fix up addr width
-            wr.addr.extend_u0(abits);
+            wr.addr.extend_u0(extended_addr_len);
         }
 
         // add accessor to write port 0
         auto &wr = mem.wr_ports[0];
         wr.en = module->Mux(NEW_ID, wr.en, SigSpec(we, mem.width), scan_mode);
-        if (abits > 0)
-            wr.addr = module->Mux(NEW_ID, wr.addr, addr, scan_mode);
+        SigSpec scan_waddr = addr;
+        scan_waddr.extend_u0(extended_addr_len);
+        scan_waddr = module->Add(NEW_ID, scan_waddr, Const(mem.start_offset, extended_addr_len));
+        wr.addr = module->Mux(NEW_ID, wr.addr, scan_waddr, scan_mode);
         wr.data = module->Mux(NEW_ID, wr.data, wdata, scan_mode);
 
         for (auto &rd : mem.rd_ports) {
@@ -291,16 +293,15 @@ void ScanchainWorker::instrument_mems(Module *module, ScanchainBuilder &builder)
             if (rd.clk_enable)
                 rd.srst = module->And(NEW_ID, rd.srst, module->Not(NEW_ID, scan_mode));
             // fix up addr width
-            rd.addr.extend_u0(abits);
+            rd.addr.extend_u0(extended_addr_len);
         }
 
         // add accessor to read port 0
         auto &rd = mem.rd_ports[0];
-        if (abits > 0) {
-            // do not use pause signal to select address input here
-            // because we need to restore raddr before pause is deasserted to preserve output data
-            rd.addr = module->Mux(NEW_ID, rd.addr, module->Mux(NEW_ID, addr, addr_next, inc), scan_mode);
-        }
+        SigSpec scan_raddr = module->Mux(NEW_ID, addr, addr_next, inc);
+        scan_raddr.extend_u0(extended_addr_len);
+        scan_raddr = module->Add(NEW_ID, scan_raddr, Const(mem.start_offset, extended_addr_len));
+        rd.addr = module->Mux(NEW_ID, rd.addr, scan_raddr, scan_mode);
         if (rd.clk_enable) {
             rd.en = module->Or(NEW_ID, rd.en, scan_mode);
             module->connect(rdata, rd.data);
