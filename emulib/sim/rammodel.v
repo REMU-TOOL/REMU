@@ -3,6 +3,7 @@
 
 `include "axi.vh"
 
+(* keep *)
 module EmuRam #(
     parameter   ADDR_WIDTH      = 32,
     parameter   DATA_WIDTH      = 64,
