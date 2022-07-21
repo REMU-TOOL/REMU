@@ -27,12 +27,9 @@ module ScanchainCtrl #(
     output wire [63:0]  ram_di,
     input  wire [63:0]  ram_do,
 
-    input  wire         ctrl_wen,
-    input  wire [ 5:0]  ctrl_waddr,
-    input  wire [31:0]  ctrl_wdata,
-    input  wire         ctrl_ren,
-    input  wire [ 5:0]  ctrl_raddr,
-    output reg  [31:0]  ctrl_rdata,
+    input  wire         dma_start,
+    input  wire         dma_direction,
+    output wire         dma_running,
 
     (* __emu_extern_intf_addr_pages = __CKPT_PAGES *)
     (* __emu_extern_intf = "dma_axi" *)
@@ -107,38 +104,6 @@ module ScanchainCtrl #(
     input  wire                     dma_axi_rlast
 
 );
-
-    localparam  DMA_CTRL    = 6'h00;
-
-    // DMA_CTRL
-    //      [0]     -> RUNNING [WARL]
-    //      [1]     -> DIRECTION [WARL]
-
-    reg dma_running, dma_direction;
-    wire [31:0] dma_ctrl;
-    assign dma_ctrl[31:2]   = 30'd0;
-    assign dma_ctrl[1]      = dma_direction;
-    assign dma_ctrl[0]      = dma_running;
-
-    always @(posedge clk) begin
-        if (rst) begin
-            dma_running     <= 1'b0;
-            dma_direction   <= 1'b0;
-        end
-        else begin
-            if (!dma_running && ctrl_wen && ctrl_waddr == DMA_CTRL) begin
-                dma_running     <= ctrl_wdata[0];
-                dma_direction   <= ctrl_wdata[1];
-            end
-        end
-    end
-
-    always @* begin
-        case (ctrl_raddr)
-            DMA_CTRL:   ctrl_rdata = dma_ctrl;
-            default:    ctrl_rdata = 32'd0;
-        endcase
-    end
 
     // DMA for scan chain
 
@@ -250,7 +215,7 @@ module ScanchainCtrl #(
 
     always @* begin
         case (state)
-            STATE_IDLE:         state_next = dma_running ? STATE_SEND_ADDR : STATE_IDLE;
+            STATE_IDLE:         state_next = dma_start ? STATE_SEND_ADDR : STATE_IDLE;
             STATE_SEND_ADDR:    state_next = dma_addr_ready ? STATE_SEND_COUNT : STATE_SEND_ADDR;
             STATE_SEND_COUNT:   state_next = dma_count_ready ? STATE_FF_RESET : STATE_SEND_COUNT;
             STATE_FF_RESET:     state_next = FF_COUNT == 0 ? STATE_RAM_RESET : STATE_FF_SCAN;
@@ -263,6 +228,8 @@ module ScanchainCtrl #(
             default:            state_next = STATE_IDLE;
         endcase
     end
+
+    assign dma_running = state != STATE_IDLE;
 
     localparam CNT_BITS_FF  = $clog2(FF_COUNT + 1);
     localparam CNT_BITS_RAM = $clog2(MEM_COUNT + 1);

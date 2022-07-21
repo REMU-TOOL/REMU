@@ -6,14 +6,14 @@
 
 module AXILiteToCtrl (
 
-    input  wire         host_clk,
-    input  wire         host_rst,
+    input  wire         clk,
+    input  wire         rst,
 
     output wire         ctrl_wen,
-    output reg  [11:0]  ctrl_waddr,
+    output reg  [ 9:0]  ctrl_waddr,
     output reg  [31:0]  ctrl_wdata,
     output wire         ctrl_ren,
-    output reg  [11:0]  ctrl_raddr,
+    output reg  [ 9:0]  ctrl_raddr,
     input  wire [31:0]  ctrl_rdata,
 
     (* __emu_extern_intf = "s_axilite" *)
@@ -82,7 +82,7 @@ module AXILiteToCtrl (
 
     always @(posedge clk)
         if (s_axilite_arvalid && s_axilite_arready)
-            ctrl_raddr <= s_axilite_araddr;
+            ctrl_raddr <= s_axilite_araddr[11:2];
 
     reg [31:0] read_data;
 
@@ -124,7 +124,7 @@ module AXILiteToCtrl (
 
     always @(posedge clk)
         if (s_axilite_awvalid && s_axilite_awready)
-            ctrl_waddr <= s_axilite_awaddr;
+            ctrl_waddr <= s_axilite_awaddr[11:2];
 
     wire [31:0] extended_wstrb = {
         {8{s_axilite_wstrb[3]}},
