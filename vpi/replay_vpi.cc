@@ -370,7 +370,7 @@ int get_init_cycle_sizetf(char* user_data) {
 }
 
 PLI_INT32 load_callback(p_cb_data cb_data) {
-    auto loader = reinterpret_cast<Loader*>(cb_data->user_data);
+    auto loader = reinterpret_cast<VPILoader*>(cb_data->user_data);
     loader->load();
     return 0;
 }
@@ -471,7 +471,7 @@ void Replay::register_tfs(Checkpoint *checkpoint) {
     vpi_register_systf(&tf_data);
 }
 
-void Replay::register_load_callback(Loader *loader) {
+void Replay::register_load_callback(VPILoader *loader) {
     s_vpi_time cb_time;
     cb_time.type = vpiSimTime;
     vpi_get_time(0, &cb_time);

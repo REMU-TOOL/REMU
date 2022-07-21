@@ -36,7 +36,7 @@ void replay_startup_routine() {
         vpi_printf("WARNING: -replay-scanchain not specified, scan chain data will not be loaded\n");
     }
     else {
-        auto loader = new Loader(scanchain_file, *checkpoint);
+        auto loader = new VPILoader(scanchain_file, *checkpoint);
         register_load_callback(loader);
     }
 }

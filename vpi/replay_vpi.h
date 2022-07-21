@@ -3,12 +3,12 @@
 
 #include "rammodel.h"
 #include "checkpoint.h"
-#include "loader.h"
+#include "vpi_loader.h"
 
 namespace Replay {
 
 void register_tfs(Replay::Checkpoint *checkpoint);
-void register_load_callback(Replay::Loader *loader);
+void register_load_callback(Replay::VPILoader *loader);
 
 };
 
