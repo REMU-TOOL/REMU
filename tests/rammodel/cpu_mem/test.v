@@ -43,14 +43,14 @@ module test(
 
     wire tick;
 
-    wire putchar_valid, putchar_ready;
-    wire [7:0] putchar_data;
+    wire putchar_ren, putchar_rempty;
+    wire [7:0] putchar_rdata;
 
-    assign putchar_ready = 1'b1;
+    assign putchar_ren = 1'b1;
 
     always @(posedge host_clk)
-        if (run_mode && putchar_valid)
-            $write("%c", putchar_data);
+        if (run_mode && !putchar_rempty)
+            $write("%c", putchar_rdata);
 
     EMU_SYSTEM emu_dut(
         .host_clk       (host_clk),
@@ -69,9 +69,9 @@ module test(
         .idle           (idle),
         .trap_trig_trigger       (trig),
         `AXI4_CONNECT       (target_uncore_u_rammodel_backend_host_axi, host_axi),
-        .putchar_valid              (putchar_valid),
-        .putchar_ready              (putchar_ready),
-        .putchar_data               (putchar_data)
+        .uncore_putchar_sink_ren    (putchar_ren),
+        .uncore_putchar_sink_rdata  (putchar_rdata),
+        .uncore_putchar_sink_rempty (putchar_rempty)
     );
 
     assign target_clk = emu_dut.clock_clock;
@@ -113,6 +113,7 @@ module test(
         else if (do_resume)
             run_mode <= 1'b1;
 
+/*
     wire [31:0] cpuregs_x1  = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[1];
     wire [31:0] cpuregs_x2  = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[2];
     wire [31:0] cpuregs_x3  = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[3];
@@ -144,5 +145,6 @@ module test(
     wire [31:0] cpuregs_x29 = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[29];
     wire [31:0] cpuregs_x30 = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[30];
     wire [31:0] cpuregs_x31 = emu_dut.target.dut.\emu_top.dut_cpuregs .cpuregs[31];
+*/
 
 endmodule
