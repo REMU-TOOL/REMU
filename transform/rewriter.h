@@ -46,6 +46,7 @@ public:
     std::string name() const { return name_; }
     int width() const { return width_; }
     Wire *get(Module *module);
+    void get(Wire *wire);
     void put(Wire *wire);
 
     void make_internal() {
@@ -112,14 +113,16 @@ public:
         designinfo.setup(design);
     }
 
-    void define_wire(std::string name, int width = 1, PortType put_policy = PORT_NONE) {
+    RewriterWire *define_wire(std::string name, int width = 1, PortType put_policy = PORT_NONE) {
         log_assert(wires.count(name) == 0);
         wires[name] = new RewriterWire(*this, name, width, put_policy, wrapper_);
+        return wire(name);
     }
 
-    void define_clock(std::string name) {
+    RewriterClock *define_clock(std::string name) {
         log_assert(wires.count(name) == 0);
         wires[name] = new RewriterClock(*this, name, wrapper_);
+        return clock(name);
     }
 
     RewriterWire *wire(std::string name) const {

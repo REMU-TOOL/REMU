@@ -35,6 +35,7 @@ struct PortWorker {
     void process_user_sigs(Module *module);
     void process_dut_reset(Module *module);
     void process_common_port(Module *module);
+    void process_fifo_port(Module *module);
     void run();
 
     PortWorker(EmulationDatabase &database, EmulationRewriter &rewriter)
@@ -132,6 +133,66 @@ void PortWorker::process_common_port(Module *module) {
     }
 }
 
+void PortWorker::process_fifo_port(Module *module) {
+    for (auto portid : module->ports) {
+        Wire *wire = module->wire(portid);
+
+        std::string name = wire->get_string_attribute(Attr::FifoPortName);
+        if (name.empty())
+            continue;
+
+        name = designinfo.hier_name_of(module, rewriter.target()) + "." + name;
+
+        FifoPortInfo info;
+
+        info.type = wire->get_string_attribute(Attr::FifoPortType);
+        if (info.type.empty())
+            log_error("missing type in fifo port %s\n", name.c_str());
+
+        if (info.type != "read" && info.type != "write")
+            log_error("wrong type in fifo port %s\n", name.c_str());
+
+        bool is_output = info.type == "read";
+
+        std::string enable_attr = wire->get_string_attribute(Attr::FifoPortEnable);
+        if (enable_attr.empty())
+            log_error("missing enable port in fifo port %s\n", name.c_str());
+
+        std::string data_attr = wire->get_string_attribute(Attr::FifoPortData);
+        if (data_attr.empty())
+            log_error("missing data port in fifo port %s\n", name.c_str());
+
+        std::string flag_attr = wire->get_string_attribute(Attr::FifoPortFlag);
+        if (flag_attr.empty())
+            log_error("missing flag port in fifo port %s\n", name.c_str());
+
+        Wire *wire_enable = module->wire("\\" + enable_attr);
+        Wire *wire_data = module->wire("\\" + data_attr);
+        Wire *wire_flag = module->wire("\\" + flag_attr);
+
+        log_assert(wire_enable && wire_enable->width == 1);
+        log_assert(wire_data);
+        log_assert(wire_flag && wire_flag->width == 1);
+
+        info.port_enable = simple_id_escape(designinfo.hier_name_of(wire_enable, rewriter.target()));
+        info.port_data = simple_id_escape(designinfo.hier_name_of(wire_data, rewriter.target()));
+        info.port_flag = simple_id_escape(designinfo.hier_name_of(wire_flag, rewriter.target()));
+
+        auto enable = rewriter.define_wire(info.port_enable, 1, PORT_INPUT);
+        auto data = rewriter.define_wire(info.port_data, wire_data->width, is_output ? PORT_OUTPUT : PORT_INPUT);
+        auto flag = rewriter.define_wire(info.port_flag, 1, PORT_OUTPUT);
+
+        enable->get(wire_enable);
+        if (is_output)
+            data->put(wire_data);
+        else
+            data->get(wire_data);
+        flag->put(wire_flag);
+
+        database.fifo_ports[name] = info;
+    }
+}
+
 void PortWorker::run() {
     std::queue<Module *> work_queue;
 
@@ -145,6 +206,7 @@ void PortWorker::run() {
 
         process_user_sigs(module);
         process_common_port(module);
+        process_fifo_port(module);
 
         // Add children modules to work queue
         for (Module *sub : rewriter.design().children_of(module))

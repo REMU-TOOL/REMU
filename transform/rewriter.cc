@@ -25,6 +25,29 @@ Wire *RewriterWire::get(Module *module) {
     return wire;
 }
 
+void RewriterWire::get(Wire *wire) {
+    Module *module = wire->module;
+
+    if (handles.count(module) > 0) {
+        module->connect(wire, handles.at(module));
+        return;
+    }
+
+    if (wire->port_output) {
+        Wire *new_wire = module->addWire(module->uniquify(wire->name), wire->width);
+        module->connect(wire, new_wire);
+        wire = new_wire;
+    }
+
+    wire->port_input = true;
+    module->fixup_ports();
+
+    Cell *inst_cell = rewriter.design().instance_of(module);
+    inst_cell->setPort(wire->name, get(inst_cell->module));
+
+    handles[module] = wire;
+}
+
 void RewriterWire::put(Wire *wire) {
     Wire *promoted_wire = rewriter.promote(wire);
 
@@ -132,10 +155,6 @@ void EmulationRewriter::setup_wires(int ff_width, int ram_width) {
     define_wire("ram_do",           ram_width,  PORT_OUTPUT);   // RAM scan data out
 
     define_wire("idle",             1,  PORT_OUTPUT_ANDREDUCE);
-
-    define_wire("putchar_valid",    1,  PORT_OUTPUT);
-    define_wire("putchar_ready",    1,  PORT_INPUT);
-    define_wire("putchar_data",     8,  PORT_OUTPUT);
 
     define_clock("mdl_clk");
     define_clock("mdl_clk_ff");

@@ -154,6 +154,15 @@ void EmulationDatabase::write_yaml(std::string yaml_file) {
         root["trigger"].push_back(node);
     }
 
+    root["fifo"] = YAML::Node(YAML::NodeType::Sequence);
+    for (auto &it : fifo_ports) {
+        YAML::Node node;
+        node["name"] = it.first;
+        node["index"] = it.second.index;
+        node["type"] = it.second.type;
+        root["fifo_port"].push_back(node);
+    }
+
     f << root;
     f.close();
 }

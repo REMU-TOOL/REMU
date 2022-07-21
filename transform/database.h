@@ -67,12 +67,21 @@ struct TrigInfo {
     int index = -1;
 };
 
+struct FifoPortInfo {
+    std::string type;
+    std::string port_enable;
+    std::string port_data;
+    std::string port_flag;
+    int index = -1;
+};
+
 struct EmulationDatabase {
 
     // written by PortTransform, ClockTransform, PlatformTransform
     dict<std::string, ClockInfo> user_clocks;
     dict<std::string, ResetInfo> user_resets;
     dict<std::string, TrigInfo> user_trigs;
+    dict<std::string, FifoPortInfo> fifo_ports;
 
     // written by InsertScanchain
     int ff_width = 0;
