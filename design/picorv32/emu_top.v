@@ -110,11 +110,12 @@ module emu_uncore (
         else if (mem_valid && |mem_wstrb && mem_addr == 32'h10000000)
             uart_ack <= 1'b1;
 
-    EmuPutChar u_putchar (
+    EmuDataSink #(
+        .DATA_WIDTH(8)
+    ) putchar (
         .clk    (clk),
-        .rst    (!resetn),
-        .valid  (uart_ack),
-        .data   (mem_wdata[7:0] & {8{mem_wstrb[0]}})
+        .wen    (uart_ack),
+        .wdata  (mem_wdata[7:0] & {8{mem_wstrb[0]}})
     );
 
     reg aw_done, w_done, ar_done;
