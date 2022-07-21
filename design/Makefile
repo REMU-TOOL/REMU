@@ -30,7 +30,7 @@ endif
 
 $(OUTPUT_V): $(VSRC)
 	mkdir -p $(BUILD_DIR)
-	yosys -m transform -p "tcl $(shell recheck --tcl) -top $(VTOP) -sc $(SC_YML)" -o $@ $^
+	yosys -m transform -p "emu_transform -top $(VTOP) -yaml $(SC_YML)" -o $@ $^
 
 $(SIM_VVP): $(VSRC) $(shell recheck --iv-srcs)
 	mkdir -p $(BUILD_DIR)
