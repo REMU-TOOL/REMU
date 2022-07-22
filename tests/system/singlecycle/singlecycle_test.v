@@ -1,7 +1,6 @@
 `timescale 1 ns / 1 ns
 
 `include "loader.vh"
-`include "emu_csr.vh"
 
 module sim_top();
 

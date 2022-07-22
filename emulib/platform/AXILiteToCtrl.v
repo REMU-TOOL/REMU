@@ -1,7 +1,6 @@
 `timescale 1ns / 1ps
 `default_nettype none
 
-`include "emu_csr.vh"
 `include "axi.vh"
 
 module AXILiteToCtrl (
