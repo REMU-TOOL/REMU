@@ -59,7 +59,7 @@ void PortWorker::process_user_sigs(Module *module) {
     Wire *run_mode = rewriter.wire("run_mode")->get(wrapper);
 
     for (Wire *clk : clocks) {
-        std::string name = designinfo.hier_name_of(clk, rewriter.target());
+        std::string name = designinfo.hier_name_of(clk, rewriter.wrapper());
         name = simple_id_escape(name);
         rewriter.define_clock(name);
 
@@ -75,7 +75,7 @@ void PortWorker::process_user_sigs(Module *module) {
     }
 
     for (Wire *rst : resets) {
-        std::string name = designinfo.hier_name_of(rst, rewriter.target());
+        std::string name = designinfo.hier_name_of(rst, rewriter.wrapper());
         name = simple_id_escape(name);
         rewriter.define_wire(name, 1, PORT_INPUT);
 
@@ -88,7 +88,7 @@ void PortWorker::process_user_sigs(Module *module) {
     }
 
     for (Wire *trig : trigs) {
-        std::string name = designinfo.hier_name_of(trig, rewriter.target());
+        std::string name = designinfo.hier_name_of(trig, rewriter.wrapper());
         name = simple_id_escape(name);
         rewriter.define_wire(name, 1, PORT_OUTPUT);
 
@@ -141,7 +141,7 @@ void PortWorker::process_fifo_port(Module *module) {
         if (name.empty())
             continue;
 
-        name = designinfo.hier_name_of(module, rewriter.target()) + "." + name;
+        name = designinfo.hier_name_of(module, rewriter.wrapper()) + "." + name;
 
         FifoPortInfo info;
 
@@ -174,9 +174,9 @@ void PortWorker::process_fifo_port(Module *module) {
         log_assert(wire_data);
         log_assert(wire_flag && wire_flag->width == 1);
 
-        info.port_enable = simple_id_escape(designinfo.hier_name_of(wire_enable, rewriter.target()));
-        info.port_data = simple_id_escape(designinfo.hier_name_of(wire_data, rewriter.target()));
-        info.port_flag = simple_id_escape(designinfo.hier_name_of(wire_flag, rewriter.target()));
+        info.port_enable = simple_id_escape(designinfo.hier_name_of(wire_enable, rewriter.wrapper()));
+        info.port_data = simple_id_escape(designinfo.hier_name_of(wire_data, rewriter.wrapper()));
+        info.port_flag = simple_id_escape(designinfo.hier_name_of(wire_flag, rewriter.wrapper()));
         info.width = GetSize(wire_data);
 
         auto enable = rewriter.define_wire(info.port_enable, 1, PORT_INPUT);
