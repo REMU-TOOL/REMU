@@ -36,15 +36,15 @@ module EmuDataSource #(
 
     output wire [DATA_WIDTH-1:0]    rdata,
 
-    (* __emu_fifo_port_name = "sink" *)
-    (* __emu_fifo_port_type = "write" *)
-    (* __emu_fifo_port_enable = "sink_wen" *)
-    (* __emu_fifo_port_data = "sink_wdata" *)
-    (* __emu_fifo_port_flag = "sink_wfull" *)
+    (* __emu_fifo_port_name = "source" *)
+    (* __emu_fifo_port_type = "source" *)
+    (* __emu_fifo_port_enable = "source_wen" *)
+    (* __emu_fifo_port_data = "source_wdata" *)
+    (* __emu_fifo_port_flag = "source_wfull" *)
 
-    input  wire                     sink_wen,
-    input  wire [DATA_WIDTH-1:0]    sink_wdata,
-    output wire                     sink_wfull
+    input  wire                     source_wen,
+    input  wire [DATA_WIDTH-1:0]    source_wdata,
+    output wire                     source_wfull
 
 );
 
@@ -56,9 +56,9 @@ module EmuDataSource #(
     ) fifo (
         .clk        (mdl_clk),
         .rst        (mdl_rst),
-        .winc       (sink_wen),
-        .wdata      (sink_wdata),
-        .wfull      (sink_wfull),
+        .winc       (source_wen),
+        .wdata      (source_wdata),
+        .wfull      (source_wfull),
         .rinc       (tk_read_valid && ren),
         .rdata      (rdata),
         .rempty     (rempty)

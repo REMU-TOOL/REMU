@@ -27,7 +27,7 @@ module EmuDataSink #(
     input  wire [DATA_WIDTH-1:0]    wdata,
 
     (* __emu_fifo_port_name = "sink" *)
-    (* __emu_fifo_port_type = "read" *)
+    (* __emu_fifo_port_type = "sink" *)
     (* __emu_fifo_port_enable = "sink_ren" *)
     (* __emu_fifo_port_data = "sink_rdata" *)
     (* __emu_fifo_port_flag = "sink_rempty" *)
