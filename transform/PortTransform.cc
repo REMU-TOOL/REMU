@@ -149,10 +149,10 @@ void PortWorker::process_fifo_port(Module *module) {
         if (info.type.empty())
             log_error("missing type in fifo port %s\n", name.c_str());
 
-        if (info.type != "read" && info.type != "write")
+        if (info.type != "sink" && info.type != "source")
             log_error("wrong type in fifo port %s\n", name.c_str());
 
-        bool is_output = info.type == "read";
+        bool is_output = info.type == "sink";
 
         std::string enable_attr = wire->get_string_attribute(Attr::FifoPortEnable);
         if (enable_attr.empty())
@@ -177,6 +177,7 @@ void PortWorker::process_fifo_port(Module *module) {
         info.port_enable = simple_id_escape(designinfo.hier_name_of(wire_enable, rewriter.target()));
         info.port_data = simple_id_escape(designinfo.hier_name_of(wire_data, rewriter.target()));
         info.port_flag = simple_id_escape(designinfo.hier_name_of(wire_flag, rewriter.target()));
+        info.width = GetSize(wire_data);
 
         auto enable = rewriter.define_wire(info.port_enable, 1, PORT_INPUT);
         auto data = rewriter.define_wire(info.port_data, wire_data->width, is_output ? PORT_OUTPUT : PORT_INPUT);

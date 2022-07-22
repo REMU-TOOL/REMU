@@ -72,6 +72,7 @@ struct FifoPortInfo {
     std::string port_enable;
     std::string port_data;
     std::string port_flag;
+    int width = 0;
     int index = -1;
 };
 
