@@ -11,111 +11,72 @@ USING_YOSYS_NAMESPACE
 
 PRIVATE_NAMESPACE_BEGIN
 
-class AXILiteSinkNode {
-
-    std::string name;
-
-protected:
-
-    EmulationDatabase &database;
-    EmulationRewriter &rewriter;
-    Cell *cell;
-
-    friend class AXILiteBridge;
-
-protected:
-
-    AXILiteSinkNode(std::string name, EmulationDatabase &database, EmulationRewriter &rewriter)
-        : name(name), database(database), rewriter(rewriter), cell(nullptr) {}
-
-};
-
-// AXILiteBridge uses 12-bit addressing
-// high 6 bits are used to address sink nodes
-// low 6 bits are for node internal addressing
-
-class AXILiteBridge {
-
-    EmulationDatabase &database;
-    EmulationRewriter &rewriter;
-    std::vector<Cell *> cells;
-
-public:
-
-    void connect(AXILiteSinkNode &&node) {
-        log_assert(node.cell);
-        log_assert(cells.size() < 64);
-        int address = cells.size();
-        cells.push_back(node.cell);
-        database.ctrl_addrs[node.name] = address;
-    }
-
-    void emit();
-
-    AXILiteBridge(EmulationDatabase &database, EmulationRewriter &rewriter)
-        : database(database), rewriter(rewriter) {}
-
-};
-
-struct ScanchainCtrl : public AXILiteSinkNode {
-    ScanchainCtrl(EmulationDatabase &database, EmulationRewriter &rewriter);
-};
-
 struct PlatformWorker {
     EmulationDatabase &database;
     EmulationRewriter &rewriter;
+    Module *wrapper;
+    Cell *emu_ctrl;
+
+    void connect_main_sigs();
+    void connect_trigger();
+    void connect_reset();
+    void connect_scanchain();
+    void connect_fifo_ports();
     void run();
-    PlatformWorker(EmulationDatabase &database, EmulationRewriter &rewriter)
-        : database(database), rewriter(rewriter) {}
+
+    PlatformWorker(EmulationDatabase &database, EmulationRewriter &rewriter) :
+        database(database), rewriter(rewriter),
+        wrapper(rewriter.wrapper()), emu_ctrl(nullptr) {}
 };
 
-void AXILiteBridge::emit()
+void PlatformWorker::connect_main_sigs()
 {
-    Module *wrapper = rewriter.wrapper();
-    SigSpec rdata_pmux_b, rdata_pmux_s;
+    auto host_clk   = rewriter.wire("host_clk");
+    auto host_rst   = rewriter.wire("host_rst");
+    auto tick       = rewriter.wire("tick");
+    auto run_mode   = rewriter.wire("run_mode");
+    auto scan_mode  = rewriter.wire("scan_mode");
 
-    Wire *ctrl_wen    = wrapper->addWire("\\ctrl_wen");
-    Wire *ctrl_waddr  = wrapper->addWire("\\ctrl_waddr", 12);
-    Wire *ctrl_wdata  = wrapper->addWire("\\ctrl_wdata", 32);
-    Wire *ctrl_ren    = wrapper->addWire("\\ctrl_ren");
-    Wire *ctrl_raddr  = wrapper->addWire("\\ctrl_raddr", 12);
-    Wire *ctrl_rdata  = wrapper->addWire("\\ctrl_rdata", 32);
-
-    int count = 0;
-    for (Cell *sink : cells) {
-        SigSpec wsel = wrapper->Eq(NEW_ID, SigChunk(ctrl_waddr, 6, 6), Const(count, 8));
-        SigSpec wen = wrapper->And(NEW_ID, wsel, ctrl_wen);
-        SigSpec rsel = wrapper->Eq(NEW_ID, SigChunk(ctrl_raddr, 6, 6), Const(count, 8));
-        SigSpec ren = wrapper->And(NEW_ID, rsel, ctrl_ren);
-        SigSpec rdata = wrapper->addWire(NEW_ID, 32);
-        sink->setPort("\\ctrl_wen",     wen);
-        sink->setPort("\\ctrl_waddr",   SigChunk(ctrl_waddr, 0, 6));
-        sink->setPort("\\ctrl_wdata",   ctrl_wdata);
-        sink->setPort("\\ctrl_ren",     ren);
-        sink->setPort("\\ctrl_raddr",   SigChunk(ctrl_raddr, 0, 6));
-        sink->setPort("\\ctrl_rdata",   rdata);
-        rdata_pmux_b.append(rdata);
-        rdata_pmux_s.append(rsel);
-        count++;
-    }
-
-    wrapper->addPmux(NEW_ID,
-        Const(0, 32), rdata_pmux_b, rdata_pmux_s, ctrl_rdata);
-
-    Cell *cell = wrapper->addCell("\\ctrl_bridge", "\\AXILiteToCtrl");
-    cell->setPort("\\ctrl_wen",     ctrl_wen);
-    cell->setPort("\\ctrl_waddr",   ctrl_waddr);
-    cell->setPort("\\ctrl_wdata",   ctrl_wdata);
-    cell->setPort("\\ctrl_ren",     ctrl_ren);
-    cell->setPort("\\ctrl_raddr",   ctrl_raddr);
-    cell->setPort("\\ctrl_rdata",   ctrl_rdata);
+    emu_ctrl->setPort("\\host_clk",     host_clk->get(wrapper));
+    emu_ctrl->setPort("\\host_rst",     host_rst->get(wrapper));
+    emu_ctrl->setPort("\\tick",         tick->get(wrapper));
+    emu_ctrl->setPort("\\run_mode",     run_mode->get(wrapper));
+    emu_ctrl->setPort("\\scan_mode",    scan_mode->get(wrapper));
 }
 
-ScanchainCtrl::ScanchainCtrl(EmulationDatabase &database, EmulationRewriter &rewriter)
-    : AXILiteSinkNode("sc_ctrl", database, rewriter)
+void PlatformWorker::connect_trigger()
 {
-    auto host_clk  = rewriter.wire("host_clk");
-    auto host_rst  = rewriter.wire("host_rst");
+    int index = 0;
+    SigSpec trigs;
+    for (auto &it : database.user_trigs) {
+        trigs.append(rewriter.wire(it.first)->get(wrapper));
+        it.second.index = index++;
+    }
+
+    log_assert(GetSize(trigs) < 128);
+
+    emu_ctrl->setParam("\\TRIG_COUNT", GetSize(trigs));
+    emu_ctrl->setPort("\\trig", trigs);
+}
+
+void PlatformWorker::connect_reset()
+{
+    int index = 0;
+    SigSpec resets;
+    for (auto &it : database.user_resets) {
+        resets.append(rewriter.wire(it.first)->get(wrapper));
+        it.second.index = index++;
+    }
+
+    log_assert(GetSize(resets) < 128);
+
+    emu_ctrl->setParam("\\RESET_COUNT", GetSize(resets));
+    emu_ctrl->setPort("\\rst", resets);
+}
+
+
+void PlatformWorker::connect_scanchain()
+{
     auto ff_se     = rewriter.wire("ff_se");
     auto ff_di     = rewriter.wire("ff_di");
     auto ff_do     = rewriter.wire("ff_do");
@@ -134,36 +95,130 @@ ScanchainCtrl::ScanchainCtrl(EmulationDatabase &database, EmulationRewriter &rew
     ram_di  ->make_internal();
     ram_do  ->make_internal();
 
-    Module *wrapper = rewriter.wrapper();
-    cell = wrapper->addCell("\\sc_ctrl", "\\ScanchainCtrl");
-
     int ff_count = GetSize(database.scanchain_ff);
-    cell->setParam("\\FF_COUNT", Const(ff_count));
+    emu_ctrl->setParam("\\FF_COUNT", Const(ff_count));
 
     int mem_count = 0;
     for (auto &mem : database.scanchain_ram)
         mem_count += mem.depth;
-    cell->setParam("\\MEM_COUNT", Const(mem_count));
+    emu_ctrl->setParam("\\MEM_COUNT", Const(mem_count));
 
-    cell->setParam("\\FF_WIDTH", Const(database.ff_width));
-    cell->setParam("\\MEM_WIDTH", Const(database.ram_width));
+    emu_ctrl->setParam("\\FF_WIDTH", Const(database.ff_width));
+    emu_ctrl->setParam("\\MEM_WIDTH", Const(database.ram_width));
 
-    cell->setPort("\\host_clk", host_clk->get(wrapper));
-    cell->setPort("\\host_rst", host_rst->get(wrapper));
-    cell->setPort("\\ff_se",    ff_se->get(wrapper));
-    cell->setPort("\\ff_di",    ff_di->get(wrapper));
-    cell->setPort("\\ff_do",    ff_do->get(wrapper));
-    cell->setPort("\\ram_sr",   ram_sr->get(wrapper));
-    cell->setPort("\\ram_se",   ram_se->get(wrapper));
-    cell->setPort("\\ram_sd",   ram_sd->get(wrapper));
-    cell->setPort("\\ram_di",   ram_di->get(wrapper));
-    cell->setPort("\\ram_do",   ram_do->get(wrapper));
+    emu_ctrl->setPort("\\ff_se",    ff_se->get(wrapper));
+    emu_ctrl->setPort("\\ff_di",    ff_di->get(wrapper));
+    emu_ctrl->setPort("\\ff_do",    ff_do->get(wrapper));
+    emu_ctrl->setPort("\\ram_sr",   ram_sr->get(wrapper));
+    emu_ctrl->setPort("\\ram_se",   ram_se->get(wrapper));
+    emu_ctrl->setPort("\\ram_sd",   ram_sd->get(wrapper));
+    emu_ctrl->setPort("\\ram_di",   ram_di->get(wrapper));
+    emu_ctrl->setPort("\\ram_do",   ram_do->get(wrapper));
+}
+
+void PlatformWorker::connect_fifo_ports()
+{
+    Module *wrapper = rewriter.wrapper();
+
+    int source_index = 0, sink_index = 0;
+
+    Wire *source_wen = wrapper->addWire(NEW_ID);
+    Wire *source_waddr = wrapper->addWire(NEW_ID, 8);
+    Wire *source_wdata = wrapper->addWire(NEW_ID, 32);
+    Wire *source_ren = wrapper->addWire(NEW_ID);
+    Wire *source_raddr = wrapper->addWire(NEW_ID, 8);
+    SigSpec source_rdata = Const(0, 32);
+    Wire *sink_wen = wrapper->addWire(NEW_ID);
+    Wire *sink_waddr = wrapper->addWire(NEW_ID, 8);
+    Wire *sink_wdata = wrapper->addWire(NEW_ID, 32);
+    Wire *sink_ren = wrapper->addWire(NEW_ID);
+    Wire *sink_raddr = wrapper->addWire(NEW_ID, 8);
+    SigSpec sink_rdata = Const(0, 32);
+
+    for (auto &it : database.fifo_ports) {
+        if (it.second.type == "source") {
+            it.second.index = source_index;
+            auto fifo_wen = rewriter.wire(it.second.port_enable)->get(wrapper);
+            auto fifo_wdata = rewriter.wire(it.second.port_data)->get(wrapper);
+            auto fifo_wfull = rewriter.wire(it.second.port_flag)->get(wrapper);
+
+            SigSpec wen, ren;
+            int reg_cnt = (it.second.width + 31) / 32 + 1;
+            for (int i=0; i<reg_cnt; i++) {
+                wen.append(wrapper->And(NEW_ID, source_wen, wrapper->Eq(NEW_ID, source_waddr, Const(source_index, 8))));
+                ren.append(wrapper->And(NEW_ID, source_ren, wrapper->Eq(NEW_ID, source_raddr, Const(source_index, 8))));
+                source_index++;
+            }
+
+            Wire *rdata = wrapper->addWire(NEW_ID, 32);
+            Cell *adapter = wrapper->addCell("\\" + it.first + "_adapter", "\\FifoSourceAdapter");
+            adapter->setParam("\\DATA_WIDTH", it.second.width);
+            adapter->setPort("\\clk", rewriter.wire("host_clk")->get(wrapper));
+            adapter->setPort("\\rst", rewriter.wire("host_rst")->get(wrapper));
+            adapter->setPort("\\reg_wen", wen);
+            adapter->setPort("\\reg_wdata", source_wdata);
+            adapter->setPort("\\reg_ren", ren);
+            adapter->setPort("\\reg_rdata", rdata);
+            adapter->setPort("\\fifo_wen", fifo_wen);
+            adapter->setPort("\\fifo_wdata", fifo_wdata);
+            adapter->setPort("\\fifo_wfull", fifo_wfull);
+            source_rdata = wrapper->Or(NEW_ID, source_rdata, rdata);
+        }
+        else if (it.second.type == "sink") {
+            it.second.index = sink_index;
+            auto fifo_ren = rewriter.wire(it.second.port_enable)->get(wrapper);
+            auto fifo_rdata = rewriter.wire(it.second.port_data)->get(wrapper);
+            auto fifo_rempty = rewriter.wire(it.second.port_flag)->get(wrapper);
+
+            SigSpec wen, ren;
+            int reg_cnt = (it.second.width + 31) / 32 + 1;
+            for (int i=0; i<reg_cnt; i++) {
+                wen.append(wrapper->And(NEW_ID, sink_wen, wrapper->Eq(NEW_ID, sink_waddr, Const(sink_index, 8))));
+                ren.append(wrapper->And(NEW_ID, sink_ren, wrapper->Eq(NEW_ID, sink_raddr, Const(sink_index, 8))));
+                sink_index++;
+            }
+
+            Wire *rdata = wrapper->addWire(NEW_ID, 32);
+            Cell *adapter = wrapper->addCell("\\" + it.first + "_adapter", "\\FifoSinkAdapter");
+            adapter->setParam("\\DATA_WIDTH", it.second.width);
+            adapter->setPort("\\clk", rewriter.wire("host_clk")->get(wrapper));
+            adapter->setPort("\\rst", rewriter.wire("host_rst")->get(wrapper));
+            adapter->setPort("\\reg_wen", wen);
+            adapter->setPort("\\reg_wdata", sink_wdata);
+            adapter->setPort("\\reg_ren", ren);
+            adapter->setPort("\\reg_rdata", rdata);
+            adapter->setPort("\\fifo_ren", fifo_ren);
+            adapter->setPort("\\fifo_rdata", fifo_rdata);
+            adapter->setPort("\\fifo_rempty", fifo_rempty);
+            sink_rdata = wrapper->Or(NEW_ID, sink_rdata, rdata);
+        }
+    }
+
+    // max 256 regs
+    log_assert(source_index < 256);
+    log_assert(sink_index < 256);
+
+    emu_ctrl->setPort("\\source_wen",   source_wen);
+    emu_ctrl->setPort("\\source_waddr", source_waddr);
+    emu_ctrl->setPort("\\source_wdata", source_wdata);
+    emu_ctrl->setPort("\\source_ren",   source_ren);
+    emu_ctrl->setPort("\\source_raddr", source_raddr);
+    emu_ctrl->setPort("\\source_rdata", source_rdata);
+    emu_ctrl->setPort("\\sink_wen",     sink_wen);
+    emu_ctrl->setPort("\\sink_waddr",   sink_waddr);
+    emu_ctrl->setPort("\\sink_wdata",   sink_wdata);
+    emu_ctrl->setPort("\\sink_ren",     sink_ren);
+    emu_ctrl->setPort("\\sink_raddr",   sink_raddr);
+    emu_ctrl->setPort("\\sink_rdata",   sink_rdata);
 }
 
 void PlatformWorker::run() {
-    AXILiteBridge bridge(database, rewriter);
-    bridge.connect(ScanchainCtrl(database, rewriter));
-    bridge.emit();
+    emu_ctrl = wrapper->addCell("\\EmuCtrl", "\\emu_ctrl");
+    connect_main_sigs();
+    connect_trigger();
+    connect_reset();
+    connect_scanchain();
+    connect_fifo_ports();
 }
 
 PRIVATE_NAMESPACE_END
