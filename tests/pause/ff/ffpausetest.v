@@ -30,7 +30,7 @@ module sim_top();
         .ram_sd         (ram_dir),
         .ram_di         (ram_sdi),
         .ram_do         (ram_sdo),
-        .reset_reset    (rst),
+        .target_reset_reset    (rst),
         .target_en(en),
         .target_d(d),
         .target_q(q_dut)

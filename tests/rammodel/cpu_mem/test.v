@@ -63,18 +63,18 @@ module test(
         .ram_sd         (ram_dir),
         .ram_di         (ram_sdi),
         .ram_do         (ram_sdo),
-        .reset_reset    (target_rst),
+        .target_reset_reset    (target_rst),
         .run_mode       (run_mode),
         .scan_mode      (scan_mode),
         .idle           (idle),
-        .trap_trig_trigger       (trig),
+        .target_trap_trig_trigger       (trig),
         `AXI4_CONNECT       (target_uncore_u_rammodel_backend_host_axi, host_axi),
-        .uncore_putchar_sink_ren    (putchar_ren),
-        .uncore_putchar_sink_rdata  (putchar_rdata),
-        .uncore_putchar_sink_rempty (putchar_rempty)
+        .target_uncore_putchar_sink_ren    (putchar_ren),
+        .target_uncore_putchar_sink_rdata  (putchar_rdata),
+        .target_uncore_putchar_sink_rempty (putchar_rempty)
     );
 
-    assign target_clk = emu_dut.clock_clock;
+    assign target_clk = emu_dut.target_clock_clock;
     assign tick = emu_dut.tick;
 
     always @(posedge host_clk)
