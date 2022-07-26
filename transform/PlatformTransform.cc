@@ -34,12 +34,19 @@ void PlatformWorker::connect_main_sigs()
     auto host_clk   = rewriter.wire("host_clk");
     auto host_rst   = rewriter.wire("host_rst");
     auto tick       = rewriter.wire("tick");
+    auto idle       = rewriter.wire("idle");
     auto run_mode   = rewriter.wire("run_mode");
     auto scan_mode  = rewriter.wire("scan_mode");
+
+    tick        ->make_internal();
+    idle        ->make_internal();
+    run_mode    ->make_internal();
+    scan_mode   ->make_internal();
 
     emu_ctrl->setPort("\\host_clk",     host_clk->get(wrapper));
     emu_ctrl->setPort("\\host_rst",     host_rst->get(wrapper));
     emu_ctrl->setPort("\\tick",         tick->get(wrapper));
+    emu_ctrl->setPort("\\model_busy",   wrapper->Not(NEW_ID, idle->get(wrapper)));
     emu_ctrl->setPort("\\run_mode",     run_mode->get(wrapper));
     emu_ctrl->setPort("\\scan_mode",    scan_mode->get(wrapper));
 }
@@ -49,7 +56,9 @@ void PlatformWorker::connect_trigger()
     int index = 0;
     SigSpec trigs;
     for (auto &it : database.user_trigs) {
-        trigs.append(rewriter.wire(it.first)->get(wrapper));
+        auto trig = rewriter.wire(it.first);
+        trig->make_internal();
+        trigs.append(trig->get(wrapper));
         it.second.index = index++;
     }
 
@@ -64,7 +73,9 @@ void PlatformWorker::connect_reset()
     int index = 0;
     SigSpec resets;
     for (auto &it : database.user_resets) {
-        resets.append(rewriter.wire(it.first)->get(wrapper));
+        auto reset = rewriter.wire(it.first);
+        reset->make_internal();
+        resets.append(reset->get(wrapper));
         it.second.index = index++;
     }
 
@@ -138,9 +149,12 @@ void PlatformWorker::connect_fifo_ports()
     for (auto &it : database.fifo_ports) {
         if (it.second.type == "source") {
             it.second.index = source_index;
-            auto fifo_wen = rewriter.wire(it.second.port_enable)->get(wrapper);
-            auto fifo_wdata = rewriter.wire(it.second.port_data)->get(wrapper);
-            auto fifo_wfull = rewriter.wire(it.second.port_flag)->get(wrapper);
+            auto fifo_wen = rewriter.wire(it.second.port_enable);
+            auto fifo_wdata = rewriter.wire(it.second.port_data);
+            auto fifo_wfull = rewriter.wire(it.second.port_flag);
+            fifo_wen->make_internal();
+            fifo_wdata->make_internal();
+            fifo_wfull->make_internal();
 
             SigSpec wen, ren;
             int reg_cnt = (it.second.width + 31) / 32 + 1;
@@ -159,16 +173,19 @@ void PlatformWorker::connect_fifo_ports()
             adapter->setPort("\\reg_wdata", source_wdata);
             adapter->setPort("\\reg_ren", ren);
             adapter->setPort("\\reg_rdata", rdata);
-            adapter->setPort("\\fifo_wen", fifo_wen);
-            adapter->setPort("\\fifo_wdata", fifo_wdata);
-            adapter->setPort("\\fifo_wfull", fifo_wfull);
+            adapter->setPort("\\fifo_wen", fifo_wen->get(wrapper));
+            adapter->setPort("\\fifo_wdata", fifo_wdata->get(wrapper));
+            adapter->setPort("\\fifo_wfull", fifo_wfull->get(wrapper));
             source_rdata = wrapper->Or(NEW_ID, source_rdata, rdata);
         }
         else if (it.second.type == "sink") {
             it.second.index = sink_index;
-            auto fifo_ren = rewriter.wire(it.second.port_enable)->get(wrapper);
-            auto fifo_rdata = rewriter.wire(it.second.port_data)->get(wrapper);
-            auto fifo_rempty = rewriter.wire(it.second.port_flag)->get(wrapper);
+            auto fifo_ren = rewriter.wire(it.second.port_enable);
+            auto fifo_rdata = rewriter.wire(it.second.port_data);
+            auto fifo_rempty = rewriter.wire(it.second.port_flag);
+            fifo_ren->make_internal();
+            fifo_rdata->make_internal();
+            fifo_rempty->make_internal();
 
             SigSpec wen, ren;
             int reg_cnt = (it.second.width + 31) / 32 + 1;
@@ -187,9 +204,9 @@ void PlatformWorker::connect_fifo_ports()
             adapter->setPort("\\reg_wdata", sink_wdata);
             adapter->setPort("\\reg_ren", ren);
             adapter->setPort("\\reg_rdata", rdata);
-            adapter->setPort("\\fifo_ren", fifo_ren);
-            adapter->setPort("\\fifo_rdata", fifo_rdata);
-            adapter->setPort("\\fifo_rempty", fifo_rempty);
+            adapter->setPort("\\fifo_ren", fifo_ren->get(wrapper));
+            adapter->setPort("\\fifo_rdata", fifo_rdata->get(wrapper));
+            adapter->setPort("\\fifo_rempty", fifo_rempty->get(wrapper));
             sink_rdata = wrapper->Or(NEW_ID, sink_rdata, rdata);
         }
     }
@@ -213,7 +230,7 @@ void PlatformWorker::connect_fifo_ports()
 }
 
 void PlatformWorker::run() {
-    emu_ctrl = wrapper->addCell("\\EmuCtrl", "\\emu_ctrl");
+    emu_ctrl = wrapper->addCell("\\ctrl", "\\EmuCtrl");
     connect_main_sigs();
     connect_trigger();
     connect_reset();
