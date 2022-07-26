@@ -1,5 +1,4 @@
 `timescale 1ns / 1ps
-`default_nettype none
 
 (* keep *)
 module EmuRam #(
@@ -62,5 +61,3 @@ module EmuRam #(
 );
 
 endmodule
-
-`default_nettype wire

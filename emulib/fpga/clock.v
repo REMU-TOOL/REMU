@@ -1,5 +1,4 @@
 `timescale 1ns / 1ps
-`default_nettype none
 
 (* keep, noblackbox *)
 module EmuClock (
@@ -8,5 +7,3 @@ module EmuClock (
 );
 
 endmodule
-
-`default_nettype wire

@@ -1,5 +1,4 @@
 `timescale 1ns / 1ps
-`default_nettype none
 
 (* keep *)
 module EmuDataSource #(
@@ -12,5 +11,3 @@ module EmuDataSource #(
 );
 
 endmodule
-
-`default_nettype wire

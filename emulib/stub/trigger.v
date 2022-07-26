@@ -1,5 +1,4 @@
 `timescale 1 ns / 1 ps
-`default_nettype none
 
 (* keep *)
 module EmuTrigger #(
@@ -9,5 +8,3 @@ module EmuTrigger #(
 );
 
 endmodule
-
-`default_nettype wire

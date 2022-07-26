@@ -1,5 +1,4 @@
 `timescale 1ns / 1ps
-`default_nettype none
 
 module emulib_ready_valid_mux #(
     parameter   NUM_I       = 1,
@@ -35,5 +34,3 @@ module emulib_ready_valid_mux #(
     assign i_ready = {NUM_I{ready}} & i_sel;
 
 endmodule
-
-`default_nettype wire

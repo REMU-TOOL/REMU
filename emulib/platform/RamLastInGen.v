@@ -1,5 +1,4 @@
 `timescale 1ns / 1ps
-`default_nettype none
 
 // generate last_i signal for mem scan chain
 // delay 1 cycle for scan-out mode to prepare raddr
@@ -49,5 +48,3 @@ module RamLastInGen #(
     assign ram_li = start && !start_r;
 
 endmodule
-
-`default_nettype wire

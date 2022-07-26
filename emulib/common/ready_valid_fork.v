@@ -1,5 +1,4 @@
 `timescale 1ns / 1ps
-`default_nettype none
 
 module emulib_ready_valid_fork #(
     parameter   BRANCHES    = 2
@@ -24,5 +23,3 @@ module emulib_ready_valid_fork #(
     assign i_ready = &o_ready;
 
 endmodule
-
-`default_nettype wire

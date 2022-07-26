@@ -1,5 +1,4 @@
 `timescale 1ns / 1ps
-`default_nettype none
 
 (* keep, __emu_model_imp *)
 module EmuDataSink #(
@@ -57,5 +56,3 @@ module EmuDataSink #(
     assign tk_write_ready = !wfull;
 
 endmodule
-
-`default_nettype wire

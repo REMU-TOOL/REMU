@@ -1,5 +1,4 @@
 `timescale 1ns / 1ps
-`default_nettype none
 
 (* keep *)
 module EmuDataSink #(
@@ -12,5 +11,3 @@ module EmuDataSink #(
 );
 
 endmodule
-
-`default_nettype wire

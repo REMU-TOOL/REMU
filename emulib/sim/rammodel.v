@@ -1,5 +1,4 @@
 `timescale 1ns / 1ps
-`default_nettype none
 
 `include "axi.vh"
 
@@ -151,5 +150,3 @@ module EmuRam #(
     end
 
 endmodule
-
-`default_nettype wire

@@ -1,5 +1,4 @@
 `timescale 1ns / 1ps
-`default_nettype none
 
 module reset_token_handler (
 
@@ -61,5 +60,3 @@ module reset_token_handler (
     assign tk_rst_ready = state == DONE || !tk_rst;
 
 endmodule
-
-`default_nettype wire

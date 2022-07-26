@@ -1,5 +1,4 @@
 `timescale 1ns / 1ps
-`default_nettype none
 
 `include "axi.vh"
 
@@ -144,5 +143,3 @@ module AXILiteToCtrl (
     assign s_axilite_bresp      = 2'd0;
 
 endmodule
-
-`default_nettype wire

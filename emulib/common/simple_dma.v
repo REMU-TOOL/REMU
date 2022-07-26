@@ -1,5 +1,4 @@
 `timescale 1ns / 1ps
-`default_nettype none
 
 `include "axi.vh"
 `include "axi_custom.vh"
@@ -198,5 +197,3 @@ module emulib_simple_dma #(
             write_count <= s_write_count;
 
 endmodule
-
-`default_nettype wire

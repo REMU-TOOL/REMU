@@ -1,5 +1,4 @@
 `timescale 1ns / 1ps
-`default_nettype none
 
 module emulib_ready_valid_arb #(
     parameter   NUM_I       = 1,
@@ -32,5 +31,3 @@ module emulib_ready_valid_arb #(
     assign o_valid = |i_valid;
 
 endmodule
-
-`default_nettype wire

@@ -1,5 +1,4 @@
 `timescale 1ns / 1ps
-`default_nettype none
 
 `include "axi.vh"
 
@@ -354,5 +353,3 @@ module EmuCtrl #(
     );
 
 endmodule
-
-`default_nettype wire

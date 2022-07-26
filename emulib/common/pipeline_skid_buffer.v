@@ -1,5 +1,4 @@
 `timescale 1ns / 1ps
-`default_nettype none
 
 module emulib_pipeline_skid_buffer #(
     parameter   DATA_WIDTH      = 1
@@ -40,5 +39,3 @@ module emulib_pipeline_skid_buffer #(
     always @(posedge clk) if (i_ready) data_buf <= i_data;
 
 endmodule
-
-`default_nettype wire

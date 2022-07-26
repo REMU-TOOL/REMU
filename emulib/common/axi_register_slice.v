@@ -1,5 +1,4 @@
 `timescale 1ns / 1ps
-`default_nettype none
 
 `include "axi.vh"
 
@@ -85,5 +84,3 @@ module emulib_axi_register_slice #(
     );
 
 endmodule
-
-`default_nettype wire

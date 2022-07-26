@@ -1,5 +1,4 @@
 `timescale 1ns / 1ps
-`default_nettype none
 
 `include "axi.vh"
 
@@ -291,5 +290,3 @@ module ScanchainCtrl #(
     assign write_count_valid    = state == STATE_SEND_COUNT && !dma_direction;
 
 endmodule
-
-`default_nettype wire

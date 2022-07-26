@@ -1,5 +1,4 @@
 `timescale 1ns / 1ps
-`default_nettype none
 
 module emulib_rammodel_tm_fixed #(
     parameter   ADDR_WIDTH      = 32,
@@ -112,5 +111,3 @@ module emulib_rammodel_tm_fixed #(
     assign rid          = 0; // TODO
 
 endmodule
-
-`default_nettype wire

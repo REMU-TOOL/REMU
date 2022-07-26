@@ -1,5 +1,4 @@
 `timescale 1ns / 1ps
-`default_nettype none
 
 module emulib_ready_valid_join #(
     parameter   BRANCHES    = 2
@@ -24,5 +23,3 @@ module emulib_ready_valid_join #(
     assign o_valid = &i_valid;
 
 endmodule
-
-`default_nettype wire

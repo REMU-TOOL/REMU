@@ -1,5 +1,4 @@
 `timescale 1ns / 1ps
-`default_nettype none
 
 `include "axi.vh"
 `include "axi_custom.vh"
@@ -169,5 +168,3 @@ module emulib_rammodel_frontend #(
     assign `AXI4_R_PAYLOAD(tracker) = `AXI4_R_PAYLOAD(target_axi);
 
 endmodule
-
-`default_nettype wire

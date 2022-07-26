@@ -1,5 +1,4 @@
 `timescale 1ns / 1ps
-`default_nettype none
 
 module emulib_ready_valid_gate #(
     parameter   DECOUPLE_S  = 1,
@@ -25,5 +24,3 @@ module emulib_ready_valid_gate #(
         assign o_valid = i_valid;
 
 endmodule
-
-`default_nettype wire

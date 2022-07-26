@@ -1,5 +1,4 @@
 `timescale 1ns / 1ps
-`default_nettype none
 
 `include "axi.vh"
 
@@ -55,5 +54,3 @@ module axi_remap #(
     assign  `AXI4_R_PAYLOAD(s_axi) = `AXI4_R_PAYLOAD(m_axi);
 
 endmodule
-
-`default_nettype wire

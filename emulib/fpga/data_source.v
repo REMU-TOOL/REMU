@@ -1,5 +1,4 @@
 `timescale 1ns / 1ps
-`default_nettype none
 
 (* keep, __emu_model_imp *)
 module EmuDataSource #(
@@ -68,5 +67,3 @@ module EmuDataSource #(
     assign tk_read_data_valid = 1'b1;
 
 endmodule
-
-`default_nettype wire

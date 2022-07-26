@@ -1,5 +1,4 @@
 `timescale 1ns / 1ps
-`default_nettype none
 
 module emulib_fifo #(
     parameter WIDTH     = 32,
@@ -90,5 +89,3 @@ module emulib_fifo #(
 `endif
 
 endmodule
-
-`default_nettype wire
