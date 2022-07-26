@@ -122,7 +122,6 @@ struct EmuTransformPass : public Pass {
             "read_verilog",
             "-I",
             share_dirname + "emulib/include",
-            "-lib",
             share_dirname + "emulib/platform/*.v"
         });
 
@@ -137,10 +136,10 @@ struct EmuTransformPass : public Pass {
         log_header(design, "Executing final cleanup.\n");
         log_push();
 
-        Pass::call(design, "emu_remove_keep");
         Pass::call(design, "submod");
         Pass::call(design, "uniquify");
         Pass::call(design, "hierarchy");
+        Pass::call(design, "emu_remove_keep");
 
         log_pop();
     }
