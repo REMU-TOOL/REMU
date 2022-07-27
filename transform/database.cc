@@ -183,7 +183,7 @@ void EmulationDatabase::write_loader(std::string loader_file) {
     os << "`define LOAD_FF_WIDTH " << ff_width << "\n";
     os << "`define LOAD_MEM_WIDTH " << ram_width << "\n";
 
-    os << "`define LOAD_FF(__LOAD_FF_DATA, __LOAD_OFFSET, __LOAD_DUT) \\\n";
+    os << "`define LOAD_FF(__LOAD_DATA_FUNC, __LOAD_DUT) \\\n";
     addr = 0;
     for (auto &src : scanchain_ff) {
         int offset = 0;
@@ -201,8 +201,8 @@ void EmulationDatabase::write_loader(std::string loader_file) {
                     os << stringf("[%d:%d]", chunk.wire_start_offset + chunk.offset + chunk.width - 1,
                             chunk.wire_start_offset + chunk.offset);
             }
-            os  << " = __LOAD_FF_DATA[__LOAD_OFFSET+" << addr << "]"
-                << "[" << chunk.width + offset - 1 << ":" << offset << "]; \\\n";
+            os  << " = __LOAD_DATA_FUNC(" << addr << ")"
+                << " >> " << offset << "; \\\n";
             offset += chunk.width;
         }
         addr++;
@@ -210,7 +210,7 @@ void EmulationDatabase::write_loader(std::string loader_file) {
     os << "\n";
     os << "`define CHAIN_FF_WORDS " << addr << "\n";
 
-    os << "`define LOAD_MEM(__LOAD_MEM_DATA, __LOAD_OFFSET, __LOAD_DUT) \\\n";
+    os << "`define LOAD_MEM(__LOAD_DATA_FUNC, __LOAD_DUT) \\\n";
     addr = 0;
     for (auto &mem : scanchain_ram) {
         if (!mem.is_src)
@@ -218,7 +218,7 @@ void EmulationDatabase::write_loader(std::string loader_file) {
         os  << "    for (__load_i=0; __load_i<" << mem.mem_depth << "; __load_i=__load_i+1) __LOAD_DUT."
             << mem.name << "[__load_i+" << mem.mem_start_offset << "] = {";
         for (int i = mem.slices - 1; i >= 0; i--)
-            os << "__LOAD_MEM_DATA[__LOAD_OFFSET+__load_i*" << mem.slices << "+" << addr + i << "]" << (i != 0 ? ", " : "");
+            os << "__LOAD_DATA_FUNC(__load_i*" << mem.slices << "+" << addr + i << ")" << (i != 0 ? ", " : "");
         os << "}; \\\n";
         addr += mem.depth;
     }
