@@ -172,8 +172,7 @@ class TB:
         await self.axilite_ctrl.write_dword(addr, 0)
         val = 0
         for i in range(chunks):
-            val <<= 32
-            val |= await self.axilite_ctrl.read_dword(addr + (i+1)*4)
+            val |= await self.axilite_ctrl.read_dword(addr + (i+1)*4) << (32*i)
         return val
 
     def load_checkpoint_to(self, handle):
