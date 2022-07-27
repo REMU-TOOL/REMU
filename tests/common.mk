@@ -10,6 +10,7 @@ EMU_INCLUDE := $(EMULIB_DIR)/include
 
 BUILD_DIR   := .build
 OUTPUT_FILE := $(BUILD_DIR)/output.v
+ELAB_FILE   := $(BUILD_DIR)/elab.v
 SC_YML_FILE := $(BUILD_DIR)/scanchain.yml
 LOADER_FILE := $(BUILD_DIR)/loader.vh
 SIM_BIN     := $(BUILD_DIR)/sim
@@ -28,6 +29,7 @@ SIM_TOP += _simctrl
 TRANSFORM_ARGS += -top $(EMU_TOP)
 TRANSFORM_ARGS += -yaml $(SC_YML_FILE)
 TRANSFORM_ARGS += -loader $(LOADER_FILE)
+TRANSFORM_ARGS += -elab $(ELAB_FILE)
 ifneq ($(PLAT_MAP),y)
 TRANSFORM_ARGS += -no_plat
 endif
@@ -75,6 +77,8 @@ $(SIMCTRL_V):
 $(OUTPUT_FILE): $(EMU_SRCS)
 	@mkdir -p $(BUILD_DIR)
 	$(YOSYS) -m transform -p "emu_transform $(TRANSFORM_ARGS)" -o $@ $^
+
+$(ELAB_FILE): $(OUTPUT_FILE)
 
 $(SIM_BIN): $(SIM_SRCS)
 	@mkdir -p $(BUILD_DIR)
