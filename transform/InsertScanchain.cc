@@ -539,13 +539,13 @@ void ScanchainWorker::run()
     mdl_clk_ram_en = wrapper->Or(NEW_ID, mdl_clk_ram_en, ram_se);
     mdl_clk_ram->setEnable(mdl_clk_ram_en);
 
-    for (auto &it : database.user_clocks) {
-        auto ff_clk = rewriter.clock(it.second.ff_clk);
+    for (auto &info : database.user_clocks) {
+        auto ff_clk = rewriter.clock(info.ff_clk);
         SigBit ff_clk_en = ff_clk->getEnable();
         ff_clk_en = wrapper->Or(NEW_ID, ff_clk_en, ff_se);
         ff_clk->setEnable(ff_clk_en);
 
-        auto ram_clk = rewriter.clock(it.second.ram_clk);
+        auto ram_clk = rewriter.clock(info.ram_clk);
         SigBit ram_clk_en = ram_clk->getEnable();
         ram_clk_en = wrapper->Or(NEW_ID, ram_clk_en, ram_se);
         ram_clk->setEnable(ram_clk_en);

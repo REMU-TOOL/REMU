@@ -55,11 +55,11 @@ void PlatformWorker::connect_trigger()
 {
     int index = 0;
     SigSpec trigs;
-    for (auto &it : database.user_trigs) {
-        auto trig = rewriter.wire(it.first);
+    for (auto &info : database.user_trigs) {
+        auto trig = rewriter.wire(info.name);
         trig->make_internal();
         trigs.append(trig->get(wrapper));
-        it.second.index = index++;
+        info.index = index++;
     }
 
     log_assert(GetSize(trigs) < 128);
@@ -72,11 +72,11 @@ void PlatformWorker::connect_reset()
 {
     int index = 0;
     SigSpec resets;
-    for (auto &it : database.user_resets) {
-        auto reset = rewriter.wire(it.first);
+    for (auto &info : database.user_resets) {
+        auto reset = rewriter.wire(info.name);
         reset->make_internal();
         resets.append(reset->get(wrapper));
-        it.second.index = index++;
+        info.index = index++;
     }
 
     log_assert(GetSize(resets) < 128);
@@ -146,18 +146,18 @@ void PlatformWorker::connect_fifo_ports()
     Wire *sink_raddr = wrapper->addWire(NEW_ID, 8);
     SigSpec sink_rdata = Const(0, 32);
 
-    for (auto &it : database.fifo_ports) {
-        if (it.second.type == "source") {
-            it.second.index = source_index;
-            auto fifo_wen = rewriter.wire(it.second.port_enable);
-            auto fifo_wdata = rewriter.wire(it.second.port_data);
-            auto fifo_wfull = rewriter.wire(it.second.port_flag);
+    for (auto &info : database.fifo_ports) {
+        if (info.type == "source") {
+            info.index = source_index;
+            auto fifo_wen = rewriter.wire(info.port_enable);
+            auto fifo_wdata = rewriter.wire(info.port_data);
+            auto fifo_wfull = rewriter.wire(info.port_flag);
             fifo_wen->make_internal();
             fifo_wdata->make_internal();
             fifo_wfull->make_internal();
 
             SigSpec wen, ren;
-            int reg_cnt = (it.second.width + 31) / 32 + 1;
+            int reg_cnt = (info.width + 31) / 32 + 1;
             for (int i=0; i<reg_cnt; i++) {
                 wen.append(wrapper->And(NEW_ID, source_wen, wrapper->Eq(NEW_ID, source_waddr, Const(source_index, 8))));
                 ren.append(wrapper->And(NEW_ID, source_ren, wrapper->Eq(NEW_ID, source_raddr, Const(source_index, 8))));
@@ -165,8 +165,8 @@ void PlatformWorker::connect_fifo_ports()
             }
 
             Wire *rdata = wrapper->addWire(NEW_ID, 32);
-            Cell *adapter = wrapper->addCell("\\" + it.first + "_adapter", "\\FifoSourceAdapter");
-            adapter->setParam("\\DATA_WIDTH", it.second.width);
+            Cell *adapter = wrapper->addCell("\\" + info.name + "_adapter", "\\FifoSourceAdapter");
+            adapter->setParam("\\DATA_WIDTH", info.width);
             adapter->setPort("\\clk", rewriter.wire("host_clk")->get(wrapper));
             adapter->setPort("\\rst", rewriter.wire("host_rst")->get(wrapper));
             adapter->setPort("\\reg_wen", wen);
@@ -178,17 +178,17 @@ void PlatformWorker::connect_fifo_ports()
             adapter->setPort("\\fifo_wfull", fifo_wfull->get(wrapper));
             source_rdata = wrapper->Or(NEW_ID, source_rdata, rdata);
         }
-        else if (it.second.type == "sink") {
-            it.second.index = sink_index;
-            auto fifo_ren = rewriter.wire(it.second.port_enable);
-            auto fifo_rdata = rewriter.wire(it.second.port_data);
-            auto fifo_rempty = rewriter.wire(it.second.port_flag);
+        else if (info.type == "sink") {
+            info.index = sink_index;
+            auto fifo_ren = rewriter.wire(info.port_enable);
+            auto fifo_rdata = rewriter.wire(info.port_data);
+            auto fifo_rempty = rewriter.wire(info.port_flag);
             fifo_ren->make_internal();
             fifo_rdata->make_internal();
             fifo_rempty->make_internal();
 
             SigSpec wen, ren;
-            int reg_cnt = (it.second.width + 31) / 32 + 1;
+            int reg_cnt = (info.width + 31) / 32 + 1;
             for (int i=0; i<reg_cnt; i++) {
                 wen.append(wrapper->And(NEW_ID, sink_wen, wrapper->Eq(NEW_ID, sink_waddr, Const(sink_index, 8))));
                 ren.append(wrapper->And(NEW_ID, sink_ren, wrapper->Eq(NEW_ID, sink_raddr, Const(sink_index, 8))));
@@ -196,8 +196,8 @@ void PlatformWorker::connect_fifo_ports()
             }
 
             Wire *rdata = wrapper->addWire(NEW_ID, 32);
-            Cell *adapter = wrapper->addCell("\\" + it.first + "_adapter", "\\FifoSinkAdapter");
-            adapter->setParam("\\DATA_WIDTH", it.second.width);
+            Cell *adapter = wrapper->addCell("\\" + info.name + "_adapter", "\\FifoSinkAdapter");
+            adapter->setParam("\\DATA_WIDTH", info.width);
             adapter->setPort("\\clk", rewriter.wire("host_clk")->get(wrapper));
             adapter->setPort("\\rst", rewriter.wire("host_rst")->get(wrapper));
             adapter->setPort("\\reg_wen", wen);

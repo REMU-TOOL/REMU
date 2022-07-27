@@ -53,21 +53,25 @@ public:
 
 struct ClockInfo {
     // TODO: frequency, phase, etc.
+    std::string name;
     std::string ff_clk;
     std::string ram_clk;
 };
 
 struct ResetInfo {
     // TODO: duration, etc.
+    std::string name;
     int index = -1;
 };
 
 struct TrigInfo {
+    std::string name;
     std::string desc;
     int index = -1;
 };
 
 struct FifoPortInfo {
+    std::string name;
     std::string type;
     std::string port_enable;
     std::string port_data;
@@ -79,10 +83,10 @@ struct FifoPortInfo {
 struct EmulationDatabase {
 
     // written by PortTransform, ClockTransform, PlatformTransform
-    dict<std::string, ClockInfo> user_clocks;
-    dict<std::string, ResetInfo> user_resets;
-    dict<std::string, TrigInfo> user_trigs;
-    dict<std::string, FifoPortInfo> fifo_ports;
+    std::vector<ClockInfo> user_clocks;
+    std::vector<ResetInfo> user_resets;
+    std::vector<TrigInfo> user_trigs;
+    std::vector<FifoPortInfo> fifo_ports;
 
     // written by InsertScanchain
     int ff_width = 0;

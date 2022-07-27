@@ -105,7 +105,6 @@ void EmulationDatabase::write_yaml(std::string yaml_file) {
     root["ff_width"]  = ff_width;
     root["mem_width"] = ram_width;
 
-    root["ff"] = YAML::Node(YAML::NodeType::Sequence);
     for (auto &src : scanchain_ff) {
         YAML::Node ff_node;
         for (auto &c : src.info) {
@@ -119,7 +118,6 @@ void EmulationDatabase::write_yaml(std::string yaml_file) {
         root["ff"].push_back(ff_node);
     }
 
-    root["mem"] = YAML::Node(YAML::NodeType::Sequence);
     for (auto &mem : scanchain_ram) {
         YAML::Node mem_node;
         mem_node["name"] = mem.name;
@@ -130,36 +128,33 @@ void EmulationDatabase::write_yaml(std::string yaml_file) {
         root["mem"].push_back(mem_node);
     }
 
-    root["clock"] = YAML::Node(YAML::NodeType::Sequence);
-    for (auto &it : user_clocks) {
+    for (auto &info : user_clocks) {
         YAML::Node node;
-        node["name"] = it.first;
+        node["name"] = info.name;
         root["clock"].push_back(node);
     }
 
-    root["reset"] = YAML::Node(YAML::NodeType::Sequence);
-    for (auto &it : user_resets) {
+    for (auto &info : user_resets) {
         YAML::Node node;
-        node["name"] = it.first;
-        node["index"] = it.second.index;
+        node["name"] = info.name;
+        node["index"] = info.index;
         root["reset"].push_back(node);
     }
 
-    root["trigger"] = YAML::Node(YAML::NodeType::Sequence);
-    for (auto &it : user_trigs) {
+    for (auto &info : user_trigs) {
         YAML::Node node;
-        node["name"] = it.first;
-        node["index"] = it.second.index;
-        node["desc"] = it.second.desc;
+        node["name"] = info.name;
+        node["desc"] = info.desc;
+        node["index"] = info.index;
         root["trigger"].push_back(node);
     }
 
-    root["fifo"] = YAML::Node(YAML::NodeType::Sequence);
-    for (auto &it : fifo_ports) {
+    for (auto &info : fifo_ports) {
         YAML::Node node;
-        node["name"] = it.first;
-        node["index"] = it.second.index;
-        node["type"] = it.second.type;
+        node["name"] = info.name;
+        node["type"] = info.type;
+        node["width"] = info.width;
+        node["index"] = info.index;
         root["fifo_port"].push_back(node);
     }
 

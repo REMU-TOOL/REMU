@@ -378,8 +378,8 @@ void RTLModelWorker::emit() {
 
     // TODO: support multiple clocks
 
-    for (auto &it : database.user_clocks) {
-        auto clk = rewriter.clock(it.first);
+    for (auto &info : database.user_clocks) {
+        auto clk = rewriter.clock(info.name);
         SigBit en = clk->getEnable();
         en = wrapper->And(NEW_ID, en, tick->get(wrapper));
         clk->setEnable(en);

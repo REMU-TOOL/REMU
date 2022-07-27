@@ -121,21 +121,21 @@ void ClockWorker::run() {
 
     // Rewrite DUT clocks
 
-    for (auto &it : database.user_clocks) {
-        auto clk = rewriter.clock(it.first);
+    for (auto &info : database.user_clocks) {
+        auto clk = rewriter.clock(info.name);
 
-        if (it.second.ff_clk.empty()) {
-            it.second.ff_clk = clk->name() + "_ff";
-            rewriter.define_clock(it.second.ff_clk);
+        if (info.ff_clk.empty()) {
+            info.ff_clk = clk->name() + "_ff";
+            rewriter.define_clock(info.ff_clk);
         }
 
-        if (it.second.ram_clk.empty()) {
-            it.second.ram_clk = clk->name() + "_ram";
-            rewriter.define_clock(it.second.ram_clk);
+        if (info.ram_clk.empty()) {
+            info.ram_clk = clk->name() + "_ram";
+            rewriter.define_clock(info.ram_clk);
         }
 
-        auto ff_clk = rewriter.clock(it.second.ff_clk);
-        auto ram_clk = rewriter.clock(it.second.ram_clk);
+        auto ff_clk = rewriter.clock(info.ff_clk);
+        auto ram_clk = rewriter.clock(info.ram_clk);
 
         SigBit dut_clk_en = clk->getEnable();
         ff_clk->setEnable(dut_clk_en);
