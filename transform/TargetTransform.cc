@@ -159,8 +159,8 @@ void RTLModelWorker::analyze() {
             for (SigBit &b : SigSpec(wire))
                 oc_bits.insert(b);
 
-        for (SigBit &b : rewriter.design().find_dependencies(oc_bits, all_ic_bits))
-            rtl_channel_deps[oc].insert(ic_bit2id_map[b]);
+        for (SigBit &b : rewriter.design().find_dependencies(oc_bits, &all_ic_bits))
+            rtl_channel_deps[oc].insert(ic_bit2id_map.at(b));
     }
 
     // Check for circular dependencies

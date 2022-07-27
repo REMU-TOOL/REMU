@@ -237,17 +237,17 @@ std::vector<std::string> DesignInfo::scope_of(Module *mod) const {
     return res;
 }
 
-pool<SigBit> DesignInfo::find_dependencies(pool<SigBit> target, pool<SigBit> candidate) {
-    bool find_all = candidate.empty();
+pool<SigBit> DesignInfo::find_dependencies(const pool<SigBit> &target, const pool<SigBit> *candidate) {
     pool<SigBit> result;
     pool<SigBit> visited;
     dict<SigBit, SigBit> candidate_map; // mapped -> original
     std::queue<SigBit> worklist;
 
-    for (SigBit &bit : candidate)
-        candidate_map[sigmap(bit)] = bit;
+    if (candidate != nullptr)
+        for (auto &bit : *candidate)
+            candidate_map[sigmap(bit)] = bit;
 
-    for (SigBit &bit : target)
+    for (auto &bit : target)
         if (bit.is_wire())
             worklist.push(bit);
 
@@ -260,7 +260,7 @@ pool<SigBit> DesignInfo::find_dependencies(pool<SigBit> target, pool<SigBit> can
 
         visited.insert(bit);
 
-        if (find_all) {
+        if (candidate == nullptr) {
             result.insert(bit);
         }
         else if (candidate_map.count(bit) > 0) {
@@ -429,7 +429,7 @@ struct DtFindDependencyPass : public Pass {
 
         for (SigBit &bit : selection) {
             log("Dependencies of %s:\n", info.hier_name_of(bit).c_str());
-            auto deps = info.find_dependencies({bit}, {});
+            auto deps = info.find_dependencies({bit});
             for (auto &dep : deps) {
                 log("  - %s\n", info.hier_name_of(dep).c_str());
             }

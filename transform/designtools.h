@@ -189,7 +189,7 @@ public:
     }
 
     // Find signals in candidate (if not empty) list combinationally depended on by target list
-    pool<SigBit> find_dependencies(pool<SigBit> target, pool<SigBit> candidate);
+    pool<SigBit> find_dependencies(const pool<SigBit> &target, const pool<SigBit> *candidate = nullptr);
 
     DesignInfo() : design_(nullptr), top_(nullptr) {}
 
