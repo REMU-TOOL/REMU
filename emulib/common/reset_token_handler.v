@@ -52,7 +52,7 @@ module reset_token_handler (
         else begin
             rst_out <= 1'b0;
             case (state_next)
-                FIRE:   rst_out <= 1'b0;
+                FIRE:   rst_out <= 1'b1;
             endcase
         end
     end
