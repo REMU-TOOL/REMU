@@ -68,7 +68,7 @@ class TB:
         val = await self.axilite_ctrl.read_dword(MODE_CTRL)
         await self.axilite_ctrl.write_dword(MODE_CTRL, val & ~MODE_CTRL_RUN_MODE)
         while await self.axilite_ctrl.read_dword(MODE_CTRL) & MODE_CTRL_PAUSE_BUSY:
-            await RisingEdge(self.dut.host_clk)
+            await ClockCycles(self.dut.host_clk, 100)
         self.dut._log.info("exiting run mode ok")
         await RisingEdge(self.dut.host_clk)
 
@@ -78,7 +78,7 @@ class TB:
     async def enter_scan_mode(self):
         self.dut._log.info("entering scan mode")
         while await self.axilite_ctrl.read_dword(MODE_CTRL) & MODE_CTRL_MODEL_BUSY:
-            await RisingEdge(self.dut.host_clk)
+            await ClockCycles(self.dut.host_clk, 100)
         val = await self.axilite_ctrl.read_dword(MODE_CTRL)
         await self.axilite_ctrl.write_dword(MODE_CTRL, val | MODE_CTRL_SCAN_MODE)
         self.dut._log.info("entering scan mode ok")
@@ -112,7 +112,7 @@ class TB:
             val |= SCAN_CTRL_DIRECTION
         await self.axilite_ctrl.write_dword(SCAN_CTRL, val)
         while await self.axilite_ctrl.read_dword(SCAN_CTRL) & SCAN_CTRL_RUNNING:
-            await RisingEdge(self.dut.host_clk)
+            await ClockCycles(self.dut.host_clk, 100)
         self.dut._log.info("scan complete")
 
     async def get_trig_stat(self, index: int):
@@ -150,21 +150,21 @@ class TB:
     async def source_write(self, index: int, chunks: int, val: int):
         addr = SOURCE_CTRL_BEGIN + index * 4
         while await self.axilite_ctrl.read_dword(addr) & 1:
-            await RisingEdge(self.dut.host_clk)
+            await ClockCycles(self.dut.host_clk, 100)
         for i in range(chunks):
             await self.axilite_ctrl.write_dword(addr + (i+1)*4, val & 0xffffffff)
             val >>= 32
         await self.axilite_ctrl.write_dword(addr, 0)
 
-    async def source_read(self, index: int, chunks: int):
-        addr = SOURCE_CTRL_BEGIN + index * 4
+    async def sink_read(self, index: int, chunks: int):
+        addr = SINK_CTRL_BEGIN + index * 4
         while await self.axilite_ctrl.read_dword(addr) & 1:
-            await RisingEdge(self.dut.host_clk)
+            await ClockCycles(self.dut.host_clk, 100)
+        await self.axilite_ctrl.write_dword(addr, 0)
         val = 0
         for i in range(chunks):
             val <<= 32
             val |= await self.axilite_ctrl.read_dword(addr + (i+1)*4)
-        await self.axilite_ctrl.write_dword(addr, 0)
         return val
 
     def load_checkpoint_to(self, handle):
