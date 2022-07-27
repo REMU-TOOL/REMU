@@ -66,6 +66,7 @@ struct EmuTransformPass : public Pass {
 
         Pass::call(design, {
             "read_verilog",
+            "-noautowire",
             share_dirname + "emulib/stub/*.v"
         });
 
@@ -93,6 +94,7 @@ struct EmuTransformPass : public Pass {
 
         Pass::call(design, {
             "read_verilog",
+            "-noautowire",
             "-I",
             share_dirname + "emulib/include",
             share_dirname + "emulib/common/*.v",
@@ -120,6 +122,7 @@ struct EmuTransformPass : public Pass {
 
         Pass::call(design, {
             "read_verilog",
+            "-noautowire",
             "-I",
             share_dirname + "emulib/include",
             share_dirname + "emulib/platform/*.v"
