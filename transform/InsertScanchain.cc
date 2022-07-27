@@ -52,7 +52,6 @@ struct ScanchainWorker {
 
     void instrument_ffs(Module *module, ScanchainBuilder &builder);
     void instrument_mems(Module *module, ScanchainBuilder &builder);
-    void add_shadow_rdata(Module *module, ScanchainBuilder &builder, Mem &mem, int rd_index);
     void restore_mem_rdport_ffs(Module *module, ScanchainBuilder &builder);
     void instrument_module(Module *module, ScanchainBuilder &builder);
 
@@ -344,69 +343,119 @@ void ScanchainWorker::instrument_mems(Module *module, ScanchainBuilder &builder)
     }
 }
 
-void ScanchainWorker::add_shadow_rdata(Module *module, ScanchainBuilder &builder, Mem &mem, int rd_index)
+void ScanchainWorker::restore_mem_rdport_ffs(Module *module, ScanchainBuilder &builder)
 {
+    auto path = designinfo.scope_of(module);
+
+    struct WorkInfo {
+        Mem &mem;
+        int rd_index;
+        bool is_addr;
+    };
+
+    std::vector<WorkInfo> worklist;
+    auto mem_list = Mem::get_all_memories(module);
+
+    for (auto &mem : mem_list) {
+        if (designinfo.check_hier_attr(Attr::NoScanchain, mem.cell))
+            continue;
+
+        for (int idx = 0; idx < GetSize(mem.rd_ports); idx++) {
+            auto &rd = mem.rd_ports[idx];
+            if (rd.clk_enable) {
+                if (database.mem_sr_addr.count({mem.cell, idx}) > 0)
+                    worklist.push_back({mem, idx, true});
+                else if (database.mem_sr_data.count({mem.cell, idx}) > 0)
+                    worklist.push_back({mem, idx, false});
+                else
+                    log_error(
+                        "%s.%s: Memory has synchronous read port without source information. \n"
+                        "Do not run memory_dff pass before emulator transformation.\n",
+                        log_id(module), log_id(mem.cell));
+            }
+        }
+    }
+
+    if (worklist.empty())
+        return;
+
     Wire *host_clk  = rewriter.wire("host_clk")->get(module);
     Wire *ff_se     = rewriter.wire("ff_se")->get(module);
     Wire *ram_se    = rewriter.wire("ram_se")->get(module);
 
-    auto &rd = mem.rd_ports[rd_index];
-    SigSpec orig_rdata = rd.data;
-
-    int total_width = GetSize(rd.data);
-
-    std::string name = mem.memid.str() + stringf("_rd_%d", rd_index);
-
-    // reg a = 1'b0, b = 1'b1;
-    // always @(posedge host_clk) a <= b;
-    // always @(posedge rd.clk) if ((rd.en || rd.srst) && !ram_se) b <= ~b;
-    // wire sel = a ^ b;
-    // reg [..] shadow_rdata = rd.init_value;
-    // assign output = sel ? rdata : shadow_rdata;
-    // always @(posedge host_clk) begin
-    //   if (sel || ff_se) shadow_rdata <= ff_se ? sdi : output;
-    // end
-
-    Wire *a = module->addWire(module->uniquify(name + "_a"));
-    Wire *b = module->addWire(module->uniquify(name + "_b"));
-    a->attributes[ID::init] = Const(0, 1);
-    b->attributes[ID::init] = Const(1, 1);
-    module->addDff(NEW_ID, host_clk, b, a);
-    module->addDffe(NEW_ID, rd.clk,
-        module->And(NEW_ID, module->Or(NEW_ID, rd.en, rd.srst), module->Not(NEW_ID, ram_se)),
-        module->Not(NEW_ID, b), b);
-    SigSpec sel = module->Xor(NEW_ID, a, b);
-
-    Wire *shadow_rdata = module->addWire(module->uniquify(name + "_shadow_rdata"), total_width);
-    shadow_rdata->attributes[ID::init] = rd.init_value;
-    Wire *rdata = module->addWire(module->uniquify(name + "_rdata"), total_width);
-    SigSpec output = rd.data;
-    module->connect(output, module->Mux(NEW_ID, shadow_rdata, rdata, sel));
-    rd.data = rdata;
-
     SigSig sdi_q_list;
-    sdi_q_list.first = module->addWire(module->uniquify(name + "_sdi"), total_width);
-    sdi_q_list.second = shadow_rdata;
-    module->addDffe(NEW_ID, host_clk,
-        module->Or(NEW_ID, sel, ff_se),
-        module->Mux(NEW_ID, output, sdi_q_list.first, ff_se),
-        shadow_rdata);
+    SigSpec info_q, info_init;
+
+    for (auto &work : worklist) {
+
+        Mem &mem = work.mem;
+        int rd_index = work.rd_index;
+
+        auto &rd = mem.rd_ports[rd_index];
+        int width = GetSize(rd.data);
+
+        std::string name = mem.memid.str() + stringf("_rd_%d", rd_index);
+
+        // reg a = 1'b0, b = 1'b1;
+        // always @(posedge host_clk) a <= b;
+        // always @(posedge rd.clk) if ((rd.en || rd.srst) && !ram_se) b <= ~b;
+        // wire sel = a ^ b;
+        // reg [..] shadow_rdata = rd.init_value;
+        // assign output = sel ? rdata : shadow_rdata;
+        // always @(posedge host_clk) begin
+        //   if (sel || ff_se) shadow_rdata <= ff_se ? sdi : output;
+        // end
+
+        Wire *a = module->addWire(module->uniquify(name + "_a"));
+        Wire *b = module->addWire(module->uniquify(name + "_b"));
+        a->attributes[ID::init] = Const(0, 1);
+        b->attributes[ID::init] = Const(1, 1);
+        module->addDff(NEW_ID, host_clk, b, a);
+        module->addDffe(NEW_ID, rd.clk,
+            module->And(NEW_ID, module->Or(NEW_ID, rd.en, rd.srst), module->Not(NEW_ID, ram_se)),
+            module->Not(NEW_ID, b), b);
+        SigSpec sel = module->Xor(NEW_ID, a, b);
+
+        Wire *shadow_rdata = module->addWire(module->uniquify(name + "_shadow_rdata"), width);
+        shadow_rdata->attributes[ID::init] = rd.init_value;
+        Wire *rdata = module->addWire(module->uniquify(name + "_rdata"), width);
+        SigSpec output = rd.data;
+        module->connect(output, module->Mux(NEW_ID, shadow_rdata, rdata, sel));
+        rd.data = rdata;
+
+        SigSpec sdi = module->addWire(module->uniquify(name + "_sdi"), width);
+        sdi_q_list.first.append(sdi);
+        sdi_q_list.second.append(shadow_rdata);
+        module->addDffe(NEW_ID, host_clk,
+            module->Or(NEW_ID, sel, ff_se),
+            module->Mux(NEW_ID, output, sdi, ff_se),
+            shadow_rdata);
+
+        mem.emit();
+
+        // if the original reg is raddr, we don't care rdata's name but only save its data
+        info_q.append(work.is_addr ? shadow_rdata : rd.data);
+        info_init.append(rd.init_value);
+
+    }
 
     // pad to align data width
     int r = GetSize(sdi_q_list.first) % ff_width;
     if (r) {
         int pad = ff_width - r;
-        Wire *d = module->addWire(module->uniquify(name + "_pad_d"), pad);
-        Wire *q = module->addWire(module->uniquify(name + "_pad_q"), pad);
+        Wire *d = module->addWire(module->uniquify("\\restore_mem_rdport_ffs_pad_d"), pad);
+        Wire *q = module->addWire(module->uniquify("\\restore_mem_rdport_ffs_pad_q"), pad);
         module->addDffe(NEW_ID, host_clk, ff_se, d, q);
         sdi_q_list.first.append(d);
         sdi_q_list.second.append(q);
+        info_q.append(q);
+        info_init.append(Const(State::Sx, pad));
     }
+
+    int total_width = GetSize(sdi_q_list.first);
 
     // build scan chain
     for (int i = 0; i < total_width; i += ff_width) {
-        int w = total_width - i;
-        if (w > ff_width) w = ff_width;
         SigSpec sdi = sdi_q_list.first.extract(i, ff_width);
         SigSpec q = sdi_q_list.second.extract(i, ff_width);
         Wire *ff_di = module->addWire(module->uniquify("\\ff_di"), ff_width);
@@ -415,34 +464,7 @@ void ScanchainWorker::add_shadow_rdata(Module *module, ScanchainBuilder &builder
         module->connect(ff_do, q);
         builder.append_ff(ff_di, ff_do);
         database.scanchain_ff.push_back(extractor.ff(
-            orig_rdata.extract(i, w), rd.init_value.extract(i, w)));
-    }
-
-    mem.emit();
-}
-
-void ScanchainWorker::restore_mem_rdport_ffs(Module *module, ScanchainBuilder &builder)
-{
-    auto path = designinfo.scope_of(module);
-
-    for (auto &mem : Mem::get_all_memories(module)) {
-        if (designinfo.check_hier_attr(Attr::NoScanchain, mem.cell))
-            continue;
-
-        for (int idx = 0; idx < GetSize(mem.rd_ports); idx++) {
-            auto &rd = mem.rd_ports[idx];
-            if (rd.clk_enable) {
-                if (database.mem_sr_addr.count({mem.cell, idx}) > 0)
-                    add_shadow_rdata(module, builder, mem, idx);
-                else if (database.mem_sr_data.count({mem.cell, idx}) > 0)
-                    add_shadow_rdata(module, builder, mem, idx);
-                else
-                    log_error(
-                        "%s.%s: Memory has synchronous read port without source information. \n"
-                        "Do not run memory_dff pass before emulator transformation.\n",
-                        log_id(module), log_id(mem.cell));
-            }
-        }
+            info_q.extract(i, ff_width), info_init.as_const().extract(i, ff_width)));
     }
 }
 
