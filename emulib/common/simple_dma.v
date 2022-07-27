@@ -36,7 +36,7 @@ module emulib_simple_dma #(
     output wire                     s_write_data_ready,
     input  wire [DATA_WIDTH-1:0]    s_write_data,
 
-    `AXI4_MASTER_IF_NO_ID           (m_axi, 32, 32),
+    `AXI4_MASTER_IF_NO_ID           (m_axi, ADDR_WIDTH, DATA_WIDTH),
 
     output wire                     r_idle,
     output wire                     w_idle

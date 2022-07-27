@@ -16,6 +16,7 @@ module EmuCtrl #(
     input  wire         host_rst,
 
     input  wire         tick,
+    input  wire         model_busy,
 
     output reg          run_mode,
     output reg          scan_mode,
@@ -57,8 +58,8 @@ module EmuCtrl #(
     wire [ 9:0]  ctrl_raddr;
     reg  [31:0]  ctrl_rdata;
 
-    localparam  RUN_CTRL    = 10'b0000_0000_00; // 0x000
-    localparam  TICK_STEP   = 10'b0000_0000_01; // 0x004
+    localparam  MODE_CTRL   = 10'b0000_0000_00; // 0x000
+    localparam  STEP_CNT    = 10'b0000_0000_01; // 0x004
     localparam  TICK_CNT_LO = 10'b0000_0000_10; // 0x008
     localparam  TICK_CNT_HI = 10'b0000_0000_11; // 0x00c
     localparam  SCAN_CTRL   = 10'b0000_0001_00; // 0x010
@@ -68,8 +69,8 @@ module EmuCtrl #(
     localparam  SOURCE_CTRL = 10'b10??_????_??; // 0x800 - 0xbfc
     localparam  SINK_CTRL   = 10'b11??_????_??; // 0xc00 - 0xffc
 
-    reg w_run_ctrl;
-    reg w_tick_step;
+    reg w_mode_ctrl;
+    reg w_step_cnt;
     reg w_tick_cnt_lo;
     reg w_tick_cnt_hi;
     reg w_scan_ctrl;
@@ -80,8 +81,8 @@ module EmuCtrl #(
     reg w_sink_ctrl;
 
     always @* begin
-        w_run_ctrl      = 1'b0;
-        w_tick_step     = 1'b0;
+        w_mode_ctrl     = 1'b0;
+        w_step_cnt      = 1'b0;
         w_tick_cnt_lo   = 1'b0;
         w_tick_cnt_hi   = 1'b0;
         w_scan_ctrl     = 1'b0;
@@ -91,8 +92,8 @@ module EmuCtrl #(
         w_source_ctrl   = 1'b0;
         w_sink_ctrl     = 1'b0;
         casez (ctrl_waddr)
-            RUN_CTRL    :   w_run_ctrl      = 1'b1;
-            TICK_STEP   :   w_tick_step     = 1'b1;
+            MODE_CTRL   :   w_mode_ctrl     = 1'b1;
+            STEP_CNT    :   w_step_cnt      = 1'b1;
             TICK_CNT_LO :   w_tick_cnt_lo   = 1'b1;
             TICK_CNT_HI :   w_tick_cnt_hi   = 1'b1;
             SCAN_CTRL   :   w_scan_ctrl     = 1'b1;
@@ -106,32 +107,35 @@ module EmuCtrl #(
 
     //////////////////// Register Definitions Begin ////////////////////
 
-    // RUN_CTRL
-    //      [0]     -> RUN_MODE [RO] PAUSE_RESUME [WO]
+    // MODE_CTRL
+    //      [0]     -> RUN_MODE [RW]
     //      [1]     -> SCAN_MODE [RW]
+    //      [2]     -> PAUSE_BUSY [RO]
+    //      [3]     -> MODEL_BUSY [RO]
 
-    reg pause_resume;
-
-    always @(posedge host_clk) begin
-        if (host_rst) begin
-            pause_resume <= 1'b0;
-        end
-        else if (ctrl_wen && w_run_ctrl) begin
-            pause_resume <= ctrl_wdata[0];
-        end
-    end
+    reg pause_busy;
 
     wire trig_active;
     wire step_finishing;
-    wire pause_req = (!pause_resume || trig_active || step_finishing) && tick;
-    wire resume_req = pause_resume;
+    wire run_to_pause = (pause_busy || trig_active || step_finishing) && tick;
 
     always @(posedge host_clk) begin
         if (host_rst) begin
             run_mode <= 1'b0;
+            pause_busy <= 1'b0;
         end
-        else if (run_mode) begin
-            run_mode <= run_mode ? !pause_req : resume_req;
+        else if (run_to_pause) begin
+            run_mode <= 1'b0;
+            pause_busy <= 1'b0;
+        end
+        else if (ctrl_wen && w_mode_ctrl) begin
+            if (ctrl_wdata[0]) begin
+                run_mode <= 1'b1;
+                pause_busy <= 1'b0;
+            end
+            else begin
+                pause_busy <= 1'b1;
+            end
         end
     end
 
@@ -139,29 +143,31 @@ module EmuCtrl #(
         if (host_rst) begin
             scan_mode <= 1'b0;
         end
-        else if (ctrl_wen && w_run_ctrl) begin
+        else if (ctrl_wen && w_mode_ctrl) begin
             scan_mode <= ctrl_wdata[1];
         end
     end
 
-    // TICK_STEP
+    wire [31:0] mode_ctrl = {28'd0, model_busy, pause_busy, scan_mode, run_mode};
+
+    // STEP_CNT
     //      [31:0]  -> STEP [RW]
 
-    reg tick_step;
+    reg [31:0] step_cnt;
 
     always @(posedge host_clk) begin
         if (host_rst) begin
-            tick_step <= 32'd0;
+            step_cnt <= 32'd0;
         end
-        else if (tick) begin
-            tick_step <= tick_step - 32'd1;
+        else if (run_mode && tick) begin
+            step_cnt <= step_cnt == 32'd0 ? 32'd0 : step_cnt - 32'd1;
         end
-        else if (!run_mode && ctrl_wen && w_tick_step) begin
-            tick_step <= ctrl_wdata;
+        else if (!run_mode && ctrl_wen && w_step_cnt) begin
+            step_cnt <= ctrl_wdata;
         end
     end
 
-    assign step_finishing = tick_step == 32'd1;
+    assign step_finishing = step_cnt == 32'd1;
 
     // TICK_CNT_LO
     //      [31:0]  -> COUNT_LO [RW]
@@ -174,7 +180,7 @@ module EmuCtrl #(
         if (host_rst) begin
             tick_cnt <= 64'd0;
         end
-        else if (tick) begin
+        else if (run_mode && tick) begin
             tick_cnt <= tick_cnt + 64'd1;
         end
         else begin
@@ -205,7 +211,7 @@ module EmuCtrl #(
 
     assign dma_start = ctrl_wen && w_scan_ctrl && ctrl_wdata[0];
 
-    wire [31:0] scan_ctrl = {31'd0, dma_running};
+    wire [31:0] scan_ctrl = {30'd0, dma_direction, dma_running};
 
     // TRIG_STAT [RO]
 
@@ -252,6 +258,8 @@ module EmuCtrl #(
     end
 
     wire trig_en_rdata = trig_en[ctrl_raddr[1:0]*32+:32];
+
+    assign trig_active = |{trig_en & trig};
 
     // RESET_CTRL [RW]
 
@@ -306,9 +314,9 @@ module EmuCtrl #(
 
     always @* begin
         ctrl_rdata = 32'd0;
-        casez (ctrl_waddr)
-            RUN_CTRL    :   ctrl_rdata = run_ctrl;
-            TICK_STEP   :   ctrl_rdata = tick_step;
+        casez (ctrl_raddr)
+            MODE_CTRL   :   ctrl_rdata = mode_ctrl;
+            STEP_CNT    :   ctrl_rdata = step_cnt;
             TICK_CNT_LO :   ctrl_rdata = tick_cnt[31:0];
             TICK_CNT_HI :   ctrl_rdata = tick_cnt[63:32];
             SCAN_CTRL   :   ctrl_rdata = scan_ctrl;
@@ -336,7 +344,7 @@ module EmuCtrl #(
         .MEM_COUNT  (MEM_COUNT),
         .FF_WIDTH   (FF_WIDTH),
         .MEM_WIDTH  (MEM_WIDTH)
-    ) ctrl_sc (
+    ) scanchain (
         .host_clk       (host_clk),
         .host_rst       (host_rst),
         .ff_se          (ff_se),

@@ -123,15 +123,17 @@ module ScanchainCtrl #(
 
     wire r_idle, w_idle;
 
+    localparam COUNT_WIDTH = $clog2(__CKPT_CNT);
+
     emulib_simple_dma #(
         .ADDR_WIDTH     (32),
         .DATA_WIDTH     (64),
-        .COUNT_WIDTH    ($clog2(__CKPT_CNT))
+        .COUNT_WIDTH    (COUNT_WIDTH)
     )
     u_dma(
 
-        .clk                    (clk),
-        .rst                    (rst),
+        .clk                    (host_clk),
+        .rst                    (host_rst),
 
         .s_read_addr_valid      (s_read_addr_valid),
         .s_read_addr_ready      (s_read_addr_ready),
@@ -139,7 +141,7 @@ module ScanchainCtrl #(
 
         .s_read_count_valid     (s_read_count_valid),
         .s_read_count_ready     (s_read_count_ready),
-        .s_read_count           (__CKPT_CNT),
+        .s_read_count           (__CKPT_CNT[COUNT_WIDTH-1:0]),
 
         .m_read_data_valid      (m_read_data_valid),
         .m_read_data_ready      (m_read_data_ready),
@@ -151,7 +153,7 @@ module ScanchainCtrl #(
 
         .s_write_count_valid    (s_write_count_valid),
         .s_write_count_ready    (s_write_count_ready),
-        .s_write_count          (__CKPT_CNT),
+        .s_write_count          (__CKPT_CNT[COUNT_WIDTH-1:0]),
 
         .s_write_data_valid     (s_write_data_valid),
         .s_write_data_ready     (s_write_data_ready),
@@ -164,8 +166,8 @@ module ScanchainCtrl #(
 
     );
 
-    wire dma_addr_ready = dma_direction ? read_addr_ready : write_addr_ready;
-    wire dma_count_ready = dma_direction ? read_count_ready : write_count_ready;
+    wire dma_addr_ready = dma_direction ? s_read_addr_ready : s_write_addr_ready;
+    wire dma_count_ready = dma_direction ? s_read_count_ready : s_write_count_ready;
 
     // DUT & scan logic
 
@@ -174,21 +176,21 @@ module ScanchainCtrl #(
     // scan-out:
     // FF SCAN      0   1   1   ..  1   0   0   0   0   ..  0   0
     // FF LAST      0   0   0   ..  1   0   0   0   0   ..  0   0
-    // FF DATA      x  <0> <1>  .. <L>  x   x   x   x   ..  x   x
-    // FF CNT       0   1   2   ..  N   0   0   0   0   ..  0   0
+    // FF DATA      x  <0> <1>  ..<N-1> x   x   x   x   ..  x   x
+    // FF CNT       x   0   1   .. N-1  x   x   x   x   ..  x   x
     // RAM SCAN     0   0   0   ..  0   1   1   1   1   ..  1   0
     // RAM LAST     0   0   0   ..  0   0   0   0   0   ..  1   0
-    // RAM DATA     x   x   x   ..  x   x   x  <0> <1>  .. <L>  x
-    // RAM CNT      0   0   0   ..  0   0   0   1   2   ..  N   0
+    // RAM DATA     x   x   x   ..  x   x   x  <0> <1>  ..<N-1> x
+    // RAM CNT      x   x   x   ..  x   x   x   0   1   .. N-1  x
     // scan-in:
-    // FF SCAN      0   1   1   ..  1   0   0   ..  0   0
-    // FF LAST      0   0   0   ..  1   0   0   ..  0   0
-    // FF DATA      x  <0> <1>  .. <L>  x   x   ..  x   x
-    // FF CNT       0   1   2   ..  N   0   0   ..  0   0
-    // RAM SCAN     0   0   0   ..  0   1   1   ..  1   0
-    // RAM LAST     0   0   0   ..  0   0   0   ..  1   0
-    // RAM DATA     x   x   x   ..  x  <0> <1>  .. <L>  x
-    // RAM CNT      0   0   0   ..  0   1   2   ..  N   0
+    // FF SCAN      0   1   1   ..  1   0   0   ..  0   0   0
+    // FF LAST      0   0   0   ..  1   0   0   ..  0   0   0
+    // FF DATA      x  <0> <1>  ..<N-1> x   x   ..  x   x   x
+    // FF CNT       x   0   1   .. N-1  x   x   ..  x   x   x
+    // RAM SCAN     0   0   0   ..  0   1   1   ..  1   1   0
+    // RAM LAST     0   0   0   ..  0   0   0   ..  1   0   0
+    // RAM DATA     x   x   x   ..  x  <0> <1>  ..<N-1> x   x
+    // RAM CNT      x   x   x   ..  x   0   1   .. N-1  x   x
 
     wire ff_last, ram_last;
 
@@ -201,7 +203,8 @@ module ScanchainCtrl #(
         STATE_RAM_RESET     = 4'd5,
         STATE_RAM_PREP_1    = 4'd6,
         STATE_RAM_PREP_2    = 4'd7,
-        STATE_RAM_SCAN      = 4'd8;
+        STATE_RAM_SCAN      = 4'd8,
+        STATE_RAM_POST      = 4'd9;
 
     reg [3:0] state, state_next;
 
@@ -213,18 +216,27 @@ module ScanchainCtrl #(
     end
 
     always @* begin
+        state_next = STATE_IDLE;
         case (state)
-            STATE_IDLE:         state_next = dma_start ? STATE_SEND_ADDR : STATE_IDLE;
-            STATE_SEND_ADDR:    state_next = dma_addr_ready ? STATE_SEND_COUNT : STATE_SEND_ADDR;
-            STATE_SEND_COUNT:   state_next = dma_count_ready ? STATE_FF_RESET : STATE_SEND_COUNT;
-            STATE_FF_RESET:     state_next = FF_COUNT == 0 ? STATE_RAM_RESET : STATE_FF_SCAN;
-            STATE_FF_SCAN:      state_next = ff_last ? STATE_RAM_RESET : STATE_FF_SCAN;
-            STATE_RAM_RESET:    state_next = MEM_COUNT == 0 ? STATE_IDLE :
-                                            (dma_direction ? STATE_RAM_SCAN : STATE_RAM_PREP_1);
-            STATE_RAM_PREP_1:   state_next = STATE_RAM_PREP_2;
-            STATE_RAM_PREP_2:   state_next = STATE_RAM_SCAN;
-            STATE_RAM_SCAN:     state_next = ram_last ? STATE_IDLE : STATE_RAM_SCAN;
-            default:            state_next = STATE_IDLE;
+            STATE_IDLE:         if (dma_start)          state_next = STATE_SEND_ADDR;
+                                else                    state_next = STATE_IDLE;
+            STATE_SEND_ADDR:    if (dma_addr_ready)     state_next = STATE_SEND_COUNT;
+                                else                    state_next = STATE_SEND_ADDR;
+            STATE_SEND_COUNT:   if (dma_count_ready)    state_next = STATE_FF_RESET;
+                                else                    state_next = STATE_SEND_COUNT;
+            STATE_FF_RESET:     if (FF_COUNT == 0)      state_next = STATE_RAM_RESET;
+                                else                    state_next = STATE_FF_SCAN;
+            STATE_FF_SCAN:      if (ff_last)            state_next = STATE_RAM_RESET;
+                                else                    state_next = STATE_FF_SCAN;
+            STATE_RAM_RESET:    if (MEM_COUNT == 0 )    state_next = STATE_IDLE;
+                                else if (dma_direction) state_next = STATE_RAM_SCAN;
+                                else                    state_next = STATE_RAM_PREP_1;
+            STATE_RAM_PREP_1:                           state_next = STATE_RAM_PREP_2;
+            STATE_RAM_PREP_2:                           state_next = STATE_RAM_SCAN;
+            STATE_RAM_SCAN:     if (!ram_last)          state_next = STATE_RAM_SCAN;
+                                else if (dma_direction) state_next = STATE_RAM_POST;
+                                else                    state_next = STATE_IDLE;
+            STATE_RAM_POST:                             state_next = STATE_IDLE;
         endcase
     end
 
@@ -239,54 +251,55 @@ module ScanchainCtrl #(
     always @(posedge host_clk) begin
         if (state == STATE_FF_RESET)
             ff_cnt <= 0;
-        else if (state == STATE_FF_SCAN)
+        else if (scan_valid && state == STATE_FF_SCAN)
             ff_cnt <= ff_cnt + 1;
     end
 
     always @(posedge host_clk) begin
         if (state == STATE_RAM_RESET)
             ram_cnt <= 0;
-        else if (state == STATE_RAM_SCAN)
+        else if (scan_valid && state == STATE_RAM_SCAN)
             ram_cnt <= ram_cnt + 1;
     end
 
-    assign ff_last = state == STATE_FF_SCAN && ff_cnt == FF_COUNT - 1;
-    assign ram_last = state == STATE_RAM_SCAN && ram_cnt == MEM_COUNT - 1;
+    assign ff_last = scan_valid && state == STATE_FF_SCAN && ff_cnt == FF_COUNT - 1;
+    assign ram_last = scan_valid && state == STATE_RAM_SCAN && ram_cnt == MEM_COUNT - 1;
 
-    wire scan_valid = dma_direction ? read_data_valid : write_data_ready;
+    wire scan_valid = dma_direction ? m_read_data_valid : s_write_data_ready;
 
     assign ff_se = scan_valid && state == STATE_FF_SCAN;
 
     if (FF_COUNT == 0)
         assign ff_di = 64'd0; // to avoid combinational logic loop
     else
-        assign ff_di = dma_direction ? read_data : ff_do;
+        assign ff_di = dma_direction ? m_read_data : ff_do;
 
     assign ram_sr = state == STATE_RAM_RESET;
 
-    assign ram_se = scan_valid && (
+    assign ram_se =
         state == STATE_RAM_PREP_1 ||
         state == STATE_RAM_PREP_2 ||
-        state == STATE_RAM_SCAN);
+        scan_valid && state == STATE_RAM_SCAN ||
+        state == STATE_RAM_POST;
 
-    assign ram_di = read_data;
+    assign ram_di = m_read_data;
     assign ram_sd = dma_direction;
 
-    assign read_data_ready = dma_direction && (
+    assign m_read_data_ready = dma_direction && (
         state == STATE_FF_SCAN ||
         state == STATE_RAM_SCAN);
 
-    assign write_data_valid = !dma_direction && (
+    assign s_write_data_valid = !dma_direction && (
         state == STATE_FF_SCAN ||
         state == STATE_RAM_SCAN);
 
-    assign write_data =
+    assign s_write_data =
         {64{state == STATE_FF_SCAN}} & ff_do |
         {64{state == STATE_RAM_SCAN}} & ram_do;
 
-    assign read_addr_valid      = state == STATE_SEND_ADDR && dma_direction;
-    assign write_addr_valid     = state == STATE_SEND_ADDR && !dma_direction;
-    assign read_count_valid     = state == STATE_SEND_COUNT && dma_direction;
-    assign write_count_valid    = state == STATE_SEND_COUNT && !dma_direction;
+    assign s_read_addr_valid      = state == STATE_SEND_ADDR && dma_direction;
+    assign s_write_addr_valid     = state == STATE_SEND_ADDR && !dma_direction;
+    assign s_read_count_valid     = state == STATE_SEND_COUNT && dma_direction;
+    assign s_write_count_valid    = state == STATE_SEND_COUNT && !dma_direction;
 
 endmodule
