@@ -17,12 +17,12 @@ module emu_top();
         end
     end
 
-    EmuTrace #(
+    EmuDataSink #(
         .DATA_WIDTH(64)
     ) u_trace (
         .clk    (clk),
-        .valid  (!rst),
-        .data   (count)
+        .wen    (!rst),
+        .wdata  (count)
     );
 
 endmodule
