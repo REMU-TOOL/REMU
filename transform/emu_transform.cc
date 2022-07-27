@@ -79,6 +79,7 @@ struct EmuTransformPass : public Pass {
         Pass::call(design, "proc");
         Pass::call(design, "opt");
         Pass::call(design, "check");
+        Pass::call(design, "rename -src");
 
         if (!elab_file.empty())
             Pass::call(design, "write_verilog " + elab_file);
@@ -103,7 +104,7 @@ struct EmuTransformPass : public Pass {
 
         Pass::call(design, "hierarchy -purge_lib");
         Pass::call(design, "proc");
-        Pass::call(design, "opt_clean");
+        Pass::call(design, "opt");
         Pass::call(design, "memory_collect");
         Pass::call(design, "memory_share -nowiden");
 
