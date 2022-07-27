@@ -50,6 +50,18 @@ module sim_top();
     reg [`LOAD_FF_WIDTH-1:0] ff_scan_save [N_CKPT-1:0][`CHAIN_FF_WORDS-1:0];
     reg [63:0] cycle_save [N_CKPT-1:0], finish_cycle;
 
+    function [`LOAD_FF_WIDTH-1:0] get_ff_save_data(input [$clog2(`CHAIN_FF_WORDS)-1:0] index);
+    begin
+        get_ff_save_data = ff_scan_save[i][index];
+    end
+    endfunction
+
+    function [`LOAD_MEM_WIDTH-1:0] get_mem_save_data(input [$clog2(`CHAIN_MEM_WORDS)-1:0] index);
+    begin
+        get_mem_save_data = mem_scan_save[i][index];
+    end
+    endfunction
+
     always #5 clk = ~clk;
 
     `LOAD_DECLARE
@@ -167,8 +179,8 @@ module sim_top();
             #10;
             // load cycle
             cycle = cycle_save[i];
-            `LOAD_FF(ff_scan_save[i], 0, emu_ref);
-            `LOAD_MEM(mem_scan_save[i], 0, emu_ref);
+            `LOAD_FF(get_ff_save_data, emu_ref);
+            `LOAD_MEM(get_mem_save_data, emu_ref);
             scan_mode = 0; #10; run_mode = 1;
             while (!finish) #10;
             finish = 0;
