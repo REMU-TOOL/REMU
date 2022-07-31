@@ -4,6 +4,8 @@ include(ExternalProject)
 
 project(recheck)
 
+enable_testing()
+
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
