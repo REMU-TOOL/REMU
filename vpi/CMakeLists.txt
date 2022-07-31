@@ -5,6 +5,8 @@ project(replay)
 file(GLOB replay-sources "*.cc")
 list(REMOVE_ITEM replay-sources "scdump.cc")
 
+add_subdirectory(bitvector)
+
 add_library(replay SHARED ${replay-sources})
 
 set_target_properties(replay PROPERTIES PREFIX "")
@@ -18,6 +20,7 @@ include_directories(${Boost_INCLUDE_DIRS})
 
 target_link_libraries(replay PRIVATE
     yaml-cpp
+    BitVector
     ${Boost_LIBRARIES}
 )
 
@@ -30,15 +33,11 @@ install(TARGETS replay
     LIBRARY DESTINATION share/recheck
 )
 
-project(scdump)
-
 add_executable(scdump
     scdump.cc
     loader.cc
     checkpoint.cc
 )
-
-include_directories(${Boost_INCLUDE_DIRS})
 
 target_link_libraries(scdump PRIVATE
     yaml-cpp
