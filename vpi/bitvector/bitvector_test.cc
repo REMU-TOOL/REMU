@@ -375,10 +375,56 @@ bool test_bitvector_set()
     return true;
 }
 
+bool test_bitvector_bitmanip()
+{
+    BitVector a(128, {0x8888888811111111, 0x3333333377777777});
+    EXPECT(a.getBit(0), true);
+    EXPECT(a.getBit(1), false);
+    EXPECT(a.getBit(2), false);
+    EXPECT(a.getBit(3), false);
+    EXPECT(a.getBit(60), false);
+    EXPECT(a.getBit(61), false);
+    EXPECT(a.getBit(62), false);
+    EXPECT(a.getBit(63), true);
+    EXPECT(a.getBit(64), true);
+    EXPECT(a.getBit(65), true);
+    EXPECT(a.getBit(66), true);
+    EXPECT(a.getBit(67), false);
+    EXPECT(a.getBit(124), true);
+    EXPECT(a.getBit(125), true);
+    EXPECT(a.getBit(126), false);
+    EXPECT(a.getBit(127), false);
+
+    BitVector b(128, {0xffffffff00000000, 0xffffffff00000000});
+    b.setBit(1, true);
+    b.setBit(2, true);
+    b.setBit(62, false);
+    b.setBit(63, false);
+    b.setBit(64, true);
+    b.setBit(127, false);
+    EXPECT(b.getValue(0, 64), 0x3fffffff00000006);
+    EXPECT(b.getValue(64, 64), 0x7fffffff00000001);
+
+    return true;
+}
+
+bool test_bitvectorarray()
+{
+    BitVectorArray array(64, 1024);
+    for (int i=0; i<1024; i++)
+        array.set(i, BitVector(64, i));
+    EXPECT(array.get(0), 0);
+    EXPECT(array.get(1), 1);
+    EXPECT(array.get(2) == BitVector(64, 2), true);
+    return true;
+}
+
 int main() {
 #define RUN(x) do {std::cout << "Running " #x << std::endl; if (!(x)) return 1; } while(0)
     RUN(test_bitvector_construct());
     RUN(test_bitvector_get());
     RUN(test_bitvector_set());
+    RUN(test_bitvector_bitmanip());
+    RUN(test_bitvectorarray());
     return 0;
 }

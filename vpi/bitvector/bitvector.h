@@ -28,8 +28,6 @@ private:
 
     size_t blks() const { return (width_ + 63) / 64; }
     bool use_ptr() const { return width_ > 64; }
-    uint64_t *to_ptr() { return use_ptr() ? u.data : &u.value; }
-    const uint64_t *to_ptr() const { return use_ptr() ? u.data : &u.value; }
 
     static void copy(width_t width, uint64_t *to_data, width_t to_offset, const uint64_t *from_data, width_t from_offset);
 
@@ -42,6 +40,9 @@ private:
     BitVector() : width_(0) {}
 
 public:
+
+    uint64_t *to_ptr() { return use_ptr() ? u.data : &u.value; }
+    const uint64_t *to_ptr() const { return use_ptr() ? u.data : &u.value; }
 
     width_t width() const { return width_; }
 
@@ -58,6 +59,23 @@ public:
             std::fill_n(u.data, blks(), 0);
         else
             u.value = 0;
+    }
+
+    // This gets the specified bit in boolean value
+    bool getBit(width_t offset) const
+    {
+        return (to_ptr()[offset / 64] >> (offset % 64)) & 1;
+    }
+
+    // This sets the specified bit to the boolean value
+    void setBit(width_t offset, bool value)
+    {
+        uint64_t &ref = to_ptr()[offset / 64];
+        uint64_t bit = uint64_t(1) << offset;
+        if (value)
+            ref |= bit;
+        else
+            ref &= ~bit;
     }
 
     // This gets the width bits starting from offset to data array, and return data itself
@@ -183,7 +201,7 @@ class BitVectorArray
 public:
 
     using width_t = BitVector::width_t;
-    using depth_t = uint32_t;
+    using depth_t = uint64_t;
 
 private:
 
@@ -193,28 +211,13 @@ private:
     // number of elements
     depth_t depth_;
 
-    // flattened data array
-    uint64_t *data;
-
-    constexpr size_t blks() { return ((width_ + 63) / 64) * depth_; }
-
-    friend void swap(BitVectorArray &first, BitVectorArray &second) noexcept
-    {
-        std::swap(first.width_, second.width_);
-        std::swap(first.depth_, second.depth_);
-        std::swap(first.data, second.data);
-    }
-
-    BitVectorArray() : data(nullptr) {}
-
-    BitVectorArray(width_t width, width_t depth, bool clear) : width_(width), depth_(depth)
-    {
-        data = new uint64_t[blks()];
-        if (clear)
-            this->clear();
-    }
+    // flattened data
+    BitVector data;
 
 public:
+
+    uint64_t *to_ptr() { return data.to_ptr(); }
+    const uint64_t *to_ptr() const { return data.to_ptr(); }
 
     width_t width() const { return width_; }
     depth_t depth() const { return depth_; }
@@ -222,7 +225,7 @@ public:
     // set all bits to 0
     void clear()
     {
-        std::fill_n(data, blks(), 0);
+        data.clear();
     }
 
     BitVector get(width_t index) const
@@ -230,7 +233,7 @@ public:
         if (index >= depth_)
             throw std::range_error("index out of range");
 
-        return BitVector(width_, data + depth_ * index);
+        return data.getValue(index * width_, width_);
     }
 
     void set(width_t index, const BitVector &value)
@@ -241,42 +244,10 @@ public:
         if (index >= depth_)
             throw std::range_error("index out of range");
 
-        value.getValue(0, width_, data + depth_ * index);
+        data.setValue(index * width_, value);
     }
 
-    BitVectorArray(width_t width, width_t depth) : BitVectorArray(width, depth, true) {}
-
-    BitVectorArray(const BitVectorArray &other) : BitVectorArray(other.width_, other.depth_, false)
-    {
-        std::copy_n(other.data, blks(), data);
-    }
-
-    BitVectorArray(BitVectorArray &&other) noexcept : BitVectorArray()
-    {
-        swap(*this, other);
-    }
-
-    ~BitVectorArray()
-    {
-        delete[] data;
-    }
-
-    BitVectorArray &operator=(const BitVectorArray &other)
-    {
-        if (this == &other)
-            return *this;
-
-        BitVectorArray temp(other);
-        swap(*this, temp);
-        return *this;
-    }
-
-    BitVectorArray &operator=(BitVectorArray &&other) noexcept
-    {
-        BitVectorArray temp(std::move(other));
-        swap(*this, temp);
-        return *this;
-    }
+    BitVectorArray(width_t width, depth_t depth) : width_(width), depth_(depth), data(width * depth) {}
 
 };
 
