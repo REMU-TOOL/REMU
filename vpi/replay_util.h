@@ -1,9 +1,9 @@
 #ifndef _REPLAY_UTIL_H_
-#define _REPLAY_REPLAY_UTIL_H__H_
+#define _REPLAY_UTIL_H_
 
 #include <vector>
-
 #include <vpi_user.h>
+#include "bitvector/bitvector.h"
 
 inline std::vector<vpiHandle> tf_get_args(vpiHandle callh) {
     vpiHandle argv = vpi_iterate(vpiArgument, callh);
@@ -41,6 +41,25 @@ inline T get_value_as(vpiHandle obj) {
     return res;
 }
 
+inline Replay::BitVector get_value_as_bitvector(vpiHandle obj) {
+    int size = vpi_get(vpiSize, obj);
+    int count = (size + 31) / 32;
+
+    s_vpi_value value;
+    value.format = vpiVectorVal;
+
+    vpi_get_value(obj, &value);
+
+    Replay::BitVector res(size);
+    for (int i = 0; i < count; i++) {
+        int chunk = value.value.vector[i].aval & ~value.value.vector[i].bval;
+        res.setValue(i * 32, size < 32 ? size : 32, chunk);
+        size -= 32;
+    }
+
+    return res;
+}
+
 inline void set_value(vpiHandle obj, bool val) {
     s_vpi_value value;
     value.format = vpiScalarVal;
@@ -66,5 +85,24 @@ inline void set_value(vpiHandle obj, T val) {
 
     vpi_put_value(obj, &value, 0, vpiNoDelay);
 }
+
+inline void set_value(vpiHandle obj, const Replay::BitVector &val) {
+    int size = vpi_get(vpiSize, obj);
+    int count = (size + 31) / 32;
+
+    s_vpi_vecval vecval[count];
+    for (int i = 0; i < count; i++) {
+        vecval[i].aval = val.getValue(i * 32, size < 32 ? size : 32);
+        vecval[i].bval = 0;
+        size -= 32;
+    }
+
+    s_vpi_value value;
+    value.format = vpiVectorVal;
+    value.value.vector = vecval;
+
+    vpi_put_value(obj, &value, 0, vpiNoDelay);
+}
+
 
 #endif // #ifndef _REPLAY_UTIL_H_

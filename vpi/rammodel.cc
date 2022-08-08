@@ -1,15 +1,9 @@
 #include "rammodel.h"
 
+#include <stdexcept>
+#include <sstream>
+
 using namespace Replay;
-
-static inline uint64_t get_bits(uint64_t data, unsigned int offset, unsigned int width) {
-    return (data >> offset) & (~1UL >> (64 - width));
-}
-
-static inline void set_bits(uint64_t &data, unsigned int offset, unsigned int width, uint64_t new_value) {
-    uint64_t mask = (~1UL >> (64 - width)) << offset;
-    data = (data & ~mask) | ((new_value << offset) & mask);
-}
 
 void RamModel::schedule() {
     if (a_queue.empty())
@@ -17,103 +11,86 @@ void RamModel::schedule() {
 
     const AChannel &a = a_queue.front();
 
-    if (a.write) {
-        // write transfer
+    // skip if there are no enough W bursts for write transfer
+    if (a.write && w_queue.size() < a.burst_len())
+        return;
 
-        // skip if there are no enough W bursts for write transfer
-        if (w_queue.size() < a.burst_len())
-            return;
+    uint64_t start_address = a.addr;
+    uint64_t number_bytes = a.burst_size();
+    uint64_t burst_length = a.burst_len();
 
-        addr_t addr = a.addr;
-        addr_t size = a.burst_size();
-        addr &= ~(size - 1); // align start address according to burst size
+    if (number_bytes > array_width / 8) {
+        throw std::invalid_argument("burst size greater than AXI data width");
+    }
 
-        // TODO: WRAP
+    if (a.burst == WRAP) {
+        do {
+            if (burst_length == 2) break;
+            if (burst_length == 4) break;
+            if (burst_length == 8) break;
+            if (burst_length == 16) break;
+            throw std::invalid_argument("invalid burst length for WRAP burst");
+        } while(false);
+    }
+    else if (a.burst != INCR) {
+        throw std::invalid_argument("unsupported burst type " + std::to_string(a.burst));
+    }
 
-        for (addr_t i = 0; i < a.burst_len(); i++) {
+    uint64_t aligned_address = start_address & ~(number_bytes - 1);
+    uint64_t wrap_boundary = start_address & ~(number_bytes * burst_length - 1);
+    uint64_t container_lower = a.burst == WRAP ? wrap_boundary : aligned_address;
+    uint64_t container_upper = container_lower + number_bytes * burst_length;
+
+    uint64_t address = aligned_address;
+
+    for (uint64_t i = 0; i < burst_length; i++) {
+        if (address >= (uint64_t(pf_count) << 12)) {
+            std::ostringstream ss;
+            ss << "address 0x" << std::hex << address << " out of boundary";
+            throw std::invalid_argument(ss.str());
+        }
+
+        uint64_t index = address / (array_width / 8);
+        BitVector word = array.get(index);
+
+        if (a.write) {
+            // consume W request & write data to memory
             const WChannel &w = w_queue.front();
 
-            // offset in WDATA
-            addr_t offset_mask  = data_width / 8 - 1;
-            addr_t offset       = addr & offset_mask;
+            for (int j = 0; j < array_width / 8; j++)
+                if (w.strb.getBit(j))
+                    word.setValue(j * 8, w.data.getValue(j * 8, 8));
 
-            // data & write mask
-            data_t data = w.data;
-            strb_t strb = w.strb & (((1 << size) - 1) << offset);
-            data_t mask = 0;
-            for (int j = 0; j < 8; j++)
-                if (strb & (1 << j))
-                    mask |= 0xffUL << (j * 8);
-
-            // offset in block
-            addr_t blk_offset   = addr & 7UL;
-            addr_t blk_base     = addr & ~7UL;
-
-            // write data to block
-            if (blk_base < total_size) {
-                data_t &blk_data = memblk[blk_base / 8];
-                data <<= (blk_offset - offset) * 8;
-                mask <<= (blk_offset - offset) * 8;
-                blk_data = (blk_data & ~mask) | (data & mask);
-            }
-
-            addr += size;
+            array.set(index, word);
             w_queue.pop();
         }
-
-        // generate B response
-        BChannel b;
-        b.id = a.id;
-        b_queue.push(b);
-    }
-    else {
-        // read transfer
-
-        addr_t addr = a.addr;
-        addr_t size = a.burst_size();
-        addr &= ~(size - 1); // align start address according to burst size
-
-        // TODO: WRAP
-
-        for (addr_t i = 0; i < a.burst_len(); i++) {
-            // offset in WDATA
-            addr_t offset_mask  = data_width / 8 - 1;
-            addr_t offset       = addr & offset_mask;
-
-            // offset in block
-            addr_t blk_offset   = addr & 7UL;
-            addr_t blk_base     = addr & ~7UL;
-
-            // read data block
-            data_t data = 0;
-            if (blk_base < total_size) {
-                data_t blk_data = memblk[blk_base / 8];
-                data = blk_data >> ((blk_offset - offset) * 8);
-            }
-
-            // generate R response
-            RChannel r;
-            r.data = data;
-            r.id = a.id;
-            r.last = i == a.len;
+        else {
+            // generate R responses
+            RChannel r = {
+                .data   = word,
+                .id     = a.id,
+                .last   = i == a.len
+            };
             r_queue.push(r);
-
-            addr += size;
         }
+
+        address += number_bytes;
+        if (address == container_upper)
+            address = container_lower;
+    }
+
+    if (a.write) {
+        // generate B response
+        BChannel b = {
+            .id = a.id
+        };
+        b_queue.push(b);
     }
 
     a_queue.pop();
 }
 
 bool RamModel::a_req(const AChannel &payload) {
-    if (payload.burst != RamModel::INCR &&
-        payload.burst != RamModel::WRAP)
-        return false;
-
-    // max data width = 64
-    if (payload.size > 3)
-        return false;
-
     a_queue.push(payload);
     return true;
 }
@@ -163,12 +140,12 @@ bool RamModel::reset() {
 }
 
 bool RamModel::load_data(std::istream &stream) {
-    stream.read(reinterpret_cast<char *>(memblk), total_size);
+    stream.read(reinterpret_cast<char *>(array.to_ptr()), array_width / 8 * array_depth);
     return !stream.fail();
 }
 
 bool RamModel::save_data(std::ostream &stream) {
-    stream.write(reinterpret_cast<char *>(memblk), total_size);
+    stream.write(reinterpret_cast<char *>(array.to_ptr()), array_width / 8 * array_depth);
     return !stream.fail();
 }
 
@@ -179,18 +156,19 @@ bool RamModel::load_state_a(std::istream &stream) {
         return false;
 
     while (count--) {
-        AChannel payload;
         uint32_t data;
 
         stream.read(reinterpret_cast<char *>(&data), 4);
         if (stream.fail())
             return false;
 
-        payload.id      = (data >> 16) & ((1 << 16) - 1);
-        payload.len     = (data >>  8) & ((1 <<  8) - 1);
-        payload.size    = (data >>  5) & ((1 <<  3) - 1);
-        payload.burst   = (data >>  3) & ((1 <<  2) - 1);
-        payload.write   = data & 1;
+        AChannel payload = {
+            .id     = uint16_t((data >> 16) & ((1 << 16) - 1)),
+            .len    = uint8_t((data >>  8) & ((1 <<  8) - 1)),
+            .size   = uint8_t((data >>  5) & ((1 <<  3) - 1)),
+            .burst  = uint8_t((data >>  3) & ((1 <<  2) - 1)),
+            .write  = (data & 1) != 0
+        };
 
         stream.read(reinterpret_cast<char *>(&data), 4);
         if (stream.fail())
@@ -219,27 +197,30 @@ bool RamModel::load_state_w(std::istream &stream) {
         return false;
 
     while (count--) {
-        WChannel payload;
         uint32_t data;
 
         stream.read(reinterpret_cast<char *>(&data), 4);
         if (stream.fail())
             return false;
 
-        payload.strb    = (data >> 16) & ((1 <<  8) - 1);
-        payload.last    = data & 1;
+        WChannel payload = {
+            .data   = BitVector(data_width),
+            .strb   = BitVector(data_width / 8, (data >> 16) & ((1 <<  8) - 1)),
+            .last   = (data & 1) != 0
+        };
 
         stream.read(reinterpret_cast<char *>(&data), 4);
         if (stream.fail())
             return false;
 
-        payload.data = data;
+        payload.data.setValue(0, 32, data);
+
         if (data_width > 32) {
             stream.read(reinterpret_cast<char *>(&data), 4);
             if (stream.fail())
                 return false;
 
-            payload.data |= (uint64_t)data << 32;
+            payload.data.setValue(32, 32, data);
         }
 
         w_queue.push(payload);
@@ -255,14 +236,15 @@ bool RamModel::load_state_b(std::istream &stream) {
         return false;
 
     while (count--) {
-        BChannel payload;
         uint32_t data;
 
         stream.read(reinterpret_cast<char *>(&data), 4);
         if (stream.fail())
             return false;
 
-        payload.id = (data >> 16) & ((1 << 16) - 1);
+        BChannel payload = {
+            .id = uint16_t((data >> 16) & ((1 << 16) - 1))
+        };
 
         b_queue.push(payload);
     }
@@ -277,28 +259,30 @@ bool RamModel::load_state_r(std::istream &stream) {
         return false;
 
     while (count--) {
-        RChannel payload;
         uint32_t data;
 
         stream.read(reinterpret_cast<char *>(&data), 4);
         if (stream.fail())
             return false;
 
-        payload.id      = (data >> 16) & ((1 << 16) - 1);
-        payload.last    = data & 1;
+        RChannel payload = {
+            .data   = BitVector(data_width),
+            .id     = uint16_t((data >> 16) & ((1 << 16) - 1)),
+            .last   = (data & 1) != 0
+        };
 
         stream.read(reinterpret_cast<char *>(&data), 4);
         if (stream.fail())
             return false;
 
-        payload.data = data;
+        payload.data.setValue(0, 32, data);
 
         if (data_width > 32) {
             stream.read(reinterpret_cast<char *>(&data), 4);
             if (stream.fail())
                 return false;
 
-            payload.data |= (uint64_t)data << 32;
+            payload.data.setValue(32, 32, data);
         }
 
         r_queue.push(payload);

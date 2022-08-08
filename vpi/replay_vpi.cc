@@ -150,13 +150,14 @@ int rammodel_a_req_tf(char* user_data) {
         return 0;
     }
 
-    RamModel::AChannel payload;
-    payload.id      = get_value_as<RamModel::id_t>(args[1]);
-    payload.addr    = get_value_as<RamModel::addr_t>(args[2]);
-    payload.len     = get_value_as<uint8_t>(args[3]);
-    payload.size    = get_value_as<uint8_t>(args[4]);
-    payload.burst   = get_value_as<uint8_t>(args[5]);
-    payload.write   = get_value_as_bool(args[6]);
+    RamModel::AChannel payload = {
+        .addr    = get_value_as<uint64_t>(args[2]),
+        .id      = get_value_as<uint16_t>(args[1]),
+        .len     = get_value_as<uint8_t>(args[3]),
+        .size    = get_value_as<uint8_t>(args[4]),
+        .burst   = get_value_as<uint8_t>(args[5]),
+        .write   = get_value_as_bool(args[6])
+    };
 
     bool res = rammodel_list[index].a_req(payload);
     if (!res) {
@@ -187,10 +188,11 @@ int rammodel_w_req_tf(char* user_data) {
         return 0;
     }
 
-    RamModel::WChannel payload;
-    payload.data    = get_value_as<RamModel::data_t>(args[1]);
-    payload.strb    = get_value_as<RamModel::strb_t>(args[2]);
-    payload.last    = get_value_as_bool(args[3]);
+    RamModel::WChannel payload = {
+        .data   = get_value_as_bitvector(args[1]),
+        .strb   = get_value_as_bitvector(args[2]),
+        .last   = get_value_as_bool(args[3])
+    };
 
     bool res = rammodel_list[index].w_req(payload);
     if (!res) {
@@ -221,8 +223,9 @@ int rammodel_b_req_tf(char* user_data) {
         return 0;
     }
 
-    RamModel::BChannel payload;
-    payload.id = get_value_as<RamModel::id_t>(args[1]);
+    RamModel::BChannel payload = {
+        .id = get_value_as<uint16_t>(args[1])
+    };
     bool res = rammodel_list[index].b_req(payload);
     if (!res) {
         vpi_printf("%s: B req failed\n", __func__);
@@ -281,8 +284,11 @@ int rammodel_r_req_tf(char* user_data) {
         return 0;
     }
 
-    RamModel::RChannel payload;
-    payload.id = get_value_as<RamModel::id_t>(args[1]);
+    RamModel::RChannel payload = {
+        .data   = BitVector(1),
+        .id     = get_value_as<uint16_t>(args[1]),
+        .last   = false
+    };
     bool res = rammodel_list[index].r_req(payload);
     if (!res) {
         vpi_printf("%s: R req failed\n", __func__);
