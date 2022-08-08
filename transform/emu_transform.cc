@@ -140,6 +140,7 @@ struct EmuTransformPass : public Pass {
         log_header(design, "Executing final cleanup.\n");
         log_push();
 
+        Pass::call(design, "opt -full");
         Pass::call(design, "submod");
         Pass::call(design, "uniquify");
         Pass::call(design, "hierarchy");
