@@ -1,83 +1,43 @@
 `timescale 1ns / 1ps
 
 `include "axi.vh"
+`include "axi_custom.vh"
 
 (* keep *)
-module EmuRam #(
+module emulib_rammodel_backend #(
     parameter   ADDR_WIDTH      = 32,
     parameter   DATA_WIDTH      = 64,
     parameter   ID_WIDTH        = 4,
     parameter   PAGE_COUNT      = 'h10000,
-    parameter   MAX_INFLIGHT    = 8,
-    parameter   R_DELAY         = 25,
-    parameter   W_DELAY         = 3
+    parameter   MAX_INFLIGHT    = 8
 )(
 
-    input  wire                 clk,
-    input  wire                 rst,
+    input  wire                     clk,
+    input  wire                     rst,
 
-    `AXI4_SLAVE_IF              (s_axi,    ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)
+    input  wire                     areq_valid,
+    input  wire                     areq_write,
+    input  wire [ID_WIDTH-1:0]      areq_id,
+    input  wire [ADDR_WIDTH-1:0]    areq_addr,
+    input  wire [7:0]               areq_len,
+    input  wire [2:0]               areq_size,
+    input  wire [1:0]               areq_burst,
+
+    input  wire                     wreq_valid,
+    input  wire [DATA_WIDTH-1:0]    wreq_data,
+    input  wire [DATA_WIDTH/8-1:0]  wreq_strb,
+    input  wire                     wreq_last,
+
+    input  wire                     breq_valid,
+    input  wire [ID_WIDTH-1:0]      breq_id,
+
+    input  wire                     rreq_valid,
+    input  wire [ID_WIDTH-1:0]      rreq_id,
+
+    output reg  [DATA_WIDTH-1:0]    rresp_data,
+    output reg                      rresp_last
 
 );
-
-    wire                     areq_valid;
-    wire                     areq_write;
-    wire [ID_WIDTH-1:0]      areq_id;
-    wire [ADDR_WIDTH-1:0]    areq_addr;
-    wire [7:0]               areq_len;
-    wire [2:0]               areq_size;
-    wire [1:0]               areq_burst;
-
-    wire                     wreq_valid;
-    wire [DATA_WIDTH-1:0]    wreq_data;
-    wire [DATA_WIDTH/8-1:0]  wreq_strb;
-    wire                     wreq_last;
-
-    wire                     breq_valid;
-    wire [ID_WIDTH-1:0]      breq_id;
-
-    wire                     rreq_valid;
-    wire [ID_WIDTH-1:0]      rreq_id;
-    reg  [DATA_WIDTH-1:0]    rreq_data;
-    reg                      rreq_last;
-
-    emulib_rammodel_frontend #(
-        .ADDR_WIDTH     (ADDR_WIDTH),
-        .DATA_WIDTH     (DATA_WIDTH),
-        .ID_WIDTH       (ID_WIDTH),
-        .MAX_INFLIGHT   (MAX_INFLIGHT),
-        .R_DELAY        (R_DELAY),
-        .W_DELAY        (W_DELAY)
-    )
-    frontend (
-
-        .clk                    (clk),
-        .rst                    (rst),
-
-        `AXI4_CONNECT           (target_axi, s_axi),
-
-        .areq_valid             (areq_valid),
-        .areq_write             (areq_write),
-        .areq_id                (areq_id),
-        .areq_addr              (areq_addr),
-        .areq_len               (areq_len),
-        .areq_size              (areq_size),
-        .areq_burst             (areq_burst),
-
-        .wreq_valid             (wreq_valid),
-        .wreq_data              (wreq_data),
-        .wreq_strb              (wreq_strb),
-        .wreq_last              (wreq_last),
-
-        .breq_valid             (breq_valid),
-        .breq_id                (breq_id),
-
-        .rreq_valid             (rreq_valid),
-        .rreq_id                (rreq_id),
-        .rreq_data              (rreq_data),
-        .rreq_last              (rreq_last)
-
-    );
 
     integer handle, result;
 
@@ -101,7 +61,7 @@ module EmuRam #(
 
     always @(clk, rreq_valid) begin
         if (!rst && rreq_valid) begin
-            result = $rammodel_r_req(handle, rreq_id, rreq_data, rreq_last);
+            result = $rammodel_r_req(handle, rreq_id, rresp_data, rresp_last);
             if (!result) begin
                 $display("ERROR: rammodel internal error");
                 $fatal;
