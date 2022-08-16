@@ -35,36 +35,37 @@ void emu_check(Module *module) {
     if (module->has_processes_warn() || module->has_memories_warn())
         log_error("RTLIL processes or memories detected");
 
-    std::vector<Cell *> ff_cells;
-    for (auto cell : module->selected_cells())
-        if (RTLIL::builtin_ff_cell_types().count(cell->type))
-            ff_cells.push_back(cell);
+    for (auto cell : module->cells()) {
+        if (!RTLIL::builtin_ff_cell_types().count(cell->type))
+            continue;
 
-    std::vector<Mem> mem_cells = Mem::get_selected_memories(module);
-
-    for (auto &cell : ff_cells) {
         FfData ff(nullptr, cell);
 
-        if (!ff.has_clk || ff.has_arst || ff.has_sr)
-            ff_error("Asynchronous logic not supported", module, cell);
+        if (ff.has_aload)
+            ff_error("Latch is not supported", module, cell);
+
+        if (!ff.has_clk)
+            ff_error("FF without clock is not supported", module, cell);
 
         if (!ff.pol_clk)
-            ff_error("Negedge clock polarity not supported", module, cell);
+            ff_error("FF with negedge clock polarity is not supported", module, cell);
+
+        if (ff.has_arst || ff.has_sr)
+            ff_error("FF with asynchronous set/reset is not supported", module, cell);
     }
 
-    for (auto &mem : mem_cells) {
+    for (auto &mem : Mem::get_all_memories(module)) {
         for (auto &rd : mem.rd_ports) {
-            // TODO: check for arst
-            if (rd.clk_enable) {
-                if (!rd.clk_polarity)
-                    mem_error("Negedge clock polarity not supported in mem", module, mem);
-            }
+            if (rd.arst != State::S0)
+                mem_error("Memory with asyncronous reset read port is not supported", module, mem);
+            if (rd.clk_enable && !rd.clk_polarity)
+                mem_error("Memory with negedge clock polarity read port is not supported", module, mem);
         }
         for (auto &wr : mem.wr_ports) {
             if (!wr.clk_enable)
-                mem_error("Mem with asynchronous write port not supported", module, mem);
+                mem_error("Memory with asynchronous write port is not supported", module, mem);
             if (!wr.clk_polarity)
-                mem_error("Negedge clock polarity not supported in mem", module, mem);
+                mem_error("Memory with negedge clock polarity read port is not supported", module, mem);
         }
     }
 }
@@ -76,8 +77,7 @@ struct EmuCheckPass : public Pass {
         (void)args;
         log_header(design, "Executing EMU_CHECK pass.\n");
 
-        auto modules = design->selected_modules();
-        for (auto module : modules) {
+        for (auto module : design->modules()) {
             log("Checking module %s...\n", log_id(module));
             emu_check(module);
         }
