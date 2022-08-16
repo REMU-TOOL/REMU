@@ -358,6 +358,58 @@ void HierconnBuilder::connect(Wire *lhs, Wire *rhs, std::string suggest_name) {
     parent->connect(lwire, rwire);
 }
 
+void HierconnBuilder::connect(const SigSpec &lhs, const SigSpec &rhs, std::string suggest_name)
+{
+    log_assert(GetSize(lhs) == GetSize(rhs));
+
+    // Classify wire bits by module
+    dict<std::pair<Module*, Module*>, SigSig> conn_dict;
+    for (int i = 0; i < GetSize(lhs); i++) {
+        auto &lb = lhs[i];
+        auto &rb = rhs[i];
+        if (!lb.is_wire()) continue;
+        Module *lm = lb.wire->module;
+        Module *rm = rb.is_wire() ? rb.wire->module : lm;
+        auto &sigsig = conn_dict[std::make_pair(lm, rm)];
+        sigsig.first.append(lb);
+        sigsig.second.append(rb);
+    }
+
+    // Connect wire bits by module-to-module relationships
+    for (auto &it : conn_dict) {
+        Module *lm = it.first.first;
+        Module *rm = it.first.second;
+        auto &lhs = it.second.first;
+        auto &rhs = it.second.second;
+
+        if (GetSize(lhs) == 0)
+            continue;
+
+        if (lm == rm) {
+            lm->connect(lhs, rhs);
+            continue;
+        }
+
+        int size = GetSize(lhs);
+
+        log_assert(lhs.chunks()[0].is_wire());
+        log_assert(rhs.chunks()[0].is_wire());
+
+        for (auto &c : lhs.chunks())
+            log_assert(c.is_wire() && !c.wire->port_input);
+
+        IdString lhs_name = lhs.chunks()[0].wire->name.str() + "_hierconn";
+        IdString rhs_name = rhs.chunks()[0].wire->name.str() + "_hierconn";
+
+        Wire *lhs_wire = lm->addWire(lm->uniquify(lhs_name), size);
+        Wire *rhs_wire = rm->addWire(rm->uniquify(rhs_name), size);
+        lm->connect(lhs, lhs_wire);
+        rm->connect(rhs_wire, rhs);
+
+        connect(lhs_wire, rhs_wire, suggest_name);
+    }
+}
+
 PRIVATE_NAMESPACE_BEGIN
 
 struct DtFindDriverPass : public Pass {

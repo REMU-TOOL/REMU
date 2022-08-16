@@ -204,6 +204,7 @@ public:
 struct HierconnBuilder {
     DesignInfo &designinfo;
     void connect(Wire *lhs, Wire *rhs, std::string suggest_name = "");
+    void connect(const SigSpec &lhs, const SigSpec &rhs, std::string suggest_name = "");
     HierconnBuilder(DesignInfo &info) : designinfo(info) {}
 };
 
