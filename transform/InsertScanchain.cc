@@ -13,16 +13,82 @@ USING_YOSYS_NAMESPACE
 
 PRIVATE_NAMESPACE_BEGIN
 
-struct ScanchainBuilder {
+struct FfChainBuilder {
+    EmulationRewriter &rewriter;
+    EmulationDatabase &database;
+    HierconnBuilder hierconn;
+    FfMemInfoExtractor extractor;
+
+    int ff_width;
+
+    Wire *ff_di, *ff_do;
+
+    SigSpec sdi_list;
+    SigSpec q_list;
+    SigSpec info_q_list;
+    SigSpec init_list;
+
+    void append_ff(const SigSpec &sdi, const SigSpec &q, const SigSpec &info_q, const Const &init)
+    {
+        log_assert(GetSize(sdi) == GetSize(q));
+        log_assert(GetSize(sdi) == GetSize(info_q));
+        log_assert(GetSize(sdi) == GetSize(init));
+
+        sdi_list.append(sdi);
+        q_list.append(q);
+        info_q_list.append(info_q);
+        init_list.append(init);
+    }
+
+    void build()
+    {
+        Module *wrapper = rewriter.wrapper();
+
+        // pad to align data width
+        int r = GetSize(sdi_list) % ff_width;
+        if (r) {
+            int pad = ff_width - r;
+            Wire *d = wrapper->addWire(wrapper->uniquify("\\pad_d"), pad);
+            Wire *q = wrapper->addWire(wrapper->uniquify("\\pad_q"), pad);
+            Wire *host_clk = rewriter.wire("host_clk")->get(wrapper);
+            Wire *ff_se = rewriter.wire("ff_se")->get(wrapper);
+            wrapper->addDffe(NEW_ID, host_clk, ff_se, d, q);
+            sdi_list.append(d);
+            q_list.append(q);
+            info_q_list.append(q);
+            init_list.append(Const(0, pad));
+        }
+
+        // build scan chain
+        int size = GetSize(sdi_list);
+        SigSpec prev_q = ff_di;
+        for (int i = 0; i < size; i += ff_width) {
+            SigSpec sdi = sdi_list.extract(i, ff_width);
+            SigSpec q = q_list.extract(i, ff_width);
+            SigSpec info_q = info_q_list.extract(i, ff_width);
+            Const init = init_list.extract(i, ff_width).as_const();
+            hierconn.connect(sdi, prev_q);
+            prev_q = q;
+            database.scanchain_ff.push_back(extractor.ff(info_q, init));
+        }
+        hierconn.connect(ff_do, prev_q);
+    }
+
+    FfChainBuilder(EmulationRewriter &rewriter, EmulationDatabase &database, int ff_width)
+        : rewriter(rewriter), database(database), hierconn(rewriter.design()),
+        extractor(rewriter.design(), rewriter.target()), ff_width(ff_width)
+    {
+        Module *wrapper = rewriter.wrapper();
+        ff_di = wrapper->addWire(wrapper->uniquify("\\ff_di"), ff_width);
+        ff_do = wrapper->addWire(wrapper->uniquify("\\ff_do"), ff_width);
+    }
+};
+
+struct MemChainBuilder {
     EmulationRewriter &rewriter;
     HierconnBuilder hierconn;
 
-    Wire *ff_di, *ff_do, *ram_di, *ram_do, *ram_li, *ram_lo;
-
-    void append_ff(Wire *ff_di, Wire *ff_do) {
-        hierconn.connect(this->ff_di, ff_do);
-        this->ff_di = ff_di;
-    }
+    Wire *ram_di, *ram_do, *ram_li, *ram_lo;
 
     void append_ram(Wire *ram_di, Wire *ram_do, Wire *ram_li, Wire *ram_lo) {
         hierconn.connect(this->ram_di, ram_do);
@@ -31,11 +97,10 @@ struct ScanchainBuilder {
         this->ram_lo = ram_lo;
     }
 
-    ScanchainBuilder(EmulationRewriter &rewriter, int ff_width, int ram_width)
+    MemChainBuilder(EmulationRewriter &rewriter, int ram_width)
         : rewriter(rewriter), hierconn(rewriter.design())
     {
         Module *wrapper = rewriter.wrapper();
-        ff_di  = ff_do  = wrapper->addWire(wrapper->uniquify("\\ff_di_do"), ff_width);
         ram_di = ram_do = wrapper->addWire(wrapper->uniquify("\\ram_di_do"), ram_width);
         ram_li = ram_lo = wrapper->addWire(wrapper->uniquify("\\ram_li_lo"));
     }
@@ -50,10 +115,9 @@ struct ScanchainWorker {
 
     int ff_width, ram_width;
 
-    void instrument_ffs(Module *module, ScanchainBuilder &builder);
-    void instrument_mems(Module *module, ScanchainBuilder &builder);
-    void restore_mem_rdport_ffs(Module *module, ScanchainBuilder &builder);
-    void instrument_module(Module *module, ScanchainBuilder &builder);
+    void instrument_ffs(Module *module, FfChainBuilder &ff_builder);
+    void instrument_mems(Module *module, MemChainBuilder &mem_builder);
+    void restore_mem_rdport_ffs(Module *module, FfChainBuilder &ff_builder);
 
 public:
 
@@ -70,10 +134,9 @@ public:
 
 };
 
-void ScanchainWorker::instrument_ffs(Module *module, ScanchainBuilder &builder)
+void ScanchainWorker::instrument_ffs(Module *module, FfChainBuilder &ff_builder)
 {
     Wire *scan_mode = rewriter.wire("scan_mode")->get(module);
-    Wire *ff_se     = rewriter.wire("ff_se")->get(module);
 
     // process clock, reset, enable signals and insert sdi
     // Original:
@@ -89,7 +152,7 @@ void ScanchainWorker::instrument_ffs(Module *module, ScanchainBuilder &builder)
     //   else if (ce || scan_mode)
     //     q <= scan_mode ? sdi : d;
 
-    SigSig sdi_q_list;
+    SigSpec sdi_list, q_list;
 
     SigMap sigmap;
     FfInitVals initvals;
@@ -151,37 +214,15 @@ void ScanchainWorker::instrument_ffs(Module *module, ScanchainBuilder &builder)
         ff.sig_ce = module->Or(NEW_ID, ff.sig_ce, scan_mode);
         SigSpec sdi = module->addWire(module->uniquify("\\sdi"), GetSize(ff.sig_d));
         ff.sig_d = module->Mux(NEW_ID, ff.sig_d, sdi, scan_mode);
-        sdi_q_list.first.append(sdi);
-        sdi_q_list.second.append(ff.sig_q);
+        sdi_list.append(sdi);
+        q_list.append(ff.sig_q);
         ff.emit();
     }
 
-    // pad to align data width
-    int r = GetSize(sdi_q_list.first) % ff_width;
-    if (r) {
-        int pad = ff_width - r;
-        Wire *d = module->addWire(module->uniquify("\\pad_d"), pad);
-        Wire *q = module->addWire(module->uniquify("\\pad_q"), pad);
-        module->addDffe(NEW_ID, rewriter.wire("host_clk")->get(module), ff_se, d, q);
-        sdi_q_list.first.append(d);
-        sdi_q_list.second.append(q);
-    }
-
-    // build scan chain
-    int size = GetSize(sdi_q_list.first);
-    for (int i = 0; i < size; i += ff_width) {
-        SigSpec sdi = sdi_q_list.first.extract(i, ff_width);
-        SigSpec q = sdi_q_list.second.extract(i, ff_width);
-        Wire *ff_di = module->addWire(module->uniquify("\\ff_di"), ff_width);
-        Wire *ff_do = module->addWire(module->uniquify("\\ff_do"), ff_width);
-        module->connect(sdi, ff_di);
-        module->connect(ff_do, q);
-        builder.append_ff(ff_di, ff_do);
-        database.scanchain_ff.push_back(extractor.ff(q, initvals(q)));
-    }
+    ff_builder.append_ff(sdi_list, q_list, q_list, initvals(q_list));
 }
 
-void ScanchainWorker::instrument_mems(Module *module, ScanchainBuilder &builder)
+void ScanchainWorker::instrument_mems(Module *module, MemChainBuilder &mem_builder)
 {
     auto path = designinfo.scope_of(module);
 
@@ -336,14 +377,14 @@ void ScanchainWorker::instrument_mems(Module *module, ScanchainBuilder &builder)
         mem.packed = true;
         mem.emit();
 
-        builder.append_ram(ram_di, ram_do, ram_li, ram_lo);
+        mem_builder.append_ram(ram_di, ram_do, ram_li, ram_lo);
 
         // record source info for reconstruction
         database.scanchain_ram.push_back(extractor.mem(mem, slices));
     }
 }
 
-void ScanchainWorker::restore_mem_rdport_ffs(Module *module, ScanchainBuilder &builder)
+void ScanchainWorker::restore_mem_rdport_ffs(Module *module, FfChainBuilder &ff_builder)
 {
     auto path = designinfo.scope_of(module);
 
@@ -383,7 +424,7 @@ void ScanchainWorker::restore_mem_rdport_ffs(Module *module, ScanchainBuilder &b
     Wire *ff_se     = rewriter.wire("ff_se")->get(module);
     Wire *ram_se    = rewriter.wire("ram_se")->get(module);
 
-    SigSig sdi_q_list;
+    SigSpec sdi_list, q_list;
     SigSpec info_q, info_init;
 
     for (auto &work : worklist) {
@@ -424,8 +465,8 @@ void ScanchainWorker::restore_mem_rdport_ffs(Module *module, ScanchainBuilder &b
         rd.data = rdata;
 
         SigSpec sdi = module->addWire(module->uniquify(name + "_sdi"), width);
-        sdi_q_list.first.append(sdi);
-        sdi_q_list.second.append(shadow_rdata);
+        sdi_list.append(sdi);
+        q_list.append(shadow_rdata);
         module->addDffe(NEW_ID, host_clk,
             module->Or(NEW_ID, sel, ff_se),
             module->Mux(NEW_ID, output, sdi, ff_se),
@@ -439,43 +480,7 @@ void ScanchainWorker::restore_mem_rdport_ffs(Module *module, ScanchainBuilder &b
 
     }
 
-    // pad to align data width
-    int r = GetSize(sdi_q_list.first) % ff_width;
-    if (r) {
-        int pad = ff_width - r;
-        Wire *d = module->addWire(module->uniquify("\\restore_mem_rdport_ffs_pad_d"), pad);
-        Wire *q = module->addWire(module->uniquify("\\restore_mem_rdport_ffs_pad_q"), pad);
-        module->addDffe(NEW_ID, host_clk, ff_se, d, q);
-        sdi_q_list.first.append(d);
-        sdi_q_list.second.append(q);
-        info_q.append(q);
-        info_init.append(Const(State::Sx, pad));
-    }
-
-    int total_width = GetSize(sdi_q_list.first);
-
-    // build scan chain
-    for (int i = 0; i < total_width; i += ff_width) {
-        SigSpec sdi = sdi_q_list.first.extract(i, ff_width);
-        SigSpec q = sdi_q_list.second.extract(i, ff_width);
-        Wire *ff_di = module->addWire(module->uniquify("\\ff_di"), ff_width);
-        Wire *ff_do = module->addWire(module->uniquify("\\ff_do"), ff_width);
-        module->connect(sdi, ff_di);
-        module->connect(ff_do, q);
-        builder.append_ff(ff_di, ff_do);
-        database.scanchain_ff.push_back(extractor.ff(
-            info_q.extract(i, ff_width), info_init.as_const().extract(i, ff_width)));
-    }
-}
-
-void ScanchainWorker::instrument_module(Module *module, ScanchainBuilder &builder)
-{
-    // process FFs
-    instrument_ffs(module, builder);
-    // restore merged ffs in read ports
-    restore_mem_rdport_ffs(module, builder);
-    // process mems
-    instrument_mems(module, builder);
+    ff_builder.append_ff(sdi_list, q_list, info_q, info_init.as_const());
 }
 
 void ScanchainWorker::run()
@@ -489,7 +494,8 @@ void ScanchainWorker::run()
 
     // Process modules using DFS
 
-    ScanchainBuilder builder(rewriter, ff_width, ram_width);
+    FfChainBuilder ff_builder(rewriter, database, ff_width);
+    MemChainBuilder mem_builder(rewriter, ram_width);
 
     pool<Module *> visited;
     std::vector<Module *> stack;
@@ -501,7 +507,9 @@ void ScanchainWorker::run()
 
         if (visited.count(module) == 0) {
             log("Processing module %s\n", log_id(module));
-            instrument_module(module, builder);
+            instrument_ffs(module, ff_builder);
+            restore_mem_rdport_ffs(module, ff_builder);
+            instrument_mems(module, mem_builder);
             visited.insert(module);
         }
 
@@ -519,6 +527,8 @@ void ScanchainWorker::run()
             stack.pop_back();
     }
 
+    ff_builder.build();
+
     // Tie off scan chain connections
 
     auto host_clk = rewriter.wire("host_clk");
@@ -534,10 +544,10 @@ void ScanchainWorker::run()
     Wire *ram_di    = rewriter.wire("ram_di")->get(wrapper);
     Wire *ram_do    = rewriter.wire("ram_do")->get(wrapper);
 
-    hierconn.connect(builder.ff_di, ff_di);
-    hierconn.connect(ff_do, builder.ff_do);
-    hierconn.connect(builder.ram_di, ram_di);
-    hierconn.connect(ram_do, builder.ram_do);
+    hierconn.connect(ff_builder.ff_di, ff_di);
+    hierconn.connect(ff_do, ff_builder.ff_do);
+    hierconn.connect(mem_builder.ram_di, ram_di);
+    hierconn.connect(ram_do, mem_builder.ram_do);
 
     int mem_chain_depth = 0;
     for (auto &m : database.scanchain_ram)
@@ -549,7 +559,7 @@ void ScanchainWorker::run()
     li_gen->setPort("\\ram_sr", ram_sr);
     li_gen->setPort("\\ram_se", ram_se);
     li_gen->setPort("\\ram_sd", ram_sd);
-    li_gen->setPort("\\ram_li", builder.ram_li);
+    li_gen->setPort("\\ram_li", mem_builder.ram_li);
 
     // Update clock enable signals
 
