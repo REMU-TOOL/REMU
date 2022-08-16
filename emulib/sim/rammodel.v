@@ -7,7 +7,7 @@ module EmuRam #(
     parameter   ADDR_WIDTH      = 32,
     parameter   DATA_WIDTH      = 64,
     parameter   ID_WIDTH        = 4,
-    parameter   PF_COUNT        = 'h10000,
+    parameter   PAGE_COUNT      = 'h10000,
     parameter   MAX_INFLIGHT    = 8,
     parameter   R_DELAY         = 25,
     parameter   W_DELAY         = 3
@@ -82,7 +82,7 @@ module EmuRam #(
     integer handle, result;
 
     initial begin
-        handle = $rammodel_new(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH, PF_COUNT);
+        handle = $rammodel_new(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH, PAGE_COUNT);
         if (handle == -1) begin
             $display("ERROR: rammodel internal error");
             $fatal;

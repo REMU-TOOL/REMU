@@ -5,7 +5,7 @@ module EmuRam #(
     parameter   ADDR_WIDTH      = 32,
     parameter   DATA_WIDTH      = 64,
     parameter   ID_WIDTH        = 4,
-    parameter   PF_COUNT        = 'h10000,
+    parameter   PAGE_COUNT      = 'h10000,
     parameter   MAX_INFLIGHT    = 8,
     parameter   R_DELAY         = 25,
     parameter   W_DELAY         = 3

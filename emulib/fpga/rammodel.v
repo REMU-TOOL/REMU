@@ -7,7 +7,7 @@ module EmuRam #(
     parameter   ADDR_WIDTH      = 32,
     parameter   DATA_WIDTH      = 64,
     parameter   ID_WIDTH        = 4,
-    parameter   PF_COUNT        = 'h10000,
+    parameter   PAGE_COUNT      = 'h10000,
     parameter   MAX_INFLIGHT    = 8,
     parameter   R_DELAY         = 25,
     parameter   W_DELAY         = 3
@@ -36,8 +36,8 @@ module EmuRam #(
             $display("%m: ID_WIDTH is required to be in [1,16]");
             $finish;
         end
-        if (PF_COUNT <= 0) begin
-            $display("%m: PF_COUNT is required to be > 0");
+        if (PAGE_COUNT <= 0) begin
+            $display("%m: PAGE_COUNT is required to be > 0");
             $finish;
         end
     end
@@ -107,7 +107,7 @@ module EmuRam #(
         .ADDR_WIDTH     (ADDR_WIDTH),
         .DATA_WIDTH     (DATA_WIDTH),
         .ID_WIDTH       (ID_WIDTH),
-        .PF_COUNT       (PF_COUNT),
+        .PAGE_COUNT     (PAGE_COUNT),
         .MAX_INFLIGHT   (MAX_INFLIGHT)
     )
     backend (

@@ -8,7 +8,7 @@ module emulib_rammodel_backend #(
     parameter   ADDR_WIDTH      = 32,
     parameter   DATA_WIDTH      = 64,
     parameter   ID_WIDTH        = 4,
-    parameter   PF_COUNT        = 'h10000,
+    parameter   PAGE_COUNT      = 'h10000,
     parameter   MAX_INFLIGHT    = 8
 )(
 
@@ -124,7 +124,7 @@ module emulib_rammodel_backend #(
 
     ///// INTERFACE host_axi BEGIN /////
 
-    (* __emu_extern_intf_addr_pages = PF_COUNT *)
+    (* __emu_extern_intf_addr_pages = PAGE_COUNT *)
     (* __emu_extern_intf = "host_axi" *)
     output wire                     host_axi_awvalid,
     (* __emu_extern_intf = "host_axi" *)

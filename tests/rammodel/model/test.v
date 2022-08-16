@@ -6,7 +6,7 @@ module rammodel_test #(
     parameter   ADDR_WIDTH      = 32,
     parameter   DATA_WIDTH      = 64,
     parameter   ID_WIDTH        = 4,
-    parameter   PF_COUNT        = 'h1
+    parameter   PAGE_COUNT      = 'h1
 )(
     input                       host_clk,
     input                       host_rst,
@@ -36,7 +36,7 @@ module rammodel_test #(
         .ADDR_WIDTH (ADDR_WIDTH),
         .DATA_WIDTH (DATA_WIDTH),
         .ID_WIDTH   (ID_WIDTH),
-        .PF_COUNT   (PF_COUNT)
+        .PAGE_COUNT (PAGE_COUNT)
     )
     uut (
         .clk            (target_clk),
