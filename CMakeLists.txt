@@ -50,6 +50,6 @@ install(DIRECTORY ${CMAKE_SOURCE_DIR}/emulib/
 
 add_subdirectory(transform)
 
-# Add vpi project
+# Add replay project
 
-add_subdirectory(vpi)
+add_subdirectory(replay)

@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <cstring>
 
-#include "bitvector/bitvector.h"
+#include "bitvector.h"
 
 namespace Replay {
 

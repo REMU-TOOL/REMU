@@ -3,7 +3,7 @@
 
 #include <vector>
 #include <vpi_user.h>
-#include "bitvector/bitvector.h"
+#include "bitvector.h"
 
 inline std::vector<vpiHandle> tf_get_args(vpiHandle callh) {
     vpiHandle argv = vpi_iterate(vpiArgument, callh);
