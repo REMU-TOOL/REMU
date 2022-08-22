@@ -30,6 +30,19 @@ std::string const2hex(const Const &val) {
     return res;
 }
 
+std::string hier2flat(const std::vector<std::string> &hier) {
+    std::ostringstream ss;
+    bool is_first = true;
+    for (auto & s : hier) {
+        if (is_first)
+            is_first = false;
+        else
+            ss << ".";
+        ss << VerilogIdEscape(s);
+    }
+    return ss.str();
+}
+
 PRIVATE_NAMESPACE_END
 
 FfInfo FfMemInfoExtractor::ff(const SigSpec &sig, const Const &initval) {
@@ -109,7 +122,8 @@ void EmulationDatabase::write_yaml(std::string yaml_file) {
         YAML::Node ff_node;
         for (auto &c : src.info) {
             YAML::Node src_node;
-            src_node["name"] = c.wire_name;
+            for (auto &s : c.wire_name)
+                src_node["name"].push_back(s);
             src_node["offset"] = c.offset;
             src_node["width"] = c.width;
             src_node["is_src"] = c.is_src;
@@ -120,7 +134,8 @@ void EmulationDatabase::write_yaml(std::string yaml_file) {
 
     for (auto &mem : scanchain_ram) {
         YAML::Node mem_node;
-        mem_node["name"] = mem.name;
+        for (auto &s : mem.name)
+            mem_node["name"].push_back(s);
         mem_node["width"] = mem.mem_width;
         mem_node["depth"] = mem.mem_depth;
         mem_node["start_offset"] = mem.mem_start_offset;
@@ -185,7 +200,7 @@ void EmulationDatabase::write_loader(std::string loader_file) {
         for (auto chunk : src.info) {
             if (!chunk.is_src)
                 continue;
-            os  << "    __LOAD_DUT." << chunk.wire_name;
+            os  << "    __LOAD_DUT." << hier2flat(chunk.wire_name);
             if (chunk.width != chunk.wire_width) {
                 if (chunk.width == 1)
                     os << stringf("[%d]", chunk.wire_start_offset + chunk.offset);
@@ -211,7 +226,7 @@ void EmulationDatabase::write_loader(std::string loader_file) {
         if (!mem.is_src)
             continue;
         os  << "    for (__load_i=0; __load_i<" << mem.mem_depth << "; __load_i=__load_i+1) __LOAD_DUT."
-            << mem.name << "[__load_i+" << mem.mem_start_offset << "] = {";
+            << hier2flat(mem.name) << "[__load_i+" << mem.mem_start_offset << "] = {";
         for (int i = mem.slices - 1; i >= 0; i--)
             os << "__LOAD_DATA_FUNC(__load_i*" << mem.slices << "+" << addr + i << ")" << (i != 0 ? ", " : "");
         os << "}; \\\n";

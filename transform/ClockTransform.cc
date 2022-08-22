@@ -30,7 +30,7 @@ struct ClockWorker {
 void ClockWorker::rewrite(SigBit orig_clk, RewriterWire *ff_clk, RewriterWire *ram_clk) {
 
     log("Transforming clock signal %s to %s/%s\n",
-        designinfo.hier_name_of(orig_clk).c_str(),
+        designinfo.flat_name_of(orig_clk).c_str(),
         ff_clk->name().c_str(),
         ram_clk->name().c_str()
     );
@@ -47,7 +47,7 @@ void ClockWorker::rewrite(SigBit orig_clk, RewriterWire *ff_clk, RewriterWire *r
                 if (chunk.is_wire()) {
                     if (designinfo.check_hier_attr(Attr::NoScanchain, chunk.wire)) {
                         log("Ignoring ff cell %s\n",
-                            designinfo.hier_name_of(chunk).c_str());
+                            designinfo.flat_name_of(chunk).c_str());
 
                         std::vector<int> bits;
                         for (int i = offset; i < offset + chunk.size(); i++) {
@@ -59,7 +59,7 @@ void ClockWorker::rewrite(SigBit orig_clk, RewriterWire *ff_clk, RewriterWire *r
                     }
                     else {
                         log("Rewriting ff cell %s\n",
-                            designinfo.hier_name_of(chunk).c_str());
+                            designinfo.flat_name_of(chunk).c_str());
                     }
                 }
                 offset += chunk.size();
@@ -83,11 +83,11 @@ void ClockWorker::rewrite(SigBit orig_clk, RewriterWire *ff_clk, RewriterWire *r
         if (cell->is_mem_cell()) {
             if (designinfo.check_hier_attr(Attr::NoScanchain, cell)) {
                 log("Ignoring mem cell %s\n",
-                    designinfo.hier_name_of(cell).c_str());
+                    designinfo.flat_name_of(cell).c_str());
             }
             else {
                 log("Rewriting mem cell %s\n",
-                    designinfo.hier_name_of(cell).c_str());
+                    designinfo.flat_name_of(cell).c_str());
 
                 SigSpec new_port = cell->getPort(portbit.port);
                 new_port[portbit.offset] = ram_clk->get(cell->module);
@@ -98,7 +98,7 @@ void ClockWorker::rewrite(SigBit orig_clk, RewriterWire *ff_clk, RewriterWire *r
         }
 
         log_error("unrecognized cell %s which cannot be rewritten\n",
-            designinfo.hier_name_of(cell).c_str());
+            designinfo.flat_name_of(cell).c_str());
     }
 
     log("------------------------------\n");

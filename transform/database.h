@@ -9,7 +9,7 @@ namespace Emu {
 USING_YOSYS_NAMESPACE
 
 struct FfInfoChunk {
-    std::string wire_name;
+    std::vector<std::string> wire_name;
     int wire_width;
     int wire_start_offset;
     bool wire_upto;
@@ -25,7 +25,7 @@ struct FfInfo {
 };
 
 struct MemInfo {
-    std::string name;
+    std::vector<std::string> name;
     int depth;
     int slices;
     int mem_width;

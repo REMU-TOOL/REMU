@@ -42,10 +42,10 @@ void ExportInterfaceWorker::process_module(Module *module) {
 
         // TODO: process type attributes
 
-        std::string newname = designinfo.hier_name_of(wire, top);
+        std::string newname = designinfo.flat_name_of(wire, top);
         newname = simple_id_escape(newname);
 
-        log("Exposing port %s as %s\n", designinfo.hier_name_of(wire).c_str(), newname.c_str());
+        log("Exposing port %s as %s\n", designinfo.flat_name_of(wire).c_str(), newname.c_str());
 
         // Create a connection
 

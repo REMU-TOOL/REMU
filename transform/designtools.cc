@@ -141,7 +141,7 @@ void DesignInfo::setup(Design *design) {
 
                     if (tpl_wire->port_input && tpl_wire->port_output)
                         log_error("inout port %s is currently unsupported\n",
-                            hier_name_of(tpl_wire).c_str()
+                            flat_name_of(tpl_wire).c_str()
                         );
 
                     if (tpl_wire->port_input) {
@@ -193,10 +193,10 @@ void DesignInfo::setup(Design *design) {
 
     for (auto &it : signal_drivers) {
         if (it.second.size() > 1) {
-            log("Multiple drivers found for signal %s:\n", hier_name_of(it.first).c_str());
+            log("Multiple drivers found for signal %s:\n", flat_name_of(it.first).c_str());
             for (auto &driver : it.second) {
                 log("    %s.%s[%d]\n",
-                    hier_name_of(driver.cell).c_str(),
+                    flat_name_of(driver.cell).c_str(),
                     log_id(driver.port),
                     driver.offset);
             }
@@ -216,23 +216,6 @@ DesignInfo::Path DesignInfo::path_of(Module *mod, Module *scope) const {
     }
 
     res.insert(res.end(), stack.rbegin(), stack.rend());
-
-    return res;
-}
-
-std::vector<std::string> DesignInfo::scope_of(Module *mod) const {
-    std::vector<std::string> res, stack;
-
-    while (mod != top_) {
-        Cell *cell = inst_dict.at(mod);
-        stack.push_back(name_of(cell->name));
-        mod = cell->module;
-    }
-
-    stack.push_back(name_of(top_->name));
-
-    for (auto it = stack.rbegin(); it != stack.rend(); ++it)
-        res.push_back(*it);
 
     return res;
 }
@@ -428,10 +411,10 @@ struct DtFindDriverPass : public Pass {
                     selection.insert(bit);
 
         for (SigBit &bit : selection) {
-            log("Drivers of %s:\n", info.hier_name_of(bit).c_str());
+            log("Drivers of %s:\n", info.flat_name_of(bit).c_str());
             auto portbits = info.get_drivers(bit);
             for (auto &portbit : portbits) {
-                log("  - %s.%s[%d]\n", info.hier_name_of(portbit.cell).c_str(), log_id(portbit.port), portbit.offset);
+                log("  - %s.%s[%d]\n", info.flat_name_of(portbit.cell).c_str(), log_id(portbit.port), portbit.offset);
             }
             log("------------------------------\n");
         }
@@ -454,10 +437,10 @@ struct DtFindConsumerPass : public Pass {
                     selection.insert(bit);
 
         for (SigBit &bit : selection) {
-            log("Consumers of %s:\n", info.hier_name_of(bit).c_str());
+            log("Consumers of %s:\n", info.flat_name_of(bit).c_str());
             auto portbits = info.get_consumers(bit);
             for (auto &portbit : portbits) {
-                log("  - %s.%s[%d]\n", info.hier_name_of(portbit.cell).c_str(), log_id(portbit.port), portbit.offset);
+                log("  - %s.%s[%d]\n", info.flat_name_of(portbit.cell).c_str(), log_id(portbit.port), portbit.offset);
             }
             log("------------------------------\n");
         }
@@ -480,10 +463,10 @@ struct DtFindDependencyPass : public Pass {
                     selection.insert(bit);
 
         for (SigBit &bit : selection) {
-            log("Dependencies of %s:\n", info.hier_name_of(bit).c_str());
+            log("Dependencies of %s:\n", info.flat_name_of(bit).c_str());
             auto deps = info.find_dependencies({bit});
             for (auto &dep : deps) {
-                log("  - %s\n", info.hier_name_of(dep).c_str());
+                log("  - %s\n", info.flat_name_of(dep).c_str());
             }
             log("------------------------------\n");
         }

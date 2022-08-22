@@ -12,17 +12,26 @@ USING_YOSYS_NAMESPACE
 
 PRIVATE_NAMESPACE_BEGIN
 
-std::string simple_id_escape(std::string name) {
-    for (char &c : name) {
-        if (c >= '0' && c <= '9')
-            continue;
-        if (c >= 'A' && c <= 'Z')
-            continue;
-        if (c >= 'a' && c <= 'z')
-            continue;
-        c = '_';
+std::string simple_hier_id(const std::vector<std::string> &hier) {
+    std::ostringstream ss;
+    bool is_first = true;
+    for (auto &name : hier) {
+        if (is_first)
+            is_first = false;
+        else 
+            ss << '_';
+        for (char c : name) {
+            if (c >= '0' && c <= '9')
+                ss << c;
+            else if (c >= 'A' && c <= 'Z')
+                ss << c;
+            else if (c >= 'a' && c <= 'z')
+                ss << c;
+            else
+                ss << '_';
+        }
     }
-    return name;
+    return ss.str();
 }
 
 struct PortWorker {
@@ -60,7 +69,7 @@ void PortWorker::process_user_sigs(Module *module) {
 
     for (Wire *clk : clocks) {
         ClockInfo info;
-        info.name = simple_id_escape(designinfo.hier_name_of(clk, rewriter.wrapper()));
+        info.name = simple_hier_id(designinfo.hier_name_of(clk, rewriter.wrapper()));
         rewriter.define_clock(info.name);
 
         auto dut_clk = rewriter.clock(info.name);
@@ -76,7 +85,7 @@ void PortWorker::process_user_sigs(Module *module) {
 
     for (Wire *rst : resets) {
         ResetInfo info;
-        info.name = simple_id_escape(designinfo.hier_name_of(rst, rewriter.wrapper()));
+        info.name = simple_hier_id(designinfo.hier_name_of(rst, rewriter.wrapper()));
         rewriter.define_wire(info.name, 1, PORT_INPUT);
 
         auto dut_rst = rewriter.wire(info.name);
@@ -89,7 +98,7 @@ void PortWorker::process_user_sigs(Module *module) {
 
     for (Wire *trig : trigs) {
         TrigInfo info;
-        info.name = simple_id_escape(designinfo.hier_name_of(trig, rewriter.wrapper()));
+        info.name = simple_hier_id(designinfo.hier_name_of(trig, rewriter.wrapper()));
         info.desc = trig->get_string_attribute(Attr::UserTrigDesc);
         rewriter.define_wire(info.name, 1, PORT_OUTPUT);
 
@@ -110,8 +119,6 @@ void PortWorker::process_common_port(Module *module) {
             continue;
 
         log_assert(wire->port_input ^ wire->port_output);
-
-        log("Connecting %s to %s\n", designinfo.hier_name_of(wire).c_str(), name.c_str());
 
         // Create a connection in parent module
 
@@ -141,7 +148,7 @@ void PortWorker::process_fifo_port(Module *module) {
             continue;
 
         FifoPortInfo info;
-        info.name = designinfo.hier_name_of(module, rewriter.wrapper()) + "." + name;
+        info.name = simple_hier_id(designinfo.hier_name_of(module, rewriter.wrapper())) + "_" + name;
 
         info.type = wire->get_string_attribute(Attr::FifoPortType);
         if (info.type.empty())
@@ -172,9 +179,9 @@ void PortWorker::process_fifo_port(Module *module) {
         log_assert(wire_data);
         log_assert(wire_flag && wire_flag->width == 1);
 
-        info.port_enable = simple_id_escape(designinfo.hier_name_of(wire_enable, rewriter.wrapper()));
-        info.port_data = simple_id_escape(designinfo.hier_name_of(wire_data, rewriter.wrapper()));
-        info.port_flag = simple_id_escape(designinfo.hier_name_of(wire_flag, rewriter.wrapper()));
+        info.port_enable = simple_hier_id(designinfo.hier_name_of(wire_enable, rewriter.wrapper()));
+        info.port_data = simple_hier_id(designinfo.hier_name_of(wire_data, rewriter.wrapper()));
+        info.port_flag = simple_hier_id(designinfo.hier_name_of(wire_flag, rewriter.wrapper()));
         info.width = GetSize(wire_data);
 
         auto enable = rewriter.define_wire(info.port_enable, 1, PORT_INPUT);

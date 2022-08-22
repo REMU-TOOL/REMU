@@ -97,10 +97,67 @@ public:
         return name_of(obj->name);
     }
 
-    // obsolete
-    std::vector<std::string> scope_of(Module *mod) const;
+    std::string name_of(SigBit bit) const {
+        if (bit.is_wire()) {
+            std::ostringstream ss;
+            ss << name_of(bit.wire);
+            if (bit.wire->width != 1)
+                ss << stringf("[%d]", bit.wire->start_offset + bit.offset);
+            return ss.str();
+        }
+        else
+            return Const(bit.data).as_string();
+    }
 
-    std::string hier_name_of(Module *mod, Module *scope = nullptr) const {
+    std::string name_of(SigChunk chunk) const {
+        if (chunk.is_wire()) {
+            std::ostringstream ss;
+            ss << name_of(chunk.wire);
+            if (chunk.size() != chunk.wire->width) {
+                if (chunk.size() == 1)
+                    ss << stringf("[%d]", chunk.wire->start_offset + chunk.offset);
+                else if (chunk.wire->upto)
+                    ss << stringf("[%d:%d]", (chunk.wire->width - (chunk.offset + chunk.width - 1) - 1) + chunk.wire->start_offset,
+                            (chunk.wire->width - chunk.offset - 1) + chunk.wire->start_offset);
+                else
+                    ss << stringf("[%d:%d]", chunk.wire->start_offset + chunk.offset + chunk.width - 1,
+                            chunk.wire->start_offset + chunk.offset);
+            }
+            return ss.str();
+        }
+        else
+            return Const(chunk.data).as_string();
+    }
+
+    std::string hdl_name_of(Module* module) const {
+        if (module->has_attribute(ID::hdlname))
+            return name_of(IdString(module->get_string_attribute(ID::hdlname)));
+        return name_of(module);
+    }
+
+    std::vector<std::string> hier_name_of(Module *mod, Module *scope = nullptr) const {
+        std::vector<std::string> hier;
+        for (Module *m : path_of(mod, scope)) {
+            if (m == top_)
+                hier.push_back(name_of(m->name));
+            else
+                hier.push_back(name_of(inst_dict.at(m)->name));
+        }
+        return hier;
+    }
+
+    std::vector<std::string> hier_name_of(IdString name, Module *parent, Module *scope = nullptr) const {
+        std::vector<std::string> hier = hier_name_of(parent, scope);
+        hier.push_back(name_of(name));
+        return hier;
+    }
+
+    template <typename T>
+    std::vector<std::string> hier_name_of(T *obj, Module *scope = nullptr) const {
+        return hier_name_of(obj->name, obj->module, scope);
+    }
+
+    std::string flat_name_of(Module *mod, Module *scope = nullptr) const {
         std::ostringstream ss;
         bool is_first = true;
         for (Module *m : path_of(mod, scope)) {
@@ -116,8 +173,8 @@ public:
         return ss.str();
     }
 
-    std::string hier_name_of(IdString name, Module *parent, Module *scope = nullptr) const {
-        std::string hier = hier_name_of(parent, scope);
+    std::string flat_name_of(IdString name, Module *parent, Module *scope = nullptr) const {
+        std::string hier = flat_name_of(parent, scope);
         if (!hier.empty())
             hier += ".";
         hier += name_of(name);
@@ -125,14 +182,14 @@ public:
     }
 
     template <typename T>
-    std::string hier_name_of(T *obj, Module *scope = nullptr) const {
-        return hier_name_of(obj->name, obj->module, scope);
+    std::string flat_name_of(T *obj, Module *scope = nullptr) const {
+        return flat_name_of(obj->name, obj->module, scope);
     }
 
-    std::string hier_name_of(SigBit bit, Module *scope = nullptr) const {
+    std::string flat_name_of(SigBit bit, Module *scope = nullptr) const {
         if (bit.is_wire()) {
             std::ostringstream ss;
-            ss << hier_name_of(bit.wire, scope);
+            ss << flat_name_of(bit.wire, scope);
             if (bit.wire->width != 1)
                 ss << stringf("[%d]", bit.wire->start_offset + bit.offset);
             return ss.str();
@@ -141,10 +198,10 @@ public:
             return Const(bit.data).as_string();
     }
 
-    std::string hier_name_of(SigChunk chunk, Module *scope = nullptr) const {
+    std::string flat_name_of(SigChunk chunk, Module *scope = nullptr) const {
         if (chunk.is_wire()) {
             std::ostringstream ss;
-            ss << hier_name_of(chunk.wire, scope);
+            ss << flat_name_of(chunk.wire, scope);
             if (chunk.size() != chunk.wire->width) {
                 if (chunk.size() == 1)
                     ss << stringf("[%d]", chunk.wire->start_offset + chunk.offset);

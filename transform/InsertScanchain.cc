@@ -171,7 +171,7 @@ void ScanchainWorker::instrument_ffs(Module *module, FfChainBuilder &ff_builder)
             if (chunk.is_wire()) {
                 if (designinfo.check_hier_attr(Attr::NoScanchain, chunk.wire)) {
                     log("Ignoring ff cell %s\n",
-                        designinfo.hier_name_of(chunk).c_str());
+                        designinfo.flat_name_of(chunk).c_str());
 
                     std::vector<int> bits;
                     for (int i = offset; i < offset + chunk.size(); i++) {
@@ -183,7 +183,7 @@ void ScanchainWorker::instrument_ffs(Module *module, FfChainBuilder &ff_builder)
                 }
                 else {
                     log("Rewriting ff cell %s\n",
-                        designinfo.hier_name_of(chunk).c_str());
+                        designinfo.flat_name_of(chunk).c_str());
                 }
             }
             offset += chunk.size();
@@ -224,8 +224,6 @@ void ScanchainWorker::instrument_ffs(Module *module, FfChainBuilder &ff_builder)
 
 void ScanchainWorker::instrument_mems(Module *module, MemChainBuilder &mem_builder)
 {
-    auto path = designinfo.scope_of(module);
-
     Wire *host_clk  = rewriter.wire("host_clk")->get(module);
     Wire *scan_mode = rewriter.wire("scan_mode")->get(module);
     Wire *ram_sr    = rewriter.wire("ram_sr")->get(module);
@@ -241,13 +239,13 @@ void ScanchainWorker::instrument_mems(Module *module, MemChainBuilder &mem_build
         // exclude mem cells without write ports (ROM)
         if (mem.wr_ports.size() == 0) {
             log("Ignoring ROM %s\n",
-                designinfo.hier_name_of(mem.cell).c_str());
+                designinfo.flat_name_of(mem.cell).c_str());
             continue;
         }
 
         if (designinfo.check_hier_attr(Attr::NoScanchain, mem.cell)) {
             log("Ignoring mem cell %s\n",
-                designinfo.hier_name_of(mem.cell).c_str());
+                designinfo.flat_name_of(mem.cell).c_str());
             continue;
         }
 
@@ -257,7 +255,7 @@ void ScanchainWorker::instrument_mems(Module *module, MemChainBuilder &mem_build
         Wire *ram_lo = module->addWire(module->uniquify("\\ram_lo"));
 
         log("Rewriting mem cell %s\n",
-            designinfo.hier_name_of(mem.cell).c_str());
+            designinfo.flat_name_of(mem.cell).c_str());
 
         const int abits = ceil_log2(mem.size);
         const int slices = (mem.width + ram_width - 1) / ram_width;
@@ -386,8 +384,6 @@ void ScanchainWorker::instrument_mems(Module *module, MemChainBuilder &mem_build
 
 void ScanchainWorker::restore_mem_rdport_ffs(Module *module, FfChainBuilder &ff_builder)
 {
-    auto path = designinfo.scope_of(module);
-
     struct WorkInfo {
         Mem &mem;
         int rd_index;

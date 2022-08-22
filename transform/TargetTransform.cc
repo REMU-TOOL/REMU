@@ -179,10 +179,10 @@ void RTLModelWorker::analyze() {
     for (auto &it : topo.database)
         for (auto &dep : it.second)
             log("  %s.%s(%s) -> %s.%s(%s)\n",
-                rewriter.design().hier_name_of(dep.first).c_str(),
+                rewriter.design().flat_name_of(dep.first).c_str(),
                 dep.second.c_str(),
                 channels.at(dep).direction == CHANNEL_INPUT ? "in" : "out",
-                rewriter.design().hier_name_of(it.first.first).c_str(),
+                rewriter.design().flat_name_of(it.first.first).c_str(),
                 it.first.second.c_str(),
                 channels.at(it.first).direction == CHANNEL_INPUT ? "in" : "out"
             );
@@ -193,7 +193,7 @@ void RTLModelWorker::analyze() {
         for (auto &loop : topo.loops) {
             log("Loop:\n");
             for (auto &id : loop)
-                log("  %s.%s\n", rewriter.design().hier_name_of(id.first).c_str(), id.second.c_str());
+                log("  %s.%s\n", rewriter.design().flat_name_of(id.first).c_str(), id.second.c_str());
             log("------------------------------\n");
         }
         log_error("Model channel dependency loop found\n");
@@ -328,7 +328,7 @@ void RTLModelWorker::emit() {
         Cell *model_cell = rewriter.design().instance_of(channel.module);
         Module *module = model_cell->module;
 
-        log("Emitting channel %s.%s\n", designinfo.hier_name_of(model_cell).c_str(), name.c_str());
+        log("Emitting channel %s.%s\n", designinfo.flat_name_of(model_cell).c_str(), name.c_str());
 
         SigSpec clk = mdl_clk->get(module);
         SigSpec rst = mdl_rst->get(module);
