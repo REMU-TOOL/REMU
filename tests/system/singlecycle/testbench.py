@@ -167,9 +167,9 @@ class TB:
         return val
 
     def load_checkpoint_to(self, handle):
-        ff_width = self.config['ff_width']
-        mem_width = self.config['mem_width']
-        if ff_width != 64 or mem_width != 64:
+        ff_chain_width = self.config['ff_width']
+        mem_chain_width = self.config['mem_width']
+        if ff_chain_width != 64 or mem_chain_width != 64:
             raise RuntimeError('scanchain width != 64 is currently unsupported')
         addr = 0
         for ff in self.config['ff']:
@@ -179,8 +179,9 @@ class TB:
                 offset = chunk['offset']
                 width = chunk['width']
                 if chunk['is_src']:
-                    self.dut._log.info(f"loading {chunk['name']} ({offset},{width})")
-                    ff_handle = handle._id(chunk['name'], extended=False)
+                    name = '.'.join(chunk['name'])
+                    self.dut._log.info(f"loading {name} ({offset},{width})")
+                    ff_handle = handle._id(name, extended=False)
                     value = ff_handle.value
                     mask = ~(~0 << width) << offset
                     value = (slice << offset) & mask | value & ~mask
@@ -189,10 +190,11 @@ class TB:
         for mem in self.config['mem']:
             is_src = mem['is_src']
             if is_src:
-                self.dut._log.info(f"loading {mem['name']}")
-                mem_handle = handle._id(mem['name'], extended=False)
+                name = '.'.join(mem['name'])
+                self.dut._log.info(f"loading {name}")
+                mem_handle = handle._id(name, extended=False)
             mem_width = mem['width']
-            mem_slices = (mem_width + mem_width - 1) // mem_width
+            mem_slices = (mem_width + mem_chain_width - 1) // mem_chain_width
             mem_start_offset = mem['start_offset']
             mask = ~(~0 << mem_width)
             for i in range(mem['depth']):
@@ -200,7 +202,7 @@ class TB:
                 for s in range(mem_slices):
                     slice = self.axi_ram.read_qword(addr)
                     addr += 8
-                    value |= slice << (mem_width*s)
+                    value |= slice << (mem_chain_width*s)
                 value &= mask
                 if is_src:
                     mem_handle[mem_start_offset+i].value = value
