@@ -46,6 +46,10 @@ install(DIRECTORY ${CMAKE_SOURCE_DIR}/emulib/
     DESTINATION share/recheck/emulib
 )
 
+# Add exchange project
+
+add_subdirectory(exchange)
+
 # Add transform project
 
 add_subdirectory(transform)
