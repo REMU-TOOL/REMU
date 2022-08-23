@@ -41,17 +41,17 @@ struct FfChainBuilder {
 
     void build()
     {
-        Module *wrapper = rewriter.wrapper();
+        Module *target = rewriter.target();
 
         // pad to align data width
         int r = GetSize(sdi_list) % ff_width;
         if (r) {
             int pad = ff_width - r;
-            Wire *d = wrapper->addWire(wrapper->uniquify("\\pad_d"), pad);
-            Wire *q = wrapper->addWire(wrapper->uniquify("\\pad_q"), pad);
-            Wire *host_clk = rewriter.wire("host_clk")->get(wrapper);
-            Wire *ff_se = rewriter.wire("ff_se")->get(wrapper);
-            wrapper->addDffe(NEW_ID, host_clk, ff_se, d, q);
+            Wire *d = target->addWire(target->uniquify("\\pad_d"), pad);
+            Wire *q = target->addWire(target->uniquify("\\pad_q"), pad);
+            Wire *host_clk = rewriter.wire("host_clk")->get(target);
+            Wire *ff_se = rewriter.wire("ff_se")->get(target);
+            target->addDffe(NEW_ID, host_clk, ff_se, d, q);
             sdi_list.append(d);
             q_list.append(q);
             info_q_list.append(q);
