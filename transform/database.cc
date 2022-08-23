@@ -45,12 +45,14 @@ std::string hier2flat(const std::vector<std::string> &hier) {
 
 PRIVATE_NAMESPACE_END
 
-FfInfo FfMemInfoExtractor::ff(const SigSpec &sig, const Const &initval) {
+void FfMemInfoExtractor::add_ff(const SigSpec &sig, const Const &initval) {
     FfInfo res;
     for (auto &chunk : sig.chunks()) {
         log_assert(chunk.is_wire());
-        FfInfoChunk chunkinfo; 
-        chunkinfo.wire_name = design.hier_name_of(chunk.wire, target);
+        std::vector<std::string> path = design.hier_name_of(chunk.wire, target);
+
+        FfInfoChunk chunkinfo;
+        chunkinfo.wire_name = path;
         chunkinfo.wire_width = chunk.wire->width;
         chunkinfo.wire_start_offset = chunk.wire->start_offset;
         chunkinfo.wire_upto = chunk.wire->upto;
@@ -59,14 +61,25 @@ FfInfo FfMemInfoExtractor::ff(const SigSpec &sig, const Const &initval) {
         chunkinfo.is_src = chunk.wire->has_attribute(ID::src);
         chunkinfo.is_model = design.check_hier_attr(Attr::ModelImp, chunk.wire);
         res.info.push_back(chunkinfo);
+
+        std::string wire_name = path.back();
+        path.pop_back();
+        auto scope = database.ci_root.create(path);
+        scope->set(wire_name, CircuitInfo::Wire(wire_name,
+            chunk.wire->width,
+            chunk.wire->start_offset,
+            chunk.wire->upto
+        ));
     }
     res.initval = initval;
-    return res;
+    database.scanchain_ff.push_back(res);
 }
 
-MemInfo FfMemInfoExtractor::mem(const Mem &mem, int slices) {
+void FfMemInfoExtractor::add_mem(const Mem &mem, int slices) {
+    std::vector<std::string> path = design.hier_name_of(mem.memid, mem.module, target);
+
     MemInfo res;
-    res.name = design.hier_name_of(mem.memid, mem.module, target);
+    res.name = path;
     res.depth = mem.size * slices;
     res.slices = slices;
     res.mem_width = mem.width;
@@ -75,7 +88,16 @@ MemInfo FfMemInfoExtractor::mem(const Mem &mem, int slices) {
     res.is_src = mem.has_attribute(ID::src);
     res.is_model = design.check_hier_attr(Attr::ModelImp, &mem);
     res.init_data = mem.get_init_data();
-    return res;
+    database.scanchain_ram.push_back(res);
+
+    std::string mem_name = path.back();
+    path.pop_back();
+    auto scope = database.ci_root.create(path);
+    scope->set(mem_name, CircuitInfo::Mem(mem_name,
+        mem.width,
+        mem.size,
+        mem.start_offset
+    ));
 }
 
 void EmulationDatabase::write_init(std::string init_file) {
@@ -136,12 +158,11 @@ void EmulationDatabase::write_yaml(std::string yaml_file) {
         YAML::Node mem_node;
         for (auto &s : mem.name)
             mem_node["name"].push_back(s);
-        mem_node["width"] = mem.mem_width;
-        mem_node["depth"] = mem.mem_depth;
-        mem_node["start_offset"] = mem.mem_start_offset;
         mem_node["is_src"] = mem.is_src;
         root["mem"].push_back(mem_node);
     }
+
+    root["circuit"] = ci_root.to_yaml();
 
     for (auto &info : user_clocks) {
         YAML::Node node;

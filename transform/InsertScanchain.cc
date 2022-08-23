@@ -15,7 +15,6 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct FfChainBuilder {
     EmulationRewriter &rewriter;
-    EmulationDatabase &database;
     HierconnBuilder hierconn;
     FfMemInfoExtractor extractor;
 
@@ -69,14 +68,14 @@ struct FfChainBuilder {
             Const init = init_list.extract(i, ff_width).as_const();
             hierconn.connect(sdi, prev_q);
             prev_q = q;
-            database.scanchain_ff.push_back(extractor.ff(info_q, init));
+            extractor.add_ff(info_q, init);
         }
         hierconn.connect(ff_do, prev_q);
     }
 
     FfChainBuilder(EmulationRewriter &rewriter, EmulationDatabase &database, int ff_width)
-        : rewriter(rewriter), database(database), hierconn(rewriter.design()),
-        extractor(rewriter.design(), rewriter.target()), ff_width(ff_width)
+        : rewriter(rewriter), hierconn(rewriter.design()),
+        extractor(rewriter.design(), rewriter.target(), database), ff_width(ff_width)
     {
         Module *wrapper = rewriter.wrapper();
         ff_di = wrapper->addWire(wrapper->uniquify("\\ff_di"), ff_width);
@@ -122,9 +121,8 @@ struct ScanchainWorker {
 public:
 
     ScanchainWorker(EmulationDatabase &database, EmulationRewriter &rewriter) :
-        rewriter(rewriter), designinfo(rewriter.design()),
-        database(database),
-        extractor(designinfo, rewriter.target())
+        rewriter(rewriter), designinfo(rewriter.design()), database(database),
+        extractor(designinfo, rewriter.target(), database)
     {
         ff_width = rewriter.wire("ff_di")->width();
         ram_width = rewriter.wire("ram_di")->width();
@@ -378,7 +376,7 @@ void ScanchainWorker::instrument_mems(Module *module, MemChainBuilder &mem_build
         mem_builder.append_ram(ram_di, ram_do, ram_li, ram_lo);
 
         // record source info for reconstruction
-        database.scanchain_ram.push_back(extractor.mem(mem, slices));
+        extractor.add_mem(mem, slices);
     }
 }
 

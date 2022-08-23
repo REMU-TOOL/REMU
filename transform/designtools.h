@@ -218,13 +218,13 @@ public:
             return Const(chunk.data).as_string();
     }
 
-    bool check_hier_attr(IdString attr, Module *module) {
+    bool check_hier_attr(IdString attr, Module *module) const {
         return module->get_bool_attribute(attr) ||
             (instance_of(module) && check_hier_attr(attr, instance_of(module)));
     }
 
     template <typename T>
-    bool check_hier_attr(IdString attr, T *obj) {
+    bool check_hier_attr(IdString attr, T *obj) const {
         return obj->get_bool_attribute(attr) ||
             check_hier_attr(attr, obj->module);
     }

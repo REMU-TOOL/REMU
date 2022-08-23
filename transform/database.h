@@ -4,15 +4,17 @@
 #include "kernel/yosys.h"
 #include "designtools.h"
 
+#include "circuit_info.h"
+
 namespace Emu {
 
 USING_YOSYS_NAMESPACE
 
 struct FfInfoChunk {
     std::vector<std::string> wire_name;
-    int wire_width;
-    int wire_start_offset;
-    bool wire_upto;
+    int wire_width;         // redundant, kept for write_* use
+    int wire_start_offset;  // redundant, kept for write_* use
+    bool wire_upto;         // redundant, kept for write_* use
     int width;
     int offset;
     bool is_src;
@@ -28,27 +30,12 @@ struct MemInfo {
     std::vector<std::string> name;
     int depth;
     int slices;
-    int mem_width;
-    int mem_depth;
-    int mem_start_offset;
+    int mem_width;          // redundant, kept for write_* use
+    int mem_depth;          // redundant, kept for write_* use
+    int mem_start_offset;   // redundant, kept for write_* use
     bool is_src;
     bool is_model;
     Const init_data;
-};
-
-class FfMemInfoExtractor {
-
-    DesignInfo &design;
-    Module *target;
-
-public:
-
-    FfInfo ff(const SigSpec &sig, const Const &initval);
-    MemInfo mem(const Mem &mem, int slices);
-
-    FfMemInfoExtractor(DesignInfo &design, Module *target)
-        : design(design), target(target) {}
-
 };
 
 struct ClockInfo {
@@ -89,8 +76,9 @@ struct EmulationDatabase {
     std::vector<FifoPortInfo> fifo_ports;
 
     // written by InsertScanchain
-    int ff_width = 0;
-    int ram_width = 0;
+    int ff_width;
+    int ram_width;
+    CircuitInfo::Scope ci_root;
     std::vector<FfInfo> scanchain_ff;
     std::vector<MemInfo> scanchain_ram;
 
@@ -101,6 +89,24 @@ struct EmulationDatabase {
     void write_init(std::string init_file);
     void write_yaml(std::string yaml_file);
     void write_loader(std::string loader_file);
+
+    EmulationDatabase() : ff_width(0), ram_width(0), ci_root("") {}
+
+};
+
+class FfMemInfoExtractor {
+
+    DesignInfo &design;
+    Module *target;
+    EmulationDatabase &database;
+
+public:
+
+    void add_ff(const SigSpec &sig, const Const &initval);
+    void add_mem(const Mem &mem, int slices);
+
+    FfMemInfoExtractor(DesignInfo &design, Module *target, EmulationDatabase &database)
+        : design(design), target(target), database(database) {}
 
 };
 
