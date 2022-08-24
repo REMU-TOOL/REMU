@@ -408,6 +408,23 @@ bool test_bitvector_bitmanip()
     return true;
 }
 
+bool test_bitvector_hex()
+{
+    BitVector a(1);
+    EXPECT(a.hex(), "0");
+
+    BitVector b(1, 1);
+    EXPECT(b.hex(), "1");
+
+    BitVector c(129, {0x1, 0x0, 0x1});
+    EXPECT(c.hex(), "100000000000000000000000000000001");
+
+    BitVector d(64, 0x123456789abcdef);
+    EXPECT(d.hex(), "123456789abcdef");
+
+    return true;
+}
+
 bool test_bitvectorarray()
 {
     BitVectorArray array(64, 1024);
@@ -425,6 +442,7 @@ int main() {
     RUN(test_bitvector_get());
     RUN(test_bitvector_set());
     RUN(test_bitvector_bitmanip());
+    RUN(test_bitvector_hex());
     RUN(test_bitvectorarray());
     return 0;
 }

@@ -3,6 +3,8 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <sstream>
+#include <iomanip>
 #include <stdexcept>
 #include <algorithm>
 #include <utility>
@@ -37,8 +39,6 @@ private:
         std::swap(first.u, second.u);
     }
 
-    BitVector() : width_(0) {}
-
 public:
 
     uint64_t *to_ptr() { return use_ptr() ? u.data : &u.value; }
@@ -49,6 +49,17 @@ public:
     operator uint64_t() const
     {
         return *to_ptr();
+    }
+
+    std::string hex() const {
+        std::ostringstream ss;
+        auto first = to_ptr();
+        auto last = first + blks() - 1;
+        ss << std::hex << std::setfill('0') << std::setw(0);
+        for (auto p = last; p >= first; p--) {
+            ss << *p << std::setw(16);
+        }
+        return ss.str();
     }
 
     // This sets all bits to 0
@@ -64,12 +75,18 @@ public:
     // This gets the specified bit in boolean value
     bool getBit(width_t offset) const
     {
+        if (offset >= width_)
+            throw std::out_of_range("offset out of range");
+
         return (to_ptr()[offset / 64] >> (offset % 64)) & 1;
     }
 
     // This sets the specified bit to the boolean value
     void setBit(width_t offset, bool value)
     {
+        if (offset >= width_)
+            throw std::out_of_range("offset out of range");
+
         uint64_t &ref = to_ptr()[offset / 64];
         uint64_t bit = uint64_t(1) << offset;
         if (value)
@@ -82,7 +99,7 @@ public:
     uint64_t *getValue(width_t offset, width_t width, uint64_t *data) const
     {
         if (offset + width > width_)
-            throw std::range_error("selection out of range");
+            throw std::out_of_range("selection out of range");
 
         copy(width, data, 0, to_ptr(), offset);
 
@@ -102,7 +119,7 @@ public:
     void setValue(width_t offset, width_t width, const uint64_t *data)
     {
         if (offset + width > width_)
-            throw std::range_error("selection out of range");
+            throw std::out_of_range("selection out of range");
 
         copy(width, to_ptr(), offset, data, 0);
     }
@@ -111,7 +128,7 @@ public:
     void setValue(width_t offset, width_t width, uint64_t value)
     {
         if (width > 64)
-            throw std::range_error("selection out of range");
+            throw std::out_of_range("selection out of range");
 
         setValue(offset, width, &value);
     }
@@ -121,6 +138,9 @@ public:
     {
         setValue(offset, value.width_, value.to_ptr());
     }
+
+    // This constructs an empty 0-wide BitVector
+    BitVector() : BitVector(0) {}
 
     // This constructs an empty BitVector 
     explicit BitVector(width_t width) : width_(width)
@@ -231,7 +251,7 @@ public:
     BitVector get(width_t index) const
     {
         if (index >= depth_)
-            throw std::range_error("index out of range");
+            throw std::out_of_range("index out of range");
 
         return data.getValue(index * width_, width_);
     }
@@ -242,10 +262,12 @@ public:
             throw std::invalid_argument("value width mismatch");
 
         if (index >= depth_)
-            throw std::range_error("index out of range");
+            throw std::out_of_range("index out of range");
 
         data.setValue(index * width_, value);
     }
+
+    BitVectorArray() : BitVectorArray(0, 0) {}
 
     BitVectorArray(width_t width, depth_t depth) : width_(width), depth_(depth), data(width * depth) {}
 

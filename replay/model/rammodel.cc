@@ -1,4 +1,4 @@
-#include "rammodel.h"
+#include "model.h"
 
 #include <stdexcept>
 #include <sstream>

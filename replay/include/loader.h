@@ -2,32 +2,50 @@
 #define _LOADER_H_
 
 #include "checkpoint.h"
+#include "circuit_info.h"
+#include "bitvector.h"
 #include "yaml-cpp/yaml.h"
+
+#include <map>
 
 namespace Replay {
 
-class BaseLoader {
-    std::string m_sc_file;
-    Checkpoint &m_checkpoint;
-
-    virtual void set_ff_value(std::string name, uint64_t data, int width, int offset) = 0;
-    virtual void set_mem_value(std::string name, int index, uint64_t data, int width, int offset) = 0;
-
-    void load_ff(std::istream &data_stream, YAML::Node &config);
-    void load_mem(std::istream &data_stream, YAML::Node &config);
+class CircuitData
+{
+    std::map<int, BitVector> ff_data;
+    std::map<int, BitVectorArray> mem_data;
+    CircuitInfo::Root root_;
 
 public:
-    bool load();
-    BaseLoader(std::string sc_file, Checkpoint &checkpoint)
-        : m_sc_file(sc_file), m_checkpoint(checkpoint) {}
+
+    void init();
+
+    BitVector &ff(int id) { return ff_data.at(id); }
+    const BitVector &ff(int id) const { return ff_data.at(id); }
+    BitVectorArray &mem(int id) { return mem_data.at(id); }
+    const BitVectorArray &mem(int id) const { return mem_data.at(id); }
+
+    const CircuitInfo::Root &root() const { return root_; }
+
+    CircuitData() {}
+
+    CircuitData(const YAML::Node &config) : root_(config["circuit"])
+    {
+        init();
+    }
 };
 
-class PrintLoader : public BaseLoader {
-    virtual void set_ff_value(std::string name, uint64_t data, int width, int offset) override;
-    virtual void set_mem_value(std::string name, int index, uint64_t data, int width, int offset) override;
+class CircuitDataLoader {
+    const YAML::Node &config;
+    Checkpoint &checkpoint;
+    CircuitData &circuit;
 
 public:
-    PrintLoader(std::string sc_file, Checkpoint &checkpoint) : BaseLoader(sc_file, checkpoint) {}
+
+    void load();
+
+    CircuitDataLoader(const YAML::Node &config, Checkpoint &checkpoint, CircuitData &circuit) :
+        config(config), checkpoint(checkpoint), circuit(circuit) {}
 };
 
 };

@@ -1,6 +1,6 @@
 #include "replay_vpi.h"
 #include "replay_util.h"
-#include "rammodel.h"
+#include "model.h"
 #include "checkpoint.h"
 #include "loader.h"
 
@@ -11,6 +11,102 @@
 #include <vpi_user.h>
 
 using namespace Replay;
+
+namespace {
+
+void vpi_load_value(vpiHandle obj, const BitVector &data) {
+    int size = vpi_get(vpiSize, obj);
+
+    s_vpi_value value;
+    value.format = vpiVectorVal;
+    vpi_get_value(obj, &value);
+
+    if (size != data.width()) {
+        vpi_printf("WARNING: size of %s mismatch with configuration\n", vpi_get_str(vpiFullName, obj));
+        if (size < data.width())
+            size = data.width();
+    }
+
+    auto paval = &value.value.vector[0].aval;
+    auto pbval = &value.value.vector[0].bval;
+    int off = 0;
+    while (size > 0) {
+        *paval++ = data.getValue(off, size < 32 ? size : 32);
+        *pbval++ = 0;
+        off += 32;
+        size -= 32;
+    }
+
+    vpi_put_value(obj, &value, 0, vpiNoDelay);
+}
+
+void load_scope(const CircuitData &circuit, const CircuitInfo::Scope *scope, vpiHandle parent)
+{
+    auto cname = scope->name.c_str();
+    vpiHandle scope_obj = vpi_handle_by_name(cname, parent);
+    if (scope_obj == 0) {
+        vpi_printf("WARNING: %s cannot be referenced (in scope %s)\n",
+            cname, vpi_get_str(vpiFullName, parent));
+        return;
+    }
+
+    std::vector<const CircuitInfo::Scope *> subscopes;
+    for (auto it : *scope) {
+        auto node = it.second;
+        if (node->type() == CircuitInfo::NODE_SCOPE) {
+            auto scope = dynamic_cast<CircuitInfo::Scope*>(node);
+            if (scope == nullptr)
+                throw std::bad_cast();
+            subscopes.push_back(scope);
+        }
+        else if (node->type() == CircuitInfo::NODE_WIRE) {
+            auto wire = dynamic_cast<CircuitInfo::Wire*>(node);
+            if (wire == nullptr)
+                throw std::bad_cast();
+            auto cname = wire->name.c_str();
+            vpiHandle obj = vpi_handle_by_name(cname, scope_obj);
+            if (obj == 0) {
+                vpi_printf("WARNING: %s cannot be referenced (in scope %s)\n",
+                    cname, vpi_get_str(vpiFullName, scope_obj));
+                continue;
+            }
+            auto &data = circuit.ff(wire->id);
+            vpi_load_value(obj, data);
+        }
+        else if (node->type() == CircuitInfo::NODE_MEM) {
+            auto mem = dynamic_cast<CircuitInfo::Mem*>(node);
+            if (mem == nullptr)
+                throw std::bad_cast();
+            auto cname = mem->name.c_str();
+            vpiHandle obj = vpi_handle_by_name(cname, scope_obj);
+            if (obj == 0) {
+                vpi_printf("WARNING: %s cannot be referenced (in scope %s)\n",
+                    cname, vpi_get_str(vpiFullName, scope_obj));
+                continue;
+            }
+            auto &data = circuit.mem(mem->id);
+            int depth = mem->depth;
+            int start_offset = mem->start_offset;
+            for (int i = 0; i < depth; i++) {
+                int index = i + start_offset;
+                vpiHandle word_obj = vpi_handle_by_index(obj, index);
+                if (word_obj == 0) {
+                    vpi_printf("WARNING: %s[%d] cannot be referenced (in scope %s)\n",
+                        cname, index, vpi_get_str(vpiFullName, scope_obj));
+                    continue;
+                }
+                vpi_load_value(word_obj, data.get(i));
+            }
+        }
+    }
+}
+
+};
+
+void VPILoader::load()
+{
+    load_scope(circuit, &circuit.root(), 0);
+}
 
 namespace {
 

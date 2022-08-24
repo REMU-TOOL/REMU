@@ -9,7 +9,7 @@ project(replay)
 include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(${Boost_INCLUDE_DIRS})
 
-link_libraries(yaml-cpp ${Boost_LIBRARIES})
+link_libraries(yaml-cpp exchange ${Boost_LIBRARIES})
 
 file(GLOB replay-common-sources "core/*.cc" "model/*.cc")
 
@@ -39,11 +39,6 @@ install(TARGETS replay-vpi
 # scdump
 
 add_executable(scdump ${replay-common-sources} tools/scdump.cc)
-
-target_link_libraries(scdump PRIVATE
-    yaml-cpp
-    ${Boost_LIBRARIES}
-)
 
 install(TARGETS scdump
     DESTINATION bin
