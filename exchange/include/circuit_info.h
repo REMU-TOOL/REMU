@@ -26,7 +26,7 @@ struct Node
     Node(const YAML::Node &node)
     {
         name    = node["name"].as<std::string>();
-        id      = node["name"].as<int>();
+        id      = node["id"].as<int>();
     }
 
     virtual ~Node() {}
