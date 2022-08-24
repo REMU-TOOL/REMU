@@ -16,52 +16,37 @@ enum NodeType {
     NODE_MEM,
 };
 
-class Node
+struct Node
 {
-    std::string name_;
-    int id_;
+    std::string name;
+    int id;
 
-protected:
-
-    friend class Root;
-
-    Node() : id_(0) {}
-    Node(const std::string &name) : name_(name), id_(0) {}
-
-    void assign_info(const std::string &name, int id)
-    {
-        name_ = name;
-        id_ = id;
-    }
-
-public:
+    Node() : id(0) {}
 
     Node(const YAML::Node &node)
     {
-        name_   = node["name"].as<std::string>();
-        id_     = node["name"].as<int>();
+        name    = node["name"].as<std::string>();
+        id      = node["name"].as<int>();
     }
 
     virtual ~Node() {}
-
     virtual Node *dup() const = 0;
-
-    std::string name() const { return name_; }
-    int id() const { return id_; }
     virtual NodeType type() const = 0;
 
     virtual YAML::Node to_yaml() const
     {
         YAML::Node node;
-        node["name"]    = name_;
-        node["id"]      = id_;
+        node["name"]    = name;
+        node["id"]      = id;
         node["type"]    = static_cast<int>(type());
         return node;
     }
 };
 
-class Scope : public Node
+struct Scope : public Node
 {
+
+private:
 
     std::map<std::string, Node*> subnodes;
 
@@ -74,7 +59,7 @@ public:
 
     void add(Node *subnode)
     {
-        subnodes.insert(std::make_pair(subnode->name(), subnode));
+        subnodes.insert(std::make_pair(subnode->name, subnode));
     }
 
     void add(const YAML::Node &subnode);
@@ -170,8 +155,10 @@ public:
     }
 };
 
-class Root : public Scope
+struct Root : public Scope
 {
+private:
+
     int id_count = 0; // start from 1
 
     template <typename T> Scope *create_hierarchy(const T &path_begin, const T &path_end)
@@ -191,7 +178,8 @@ class Root : public Scope
 
     void add_node(Scope *scope, const std::string &name, Node *node)
     {
-        node->assign_info(name, ++id_count);
+        node->name = name;
+        node->id = ++id_count;
         scope->add(node);
     }
 
@@ -200,15 +188,13 @@ class Root : public Scope
         if (path.size() < 1)
             throw std::invalid_argument("empty path is not allowed");
         Scope *scope = create_hierarchy(path.begin(), path.end() - 1);
-        node->assign_info(path.back(), ++id_count);
-        scope->add(node);
+        add_node(scope, path.back(), node);
     }
 
 public:
 
     Root() {}
-
-    Root(const YAML::Node &node);
+    Root(const YAML::Node &node) : Scope(node) {}
 
     template <typename T> void add(const std::vector<std::string> &path, const T &subnode)
     {
@@ -221,23 +207,21 @@ public:
     }
 };
 
-class Wire : public Node
+struct Wire : public Node
 {
-    int width_;
-    int start_offset_;
-    bool upto_;
-
-public:
+    int width;
+    int start_offset;
+    bool upto;
 
     Wire(const YAML::Node &node) : Node(node)
     {
-        width_          = node["width"].as<int>();
-        start_offset_   = node["start_offset"].as<int>();
-        upto_           = node["upto"].as<bool>();
+        width           = node["width"].as<int>();
+        start_offset    = node["start_offset"].as<int>();
+        upto            = node["upto"].as<bool>();
     }
 
     Wire(int width, int start_offset, bool upto) :
-        width_(width), start_offset_(start_offset), upto_(upto) {}
+        width(width), start_offset(start_offset), upto(upto) {}
 
     virtual Node *dup() const
     {
@@ -245,37 +229,32 @@ public:
     }
 
     virtual NodeType type() const { return NODE_WIRE; }
-    int width() const { return width_; }
-    int start_offset() const { return start_offset_; }
-    bool upto() const { return upto_; }
 
     virtual YAML::Node to_yaml() const
     {
         YAML::Node node = Node::to_yaml();
-        node["width"]           = width_;
-        node["start_offset"]    = start_offset_;
-        node["upto"]            = upto_;
+        node["width"]           = width;
+        node["start_offset"]    = start_offset;
+        node["upto"]            = upto;
         return node;
     }
 };
 
-class Mem : public Node
+struct Mem : public Node
 {
-    int width_;
-    int depth_;
-    int start_offset_;
-
-public:
+    int width;
+    int depth;
+    int start_offset;
 
     Mem(const YAML::Node &node) : Node(node)
     {
-        width_          = node["width"].as<int>();
-        depth_          = node["depth"].as<int>();
-        start_offset_   = node["start_offset"].as<int>();
+        width           = node["width"].as<int>();
+        depth           = node["depth"].as<int>();
+        start_offset    = node["start_offset"].as<int>();
     }
 
     Mem(int width, int depth, int start_offset) :
-        width_(width), depth_(depth), start_offset_(start_offset) {}
+        width(width), depth(depth), start_offset(start_offset) {}
 
     virtual Node *dup() const
     {
@@ -283,16 +262,13 @@ public:
     }
 
     virtual NodeType type() const { return NODE_MEM; }
-    int width() const { return width_; }
-    int depth() const { return depth_; }
-    int start_offset() const { return start_offset_; }
 
     virtual YAML::Node to_yaml() const
     {
         YAML::Node node = Node::to_yaml();
-        node["width"]           = width_;
-        node["depth"]           = depth_;
-        node["start_offset"]    = start_offset_;
+        node["width"]           = width;
+        node["depth"]           = depth;
+        node["start_offset"]    = start_offset;
         return node;
     }
 };

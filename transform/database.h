@@ -106,7 +106,10 @@ public:
     void add_mem(const Mem &mem, int slices);
 
     FfMemInfoExtractor(DesignInfo &design, Module *target, EmulationDatabase &database)
-        : design(design), target(target), database(database) {}
+        : design(design), target(target), database(database)
+    {
+        database.ci_root.name = design.name_of(target);
+    }
 
 };
 
