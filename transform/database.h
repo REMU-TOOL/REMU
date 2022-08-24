@@ -78,7 +78,7 @@ struct EmulationDatabase {
     // written by InsertScanchain
     int ff_width;
     int ram_width;
-    CircuitInfo::Scope ci_root;
+    CircuitInfo::Root ci_root;
     std::vector<FfInfo> scanchain_ff;
     std::vector<MemInfo> scanchain_ram;
 
@@ -90,7 +90,7 @@ struct EmulationDatabase {
     void write_yaml(std::string yaml_file);
     void write_loader(std::string loader_file);
 
-    EmulationDatabase() : ff_width(0), ram_width(0), ci_root("") {}
+    EmulationDatabase() : ff_width(0), ram_width(0) {}
 
 };
 

@@ -62,10 +62,7 @@ void FfMemInfoExtractor::add_ff(const SigSpec &sig, const Const &initval) {
         chunkinfo.is_model = design.check_hier_attr(Attr::ModelImp, chunk.wire);
         res.info.push_back(chunkinfo);
 
-        std::string wire_name = path.back();
-        path.pop_back();
-        auto scope = database.ci_root.create(path);
-        scope->set(wire_name, CircuitInfo::Wire(wire_name,
+        database.ci_root.add(path, CircuitInfo::Wire(
             chunk.wire->width,
             chunk.wire->start_offset,
             chunk.wire->upto
@@ -90,10 +87,7 @@ void FfMemInfoExtractor::add_mem(const Mem &mem, int slices) {
     res.init_data = mem.get_init_data();
     database.scanchain_ram.push_back(res);
 
-    std::string mem_name = path.back();
-    path.pop_back();
-    auto scope = database.ci_root.create(path);
-    scope->set(mem_name, CircuitInfo::Mem(mem_name,
+    database.ci_root.add(path, CircuitInfo::Mem(
         mem.width,
         mem.size,
         mem.start_offset
