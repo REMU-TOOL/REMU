@@ -4,19 +4,13 @@
 #include "kernel/yosys.h"
 #include "kernel/celltypes.h"
 
+#include "escape.h"
+
 #include <sstream>
 
 namespace Emu {
 
 USING_YOSYS_NAMESPACE
-
-class VerilogIdEscape {
-    static const pool<std::string> keywords;
-public:
-    std::string operator()(const std::string &name);
-};
-
-extern class VerilogIdEscape VerilogIdEscape;
 
 // Hierarchy representation for a uniquified design
 
@@ -87,9 +81,12 @@ public:
         return path_of(wire->module, scope);
     }
 
+    std::string unescaped_name_of(const IdString &id) const {
+        return id[0] == '\\' ? id.substr(1) : id.str();
+    }
+
     std::string name_of(const IdString &id) const {
-        std::string name = id[0] == '\\' ? id.substr(1) : id.str();
-        return VerilogIdEscape(name);
+        return Escape::escape_verilog_id(unescaped_name_of(id));
     }
 
     template <typename T>
@@ -139,16 +136,16 @@ public:
         std::vector<std::string> hier;
         for (Module *m : path_of(mod, scope)) {
             if (m == top_)
-                hier.push_back(name_of(m->name));
+                hier.push_back(unescaped_name_of(m->name));
             else
-                hier.push_back(name_of(inst_dict.at(m)->name));
+                hier.push_back(unescaped_name_of(inst_dict.at(m)->name));
         }
         return hier;
     }
 
     std::vector<std::string> hier_name_of(IdString name, Module *parent, Module *scope = nullptr) const {
         std::vector<std::string> hier = hier_name_of(parent, scope);
-        hier.push_back(name_of(name));
+        hier.push_back(unescaped_name_of(name));
         return hier;
     }
 

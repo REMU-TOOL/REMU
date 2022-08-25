@@ -3,6 +3,8 @@
 
 #include "yaml-cpp/yaml.h"
 
+#include "escape.h"
+
 #include "attr.h"
 #include "database.h"
 
@@ -38,7 +40,7 @@ std::string hier2flat(const std::vector<std::string> &hier) {
             is_first = false;
         else
             ss << ".";
-        ss << VerilogIdEscape(s);
+        ss << Escape::escape_verilog_id(s);
     }
     return ss.str();
 }
