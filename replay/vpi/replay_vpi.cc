@@ -1,5 +1,4 @@
 #include "replay_vpi.h"
-#include "replay_util.h"
 #include "model.h"
 
 #include <map>
@@ -8,34 +7,119 @@
 
 #include <vpi_user.h>
 
+#include "escape.h"
+
 using namespace Replay;
 
 namespace {
 
-void vpi_load_value(vpiHandle obj, const BitVector &data) {
+std::vector<vpiHandle> tf_get_args(vpiHandle callh) {
+    vpiHandle argv = vpi_iterate(vpiArgument, callh);
+    std::vector<vpiHandle> args;
+    while (vpiHandle arg = vpi_scan(argv))
+        args.push_back(arg);
+    return args;
+}
+
+bool get_value_as_bool(vpiHandle obj) {
+    s_vpi_value value;
+    value.format = vpiScalarVal;
+
+    vpi_get_value(obj, &value);
+
+    return value.value.scalar == vpi1;
+}
+
+template <typename T>
+T get_value_as(vpiHandle obj) {
     int size = vpi_get(vpiSize, obj);
+    int count = (size + 31) / 32;
 
     s_vpi_value value;
     value.format = vpiVectorVal;
+
     vpi_get_value(obj, &value);
 
-    if (size != data.width()) {
-        vpi_printf("WARNING: size of %s mismatch with configuration\n", vpi_get_str(vpiFullName, obj));
-        if (size < data.width())
-            size = data.width();
+    T res = 0;
+    for (int i = 0; i < count; i++) {
+        T chunk = value.value.vector[i].aval & ~value.value.vector[i].bval;
+        res |= chunk << (i * 32);
     }
 
-    auto paval = &value.value.vector[0].aval;
-    auto pbval = &value.value.vector[0].bval;
-    int off = 0;
-    while (size > 0) {
-        *paval++ = data.getValue(off, size < 32 ? size : 32);
-        *pbval++ = 0;
-        off += 32;
+    return res;
+}
+
+Replay::BitVector get_value_as_bitvector(vpiHandle obj) {
+    int size = vpi_get(vpiSize, obj);
+    int count = (size + 31) / 32;
+
+    s_vpi_value value;
+    value.format = vpiVectorVal;
+
+    vpi_get_value(obj, &value);
+
+    Replay::BitVector res(size);
+    for (int i = 0; i < count; i++) {
+        int chunk = value.value.vector[i].aval & ~value.value.vector[i].bval;
+        res.setValue(i * 32, size < 32 ? size : 32, chunk);
         size -= 32;
     }
 
+    return res;
+}
+
+void set_value(vpiHandle obj, bool val) {
+    s_vpi_value value;
+    value.format = vpiScalarVal;
+    value.value.scalar = val ? vpi1 : vpi0;
+
     vpi_put_value(obj, &value, 0, vpiNoDelay);
+}
+
+template <typename T>
+void set_value(vpiHandle obj, T val) {
+    uint64_t data = val;
+
+    s_vpi_vecval vecval[2];
+    for (int i = 0; i < 2; i++) {
+        vecval[i].aval = data;
+        vecval[i].bval = 0;
+        data >>= 32;
+    }
+
+    s_vpi_value value;
+    value.format = vpiVectorVal;
+    value.value.vector = vecval;
+
+    vpi_put_value(obj, &value, 0, vpiNoDelay);
+}
+
+void set_value(vpiHandle obj, const Replay::BitVector &val) {
+    int size = vpi_get(vpiSize, obj);
+    int count = (size + 31) / 32;
+
+    s_vpi_vecval vecval[count];
+    for (int i = 0; i < count; i++) {
+        vecval[i].aval = val.getValue(i * 32, size < 32 ? size : 32);
+        vecval[i].bval = 0;
+        size -= 32;
+    }
+
+    s_vpi_value value;
+    value.format = vpiVectorVal;
+    value.value.vector = vecval;
+
+    vpi_put_value(obj, &value, 0, vpiNoDelay);
+}
+
+std::vector<std::string> get_full_path(vpiHandle obj)
+{
+    std::vector<std::string> res;
+    do {
+        res.push_back(vpi_get_str(vpiName, obj));
+        obj = vpi_handle(vpiScope, obj);
+    } while (obj != 0);
+    return res;
 }
 
 void load_scope(const CircuitDataScope &circuit, vpiHandle parent)
@@ -60,7 +144,7 @@ void load_scope(const CircuitDataScope &circuit, vpiHandle parent)
             auto wire = dynamic_cast<CircuitInfo::Wire*>(node);
             if (wire == nullptr)
                 throw std::bad_cast();
-            auto cname = wire->name.c_str();
+            auto cname = Escape::escape_verilog_id(wire->name).c_str();
             vpiHandle obj = vpi_handle_by_name(cname, scope_obj);
             if (obj == 0) {
                 vpi_printf("WARNING: %s cannot be referenced (in scope %s)\n",
@@ -68,13 +152,13 @@ void load_scope(const CircuitDataScope &circuit, vpiHandle parent)
                 continue;
             }
             auto &data = circuit.ff(wire->id);
-            vpi_load_value(obj, data);
+            set_value(obj, data);
         }
         else if (node->type() == CircuitInfo::NODE_MEM) {
             auto mem = dynamic_cast<CircuitInfo::Mem*>(node);
             if (mem == nullptr)
                 throw std::bad_cast();
-            auto cname = mem->name.c_str();
+            auto cname = Escape::escape_verilog_id(mem->name).c_str();
             vpiHandle obj = vpi_handle_by_name(cname, scope_obj);
             if (obj == 0) {
                 vpi_printf("WARNING: %s cannot be referenced (in scope %s)\n",
@@ -92,7 +176,7 @@ void load_scope(const CircuitDataScope &circuit, vpiHandle parent)
                         cname, index, vpi_get_str(vpiFullName, scope_obj));
                     continue;
                 }
-                vpi_load_value(word_obj, data.get(i));
+                set_value(word_obj, data.get(i));
             }
         }
     }
@@ -143,7 +227,7 @@ public:
 std::vector<RamModel> rammodel_list;
 
 int rammodel_new_tf(char* user_data) {
-    auto checkpoint = reinterpret_cast<Checkpoint*>(user_data);
+    auto loader = reinterpret_cast<VPILoader*>(user_data);
     vpiHandle callh = vpi_handle(vpiSysTfCall, 0);
     auto args = tf_get_args(callh);
 
@@ -166,7 +250,7 @@ int rammodel_new_tf(char* user_data) {
     std::string name = vpi_get_str(vpiFullName, scope);
     vpi_printf("rammodel info: %s registered with handle %ld\n", name.c_str(), index);
 
-    GzipReader data_reader(checkpoint->get_file_path(name + ".host_axi"));
+    GzipReader data_reader(loader->checkpoint.get_file_path(name + ".host_axi"));
     if (data_reader.fail()) {
         vpi_printf("ERROR: failed to open rammodel data file\n");
         set_value(callh, -1);
@@ -179,18 +263,8 @@ int rammodel_new_tf(char* user_data) {
         return 0;
     }
 
-    GzipReader state_reader(checkpoint->get_file_path(name + ".lsu_axi"));
-    if (state_reader.fail()) {
-        vpi_printf("ERROR: failed to open rammodel state file\n");
-        set_value(callh, -1);
-        return 0;
-    }
-    std::istream state_stream(state_reader.streambuf());
-    if (!rammodel_list[index].load_state(state_stream)) {
-        vpi_printf("ERROR: failed to load rammodel state from checkpoint\n");
-        set_value(callh, -1);
-        return 0;
-    }
+    auto path = get_full_path(scope);
+    rammodel_list[index].load_state(loader->circuit->subscope(path));
 
     set_value(callh, index);
     return 0;
@@ -439,7 +513,7 @@ public:
 };
 
 int cycle_sig_tf(char* user_data) {
-    auto checkpoint = reinterpret_cast<Checkpoint*>(user_data);
+    auto loader = reinterpret_cast<VPILoader*>(user_data);
     vpiHandle callh = vpi_handle(vpiSysTfCall, 0);
     auto args = tf_get_args(callh);
 
@@ -448,7 +522,7 @@ int cycle_sig_tf(char* user_data) {
         return 0;
     }
 
-    set_value(args[0], checkpoint->get_cycle());
+    set_value(args[0], loader->checkpoint.get_cycle());
     auto callback = new CycleCallback(args[0], 10000); // TODO: set cycle value
     callback->register_after_delay(10000, false);
 
@@ -456,10 +530,10 @@ int cycle_sig_tf(char* user_data) {
 }
 
 int get_init_cycle_tf(char* user_data) {
-    auto checkpoint = reinterpret_cast<Checkpoint*>(user_data);
+    auto loader = reinterpret_cast<VPILoader*>(user_data);
     vpiHandle callh = vpi_handle(vpiSysTfCall, 0);
 
-    set_value(callh, checkpoint->get_cycle());
+    set_value(callh, loader->checkpoint.get_cycle());
     return 0;
 }
 
@@ -476,9 +550,9 @@ PLI_INT32 load_callback(p_cb_data cb_data) {
 
 }; // namespace
 
-void Replay::register_tfs(Checkpoint *checkpoint) {
+void Replay::register_tfs(Replay::VPILoader *loader) {
     s_vpi_systf_data tf_data;
-    PLI_BYTE8 *user_data = reinterpret_cast<PLI_BYTE8 *>(checkpoint);
+    PLI_BYTE8 *user_data = reinterpret_cast<PLI_BYTE8 *>(loader);
 
     tf_data.type        = vpiSysFunc;
     tf_data.sysfunctype = vpiIntFunc;

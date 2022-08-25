@@ -1,11 +1,13 @@
 #include "circuit.h"
 #include <iostream>
 
+#include "escape.h"
+
 using namespace Replay;
 
 void print_scope(const CircuitDataScope &circuit, std::string prefix)
 {
-    prefix += circuit.scope.name + ".";
+    prefix += Escape::escape_verilog_id(circuit.scope.name) + ".";
     for (auto it : circuit.scope) {
         auto node = it.second;
         if (node->type() == CircuitInfo::NODE_SCOPE) {
@@ -19,7 +21,7 @@ void print_scope(const CircuitDataScope &circuit, std::string prefix)
             if (wire == nullptr)
                 throw std::bad_cast();
             auto &data = circuit.ff(wire->id);
-            std::cout << prefix << wire->name
+            std::cout << prefix << Escape::escape_verilog_id(wire->name)
                 << " = " << data.width() << "'h" << data.hex() << std::endl;
         }
         else if (node->type() == CircuitInfo::NODE_MEM) {
@@ -32,7 +34,7 @@ void print_scope(const CircuitDataScope &circuit, std::string prefix)
             auto &data = circuit.mem(mem->id);
             for (int i = 0; i < depth; i++) {
                 auto word = data.get(i);
-                std::cout << prefix << mem->name
+                std::cout << prefix << Escape::escape_verilog_id(mem->name)
                     << "[" << i + start_offset << "] = " << word.width() << "'h" << word.hex() << std::endl;
             }
         }

@@ -5,16 +5,17 @@
 #include "circuit.h"
 #include <memory>
 
+#include "vpi_user.h"
+
 namespace Replay {
 
-class VPILoader
+struct VPILoader
 {
     YAML::Node config;
     std::unique_ptr<CircuitData> circuit;
+    Checkpoint checkpoint;
 
-public:
-
-    VPILoader(std::string config_path, Checkpoint &checkpoint)
+    VPILoader(std::string config_path, std::string ckpt_path) : checkpoint(ckpt_path)
     {
         config = YAML::LoadFile(config_path);
         circuit = std::unique_ptr<CircuitData>(new CircuitData(config));
@@ -25,7 +26,7 @@ public:
     void load();
 };
 
-void register_tfs(Replay::Checkpoint *checkpoint);
+void register_tfs(Replay::VPILoader *loader);
 void register_load_callback(Replay::VPILoader *loader);
 
 };

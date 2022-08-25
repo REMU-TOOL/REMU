@@ -7,8 +7,14 @@
 #include <cstring>
 
 #include "bitvector.h"
+#include "circuit.h"
 
 namespace Replay {
+
+struct FifoModel {
+    std::queue<BitVector> fifo;
+    void load(const CircuitDataScope &circuit);
+};
 
 class RamModel {
 
@@ -59,16 +65,6 @@ private:
 
     void schedule();
 
-    bool load_state_a(std::istream &stream);
-    bool load_state_w(std::istream &stream);
-    bool load_state_b(std::istream &stream);
-    bool load_state_r(std::istream &stream);
-
-    bool save_state_a(std::ostream &stream);
-    bool save_state_w(std::ostream &stream);
-    bool save_state_b(std::ostream &stream);
-    bool save_state_r(std::ostream &stream);
-
 public:
 
     bool a_req(const AChannel &payload);
@@ -81,10 +77,7 @@ public:
     bool reset();
 
     bool load_data(std::istream &stream);
-    bool save_data(std::ostream &stream);
-
-    bool load_state(std::istream &stream);
-    bool save_state(std::ostream &stream);
+    void load_state(const CircuitDataScope &circuit);
 
     RamModel(unsigned int addr_w, unsigned int data_w, unsigned int id_w, unsigned int pf) :
         addr_width(addr_w), data_width(data_w), id_width(id_w), pf_count(pf),

@@ -144,302 +144,85 @@ bool RamModel::load_data(std::istream &stream) {
     return !stream.fail();
 }
 
-bool RamModel::save_data(std::ostream &stream) {
-    stream.write(reinterpret_cast<char *>(array.to_ptr()), array_width / 8 * array_depth);
-    return !stream.fail();
-}
+void RamModel::load_state(const CircuitDataScope &circuit)
+{
+    FifoModel fifo_model;
 
-bool RamModel::load_state_a(std::istream &stream) {
-    uint32_t count;
-    stream.read(reinterpret_cast<char *>(&count), 4);
-    if (stream.fail())
-        return false;
+    /*
+    `define AXI4_CUSTOM_A_PAYLOAD(prefix) { \
+        prefix``_awrite, \
+        prefix``_aaddr, \
+        prefix``_aid, \
+        prefix``_alen, \
+        prefix``_asize, \
+        prefix``_aburst }
+    */
 
-    while (count--) {
-        uint32_t data;
-
-        stream.read(reinterpret_cast<char *>(&data), 4);
-        if (stream.fail())
-            return false;
-
-        AChannel payload = {
-            .id     = uint16_t((data >> 16) & ((1 << 16) - 1)),
-            .len    = uint8_t((data >>  8) & ((1 <<  8) - 1)),
-            .size   = uint8_t((data >>  5) & ((1 <<  3) - 1)),
-            .burst  = uint8_t((data >>  3) & ((1 <<  2) - 1)),
-            .write  = (data & 1) != 0
-        };
-
-        stream.read(reinterpret_cast<char *>(&data), 4);
-        if (stream.fail())
-            return false;
-
-        payload.addr = data;
-
-        if (addr_width > 32) {
-            stream.read(reinterpret_cast<char *>(&data), 4);
-            if (stream.fail())
-                return false;
-
-            payload.addr |= (uint64_t)data << 32;
-        }
-
-        a_queue.push(payload);
+    fifo_model.load(circuit.subscope({"a_fifo"}));
+    a_queue = decltype(a_queue)();
+    while (!fifo_model.fifo.empty()) {
+        auto &elem = fifo_model.fifo.front();
+        fifo_model.fifo.pop();
+        AChannel a;
+        a.burst = (uint8_t) elem.getValue(0, 2);
+        a.size  = (uint8_t) elem.getValue(2, 3);
+        a.len   = (uint8_t) elem.getValue(5, 8);
+        a.id    = (uint16_t)elem.getValue(13, id_width);
+        a.addr  =           elem.getValue(13 + id_width, addr_width);
+        a.write = (bool)    elem.getValue(13 + id_width + addr_width, 1);
+        a_queue.push(a);
     }
 
-    return true;
-}
+    /*
+    `define AXI4_CUSTOM_W_PAYLOAD(prefix) { \
+        prefix``_wdata, \
+        prefix``_wstrb, \
+        prefix``_wlast }
+    */
 
-bool RamModel::load_state_w(std::istream &stream) {
-    uint32_t count;
-    stream.read(reinterpret_cast<char *>(&count), 4);
-    if (stream.fail())
-        return false;
-
-    while (count--) {
-        uint32_t data;
-
-        stream.read(reinterpret_cast<char *>(&data), 4);
-        if (stream.fail())
-            return false;
-
-        WChannel payload = {
-            .data   = BitVector(data_width),
-            .strb   = BitVector(data_width / 8, (data >> 16) & ((1 <<  8) - 1)),
-            .last   = (data & 1) != 0
-        };
-
-        stream.read(reinterpret_cast<char *>(&data), 4);
-        if (stream.fail())
-            return false;
-
-        payload.data.setValue(0, 32, data);
-
-        if (data_width > 32) {
-            stream.read(reinterpret_cast<char *>(&data), 4);
-            if (stream.fail())
-                return false;
-
-            payload.data.setValue(32, 32, data);
-        }
-
-        w_queue.push(payload);
+    fifo_model.load(circuit.subscope({"w_fifo"}));
+    w_queue = decltype(w_queue)();
+    while (!fifo_model.fifo.empty()) {
+        auto &elem = fifo_model.fifo.front();
+        fifo_model.fifo.pop();
+        WChannel w;
+        w.last  = (bool)    elem.getValue(0, 1);
+        w.strb  =           elem.getValue(1, data_width/8);
+        w.data  =           elem.getValue(1 + data_width/8, data_width);
+        w_queue.push(w);
     }
 
-    return true;
-}
+    /*
+    `define AXI4_CUSTOM_B_PAYLOAD(prefix) { \
+        prefix``_bid }
+    */
 
-bool RamModel::load_state_b(std::istream &stream) {
-    uint32_t count;
-    stream.read(reinterpret_cast<char *>(&count), 4);
-    if (stream.fail())
-        return false;
-
-    while (count--) {
-        uint32_t data;
-
-        stream.read(reinterpret_cast<char *>(&data), 4);
-        if (stream.fail())
-            return false;
-
-        BChannel payload = {
-            .id = uint16_t((data >> 16) & ((1 << 16) - 1))
-        };
-
-        b_queue.push(payload);
+    fifo_model.load(circuit.subscope({"b_fifo"}));
+    b_queue = decltype(b_queue)();
+    while (!fifo_model.fifo.empty()) {
+        auto &elem = fifo_model.fifo.front();
+        fifo_model.fifo.pop();
+        BChannel b;
+        b.id    = (uint16_t)elem.getValue(0, id_width),
+        b_queue.push(b);
     }
 
-    return true;
-}
+    /*
+    `define AXI4_CUSTOM_R_PAYLOAD(prefix) { \
+        prefix``_rdata, \
+        prefix``_rid, \
+        prefix``_rlast }
+    */
 
-bool RamModel::load_state_r(std::istream &stream) {
-    uint32_t count;
-    stream.read(reinterpret_cast<char *>(&count), 4);
-    if (stream.fail())
-        return false;
-
-    while (count--) {
-        uint32_t data;
-
-        stream.read(reinterpret_cast<char *>(&data), 4);
-        if (stream.fail())
-            return false;
-
-        RChannel payload = {
-            .data   = BitVector(data_width),
-            .id     = uint16_t((data >> 16) & ((1 << 16) - 1)),
-            .last   = (data & 1) != 0
-        };
-
-        stream.read(reinterpret_cast<char *>(&data), 4);
-        if (stream.fail())
-            return false;
-
-        payload.data.setValue(0, 32, data);
-
-        if (data_width > 32) {
-            stream.read(reinterpret_cast<char *>(&data), 4);
-            if (stream.fail())
-                return false;
-
-            payload.data.setValue(32, 32, data);
-        }
-
-        r_queue.push(payload);
+    fifo_model.load(circuit.subscope({"r_fifo"}));
+    r_queue = decltype(r_queue)();
+    while (!fifo_model.fifo.empty()) {
+        auto &elem = fifo_model.fifo.front();
+        fifo_model.fifo.pop();
+        RChannel r;
+        r.last  = (bool)    elem.getValue(0, 1),
+        r.id    = (uint16_t)elem.getValue(1, id_width),
+        r.data  =           elem.getValue(1 + id_width, data_width),
+        r_queue.push(r);
     }
-
-    return true;
-}
-
-bool RamModel::save_state_a(std::ostream &stream) {
-    uint32_t count = a_queue.size();
-    stream.write(reinterpret_cast<char *>(&count), 4);
-    if (stream.fail())
-        return false;
-
-    while (count--) {
-        const AChannel &payload = a_queue.front();
-        uint32_t data = 0;
-
-        data |= (payload.id     & ((1 << 16) - 1)) << 16;
-        data |= (payload.len    & ((1 <<  8) - 1)) <<  8;
-        data |= (payload.size   & ((1 <<  3) - 1)) <<  5;
-        data |= (payload.burst  & ((1 <<  2) - 1)) <<  3;
-        if (payload.write)
-            data |= 1;
-
-        stream.write(reinterpret_cast<char *>(&data), 4);
-        if (stream.fail())
-            return false;
-
-        data = payload.addr;
-
-        stream.write(reinterpret_cast<char *>(&data), 4);
-        if (stream.fail())
-            return false;
-
-        if (addr_width > 32) {
-            data = payload.addr >> 32;
-
-            stream.write(reinterpret_cast<char *>(&data), 4);
-            if (stream.fail())
-                return false;
-        }
-
-        a_queue.pop();
-    }
-
-    return true;
-}
-
-bool RamModel::save_state_w(std::ostream &stream) {
-    uint32_t count = w_queue.size();
-    stream.write(reinterpret_cast<char *>(&count), 4);
-    if (stream.fail())
-        return false;
-
-    while (count--) {
-        const WChannel &payload = w_queue.front();
-        uint32_t data = 0;
-
-        data |= (payload.strb & ((1 <<  8) - 1)) << 16;
-        if (payload.last)
-            data |= 1;
-
-        stream.write(reinterpret_cast<char *>(&data), 4);
-        if (stream.fail())
-            return false;
-
-        data = payload.data;
-
-        stream.write(reinterpret_cast<char *>(&data), 4);
-        if (stream.fail())
-            return false;
-
-        if (addr_width > 32) {
-            data = payload.data >> 32;
-
-            stream.write(reinterpret_cast<char *>(&data), 4);
-            if (stream.fail())
-                return false;
-        }
-
-        w_queue.pop();
-    }
-
-    return true;
-}
-
-bool RamModel::save_state_b(std::ostream &stream) {
-    uint32_t count = b_queue.size();
-    stream.write(reinterpret_cast<char *>(&count), 4);
-    if (stream.fail())
-        return false;
-
-    while (count--) {
-        const BChannel &payload = b_queue.front();
-        uint32_t data = 0;
-
-        data |= (payload.id & ((1 << 16) - 1)) << 16;
-
-        stream.write(reinterpret_cast<char *>(&data), 4);
-        if (stream.fail())
-            return false;
-
-        b_queue.pop();
-    }
-
-    return true;
-}
-
-bool RamModel::save_state_r(std::ostream &stream) {
-    uint32_t count = r_queue.size();
-    stream.write(reinterpret_cast<char *>(&count), 4);
-    if (stream.fail())
-        return false;
-
-    while (count--) {
-        const RChannel &payload = r_queue.front();
-        uint32_t data = 0;
-
-        data |= (payload.id & ((1 << 16) - 1)) << 16;
-        if (payload.last)
-            data |= 1;
-
-        stream.write(reinterpret_cast<char *>(&data), 4);
-        if (stream.fail())
-            return false;
-
-        data = payload.data;
-
-        stream.write(reinterpret_cast<char *>(&data), 4);
-        if (stream.fail())
-            return false;
-
-        if (addr_width > 32) {
-            data = payload.data >> 32;
-
-            stream.write(reinterpret_cast<char *>(&data), 4);
-            if (stream.fail())
-                return false;
-        }
-
-        r_queue.pop();
-    }
-
-    return true;
-}
-
-bool RamModel::load_state(std::istream &stream) {
-    return  load_state_a(stream) &&
-            load_state_w(stream) &&
-            load_state_b(stream) &&
-            load_state_r(stream);
-}
-
-bool RamModel::save_state(std::ostream &stream) {
-    return  save_state_a(stream) &&
-            save_state_w(stream) &&
-            save_state_b(stream) &&
-            save_state_r(stream);
 }

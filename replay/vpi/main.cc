@@ -29,15 +29,14 @@ void replay_startup_routine() {
         return;
     }
 
-    auto checkpoint = new Checkpoint(checkpoint_path);
-    register_tfs(checkpoint);
-
     if (scanchain_file.empty()) {
         vpi_printf("ERROR: -replay-scanchain not specified\n");
         return;
     }
 
-    auto loader = new VPILoader(scanchain_file, *checkpoint);
+    auto loader = new VPILoader(scanchain_file, checkpoint_path);
+
+    register_tfs(loader);
     register_load_callback(loader);
 }
 
