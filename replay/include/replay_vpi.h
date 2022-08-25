@@ -3,21 +3,22 @@
 
 #include "checkpoint.h"
 #include "loader.h"
+#include <memory>
 
 namespace Replay {
 
 class VPILoader
 {
     YAML::Node config;
-    CircuitData circuit;
+    std::unique_ptr<CircuitData> circuit;
 
 public:
 
     VPILoader(std::string config_path, Checkpoint &checkpoint)
     {
         config = YAML::LoadFile(config_path);
-        circuit = CircuitData(config);
-        CircuitDataLoader loader(config, checkpoint, circuit);
+        circuit = std::unique_ptr<CircuitData>(new CircuitData(config));
+        CircuitDataLoader loader(config, checkpoint, *circuit);
         loader.load();
     }
 

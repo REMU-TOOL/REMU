@@ -40,9 +40,9 @@ void vpi_load_value(vpiHandle obj, const BitVector &data) {
     vpi_put_value(obj, &value, 0, vpiNoDelay);
 }
 
-void load_scope(const CircuitData &circuit, const CircuitInfo::Scope *scope, vpiHandle parent)
+void load_scope(const CircuitDataScope &circuit, vpiHandle parent)
 {
-    auto cname = scope->name.c_str();
+    auto cname = circuit.scope.name.c_str();
     vpiHandle scope_obj = vpi_handle_by_name(cname, parent);
     if (scope_obj == 0) {
         vpi_printf("WARNING: %s cannot be referenced (in scope %s)\n",
@@ -50,14 +50,13 @@ void load_scope(const CircuitData &circuit, const CircuitInfo::Scope *scope, vpi
         return;
     }
 
-    std::vector<const CircuitInfo::Scope *> subscopes;
-    for (auto it : *scope) {
+    for (auto it : circuit.scope) {
         auto node = it.second;
         if (node->type() == CircuitInfo::NODE_SCOPE) {
             auto scope = dynamic_cast<CircuitInfo::Scope*>(node);
             if (scope == nullptr)
                 throw std::bad_cast();
-            subscopes.push_back(scope);
+            load_scope(circuit.subscope({scope->name}), scope_obj);
         }
         else if (node->type() == CircuitInfo::NODE_WIRE) {
             auto wire = dynamic_cast<CircuitInfo::Wire*>(node);
@@ -105,7 +104,7 @@ void load_scope(const CircuitData &circuit, const CircuitInfo::Scope *scope, vpi
 
 void VPILoader::load()
 {
-    load_scope(circuit, &circuit.root(), 0);
+    load_scope(*circuit, 0);
 }
 
 namespace {

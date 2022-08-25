@@ -10,27 +10,56 @@
 
 namespace Replay {
 
-class CircuitData
+class CircuitDataScope
+{
+    std::map<int, BitVector> &ff_data_ref;
+    std::map<int, BitVectorArray> &mem_data_ref;
+
+public:
+
+    CircuitInfo::Scope &scope;
+
+    BitVector &ff(int id) { return ff_data_ref.at(id); }
+    const BitVector &ff(int id) const { return ff_data_ref.at(id); }
+    BitVector &ff(const std::vector<std::string> &path) { return ff(scope.get(path)->id); }
+    const BitVector &ff(const std::vector<std::string> &path) const { return ff(scope.get(path)->id); }
+
+    BitVectorArray &mem(int id) { return mem_data_ref.at(id); }
+    const BitVectorArray &mem(int id) const { return mem_data_ref.at(id); }
+    BitVectorArray &mem(const std::vector<std::string> &path) { return mem(scope.get(path)->id); }
+    const BitVectorArray &mem(const std::vector<std::string> &path) const { return mem(scope.get(path)->id); }
+
+    CircuitDataScope subscope(const std::vector<std::string> &path) const
+    {
+        auto &node = dynamic_cast<CircuitInfo::Scope&>(*scope.get(path));
+        return CircuitDataScope(ff_data_ref, mem_data_ref, node);
+    }
+
+protected:
+
+    CircuitDataScope(
+        std::map<int, BitVector> &ff_data,
+        std::map<int, BitVectorArray> &mem_data,
+        CircuitInfo::Scope &scope
+    ) : ff_data_ref(ff_data), mem_data_ref(mem_data), scope(scope) {}
+
+};
+
+class CircuitData : public CircuitDataScope
 {
     std::map<int, BitVector> ff_data;
     std::map<int, BitVectorArray> mem_data;
-    CircuitInfo::Root root_;
+    CircuitInfo::Scope root;
 
 public:
 
     void init();
 
-    BitVector &ff(int id) { return ff_data.at(id); }
-    const BitVector &ff(int id) const { return ff_data.at(id); }
-    BitVectorArray &mem(int id) { return mem_data.at(id); }
-    const BitVectorArray &mem(int id) const { return mem_data.at(id); }
+    CircuitData() : CircuitDataScope(ff_data, mem_data, root) {}
 
-    const CircuitInfo::Root &root() const { return root_; }
-
-    CircuitData() {}
-
-    CircuitData(const YAML::Node &config) : root_(config["circuit"])
+    CircuitData(const YAML::Node &config) : CircuitData()
     {
+        root = CircuitInfo::Scope(config["circuit"]);
         init();
     }
 };

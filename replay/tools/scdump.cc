@@ -3,16 +3,16 @@
 
 using namespace Replay;
 
-void print_scope(const CircuitData &circuit, const CircuitInfo::Scope *scope, std::string prefix)
+void print_scope(const CircuitDataScope &circuit, std::string prefix)
 {
-    std::vector<const CircuitInfo::Scope *> subscopes;
-    for (auto it : *scope) {
+    prefix += circuit.scope.name + ".";
+    for (auto it : circuit.scope) {
         auto node = it.second;
         if (node->type() == CircuitInfo::NODE_SCOPE) {
             auto scope = dynamic_cast<CircuitInfo::Scope*>(node);
             if (scope == nullptr)
                 throw std::bad_cast();
-            subscopes.push_back(scope);
+            print_scope(circuit.subscope({scope->name}), prefix);
         }
         else if (node->type() == CircuitInfo::NODE_WIRE) {
             auto wire = dynamic_cast<CircuitInfo::Wire*>(node);
@@ -37,14 +37,11 @@ void print_scope(const CircuitData &circuit, const CircuitInfo::Scope *scope, st
             }
         }
     }
-    for (auto s : subscopes)
-        print_scope(circuit, s, prefix + s->name + ".");
 }
 
 void print_circuit(const CircuitData &circuit)
 {
-    auto &root = circuit.root();
-    print_scope(circuit, &root, root.name + ".");
+    print_scope(circuit, "");
 }
 
 int main(int argc, const char *argv[]) {

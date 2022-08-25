@@ -31,7 +31,7 @@ std::vector<std::string> name_from_yaml(const YAML::Node &node)
 void CircuitData::init()
 {
     std::queue<const CircuitInfo::Scope*> worklist;
-    worklist.push(&root());
+    worklist.push(&root);
     while (!worklist.empty()) {
         auto scope = worklist.front();
         worklist.pop();
@@ -79,8 +79,7 @@ void CircuitDataLoader::load() {
             int width = chunk["width"].as<int>();
             int offset = chunk["offset"].as<int>();
 
-            auto node = circuit.root().get(name);
-            auto &ff_data = circuit.ff(node->id);
+            auto &ff_data = circuit.ff(name);
             ff_data.setValue(offset, width, data);
 
             data >>= width;
@@ -91,9 +90,9 @@ void CircuitDataLoader::load() {
     for (auto mem_it = mem_list.begin(); mem_it != mem_list.end(); ++mem_it) {
         const YAML::Node &mem = *mem_it;
         auto name = name_from_yaml(mem["name"]);
-        auto node = circuit.root().get(name);
+        auto node = circuit.scope.get(name);
         auto mem_node = dynamic_cast<const CircuitInfo::Mem*>(node);
-        auto &mem_data = circuit.mem(node->id);
+        auto &mem_data = circuit.mem(name);
         int width = mem_node->width;
         int depth = mem_node->depth;
 
