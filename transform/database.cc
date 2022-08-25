@@ -61,7 +61,6 @@ void FfMemInfoExtractor::add_ff(const SigSpec &sig, const Const &initval) {
         chunkinfo.width = chunk.width;
         chunkinfo.offset = chunk.offset;
         chunkinfo.is_src = chunk.wire->has_attribute(ID::src);
-        chunkinfo.is_model = design.check_hier_attr(Attr::ModelImp, chunk.wire);
         res.info.push_back(chunkinfo);
 
         database.ci_root.add(path, CircuitInfo::Wire(
@@ -85,7 +84,6 @@ void FfMemInfoExtractor::add_mem(const Mem &mem, int slices) {
     res.mem_depth = mem.size;
     res.mem_start_offset = mem.start_offset;
     res.is_src = mem.has_attribute(ID::src);
-    res.is_model = design.check_hier_attr(Attr::ModelImp, &mem);
     res.init_data = mem.get_init_data();
     database.scanchain_ram.push_back(res);
 
@@ -163,12 +161,14 @@ void EmulationDatabase::write_yaml(std::string yaml_file) {
     for (auto &info : user_clocks) {
         YAML::Node node;
         node["name"] = info.name;
+        node["top_name"] = info.top_name;
         root["clock"].push_back(node);
     }
 
     for (auto &info : user_resets) {
         YAML::Node node;
         node["name"] = info.name;
+        node["top_name"] = info.top_name;
         node["index"] = info.index;
         root["reset"].push_back(node);
     }
@@ -176,6 +176,7 @@ void EmulationDatabase::write_yaml(std::string yaml_file) {
     for (auto &info : user_trigs) {
         YAML::Node node;
         node["name"] = info.name;
+        node["top_name"] = info.top_name;
         node["desc"] = info.desc;
         node["index"] = info.index;
         root["trigger"].push_back(node);
@@ -184,10 +185,18 @@ void EmulationDatabase::write_yaml(std::string yaml_file) {
     for (auto &info : fifo_ports) {
         YAML::Node node;
         node["name"] = info.name;
+        node["top_name"] = info.top_name;
         node["type"] = info.type;
         node["width"] = info.width;
         node["index"] = info.index;
         root["fifo_port"].push_back(node);
+    }
+
+    for (auto &info : model_mods) {
+        YAML::Node node;
+        node["name"] = info.name;
+        node["module_name"] = info.module_name;
+        root["model_mods"].push_back(node);
     }
 
     f << root;

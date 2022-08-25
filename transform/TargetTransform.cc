@@ -81,6 +81,11 @@ void RTLModelWorker::analyze() {
                 analyze_module(ctxt.module);
 
             ctxt.is_model_context = true;
+
+            ModelModuleInfo info;
+            info.name = designinfo.hier_name_of(ctxt.module);
+            info.module_name = designinfo.hdl_name_of(ctxt.module);
+            database.model_mods.push_back(info);
         }
 
         // Add children modules to work queue
@@ -379,7 +384,7 @@ void RTLModelWorker::emit() {
     // TODO: support multiple clocks
 
     for (auto &info : database.user_clocks) {
-        auto clk = rewriter.clock(info.name);
+        auto clk = rewriter.clock(info.top_name);
         SigBit en = clk->getEnable();
         en = wrapper->And(NEW_ID, en, tick->get(wrapper));
         clk->setEnable(en);

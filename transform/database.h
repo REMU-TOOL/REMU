@@ -18,7 +18,6 @@ struct FfInfoChunk {
     int width;
     int offset;
     bool is_src;
-    bool is_model;
 };
 
 struct FfInfo {
@@ -34,37 +33,45 @@ struct MemInfo {
     int mem_depth;          // redundant, kept for write_* use
     int mem_start_offset;   // redundant, kept for write_* use
     bool is_src;
-    bool is_model;
     Const init_data;
 };
 
 struct ClockInfo {
     // TODO: frequency, phase, etc.
-    std::string name;
+    std::vector<std::string> name;
+    std::string top_name;
     std::string ff_clk;
     std::string ram_clk;
 };
 
 struct ResetInfo {
     // TODO: duration, etc.
-    std::string name;
+    std::vector<std::string> name;
+    std::string top_name;
     int index = -1;
 };
 
 struct TrigInfo {
-    std::string name;
+    std::vector<std::string> name;
+    std::string top_name;
     std::string desc;
     int index = -1;
 };
 
 struct FifoPortInfo {
-    std::string name;
+    std::vector<std::string> name;
+    std::string top_name;
     std::string type;
     std::string port_enable;
     std::string port_data;
     std::string port_flag;
     int width = 0;
     int index = -1;
+};
+
+struct ModelModuleInfo {
+    std::vector<std::string> name;
+    std::string module_name;
 };
 
 struct EmulationDatabase {
@@ -74,6 +81,9 @@ struct EmulationDatabase {
     std::vector<ResetInfo> user_resets;
     std::vector<TrigInfo> user_trigs;
     std::vector<FifoPortInfo> fifo_ports;
+
+    // written by TargetTransform
+    std::vector<ModelModuleInfo> model_mods;
 
     // written by InsertScanchain
     int ff_width;

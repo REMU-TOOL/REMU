@@ -69,10 +69,11 @@ void PortWorker::process_user_sigs(Module *module) {
 
     for (Wire *clk : clocks) {
         ClockInfo info;
-        info.name = simple_hier_id(designinfo.hier_name_of(clk, rewriter.wrapper()));
-        rewriter.define_clock(info.name);
+        info.name = designinfo.hier_name_of(clk, rewriter.wrapper());
+        info.top_name = simple_hier_id(info.name);
+        rewriter.define_clock(info.top_name);
 
-        auto dut_clk = rewriter.clock(info.name);
+        auto dut_clk = rewriter.clock(info.top_name);
         SigBit en = dut_clk->getEnable();
         en = wrapper->And(NEW_ID, en, run_mode);
         dut_clk->setEnable(en);
@@ -85,10 +86,11 @@ void PortWorker::process_user_sigs(Module *module) {
 
     for (Wire *rst : resets) {
         ResetInfo info;
-        info.name = simple_hier_id(designinfo.hier_name_of(rst, rewriter.wrapper()));
-        rewriter.define_wire(info.name, 1, PORT_INPUT);
+        info.name = designinfo.hier_name_of(rst, rewriter.wrapper());
+        info.top_name = simple_hier_id(info.name);
+        rewriter.define_wire(info.top_name, 1, PORT_INPUT);
 
-        auto dut_rst = rewriter.wire(info.name);
+        auto dut_rst = rewriter.wire(info.top_name);
 
         Module *module = rst->module;
         module->connect(rst, dut_rst->get(module));
@@ -98,11 +100,12 @@ void PortWorker::process_user_sigs(Module *module) {
 
     for (Wire *trig : trigs) {
         TrigInfo info;
-        info.name = simple_hier_id(designinfo.hier_name_of(trig, rewriter.wrapper()));
+        info.name = designinfo.hier_name_of(trig, rewriter.wrapper());
+        info.top_name = simple_hier_id(info.name);
         info.desc = trig->get_string_attribute(Attr::UserTrigDesc);
-        rewriter.define_wire(info.name, 1, PORT_OUTPUT);
+        rewriter.define_wire(info.top_name, 1, PORT_OUTPUT);
 
-        auto dut_trig = rewriter.wire(info.name);
+        auto dut_trig = rewriter.wire(info.top_name);
         dut_trig->put(trig);
 
         database.user_trigs.push_back(info);
@@ -148,28 +151,30 @@ void PortWorker::process_fifo_port(Module *module) {
             continue;
 
         FifoPortInfo info;
-        info.name = simple_hier_id(designinfo.hier_name_of(module, rewriter.wrapper())) + "_" + name;
+        info.name = designinfo.hier_name_of(module, rewriter.wrapper());
+        info.name.push_back(name);
+        info.top_name = simple_hier_id(info.name);
 
         info.type = wire->get_string_attribute(Attr::FifoPortType);
         if (info.type.empty())
-            log_error("missing type in fifo port %s\n", info.name.c_str());
+            log_error("missing type in fifo port %s\n", info.top_name.c_str());
 
         if (info.type != "sink" && info.type != "source")
-            log_error("wrong type in fifo port %s\n", info.name.c_str());
+            log_error("wrong type in fifo port %s\n", info.top_name.c_str());
 
         bool is_output = info.type == "sink";
 
         std::string enable_attr = wire->get_string_attribute(Attr::FifoPortEnable);
         if (enable_attr.empty())
-            log_error("missing enable port in fifo port %s\n", info.name.c_str());
+            log_error("missing enable port in fifo port %s\n", info.top_name.c_str());
 
         std::string data_attr = wire->get_string_attribute(Attr::FifoPortData);
         if (data_attr.empty())
-            log_error("missing data port in fifo port %s\n", info.name.c_str());
+            log_error("missing data port in fifo port %s\n", info.top_name.c_str());
 
         std::string flag_attr = wire->get_string_attribute(Attr::FifoPortFlag);
         if (flag_attr.empty())
-            log_error("missing flag port in fifo port %s\n", info.name.c_str());
+            log_error("missing flag port in fifo port %s\n", info.top_name.c_str());
 
         Wire *wire_enable = module->wire("\\" + enable_attr);
         Wire *wire_data = module->wire("\\" + data_attr);

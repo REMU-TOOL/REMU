@@ -56,7 +56,7 @@ void PlatformWorker::connect_trigger()
     int index = 0;
     SigSpec trigs;
     for (auto &info : database.user_trigs) {
-        auto trig = rewriter.wire(info.name);
+        auto trig = rewriter.wire(info.top_name);
         trig->make_internal();
         trigs.append(trig->get(wrapper));
         info.index = index++;
@@ -73,7 +73,7 @@ void PlatformWorker::connect_reset()
     int index = 0;
     SigSpec resets;
     for (auto &info : database.user_resets) {
-        auto reset = rewriter.wire(info.name);
+        auto reset = rewriter.wire(info.top_name);
         reset->make_internal();
         resets.append(reset->get(wrapper));
         info.index = index++;
@@ -165,7 +165,7 @@ void PlatformWorker::connect_fifo_ports()
             }
 
             Wire *rdata = wrapper->addWire(NEW_ID, 32);
-            Cell *adapter = wrapper->addCell("\\" + info.name + "_adapter", "\\FifoSourceAdapter");
+            Cell *adapter = wrapper->addCell("\\" + info.top_name + "_adapter", "\\FifoSourceAdapter");
             adapter->setParam("\\DATA_WIDTH", info.width);
             adapter->setPort("\\clk", rewriter.wire("host_clk")->get(wrapper));
             adapter->setPort("\\rst", rewriter.wire("host_rst")->get(wrapper));
@@ -196,7 +196,7 @@ void PlatformWorker::connect_fifo_ports()
             }
 
             Wire *rdata = wrapper->addWire(NEW_ID, 32);
-            Cell *adapter = wrapper->addCell("\\" + info.name + "_adapter", "\\FifoSinkAdapter");
+            Cell *adapter = wrapper->addCell("\\" + info.top_name + "_adapter", "\\FifoSinkAdapter");
             adapter->setParam("\\DATA_WIDTH", info.width);
             adapter->setPort("\\clk", rewriter.wire("host_clk")->get(wrapper));
             adapter->setPort("\\rst", rewriter.wire("host_rst")->get(wrapper));
