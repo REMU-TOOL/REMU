@@ -78,7 +78,7 @@ struct EmulationDatabase {
     // written by InsertScanchain
     int ff_width;
     int ram_width;
-    CircuitInfo::Root ci_root;
+    CircuitInfo::Builder ci_root;
     std::vector<FfInfo> scanchain_ff;
     std::vector<MemInfo> scanchain_ram;
 

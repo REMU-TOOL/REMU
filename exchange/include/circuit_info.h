@@ -21,6 +21,12 @@ struct Node
     std::string name;
     int id;
 
+    void swap(Node &other) noexcept
+    {
+        std::swap(name, other.name);
+        std::swap(id, other.id);
+    }
+
     Node() : id(0) {}
 
     Node(const YAML::Node &node)
@@ -50,12 +56,13 @@ private:
 
     std::map<std::string, Node*> subnodes;
 
+public:
+
     void swap(Scope &other) noexcept
     {
+        Node::swap(other);
         std::swap(subnodes, other.subnodes);
     }
-
-public:
 
     void add(Node *subnode)
     {
@@ -131,7 +138,7 @@ public:
 
     Node *get(const std::vector<std::string> &path)
     {
-        return const_cast<Node*>(get(path));
+        return const_cast<Node*>(const_cast<const Scope*>(this)->get(path));
     }
 
     bool has(const std::string &name) const
@@ -155,7 +162,7 @@ public:
     }
 };
 
-struct Root : public Scope
+struct Builder : public Scope
 {
 private:
 
@@ -193,8 +200,7 @@ private:
 
 public:
 
-    Root() {}
-    Root(const YAML::Node &node) : Scope(node) {}
+    Builder() {}
 
     template <typename T> void add(const std::vector<std::string> &path, const T &subnode)
     {
