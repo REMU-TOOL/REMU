@@ -1,8 +1,6 @@
 #include "replay_vpi.h"
 #include "replay_util.h"
 #include "model.h"
-#include "checkpoint.h"
-#include "loader.h"
 
 #include <map>
 #include <string>

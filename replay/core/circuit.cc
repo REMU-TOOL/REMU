@@ -1,4 +1,4 @@
-#include "loader.h"
+#include "circuit.h"
 #include <sstream>
 #include <queue>
 

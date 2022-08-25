@@ -2,7 +2,7 @@
 #define _REPLAY_VPI_H_
 
 #include "checkpoint.h"
-#include "loader.h"
+#include "circuit.h"
 #include <memory>
 
 namespace Replay {
