@@ -11,6 +11,7 @@ VSRC := $(wildcard $(DESIGN)/*.v)
 VTOP := emu_top
 
 OUTPUT_V := $(BUILD_DIR)/output.v
+ELAB_V := $(BUILD_DIR)/elab.v
 SIM_VVP := $(BUILD_DIR)/sim.vvp
 SC_YML := $(BUILD_DIR)/scanchain.yml
 
@@ -30,8 +31,10 @@ endif
 
 $(OUTPUT_V): $(VSRC)
 	mkdir -p $(BUILD_DIR)
-	yosys -m transform -p "emu_transform -top $(VTOP) -yaml $(SC_YML)" -o $@ $^
+	yosys -m transform -p "emu_transform -top $(VTOP) -elab $(ELAB_V) -yaml $(SC_YML)" -o $@ $^
 
-$(SIM_VVP): $(VSRC) $(shell recheck --iv-srcs)
+$(ELAB_V): $(OUTPUT_V)
+
+$(SIM_VVP): $(ELAB_V) $(shell recheck --iv-srcs)
 	mkdir -p $(BUILD_DIR)
 	iverilog $(shell recheck --iv-flags) -s $(VTOP) -o $@ $^
