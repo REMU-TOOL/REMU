@@ -17,25 +17,25 @@ struct ClockWorker {
 
     EmulationDatabase &database;
     EmulationRewriter &rewriter;
-    DesignInfo &designinfo;
+    DesignHierarchy &designinfo;
+    DesignConnectivity conn;
 
     void rewrite(SigBit orig_clk, RewriterWire *ff_clk, RewriterWire *ram_clk);
     void run();
 
     ClockWorker(EmulationDatabase &database, EmulationRewriter &rewriter)
-        : database(database), rewriter(rewriter), designinfo(rewriter.design()) {}
+        : database(database), rewriter(rewriter), designinfo(rewriter.design()), conn(rewriter.design()) {}
 
 };
 
 void ClockWorker::rewrite(SigBit orig_clk, RewriterWire *ff_clk, RewriterWire *ram_clk) {
-
     log("Transforming clock signal %s to %s/%s\n",
         designinfo.flat_name_of(orig_clk).c_str(),
         ff_clk->name().c_str(),
         ram_clk->name().c_str()
     );
 
-    for (auto portbit : designinfo.get_consumers(orig_clk)) {
+    for (auto portbit : conn.get_consumers(orig_clk)) {
         Cell *cell = portbit.cell;
 
         if (RTLIL::builtin_ff_cell_types().count(cell->type)) {

@@ -62,10 +62,14 @@ void RewriterWire::put(Wire *wire) {
         case PORT_OUTPUT_ANDREDUCE:
         case PORT_OUTPUT_ORREDUCE:
             log_assert(wire->width == 1);
-            reduce_cell->setPort(ID::A, {
-                reduce_cell->getPort(ID::A),
-                promoted_wire
-            });
+            {
+                SigSpec new_a = {
+                    reduce_cell->getPort(ID::A),
+                    promoted_wire
+                };
+                reduce_cell->setPort(ID::A, new_a);
+                reduce_cell->setParam(ID::A_WIDTH, GetSize(new_a));
+            }
             break;
 
         default:

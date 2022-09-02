@@ -28,7 +28,7 @@ struct RTLModelWorker {
 
     EmulationDatabase &database;
     EmulationRewriter &rewriter;
-    DesignInfo &designinfo;
+    DesignHierarchy &designinfo;
 
     enum ModelChannelDirection { CHANNEL_INPUT, CHANNEL_OUTPUT };
 
@@ -60,6 +60,7 @@ struct RTLModelWorker {
 };
 
 void RTLModelWorker::analyze() {
+    DesignConnectivity conn(designinfo);
     struct Context {
         Module *module;
         bool is_model_context;
@@ -164,7 +165,7 @@ void RTLModelWorker::analyze() {
             for (SigBit &b : SigSpec(wire))
                 oc_bits.insert(b);
 
-        for (SigBit &b : rewriter.design().find_dependencies(oc_bits, &all_ic_bits))
+        for (SigBit &b : conn.find_dependencies(oc_bits, &all_ic_bits))
             rtl_channel_deps[oc].insert(ic_bit2id_map.at(b));
     }
 

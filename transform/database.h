@@ -106,7 +106,7 @@ struct EmulationDatabase {
 
 class FfMemInfoExtractor {
 
-    DesignInfo &design;
+    DesignHierarchy &design;
     Module *target;
     EmulationDatabase &database;
 
@@ -115,7 +115,7 @@ public:
     void add_ff(const SigSpec &sig, const Const &initval);
     void add_mem(const Mem &mem, int slices);
 
-    FfMemInfoExtractor(DesignInfo &design, Module *target, EmulationDatabase &database)
+    FfMemInfoExtractor(DesignHierarchy &design, Module *target, EmulationDatabase &database)
         : design(design), target(target), database(database)
     {
         database.ci_root.name = design.name_of(target);

@@ -96,14 +96,14 @@ class EmulationRewriter {
 
 private:
 
-    DesignInfo designinfo;
+    DesignHierarchy designinfo;
     dict<std::string, RewriterWire *> wires;
     Module *wrapper_;
     Module *target_;
 
 public:
 
-    DesignInfo &design() {
+    DesignHierarchy &design() {
         return designinfo;
     }
 

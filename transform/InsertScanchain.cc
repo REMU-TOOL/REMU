@@ -108,7 +108,7 @@ struct MemChainBuilder {
 struct ScanchainWorker {
 
     EmulationRewriter &rewriter;
-    DesignInfo &designinfo;
+    DesignHierarchy &designinfo;
     EmulationDatabase &database;
     FfMemInfoExtractor extractor;
 
@@ -129,6 +129,8 @@ public:
     }
 
     void run();
+    void report_ff();
+    void report_mem();
 
 };
 
@@ -578,10 +580,97 @@ void ScanchainWorker::run()
     }
 }
 
+void ScanchainWorker::report_ff() {
+    pool<Module *> visited;
+    std::vector<Module *> stack;
+    int total_width = 0;
+
+    stack.push_back(rewriter.target());
+
+    while (!stack.empty()) {
+        Module *module = stack.back();
+
+        if (visited.count(module) == 0) {
+            for (auto cell : module->cells().to_vector()) {
+                if (RTLIL::builtin_ff_cell_types().count(cell->type) == 0)
+                    continue;
+                total_width += GetSize(cell->getPort(ID::Q));
+            }
+            visited.insert(module);
+        }
+
+        bool found = false;
+
+        for (Module *child : designinfo.children_of(module)) {
+            if (visited.count(child) == 0) {
+                stack.push_back(child);
+                found = true;
+                break;
+            }
+        }
+
+        if (!found)
+            stack.pop_back();
+    }
+    log("  total_width = %d\n", total_width);
+}
+
+void ScanchainWorker::report_mem() {
+    pool<Module *> visited;
+    std::vector<Module *> stack;
+
+    stack.push_back(rewriter.target());
+
+    while (!stack.empty()) {
+        Module *module = stack.back();
+
+        if (visited.count(module) == 0) {
+            for (auto &mem : Mem::get_all_memories(module)) {
+                int sync_rd = 0, async_rd = 0;
+                for (auto &rd : mem.rd_ports) {
+                    if (rd.clk_enable)
+                        sync_rd++;
+                    else
+                        async_rd++;
+                }
+                log("  %s:\n", designinfo.flat_name_of(mem.memid, module).c_str());
+                log("    width = %d\n", mem.width);
+                log("    depth = %d\n", mem.size);
+                log("    sync_rd = %d\n", sync_rd);
+                log("    async_rd = %d\n", async_rd);
+                log("    wr = %d\n", GetSize(mem.wr_ports));
+            }
+            visited.insert(module);
+        }
+
+        bool found = false;
+
+        for (Module *child : designinfo.children_of(module)) {
+            if (visited.count(child) == 0) {
+                stack.push_back(child);
+                found = true;
+                break;
+            }
+        }
+
+        if (!found)
+            stack.pop_back();
+    }
+}
+
 PRIVATE_NAMESPACE_END
 
 void InsertScanchain::execute(EmulationDatabase &database, EmulationRewriter &rewriter) {
     log_header(rewriter.design().design(), "Executing InsertScanchain.\n");
     ScanchainWorker worker(database, rewriter);
+
+    log("=== Report FF before instrumentation ===\n");
+    worker.report_ff();
+    log("=== Report memory ===\n");
+    worker.report_mem();
+
     worker.run();
+
+    log("=== Report FF after instrumentation ===\n");
+    worker.report_ff();
 }

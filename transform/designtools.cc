@@ -14,23 +14,13 @@ using namespace Emu;
 
 USING_YOSYS_NAMESPACE
 
-void DesignInfo::setup(Design *design) {
+void DesignHierarchy::setup(Design *design) {
 
     design_ = design;
     top_ = design->top_module();
 
     inst_dict.clear();
     children_dict.clear();
-
-    ct.clear();
-    ct.setup();
-    sigmap.clear();
-    signal_consumers.clear();
-    signal_drivers.clear();
-
-    comb_cell_types.clear();
-    comb_cell_types.setup_internals();
-    comb_cell_types.setup_stdcells();
 
     std::queue<Module *> worklist;
 
@@ -54,16 +44,48 @@ void DesignInfo::setup(Design *design) {
     }
 
     inst_dict[top_] = nullptr;
+}
+
+DesignHierarchy::Path DesignHierarchy::path_of(Module *mod, Module *scope) const {
+    Path res, stack;
+
+    while (mod != scope) {
+        stack.push_back(mod);
+        Cell *cell = inst_dict.at(mod);
+        if (!cell) break;
+        mod = cell->module;
+    }
+
+    res.insert(res.end(), stack.rbegin(), stack.rend());
+
+    return res;
+}
+
+void DesignConnectivity::setup()
+{
+    Design *design = hier.design();
+
+    ct.clear();
+    ct.setup();
+    sigmap.clear();
+    signal_consumers.clear();
+    signal_drivers.clear();
+
+    comb_cell_types.clear();
+    comb_cell_types.setup_internals();
+    comb_cell_types.setup_stdcells();
+
+    std::queue<Module *> worklist;
 
     // Add wire connections to sigmap
 
-    worklist.push(top_);
+    worklist.push(hier.top());
 
     while (!worklist.empty()) {
         Module *module = worklist.front();
         worklist.pop();
 
-        for (Module *child : children_dict.at(module))
+        for (Module *child : hier.children_of(module))
             worklist.push(child);
 
         for (auto &conn : module->connections())
@@ -82,7 +104,7 @@ void DesignInfo::setup(Design *design) {
 
                     if (tpl_wire->port_input && tpl_wire->port_output)
                         log_error("inout port %s is currently unsupported\n",
-                            flat_name_of(tpl_wire).c_str()
+                            hier.flat_name_of(tpl_wire).c_str()
                         );
 
                     if (tpl_wire->port_input) {
@@ -102,13 +124,13 @@ void DesignInfo::setup(Design *design) {
 
     // Add port connections to driver & consumer dict
 
-    worklist.push(top_);
+    worklist.push(hier.top());
 
     while (!worklist.empty()) {
         Module *module = worklist.front();
         worklist.pop();
 
-        for (Module *child : children_dict.at(module))
+        for (Module *child : hier.children_of(module))
             worklist.push(child);
 
         for (Cell *cell : module->cells()) {
@@ -134,10 +156,10 @@ void DesignInfo::setup(Design *design) {
 
     for (auto &it : signal_drivers) {
         if (it.second.size() > 1) {
-            log("Multiple drivers found for signal %s:\n", flat_name_of(it.first).c_str());
+            log("Multiple drivers found for signal %s:\n", hier.flat_name_of(it.first).c_str());
             for (auto &driver : it.second) {
                 log("    %s.%s[%d]\n",
-                    flat_name_of(driver.cell).c_str(),
+                    hier.flat_name_of(driver.cell).c_str(),
                     log_id(driver.port),
                     driver.offset);
             }
@@ -146,22 +168,7 @@ void DesignInfo::setup(Design *design) {
     }
 }
 
-DesignInfo::Path DesignInfo::path_of(Module *mod, Module *scope) const {
-    Path res, stack;
-
-    while (mod != scope) {
-        stack.push_back(mod);
-        Cell *cell = inst_dict.at(mod);
-        if (!cell) break;
-        mod = cell->module;
-    }
-
-    res.insert(res.end(), stack.rbegin(), stack.rend());
-
-    return res;
-}
-
-pool<SigBit> DesignInfo::find_dependencies(const pool<SigBit> &target, const pool<SigBit> *candidate) {
+pool<SigBit> DesignConnectivity::find_dependencies(const pool<SigBit> &target, const pool<SigBit> *candidate) {
     pool<SigBit> result;
     pool<SigBit> visited;
     dict<SigBit, SigBit> candidate_map; // mapped -> original
@@ -343,7 +350,8 @@ struct DtFindDriverPass : public Pass {
         extra_args(args, 1, design);
         log_header(design, "Executing DT_FIND_DRIVER pass.\n");
 
-        DesignInfo info(design);
+        DesignHierarchy info(design);
+        DesignConnectivity conn(info);
 
         pool<SigBit> selection;
         for (Module *module : design->selected_modules())
@@ -353,7 +361,7 @@ struct DtFindDriverPass : public Pass {
 
         for (SigBit &bit : selection) {
             log("Drivers of %s:\n", info.flat_name_of(bit).c_str());
-            auto portbits = info.get_drivers(bit);
+            auto portbits = conn.get_drivers(bit);
             for (auto &portbit : portbits) {
                 log("  - %s.%s[%d]\n", info.flat_name_of(portbit.cell).c_str(), log_id(portbit.port), portbit.offset);
             }
@@ -369,7 +377,8 @@ struct DtFindConsumerPass : public Pass {
         extra_args(args, 1, design);
         log_header(design, "Executing DT_FIND_CONSUMER pass.\n");
 
-        DesignInfo info(design);
+        DesignHierarchy info(design);
+        DesignConnectivity conn(info);
 
         pool<SigBit> selection;
         for (Module *module : design->selected_modules())
@@ -379,7 +388,7 @@ struct DtFindConsumerPass : public Pass {
 
         for (SigBit &bit : selection) {
             log("Consumers of %s:\n", info.flat_name_of(bit).c_str());
-            auto portbits = info.get_consumers(bit);
+            auto portbits = conn.get_consumers(bit);
             for (auto &portbit : portbits) {
                 log("  - %s.%s[%d]\n", info.flat_name_of(portbit.cell).c_str(), log_id(portbit.port), portbit.offset);
             }
@@ -395,7 +404,8 @@ struct DtFindDependencyPass : public Pass {
         extra_args(args, 1, design);
         log_header(design, "Executing DT_FIND_DEPENDENCY pass.\n");
 
-        DesignInfo info(design);
+        DesignHierarchy info(design);
+        DesignConnectivity conn(info);
 
         pool<SigBit> selection;
         for (Module *module : design->selected_modules())
@@ -405,7 +415,7 @@ struct DtFindDependencyPass : public Pass {
 
         for (SigBit &bit : selection) {
             log("Dependencies of %s:\n", info.flat_name_of(bit).c_str());
-            auto deps = info.find_dependencies({bit});
+            auto deps = conn.find_dependencies({bit});
             for (auto &dep : deps) {
                 log("  - %s\n", info.flat_name_of(dep).c_str());
             }

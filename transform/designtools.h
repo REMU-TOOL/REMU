@@ -14,33 +14,11 @@ USING_YOSYS_NAMESPACE
 
 // Hierarchy representation for a uniquified design
 
-class DesignInfo {
+class DesignHierarchy {
 
 public:
 
     using Path = std::vector<Module *>;
-
-    struct PortBit {
-        Cell *cell;
-        IdString port;
-        int offset;
-
-        bool operator<(const PortBit &other) const {
-            if (cell != other.cell)
-                return cell < other.cell;
-            if (port != other.port)
-                return port < other.port;
-            return offset < other.offset;
-        }
-
-        bool operator==(const PortBit &other) const {
-            return cell == other.cell && port == other.port && offset == other.offset;
-        }
-
-        unsigned int hash() const {
-            return mkhash_add(mkhash(cell->name.hash(), port.hash()), offset);
-        }
-    };
 
 private:
 
@@ -48,13 +26,6 @@ private:
     Module *top_;
     dict<Module *, Cell *> inst_dict;
     dict<Module *, pool<Module *>> children_dict;
-
-    CellTypes ct;
-    SigMap sigmap;
-    dict<SigBit, pool<PortBit>> signal_drivers;
-    dict<SigBit, pool<PortBit>> signal_consumers;
-
-    CellTypes comb_cell_types;
 
 public:
 
@@ -226,6 +197,60 @@ public:
             check_hier_attr(attr, obj->module);
     }
 
+    DesignHierarchy() : design_(nullptr), top_(nullptr) {}
+
+    DesignHierarchy(Design *design) {
+        setup(design);
+    }
+
+};
+
+class DesignConnectivity {
+
+public:
+
+    struct PortBit {
+        Cell *cell;
+        IdString port;
+        int offset;
+
+        bool operator<(const PortBit &other) const {
+            if (cell != other.cell)
+                return cell < other.cell;
+            if (port != other.port)
+                return port < other.port;
+            return offset < other.offset;
+        }
+
+        bool operator==(const PortBit &other) const {
+            return cell == other.cell && port == other.port && offset == other.offset;
+        }
+
+        unsigned int hash() const {
+            return mkhash_add(mkhash(cell->name.hash(), port.hash()), offset);
+        }
+    };
+
+private:
+
+    DesignHierarchy &hier;
+
+    CellTypes ct;
+    SigMap sigmap;
+    dict<SigBit, pool<PortBit>> signal_drivers;
+    dict<SigBit, pool<PortBit>> signal_consumers;
+
+    CellTypes comb_cell_types;
+
+    void setup();
+
+public:
+
+    DesignConnectivity(DesignHierarchy &hier) : hier(hier)
+    {
+        setup();
+    }
+
     pool<PortBit> get_drivers(SigBit bit) const {
         sigmap.apply(bit);
         if (signal_drivers.count(bit) > 0)
@@ -245,21 +270,15 @@ public:
     // Find signals in candidate (if not empty) list combinationally depended on by target list
     pool<SigBit> find_dependencies(const pool<SigBit> &target, const pool<SigBit> *candidate = nullptr);
 
-    DesignInfo() : design_(nullptr), top_(nullptr) {}
-
-    DesignInfo(Design *design) {
-        setup(design);
-    }
-
 };
 
 // Hierarchical connection builder
 
 struct HierconnBuilder {
-    DesignInfo &designinfo;
+    DesignHierarchy &designinfo;
     void connect(Wire *lhs, Wire *rhs, std::string suggest_name = "");
     void connect(const SigSpec &lhs, const SigSpec &rhs, std::string suggest_name = "");
-    HierconnBuilder(DesignInfo &info) : designinfo(info) {}
+    HierconnBuilder(DesignHierarchy &info) : designinfo(info) {}
 };
 
 } // namespace Emu

@@ -620,9 +620,8 @@ struct MemoryDffWorker
         database.mem_sr_addr.insert({mem.cell, idx});
     }
 
-    void run()
+    void run(std::vector<Mem> &memories)
     {
-        std::vector<Mem> memories = Mem::get_all_memories(module);
         for (auto &mem : memories) {
             QuickConeSat qcsat(modwalker);
             for (int i = 0; i < GetSize(mem.rd_ports); i++) {
@@ -646,7 +645,13 @@ void IdentifySyncReadMem::execute(EmulationDatabase &database, EmulationRewriter
     Design *design = designinfo.design();
     log_header(design, "Executing IdentifySyncReadMem.\n");
     for (auto mod : design->modules()) {
+        std::vector<Mem> memories = Mem::get_all_memories(mod);
+        if (memories.empty()) {
+            log("Skipping module without memory %s\n", log_id(mod));
+            continue;
+        }
+        log("Processing module %s\n", log_id(mod));
         MemoryDffWorker worker(mod, database);
-        worker.run();
+        worker.run(memories);
     }
 }

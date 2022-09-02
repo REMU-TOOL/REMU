@@ -12,7 +12,7 @@ USING_YOSYS_NAMESPACE
 struct ExportInterfaceWorker {
 
     EmulationDatabase &database;
-    DesignInfo designinfo;
+    DesignHierarchy designinfo;
     HierconnBuilder hierconn;
 
     void process_module(Module *module);

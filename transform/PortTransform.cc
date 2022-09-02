@@ -38,7 +38,7 @@ struct PortWorker {
 
     EmulationDatabase &database;
     EmulationRewriter &rewriter;
-    DesignInfo &designinfo;
+    DesignHierarchy &designinfo;
     HierconnBuilder hierconn;
 
     void process_user_sigs(Module *module);

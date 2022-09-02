@@ -77,7 +77,7 @@ struct EmuTransformPass : public Pass {
 
         Pass::call(design, "emu_preserve_top");
         Pass::call(design, "proc");
-        Pass::call(design, "opt");
+        Pass::call(design, "emu_fast_opt");
         Pass::call(design, "check");
         Pass::call(design, "rename -src");
 
@@ -93,6 +93,8 @@ struct EmuTransformPass : public Pass {
 
         std::string share_dirname = proc_share_dirname() + "../recheck/";
 
+        Pass::call(design, "setattr -mod -set _EMU_EXISTING 1");
+
         Pass::call(design, {
             "read_verilog",
             "-noautowire",
@@ -103,10 +105,17 @@ struct EmuTransformPass : public Pass {
         });
 
         Pass::call(design, "hierarchy -purge_lib");
+        Pass::call(design, "select A:_EMU_EXISTING %n");
         Pass::call(design, "proc");
-        Pass::call(design, "opt");
+        Pass::call(design, "opt -fast");
+        Pass::call(design, "select -clear");
+
+        Pass::call(design, "setattr -mod -unset _EMU_EXISTING");
+
         Pass::call(design, "memory_collect");
-        Pass::call(design, "memory_share -nowiden");
+        Pass::call(design, "memory_share -nosat -nowiden");
+        Pass::call(design, "emu_opt_shallow_memory");
+        Pass::call(design, "opt_clean");
 
         Pass::call(design, "emu_check");
         Pass::call(design, "uniquify");
@@ -119,6 +128,8 @@ struct EmuTransformPass : public Pass {
         log_header(design, "Executing post-transform integration.\n");
         log_push();
 
+        Pass::call(design, "setattr -mod -set _EMU_EXISTING 1");
+
         std::string share_dirname = proc_share_dirname() + "../recheck/";
 
         Pass::call(design, {
@@ -130,8 +141,12 @@ struct EmuTransformPass : public Pass {
         });
 
         Pass::call(design, "hierarchy");
+        Pass::call(design, "select A:_EMU_EXISTING %n");
         Pass::call(design, "proc");
-        Pass::call(design, "opt");
+        Pass::call(design, "opt -fast");
+        Pass::call(design, "select -clear");
+
+        Pass::call(design, "setattr -mod -unset _EMU_EXISTING");
 
         log_pop();
     }
@@ -140,8 +155,11 @@ struct EmuTransformPass : public Pass {
         log_header(design, "Executing final cleanup.\n");
         log_push();
 
-        Pass::call(design, "opt -full");
+        Pass::call(design, "select */t:$mem* %m");
+        Pass::call(design, "opt -fast -full");
         Pass::call(design, "submod");
+        Pass::call(design, "select -clear");
+        Pass::call(design, "opt_clean");
         Pass::call(design, "uniquify");
         Pass::call(design, "hierarchy");
         Pass::call(design, "emu_remove_keep");
