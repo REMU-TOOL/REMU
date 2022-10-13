@@ -156,12 +156,10 @@ struct EmuTransformPass : public Pass {
         log_push();
 
         Pass::call(design, "select */t:$mem* %m");
-        Pass::call(design, "opt -fast -full");
+        Pass::call(design, "opt -full");
         Pass::call(design, "submod");
         Pass::call(design, "select -clear");
         Pass::call(design, "opt_clean");
-        Pass::call(design, "uniquify");
-        Pass::call(design, "hierarchy");
         Pass::call(design, "emu_remove_keep");
 
         log_pop();
