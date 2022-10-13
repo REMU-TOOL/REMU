@@ -306,7 +306,7 @@ void RTLModelWorker::analyze_module(Module *module) {
 void RTLModelWorker::emit() {
     Module *wrapper = rewriter.wrapper();
 
-    SigSpec finishing;
+    SigSpec finishing = State::S1;
 
     // TODO: handle combinationally connected channels
     for (auto &it : rtl_channel_deps) {
