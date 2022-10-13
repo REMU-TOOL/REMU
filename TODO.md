@@ -2,8 +2,7 @@
 
 ## Transformation
 
-- Identify non-EmuClock clock signals
-- Flexible trigger count (currently max. 32)
+- Support user-generated clock signals
 - Auto-assign address ranges for emulator AXI interfaces
 - Variable scan chain width
 - Handle "little-endian" wires in Verilog (MSB < LSB)
@@ -12,7 +11,6 @@
 
 - Clean dont-care bits in AXI response for determinism
 - Optimize checkpointing of RAM model contents
-- WRAP transfer support
 - Error signaling check
     - Address out of range (return DECERR)
     - Address cross 4KB boundary (signal a trigger)
@@ -27,3 +25,4 @@
 
 - Load init data in emulation
 - Remove the cycle counter which can be implemented in DUT if needed
+- 4KB boundary check in simple DMA
