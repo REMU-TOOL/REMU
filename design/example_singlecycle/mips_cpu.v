@@ -185,7 +185,7 @@ module mips_cpu(
     assign rf_rdata1 = (rf_raddr1 == 0 ? 0 : regs[rf_raddr1]);
     assign rf_rdata2 = (rf_raddr2 == 0 ? 0 : regs[rf_raddr2]);
 
-    always @(posedge clk) if (rf_wen) regs[waddr] <= rf_wdata;
+    always @(posedge clk) if (rf_wen) regs[rf_waddr] <= rf_wdata;
     assign RF_wen = rf_wen;
     assign RF_waddr = rf_waddr;
     assign RF_wdata = rf_wdata;
