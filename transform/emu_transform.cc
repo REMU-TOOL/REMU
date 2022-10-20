@@ -161,6 +161,8 @@ struct EmuTransformPass : public Pass {
         Pass::call(design, "select -clear");
         Pass::call(design, "opt_clean");
         Pass::call(design, "emu_remove_keep");
+        Pass::call(design, "uniquify");
+        Pass::call(design, "hierarchy");
 
         log_pop();
     }
