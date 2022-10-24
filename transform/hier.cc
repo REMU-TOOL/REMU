@@ -4,7 +4,7 @@
 
 USING_YOSYS_NAMESPACE
 
-using namespace Emu;
+using namespace Emu::Hier;
 
 void Hierarchy::addModule(Module *module) {
     log_assert(node_map.count(module->name) == 0);
@@ -27,8 +27,13 @@ void Hierarchy::addInst(Cell *inst) {
     it->from    = node_map.at(from_module->name);
     it->to      = node_map.at(to_module->name);
     it->index   = it - edges.begin();
+    it->next    = -1;
 
-    nodes.at(it->from).out.push_back(it->index);
+    auto &out_edges = nodes.at(it->from).out;
+    if (!out_edges.empty())
+        edges.at(out_edges.back()).next = it->index;
+    out_edges.push_back(it->index);
+
     nodes.at(it->to).in.push_back(it->index);
 }
 
@@ -49,19 +54,10 @@ Hierarchy::Hierarchy(Design *design) {
                 addInst(cell);
 
     Module *top = design->top_module();
-    if (top) root = node_map.at(top->name);
-}
+    if (!top)
+        log_error("No top module found\n");
 
-Hierarchy::Range<Hierarchy::Node> Hierarchy::topoSort()
-{
-    TopoSort<int> topo;
-    for (auto &node : nodes)
-        topo.node(node.index);
-    for (auto &edge : edges)
-        topo.edge(edge.to, edge.from);
-    if (!topo.sort())
-        log_error("Circular module instantiation detected\n");
-    return Hierarchy::RangeWithListStorage<Hierarchy::Node>(topo.sorted, &nodes);
+    root = node_map.at(top->name);
 }
 
 PRIVATE_NAMESPACE_BEGIN
@@ -74,7 +70,6 @@ struct EmuTestHierarchy : public Pass {
         log_header(design, "Executing EMU_TEST_HIERARCHY pass.\n");
 
         Hierarchy hier(design);
-        log("root: %d\n", hier.root);
 
         for (auto node : hier.nodes) {
             log("node %d:\n", node.index);
@@ -92,9 +87,19 @@ struct EmuTestHierarchy : public Pass {
         for (auto edge : hier.edges) {
             auto &f = edge.fromNode();
             auto &t = edge.toNode();
-            log("edge %d: %d(%s) -> %d(%s)\n", edge.index,
+            log("edge %d(%s): %d(%s) -> %d(%s) next=%d\n", edge.index,
+                edge.name.c_str(),
                 f.index, f.name.c_str(),
-                t.index, t.name.c_str());
+                t.index, t.name.c_str(),
+                edge.next);
+        }
+
+        int path_count = 0;
+        for (auto path : hier.traverse()) {
+            log("path %d:", path_count++);
+            for (auto e : path)
+                log(" %s", e->name.c_str());
+            log("\n");
         }
     }
 } EmuTestHierarchy;

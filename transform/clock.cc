@@ -192,7 +192,7 @@ struct EmuTestAnalyzeClock : public Pass {
         extra_args(args, 1, design);
         log_header(design, "Executing EMU_TEST_ANALYZE_CLOCK pass.\n");
 
-        Hierarchy hier(design);
+        Hier::Hierarchy hier(design);
         ClockTreeAnalyzer analyzer(design, hier);
         analyzer.analyze();
 
