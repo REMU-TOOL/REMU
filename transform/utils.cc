@@ -1,5 +1,6 @@
+#include "escape.h"
 #include "emu.h"
-#include <cctype>
+#include <sstream>
 
 USING_YOSYS_NAMESPACE
 
@@ -30,6 +31,60 @@ std::string simple_hier_name(const std::vector<std::string> &hier) {
         os << name;
     }
     return os.str();
+}
+
+std::string pretty_name(IdString id) {
+    return Escape::escape_verilog_id(id[0] == '\\' ? id.substr(1) : id.str());
+}
+
+std::string pretty_name(SigBit bit) {
+    if (bit.is_wire()) {
+        std::ostringstream ss;
+        ss << pretty_name(bit.wire);
+        if (bit.wire->width != 1)
+            ss << stringf("[%d]", bit.wire->start_offset + bit.offset);
+        return ss.str();
+    }
+    else
+        return Const(bit.data).as_string();
+}
+
+std::string pretty_name(SigChunk chunk) {
+    if (chunk.is_wire()) {
+        std::ostringstream ss;
+        ss << pretty_name(chunk.wire);
+        if (chunk.size() != chunk.wire->width) {
+            if (chunk.size() == 1)
+                ss << stringf("[%d]", chunk.wire->start_offset + chunk.offset);
+            else if (chunk.wire->upto)
+                ss << stringf("[%d:%d]", (chunk.wire->width - (chunk.offset + chunk.width - 1) - 1) + chunk.wire->start_offset,
+                        (chunk.wire->width - chunk.offset - 1) + chunk.wire->start_offset);
+            else
+                ss << stringf("[%d:%d]", chunk.wire->start_offset + chunk.offset + chunk.width - 1,
+                        chunk.wire->start_offset + chunk.offset);
+        }
+        return ss.str();
+    }
+    else
+        return Const(chunk.data).as_string();
+}
+
+std::string pretty_name(SigSpec spec) {
+    auto &chunks = spec.chunks();
+    if (chunks.size() == 1)
+        return pretty_name(chunks.at(0));
+    std::ostringstream ss;
+    ss << "{";
+    bool first = true;
+    for (auto it = chunks.rbegin(), ie = chunks.rend(); it != ie; ++it) {
+        if (first)
+            first = false;
+        else
+            ss << ", ";
+        ss << pretty_name(*it);
+    }
+    ss << "}";
+    return ss.str();
 }
 
 #if 0
