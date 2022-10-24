@@ -96,6 +96,18 @@ struct Hierarchy
     // traverse the hierarchy in post-order
     TraverseRange traverse() { return &this->rootNode(); }
 
+    struct SortRange {
+        std::vector<Node> *vector_p;
+        std::vector<int> sorted;
+        Iterator<Node, IndirectIteratorOps<Node>> begin() { return IndirectIteratorOps<Node>(vector_p, sorted.begin()); }
+        Iterator<Node, IndirectIteratorOps<Node>> end() { return IndirectIteratorOps<Node>(vector_p, sorted.end()); }
+        SortRange(decltype(vector_p) vector_p, decltype(sorted) &&sorted)
+            : vector_p(vector_p), sorted(sorted) {}
+    };
+
+    // sort all nodes from leaves to root
+    SortRange sort();
+
     Hierarchy(Yosys::Design *design);
 };
 

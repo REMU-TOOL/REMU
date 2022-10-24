@@ -60,6 +60,17 @@ Hierarchy::Hierarchy(Design *design) {
     root = node_map.at(top->name);
 }
 
+Hierarchy::SortRange Hierarchy::sort() {
+    TopoSort<int> topo;
+    for (auto &n : nodes)
+        topo.node(n.index);
+    for (auto &e : edges)
+        topo.edge(e.to, e.from);
+    if (!topo.sort())
+        log_error("Circular module instantiation detected\n");
+    return Hierarchy::SortRange(&nodes, std::move(topo.sorted));
+}
+
 PRIVATE_NAMESPACE_BEGIN
 
 struct EmuTestHierarchy : public Pass {
@@ -71,7 +82,7 @@ struct EmuTestHierarchy : public Pass {
 
         Hierarchy hier(design);
 
-        for (auto node : hier.nodes) {
+        for (auto &node : hier.nodes) {
             log("node %d:\n", node.index);
             log("  name: %s\n", node.name.c_str());
             log("  in:");
@@ -84,7 +95,7 @@ struct EmuTestHierarchy : public Pass {
             log("\n");
         }
 
-        for (auto edge : hier.edges) {
+        for (auto &edge : hier.edges) {
             auto &f = edge.fromNode();
             auto &t = edge.toNode();
             log("edge %d(%s): %d(%s) -> %d(%s) next=%d\n", edge.index,
@@ -101,6 +112,12 @@ struct EmuTestHierarchy : public Pass {
                 log(" %s", e->name.c_str());
             log("\n");
         }
+
+        log("sorted:\n");
+        for (auto &node : hier.sort()) {
+            log("  %s\n", node.name.c_str());
+        }
+        log("\n");
     }
 } EmuTestHierarchy;
 
