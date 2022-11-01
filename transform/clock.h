@@ -11,7 +11,7 @@ namespace Emu {
 struct ClockTreeAnalyzer
 {
     Yosys::Design *design;
-    Hier::Hierarchy &hier;
+    Hierarchy &hier;
     Yosys::ModWalkerCache modwalkers;
 
     Yosys::dict<Yosys::Module*, Yosys::pool<Yosys::SigBit>> clock_signals; // sigmapped
@@ -27,7 +27,7 @@ struct ClockTreeAnalyzer
         analyze_clock_propagation();
     }
 
-    ClockTreeAnalyzer(Yosys::Design *design, Hier::Hierarchy &hier) : design(design), hier(hier) {}
+    ClockTreeAnalyzer(Yosys::Design *design, Hierarchy &hier) : design(design), hier(hier) {}
 };
 
 };

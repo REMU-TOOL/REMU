@@ -2,13 +2,10 @@
 #define _DATABASE_H_
 
 #include "kernel/yosys.h"
-#include "designtools.h"
 
 #include "circuit_info.h"
 
 namespace Emu {
-
-USING_YOSYS_NAMESPACE
 
 struct FfInfoChunk {
     std::vector<std::string> wire_name;
@@ -22,7 +19,7 @@ struct FfInfoChunk {
 
 struct FfInfo {
     std::vector<FfInfoChunk> info;
-    Const initval;
+    Yosys::Const initval;
 };
 
 struct MemInfo {
@@ -33,57 +30,74 @@ struct MemInfo {
     int mem_depth;          // redundant, kept for write_* use
     int mem_start_offset;   // redundant, kept for write_* use
     bool is_src;
-    Const init_data;
+    Yosys::Const init_data;
 };
 
-struct ClockInfo {
+struct InfoWithScope {
+    std::vector<Yosys::IdString> scope; // reversed path
+};
+
+template<typename T>
+struct InfoWithName {
+    T orig_name;
+    T port_name;
+};
+
+struct SinglePortBaseInfo : public InfoWithScope, public InfoWithName<Yosys::IdString> {};
+struct GroupPortBaseInfo : public InfoWithScope, public InfoWithName<std::string> {};
+
+struct PortInfo : public SinglePortBaseInfo {
+    std::vector<Yosys::IdString> scope; // reversed path
+    Yosys::IdString orig_name;
+    Yosys::IdString port_name;
+};
+
+struct ClockInfo : public SinglePortBaseInfo {
     // TODO: frequency, phase, etc.
-    std::vector<std::string> name;
-    std::string top_name;
-    std::string ff_clk;
-    std::string ram_clk;
+    Yosys::IdString ff_clk;
+    Yosys::IdString ram_clk;
 };
 
-struct ResetInfo {
+struct ResetInfo : public SinglePortBaseInfo {
     // TODO: duration, etc.
-    std::vector<std::string> name;
-    std::string top_name;
-    int index = -1;
 };
 
-struct TrigInfo {
-    std::vector<std::string> name;
-    std::string top_name;
+struct TrigInfo : public SinglePortBaseInfo {
     std::string desc;
-    int index = -1;
 };
 
-struct FifoPortInfo {
-    std::vector<std::string> name;
-    std::string top_name;
-    std::string type;
-    std::string port_enable;
-    std::string port_data;
-    std::string port_flag;
+struct FifoPortInfo : public GroupPortBaseInfo {
+    std::vector<Yosys::IdString> scope; // reversed path
+    std::string name;
+    enum {SOURCE, SINK} type;
     int width = 0;
-    int index = -1;
 };
 
-struct ModelModuleInfo {
+struct ChannelInfo : public GroupPortBaseInfo {
+    std::vector<Yosys::IdString> scope; // reversed path
+    std::string name;
+    enum {IN, OUT} dir;
+    std::vector<std::string> deps;
+    Yosys::IdString valid;
+    Yosys::IdString ready;
+    std::vector<Yosys::IdString> payloads;
+};
+
+struct ModelInfo {
     std::vector<std::string> name;
-    std::string module_name;
+    std::string type;
 };
 
-struct EmulationDatabase {
+struct EmulationDatabase
+{
+    Yosys::IdString top;
 
-    // written by PortTransform, ClockTransform, PlatformTransform
-    std::vector<ClockInfo> user_clocks;
-    std::vector<ResetInfo> user_resets;
-    std::vector<TrigInfo> user_trigs;
-    std::vector<FifoPortInfo> fifo_ports;
-
-    // written by TargetTransform
-    std::vector<ModelModuleInfo> model_mods;
+    Yosys::dict<Yosys::IdString, std::vector<ClockInfo>> user_clocks;
+    Yosys::dict<Yosys::IdString, std::vector<ResetInfo>> user_resets;
+    Yosys::dict<Yosys::IdString, std::vector<TrigInfo>> user_trigs;
+    Yosys::dict<Yosys::IdString, std::vector<FifoPortInfo>> fifo_ports;
+    Yosys::dict<Yosys::IdString, std::vector<ChannelInfo>> channels;
+    Yosys::dict<Yosys::IdString, std::vector<ModelInfo>> models;
 
     // written by InsertScanchain
     int ff_width;
@@ -93,17 +107,17 @@ struct EmulationDatabase {
     std::vector<MemInfo> scanchain_ram;
 
     // written by IdentifySyncReadMem to tag sync read ports (mem, rd_index)
-    pool<std::pair<Cell *, int>> mem_sr_addr;
-    pool<std::pair<Cell *, int>> mem_sr_data;
+    Yosys::pool<std::pair<Yosys::Cell *, int>> mem_sr_addr;
+    Yosys::pool<std::pair<Yosys::Cell *, int>> mem_sr_data;
 
     void write_init(std::string init_file);
     void write_yaml(std::string yaml_file);
     void write_loader(std::string loader_file);
 
     EmulationDatabase() : ff_width(0), ram_width(0) {}
-
 };
 
+#if 0
 class FfMemInfoExtractor {
 
     DesignHierarchy &design;
@@ -122,6 +136,7 @@ public:
     }
 
 };
+#endif
 
 } // namespace Emu
 

@@ -1,14 +1,13 @@
 #include "kernel/yosys.h"
 
-#include "emu.h"
-#include "transform.h"
-#include "interface.h"
+#include "database.h"
 
 using namespace Emu;
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+#if 0
 struct TransformHelper {
 
     EmulationDatabase &database;
@@ -23,6 +22,7 @@ struct TransformHelper {
         : database(database), rewriter(rewriter) {}
 
 };
+#endif
 
 struct EmuTransformPass : public Pass {
     EmuTransformPass() : Pass("emu_transform", "perform emulation transformation") { }
@@ -216,6 +216,7 @@ struct EmuTransformPass : public Pass {
 
         EmulationDatabase database;
 
+#if 0
         EmulationRewriter rewriter(design);
         rewriter.setup_wires(ff_width, ram_width);
 
@@ -233,6 +234,7 @@ struct EmuTransformPass : public Pass {
 
         ExportInterfaceWorker intf_worker(database, design);
         intf_worker.run();
+#endif
 
         final_cleanup(design);
 

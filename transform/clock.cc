@@ -2,9 +2,9 @@
 #include "kernel/ff.h"
 #include "kernel/mem.h"
 
-#include "emu.h"
 #include "attr.h"
 #include "clock.h"
+#include "utils.h"
 
 USING_YOSYS_NAMESPACE
 
@@ -124,8 +124,8 @@ void ClockTreeAnalyzer::analyze_clock_propagation()
             // identify signals by submodule ports
 
             for (auto &out : hier_node.outEdges()) {
-                Cell *inst = module->cell(out.name);
-                Module *submodule = design->module(out.toNode().name);
+                Cell *inst = module->cell(out.data);
+                Module *submodule = design->module(out.toNode().data);
 
                 for (SigBit s_b : clock_ports[submodule]) {
                     SigBit b = inst->getPort(s_b.wire->name)[s_b.offset];
@@ -150,13 +150,13 @@ void ClockTreeAnalyzer::analyze_clock_propagation()
 
             if (ports_changed)
                 for (auto &in : hier_node.inEdges())
-                    changed_list.insert(design->module(in.fromNode().name));
+                    changed_list.insert(design->module(in.fromNode().data));
 
             // identify submodule ports by signals
 
             for (auto &out : hier_node.outEdges()) {
-                Cell *inst = module->cell(out.name);
-                Module *submodule = design->module(out.toNode().name);
+                Cell *inst = module->cell(out.data);
+                Module *submodule = design->module(out.toNode().data);
                 bool submodule_ports_changed = false;
 
                 for (auto port : submodule->ports) {
@@ -192,7 +192,7 @@ struct EmuTestAnalyzeClock : public Pass {
         extra_args(args, 1, design);
         log_header(design, "Executing EMU_TEST_ANALYZE_CLOCK pass.\n");
 
-        Hier::Hierarchy hier(design);
+        Hierarchy hier(design);
         ClockTreeAnalyzer analyzer(design, hier);
         analyzer.analyze();
 

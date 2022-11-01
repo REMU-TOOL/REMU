@@ -47,6 +47,7 @@ std::string hier2flat(const std::vector<std::string> &hier) {
 
 PRIVATE_NAMESPACE_END
 
+#if 0
 void FfMemInfoExtractor::add_ff(const SigSpec &sig, const Const &initval) {
     FfInfo res;
     for (auto &chunk : sig.chunks()) {
@@ -93,6 +94,7 @@ void FfMemInfoExtractor::add_mem(const Mem &mem, int slices) {
         mem.start_offset
     ));
 }
+#endif
 
 void EmulationDatabase::write_init(std::string init_file) {
     std::ofstream f;
@@ -158,6 +160,7 @@ void EmulationDatabase::write_yaml(std::string yaml_file) {
 
     root["circuit"] = ci_root.to_yaml();
 
+#if 0
     for (auto &info : user_clocks) {
         YAML::Node node;
         node["name"] = info.name;
@@ -198,6 +201,7 @@ void EmulationDatabase::write_yaml(std::string yaml_file) {
         node["module_name"] = info.module_name;
         root["model_mods"].push_back(node);
     }
+#endif
 
     f << root;
     f.close();

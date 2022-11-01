@@ -1,5 +1,5 @@
 #include "escape.h"
-#include "emu.h"
+#include "utils.h"
 #include <sstream>
 
 USING_YOSYS_NAMESPACE
@@ -85,6 +85,17 @@ std::string pretty_name(SigSpec spec) {
     }
     ss << "}";
     return ss.str();
+}
+
+std::vector<std::string> split_string(std::string s, char delim) {
+    std::vector<std::string> result;
+    size_t start = 0, end = 0;
+    while ((end = s.find(delim, start)) != std::string::npos) {
+        result.push_back(s.substr(start, end));
+        start = end + 1;
+    }
+    result.push_back(s.substr(start));
+    return result;
 }
 
 #if 0

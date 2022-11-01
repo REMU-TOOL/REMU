@@ -2,10 +2,6 @@
 #include "kernel/ff.h"
 #include "kernel/mem.h"
 
-#include "emu.h"
-
-using namespace Emu;
-
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
