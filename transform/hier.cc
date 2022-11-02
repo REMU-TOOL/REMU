@@ -53,8 +53,21 @@ void Hierarchy::setup(Design *design)
             }
 
     decltype(dag)::DFSWorker sort_worker(&dag);
-    if (!sort_worker.sort(true))
-        log_error("circular module instantation found");
+    if (!sort_worker.sort(true)) {
+        log("Circular module instantation found (backtrace):\n");
+        auto &ns = sort_worker.node_stack;
+        auto &es = sort_worker.edge_stack;
+        for (size_t pos = 0; pos < ns.size(); pos++) {
+            int e = es.at(pos);
+            if (e >= 0) {
+                auto &edge = dag.edges.at(e);
+                log("  [C] %s\n", log_id(edge.name.second));
+            }
+            auto &node = dag.nodes.at(ns.at(pos));
+            log("  [M] %s\n", log_id(node.name));
+        }
+        log_error("Circular module instantation is not allowed\n");
+    }
 
     // setup tree
 
@@ -115,7 +128,7 @@ struct EmuTestHierarchy : public Pass {
         Hierarchy hier(design);
 
         for (auto &node : hier.dag.nodes) {
-            log("node %d:\n", node.index);
+            log("DAG node %d:\n", node.index);
             log("  name: %s\n", node.name.c_str());
             log("  in:");
             for (auto edge : node.inEdges())
@@ -130,21 +143,45 @@ struct EmuTestHierarchy : public Pass {
         for (auto &edge : hier.dag.edges) {
             auto &f = edge.fromNode();
             auto &t = edge.toNode();
-            log("edge %d(%s): %d(%s) -> %d(%s) next=%d\n", edge.index,
+            log("DAG edge %d(%s): %d(%s) -> %d(%s) next=%d\n", edge.index,
                 edge.name.second.c_str(),
                 f.index, f.name.c_str(),
                 t.index, t.name.c_str(),
                 edge.next);
         }
 
-        log("sorted:\n");
-        for (auto &node : hier.dag.topoSort(true)) {
+        log("DAG sorted:\n");
+        for (auto &node : hier.dag.topoSort()) {
             log("  %s\n", node.name.c_str());
         }
         log("\n");
 
+        for (auto &node : hier.tree.nodes) {
+            log("Tree node %d:\n", node.index);
+            log("  name: %s\n", node.name.c_str());
+            log("  in:");
+            for (auto edge : node.inEdges())
+                log(" %d(%s)", edge.index, edge.name.second.c_str());
+            log("\n");
+            log("  out:");
+            for (auto edge : node.outEdges())
+                log(" %d(%s)", edge.index, edge.name.second.c_str());
+            log("\n");
+        }
+
+        for (auto &edge : hier.tree.edges) {
+            auto &f = edge.fromNode();
+            auto &t = edge.toNode();
+            log("Tree edge %d(%s): %d(%s) -> %d(%s) next=%d\n", edge.index,
+                edge.name.second.c_str(),
+                f.index, f.name.c_str(),
+                t.index, t.name.c_str(),
+                edge.next);
+        }
+
+        log("Tree sorted:\n");
         int path_count = 0;
-        for (auto path : hier.tree.topoSort(true)) {
+        for (auto path : hier.tree.topoSort()) {
             log("path %d:", path_count++);
             for (auto name : path.data.hier)
                 log(" %s", name.c_str());

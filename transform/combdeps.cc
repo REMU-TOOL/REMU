@@ -72,16 +72,11 @@ void CombDeps::setup()
         log("Combinational logic loop found (backtrace):\n");
         auto &ns = worker.node_stack;
         auto nslen = ns.size();
-        size_t npos = nslen - 1;
-        int last = -1;
-        while (true) {
-            int n = ns.at(npos);
-            if (last < 0)
-                last = n;
-            else if (last == n)
-                break;
+        log_assert(nslen >= 2);
+        size_t npos = nslen - 2;
+        int last = ns.back();
+        while (ns.at(npos) != last)
             npos--;
-        }
         while (npos < nslen) {
             log("  [W] ");
             auto &data = signal_dag.nodes.at(ns.at(npos)).data;
@@ -90,7 +85,7 @@ void CombDeps::setup()
             log("%s[%d]\n", log_id(data.bit.name), data.bit.offset);
             npos++;
         }
-        log_error("Combinational logic loop detected\n");
+        log_error("Combinational logic loop is not allowed\n");
     }
 }
 

@@ -240,11 +240,9 @@ struct DAG
     struct DFSWorker
     {
         DAG *dag;
-        std::vector<bool> visiting, visited;
         std::vector<int> sorted;
         std::vector<int> node_stack, edge_stack;
 
-        bool enter(int node);
         bool sort(bool reversed);
 
         DFSWorker(DAG *dag) : dag(dag) {}
@@ -260,68 +258,55 @@ struct DAG
 };
 
 template<typename NT, typename ET, typename NKT, typename NMT, typename EKT, typename EMT>
-inline bool DAG<NT,ET,NKT,NMT,EKT,EMT>::DFSWorker::enter(int node)
-{
-    while (true) {
-        node_stack.push_back(node);
-
-        if (visited.at(node))
-            return true;
-
-        if (visiting.at(node))
-            return false;
-
-        visiting[node] = true;
-
-        int edge = dag->nodes.at(node).firstOut();
-        if (edge < 0)
-            break;
-
-        edge_stack.push_back(edge);
-        node = dag->edges.at(edge).to;
-    }
-
-    return true;
-}
-
-template<typename NT, typename ET, typename NKT, typename NMT, typename EKT, typename EMT>
 inline bool DAG<NT,ET,NKT,NMT,EKT,EMT>::DFSWorker::sort(bool reversed)
 {
+    // visiting.at(n) == node_stack contains n
+    std::vector<bool> visiting, visited;
     int n = dag->nodes.size();
     visiting.assign(n, false);
     visited.assign(n, false);
     sorted.clear();
     node_stack.clear();
     edge_stack.clear();
+    sorted.reserve(n);
 
     for (int root = 0; root < n; root++) {
         if (visited.at(root))
             continue;
 
-        if (!enter(root))
-            return false;
+        edge_stack.push_back(-1); // dummy edge
+        node_stack.push_back(root);
+        visiting[root] = true;
+        int edge = -1;
 
-        while (true) {
+        while (!node_stack.empty()) {
             int node = node_stack.back();
-            node_stack.pop_back();
 
-            // assert(node_stack.size() == edge_stack.size());
+            if (edge < 0)
+                edge = dag->nodes.at(node).firstOut();
+            else
+                edge = dag->edges.at(edge).next;
 
-            visiting[node] = false;
-            visited[node] = true;
-            sorted.push_back(node);
-
-            if (node_stack.empty())
-                break;
-
-            int edge = edge_stack.back();
-            edge_stack.pop_back();
-            edge = dag->edges.at(edge).next;
-
-            if (edge >= 0) {
-                edge_stack.push_back(edge);
-                if (!enter(dag->edges.at(edge).to))
-                    return false;
+            if (edge < 0) {
+                // all edges from this node are visited
+                visiting[node] = false;
+                visited[node] = true;
+                sorted.push_back(node);
+                node_stack.pop_back();
+                edge = edge_stack.back();
+                edge_stack.pop_back();
+            }
+            else {
+                // visit child node
+                int next_node = dag->edges.at(edge).to;
+                if (!visited.at(next_node)) {
+                    edge_stack.push_back(edge);
+                    node_stack.push_back(next_node);
+                    if (visiting.at(next_node))
+                        return false;
+                    visiting[next_node] = true;
+                    edge = -1;
+                }
             }
         }
     }

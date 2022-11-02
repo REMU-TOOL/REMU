@@ -8,16 +8,86 @@ using namespace Emu;
 
 USING_YOSYS_NAMESPACE
 
+const std::vector<CommonPort::Info> CommonPort::info_list = {
+    {NAME_HOST_CLK,     "\\EMU_HOST_CLK",   true,   PORT_INPUT},
+    {NAME_HOST_RST,     "\\EMU_HOST_RST",   true,   PORT_INPUT},
+    {NAME_MDL_CLK,      "\\EMU_MDL_CLK",    true,   PORT_INPUT},
+    {NAME_MDL_RST,      "\\EMU_MDL_RST",    true,   PORT_INPUT},
+    {NAME_RUN_MODE,     "\\EMU_RUN_MODE",   true,   PORT_INPUT},
+    {NAME_SCAN_MODE,    "\\EMU_SCAN_MODE",  true,   PORT_INPUT},
+    {NAME_IDLE,         "\\EMU_IDLE",       true,   PORT_OUTPUT_ANDREDUCE},
+    {NAME_FF_SE,        "\\EMU_FF_SE",      false,  PORT_INPUT},
+    {NAME_FF_DI,        "\\EMU_FF_DI",      false,  PORT_INPUT},
+    {NAME_FF_DO,        "\\EMU_FF_DO",      false,  PORT_OUTPUT},
+    {NAME_RAM_SR,       "\\EMU_RAM_SR",     false,  PORT_INPUT},
+    {NAME_RAM_SE,       "\\EMU_RAM_SE",     false,  PORT_INPUT},
+    {NAME_RAM_SD,       "\\EMU_RAM_SD",     false,  PORT_INPUT},
+    {NAME_RAM_DI,       "\\EMU_RAM_DI",     false,  PORT_INPUT},
+    {NAME_RAM_DO,       "\\EMU_RAM_DO",     false,  PORT_OUTPUT},
+};
+
+const Yosys::dict<std::string, CommonPort::ID> CommonPort::name_list = {
+    {"mdl_clk",     NAME_MDL_CLK},
+    {"mdl_rst",     NAME_MDL_RST},
+    {"run_mode",    NAME_RUN_MODE},
+    {"scan_mode",   NAME_SCAN_MODE},
+    {"idle",        NAME_IDLE},
+    // other ports are not allowed in verilog source code
+};
+
+void CommonPort::create_ports(Module *module)
+{
+    for (auto &info : info_list) {
+        Wire *wire = module->addWire(info.id_str);
+        switch (info.type) {
+            case PORT_INPUT:
+                wire->port_input = true;
+                break;
+            case PORT_OUTPUT:
+            case PORT_OUTPUT_ANDREDUCE:
+            case PORT_OUTPUT_ORREDUCE:
+                wire->port_output = true;
+                if (info.type == PORT_OUTPUT_ANDREDUCE)
+                    module->connect(wire, State::S1);
+                else if (info.type == PORT_OUTPUT_ORREDUCE)
+                    module->connect(wire, State::S0);
+                break;
+            default:
+                log_error("unknown port direction for %s\n", log_id(info.id_str));
+        }
+    }
+    module->fixup_ports();
+}
+
+Wire* CommonPort::get(Module *module, ID id)
+{
+    return module->wire(info_by_id(id).id_str);
+}
+
+void CommonPort::put(Module *module, ID id, SigSpec sig)
+{
+    auto &info = info_by_id(id);
+    Wire *wire = module->wire(info_by_id(id).id_str);
+    if (info.type == PORT_OUTPUT) {
+        module->connect(wire, sig);
+    }
+    else if (info.type == PORT_OUTPUT_ANDREDUCE || info.type == PORT_OUTPUT_ORREDUCE) {
+        module->rename(wire, NEW_ID);
+        Wire *new_wire = module->addWire(info.id_str, wire);
+        wire->port_output = false;
+        if (info.type == PORT_OUTPUT_ANDREDUCE)
+            module->addAnd(NEW_ID, wire, sig, new_wire);
+        else
+            module->addOr(NEW_ID, wire, sig, new_wire);
+        // no need to call fixup_ports()
+    }
+    else {
+        log_error("unknown port direction for %s\n", log_id(info.id_str));
+    }
+}
+
 #define EMU_SIG_NAME(type, index) stringf("EMU_" type "_%d", index)
 #define EMU_SIG_ID(type, index) IdString(stringf("\\EMU_" type "_%d", index))
-
-const dict<std::string, CommonPortInfo> Emu::common_ports = {
-    {"mdl_clk",     {"\\EMU_PORT_CLK",          PORT_INPUT}},
-    {"mdl_rst",     {"\\EMU_PORT_RST",          PORT_INPUT}},
-    {"run_mode",    {"\\EMU_PORT_RUN_MODE",     PORT_INPUT}},
-    {"scan_mode",   {"\\EMU_PORT_SCAN_MODE",    PORT_INPUT}},
-    {"idle",        {"\\EMU_PORT_IDLE",         PORT_OUTPUT_ANDREDUCE}},
-};
 
 void PortTransformer::promote_user_sigs(Module *module)
 {
@@ -121,10 +191,7 @@ void PortTransformer::promote_user_sigs(Module *module)
 
 void PortTransformer::promote_common_ports(Module *module)
 {
-    dict<std::string, pool<SigBit>> port_wires;
-
-    for (auto &it : common_ports)
-        port_wires.insert(it.first);
+    CommonPort::create_ports(module);
 
     // process this module
 
@@ -140,7 +207,13 @@ void PortTransformer::promote_common_ports(Module *module)
         wire->port_input = false;
         wire->port_output = false;
 
-        port_wires.at(name).insert(wire);
+        auto &info = CommonPort::info_by_name(name);
+        if (info.type == CommonPort::PORT_INPUT) {
+            module->connect(wire, CommonPort::get(module, info.id));
+        }
+        else {
+            CommonPort::put(module, info.id, wire);
+        }
     }
 
     // export submodule ports
@@ -149,37 +222,17 @@ void PortTransformer::promote_common_ports(Module *module)
     for (auto &edge : node.outEdges()) {
         Cell *inst = module->cell(edge.name.second);
 
-        for (auto &it : common_ports) {
-            Wire *wire = module->addWire(NEW_ID);
-            inst->setPort(it.second.id, wire);
-            port_wires.at(it.first).insert(wire);
-        }
-    }
-
-    // make connections
-
-    for (auto &it : common_ports) {
-        Wire *port = module->addWire(it.second.id);
-        switch (it.second.type) {
-            case PORT_INPUT:
-                port->port_input = true;
-                for (auto bit : port_wires.at(it.first))
-                    module->connect(bit, port);
-                break;
-            case PORT_OUTPUT_ANDREDUCE:
-                port->port_output = true;
-                module->addReduceAnd(NEW_ID,
-                    {SigSpec(port_wires.at(it.first)), State::S1},
-                    port
-                );
-                break;
-            case PORT_OUTPUT_ORREDUCE:
-                port->port_output = true;
-                module->addReduceOr(NEW_ID,
-                    {SigSpec(port_wires.at(it.first)), State::S0},
-                    port
-                );
-                break;
+        for (auto &info : CommonPort::info_list) {
+            if (info.autoconn) {
+                Wire *wire = module->addWire(NEW_ID);
+                inst->setPort(info.id_str, wire);
+                if (info.type == CommonPort::PORT_INPUT) {
+                    module->connect(wire, CommonPort::get(module, info.id));
+                }
+                else {
+                    CommonPort::put(module, info.id, wire);
+                }
+            }
         }
     }
 
@@ -393,3 +446,22 @@ void PortTransformer::promote()
         promote_channel_ports(module);
     }
 }
+
+PRIVATE_NAMESPACE_BEGIN
+
+struct EmuTestPort : public Pass {
+    EmuTestPort() : Pass("emu_test_port", "test port functionality") { }
+
+    void execute(vector<string> args, Design* design) override {
+        extra_args(args, 1, design);
+        log_header(design, "Executing EMU_TEST_PORT pass.\n");
+
+        Hierarchy hier(design);
+        EmulationDatabase database;
+        PortTransformer worker(design, hier, database);
+
+        worker.promote();
+    }
+} EmuTestPort;
+
+PRIVATE_NAMESPACE_END
