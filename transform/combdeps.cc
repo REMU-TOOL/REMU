@@ -15,14 +15,11 @@ void CombDeps::setup()
 
     module_sigmap.clear();
 
-    signal_dag = SignalDAG();
-
-    for (auto &path : hier.traverse()) {
-        HashablePath hp(path);
-        auto &node = path.empty() ? hier.rootNode() : path.back()->toNode();
-        Module *module = design->module(node.data);
-        module_sigmap.insert({node.data, SigMap(module)});
-        auto &sigmap = module_sigmap.at(node.data);
+    for (auto &path : hier.tree.topoSort(true)) {
+        auto &node = hier.dag.nodes.at(path.data.dag_node);
+        Module *module = design->module(node.name);
+        module_sigmap.insert({node.name, SigMap(module)});
+        auto &sigmap = module_sigmap.at(node.name);
 
         for (Cell *cell : module->cells()) {
             if (primitive_types.cell_known(cell->type)) {
@@ -38,15 +35,15 @@ void CombDeps::setup()
                     }
                 }
                 for (auto &i : inputs) {
-                    auto &inode = signal_dag[SignalInfo(hp, i)];
+                    auto &inode = signal_dag[SignalInfo(path.index, i)];
                     for (auto &o : outputs) {
-                        auto &onode = signal_dag[SignalInfo(hp, o)];
-                        signal_dag.addEdge(inode, onode);
+                        auto &onode = signal_dag[SignalInfo(path.index, o)];
+                        signal_dag.addEdge(std::make_pair(__empty(), __empty()), inode.index, onode.index);
                     }
                 }
             }
             else if (cell->type[0] == '\\') {
-                HashablePath hpsub = hp.push(cell->name);
+                auto &subpath = hier.tree.follow(path, cell->name);
                 for (auto &conn : cell->connections()) {
                     for (auto b : conn.second) {
                         sigmap.apply(b);
@@ -58,12 +55,12 @@ void CombDeps::setup()
                         module_sigmap.at(cell->type).apply(s);
                         if (!s.is_wire())
                             continue;
-                        auto &bnode = signal_dag[SignalInfo(hp, b)];
-                        auto &snode = signal_dag[SignalInfo(hpsub, s)];
+                        auto &bnode = signal_dag[SignalInfo(path.index, b)];
+                        auto &snode = signal_dag[SignalInfo(subpath.index, s)];
                         if (subwire->port_input)
-                            signal_dag.addEdge(bnode, snode);
+                            signal_dag.addEdge(std::make_pair(__empty(), __empty()), bnode.index, snode.index);
                         else
-                            signal_dag.addEdge(snode, bnode);
+                            signal_dag.addEdge(std::make_pair(__empty(), __empty()), snode.index, bnode.index);
                     }
                 }
             }
@@ -88,7 +85,7 @@ void CombDeps::setup()
         while (npos < nslen) {
             log("  [W] ");
             auto &data = signal_dag.nodes.at(ns.at(npos)).data;
-            for (auto name : data.path.path)
+            for (auto name : hier.tree.nodes.at(data.path).data.hier)
                 log("%s.", log_id(name));
             log("%s[%d]\n", log_id(data.bit.name), data.bit.offset);
             npos++;
@@ -114,7 +111,7 @@ struct EmuTestCombDeps : public Pass {
         log_header(design, "Executing EMU_TEST_COMB_DEPS pass.\n");
 
         Hierarchy hier(design);
-        Module *module = design->module(hier.rootNode().data);
+        Module *module = design->module(hier.dag.rootNode().name);
         CombDeps deps(design, hier);
 
         std::vector<IdString> path;
@@ -144,8 +141,9 @@ struct EmuTestCombDeps : public Pass {
                     log("%s: wire not found (in module %s)\n", name.c_str(), log_id(module));
                     return;
                 }
+                auto &node = hier.tree.follow(path);
                 for (auto &b : SigSpec(wire))
-                    signals.insert(CombDeps::SignalInfo(path, b));
+                    signals.insert(CombDeps::SignalInfo(node.index, b));
             }
             else {
                 path.push_back(name);
@@ -163,7 +161,7 @@ struct EmuTestCombDeps : public Pass {
 
         while (!deps_enum.empty()) {
             auto &node = deps_enum.get();
-            for (auto &s : node.data.path.path)
+            for (auto &s : hier.tree.nodes.at(node.data.path).data.hier)
                 log("%s ", s.c_str());
             log(": ");
             log("%s[%d]\n", node.data.bit.name.c_str(), node.data.bit.offset);

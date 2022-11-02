@@ -7,14 +7,25 @@
 #include <stdexcept>
 #include <algorithm>
 
-template<typename NT = void, typename ET = void>
+/*
+    NT: node data type
+    ET: edge data type
+    NKT: node key type
+    EKT: edge key type
+    NMT: node map type (from KT to int, may be void, must support operator[](NKT), at(NKT) and count(NKT))
+    EMT: edge map type (from KT to int, may be void, must support operator[](EKT), at(EKT) and count(EKT))
+*/
+
+template<
+    typename NT,
+    typename ET,
+    typename NKT,
+    typename EKT,
+    typename NMT = void,
+    typename EMT = void
+>
 struct DAG
 {
-    struct Node;
-    struct Edge;
-
-    using Path = std::vector<Edge*>;
-
     template<typename T, typename OPS>
     struct Iterator
     {
@@ -61,30 +72,13 @@ struct DAG
         }
     };
 
-    struct PathIteratorOps
+    struct Node;
+    struct Edge;
+
+    struct Node
     {
-        Path cur;
-        bool empty;
-
-        void enter(Node *node);
-        PathIteratorOps() : empty(true) {}
-        PathIteratorOps(Node *root) : empty(false) { enter(root); }
-        Path& get() const { return const_cast<Path&>(cur); } // const_cast is a hack and the user should not modify the referenced path
-        void next();
-        bool operator==(const PathIteratorOps &other) const { return cur == other.cur && empty == other.empty; }
-    };
-
-    template<typename, typename = void>
-    struct __MaybeData {};
-
-    template<typename T>
-    struct __MaybeData<T, typename std::enable_if<!std::is_void<T>::value>::type>
-    {
-        T data;
-    };
-
-    struct Node : public __MaybeData<NT>
-    {
+        NKT name;
+        NT data;
         DAG *dag;
         std::vector<int> in;    // edge indices from parents
         std::vector<int> out;   // edge indices from children
@@ -100,8 +94,6 @@ struct DAG
                 : vector_p(vector_p), indices_p(indices_p) {}
         };
 
-        Node(DAG *dag) : dag(dag) {}
-
         Edge& inEdge(int index) { return dag->edges.at(in.at(index)); }
         Edge& outEdge(int index) { return dag->edges.at(out.at(index)); }
 
@@ -109,48 +101,83 @@ struct DAG
         EdgeRange outEdges() { return EdgeRange(&dag->edges, &out); }
 
         int firstOut() { return out.empty() ? -1 : out.at(0); }
+
+        Node(const std::pair<NKT, NT> &value, DAG *dag) : name(value.first), data(value.second), dag(dag) {}
+        Node(std::pair<NKT, NT> &&value, DAG *dag) : name(value.first), data(value.second), dag(dag) {}
     };
 
-    struct Edge : public __MaybeData<ET>
+    struct Edge
     {
+        EKT name;
+        ET data;
         DAG *dag;
         int from;               // parent node index
         int to;                 // child node index
         int index;              // edge index
         int next;               // next edge index from the same node
 
-        Edge(DAG *dag) : dag(dag) {}
-
         Node& fromNode() { return dag->nodes.at(from); }
         Node& toNode() { return dag->nodes.at(to); }
 
         Edge& nextEdge() { return dag->edges.at(next); }
+
+        Edge(const std::pair<EKT, ET> &value, DAG *dag) : name(value.first), data(value.second), dag(dag) {}
+        Edge(std::pair<EKT, ET> &&value, DAG *dag) : name(value.first), data(value.second), dag(dag) {}
+    };
+
+    template<typename T>
+    struct __dummy_map
+    {
+        int dummy;
+        int& operator[](const T &) { dummy = -1; return dummy; }
+        int at(const T &) const { return -1; }
+        size_t count(const T &) const { return 0; }
     };
 
     std::vector<Node> nodes;
     std::vector<Edge> edges;
+    typename std::conditional<std::is_void<NMT>::value, __dummy_map<NKT>, NMT>::type node_map;
+    typename std::conditional<std::is_void<EMT>::value, __dummy_map<EKT>, EMT>::type edge_map;
 
-    Node& addNode()
+    void clear()
+    {
+        nodes.clear();
+        edges.clear();
+    }
+
+    void __check_nodes()
     {
         if (nodes.size() >= std::numeric_limits<int>::max())
             throw std::overflow_error("node count limit exceeded");
+    }
 
-        auto it = nodes.emplace(nodes.end(), this);
+    void __check_edges()
+    {
+        if (edges.size() >= std::numeric_limits<int>::max())
+            throw std::overflow_error("edge count limit exceeded");
+    }
+
+    Node& __post_add(const typename std::vector<Node>::iterator &it)
+    {
         it->index   = it - nodes.begin();
+
+        if (node_map.count(it->name))
+            throw std::overflow_error("node name already exists");
+        node_map[it->name] = it->index;
 
         return *it;
     }
 
-    Edge& addEdge(int from, int to)
+    Edge& __post_add(const typename std::vector<Edge>::iterator &it, int from, int to)
     {
-        if (edges.size() >= std::numeric_limits<int>::max())
-            throw std::overflow_error("edge count limit exceeded");
-
-        auto it = edges.emplace(edges.end(), this);
         it->from    = from;
         it->to      = to;
         it->index   = it - edges.begin();
         it->next    = -1;
+
+        if (edge_map.count(it->name))
+            throw std::overflow_error("edge name already exists");
+        edge_map[it->name] = it->index;
 
         auto &out_edges = nodes.at(it->from).out;
         if (!out_edges.empty())
@@ -162,65 +189,41 @@ struct DAG
         return *it;
     }
 
-    Edge& addEdge(Node &from, Node &to)
+    Node& addNode(const std::pair<NKT, NT> &value)
     {
-        return addEdge(from.index, to.index);
+        __check_nodes();
+        return __post_add(nodes.emplace(nodes.end(), value, this));
     }
 
-    template<typename T, typename = typename std::enable_if<std::is_same<T,NT>::value>::type>
-    Node& addNode(const T &data)
+    Node& addNode(std::pair<NKT, NT> &&value)
     {
-        auto &res = addNode();
-        res.data = data;
-        return res;
+        __check_nodes();
+        return __post_add(nodes.emplace(nodes.end(), value, this));
     }
 
-    template<typename T, typename = typename std::enable_if<std::is_same<T,NT>::value>::type>
-    Node& addNode(NT &&data)
+    Edge& addEdge(const std::pair<EKT, ET> &value, int from, int to)
     {
-        auto &res = addNode();
-        res.data = data;
-        return res;
+        __check_edges();
+        return __post_add(edges.emplace(edges.end(), value, this), from, to);
     }
 
-    template<typename T, typename = typename std::enable_if<std::is_same<T,ET>::value>::type>
-    Edge& addEdge(const T &data, int from, int to)
+    Edge& addEdge(std::pair<EKT, ET> &&value, int from, int to)
     {
-        auto &res = addEdge(from, to);
-        res.data = data;
-        return res;
+        __check_edges();
+        return __post_add(edges.emplace(edges.end(), value, this), from, to);
     }
 
-    template<typename T, typename = typename std::enable_if<std::is_same<T,ET>::value>::type>
-    Edge& addEdge(T &&data, int from, int to)
+    Node& findNode(const NKT &name)
     {
-        auto &res = addEdge(from, to);
-        res.data = data;
-        return res;
+        static_assert(!std::is_void<NMT>::value, "findNode requires NMT != void");
+        return nodes.at(node_map.at(name));
     }
 
-    template<typename T, typename = typename std::enable_if<std::is_same<T,ET>::value>::type>
-    Edge& addEdge(const T &data, Node &from, Node &to)
+    Edge& findEdge(const EKT &name)
     {
-        return addEdge(data, from.index, to.index);
+        static_assert(!std::is_void<EMT>::value, "findEdge requires EMT != void");
+        return edges.at(edge_map.at(name));
     }
-
-    template<typename T, typename = typename std::enable_if<std::is_same<T,ET>::value>::type>
-    Edge& addEdge(T &&data, Node &from, Node &to)
-    {
-        return addEdge(data, from.index, to.index);
-    }
-
-    struct TraverseRange
-    {
-        Node *root;
-        TraverseRange(Node *root) : root(root) {}
-        Iterator<Path, PathIteratorOps> begin() { return PathIteratorOps(root); }
-        Iterator<Path, PathIteratorOps> end() { return PathIteratorOps(); }
-    };
-
-    // traverse the hierarchy in post-order
-    TraverseRange traverse(Node &root) { return &root; }
 
     struct SortRange
     {
@@ -256,35 +259,8 @@ struct DAG
     }
 };
 
-template<typename NT, typename ET>
-inline void DAG<NT,ET>::PathIteratorOps::enter(Node *node)
-{
-    while (!node->out.empty()) {
-        cur.push_back(&node->outEdge(0));
-        node = &cur.back()->toNode();
-    }
-}
-
-template<typename NT, typename ET>
-inline void DAG<NT,ET>::PathIteratorOps::next()
-{
-    if (cur.empty()) {
-        empty = true;
-        return;
-    }
-
-    Edge *&last = cur.back();
-    if (last->next >= 0) {
-        last = &last->nextEdge();
-        enter(&last->toNode());
-    }
-    else {
-        cur.pop_back();
-    }
-}
-
-template<typename NT, typename ET>
-inline bool DAG<NT,ET>::DFSWorker::enter(int node)
+template<typename NT, typename ET, typename NKT, typename NMT, typename EKT, typename EMT>
+inline bool DAG<NT,ET,NKT,NMT,EKT,EMT>::DFSWorker::enter(int node)
 {
     while (true) {
         node_stack.push_back(node);
@@ -308,8 +284,8 @@ inline bool DAG<NT,ET>::DFSWorker::enter(int node)
     return true;
 }
 
-template<typename NT, typename ET>
-inline bool DAG<NT,ET>::DFSWorker::sort(bool reversed)
+template<typename NT, typename ET, typename NKT, typename NMT, typename EKT, typename EMT>
+inline bool DAG<NT,ET,NKT,NMT,EKT,EMT>::DFSWorker::sort(bool reversed)
 {
     int n = dag->nodes.size();
     visiting.assign(n, false);

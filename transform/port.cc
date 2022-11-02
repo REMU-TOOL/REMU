@@ -80,14 +80,14 @@ void PortTransformer::promote_user_sigs(Module *module)
 
     // export submodule ports
 
-    auto &node = hier.node(module->name);
+    auto &node = hier.dag.findNode(module->name);
     for (auto &edge : node.outEdges()) {
         auto &child = edge.toNode();
-        Cell *inst = module->cell(edge.data);
+        Cell *inst = module->cell(edge.name.second);
 
-        for (auto &info : database.user_clocks.at(child.data)) {
+        for (auto &info : database.user_clocks.at(child.name)) {
             ClockInfo newinfo = info;
-            newinfo.scope.push_back(edge.data);
+            newinfo.scope.push_back(edge.name.second);
             newinfo.port_name = EMU_SIG_ID("CLOCK", clock_index++);
             Wire *newport = module->addWire(newinfo.port_name);
             newport->port_input = true;
@@ -95,9 +95,9 @@ void PortTransformer::promote_user_sigs(Module *module)
             clockinfo.push_back(info);
         }
 
-        for (auto &info : database.user_resets.at(child.data)) {
+        for (auto &info : database.user_resets.at(child.name)) {
             ResetInfo newinfo = info;
-            newinfo.scope.push_back(edge.data);
+            newinfo.scope.push_back(edge.name.second);
             newinfo.port_name = EMU_SIG_ID("RESET", reset_index++);
             Wire *newport = module->addWire(newinfo.port_name);
             newport->port_input = true;
@@ -105,9 +105,9 @@ void PortTransformer::promote_user_sigs(Module *module)
             resetinfo.push_back(info);
         }
 
-        for (auto &info : database.user_trigs.at(child.data)) {
+        for (auto &info : database.user_trigs.at(child.name)) {
             TrigInfo newinfo = info;
-            newinfo.scope.push_back(edge.data);
+            newinfo.scope.push_back(edge.name.second);
             newinfo.port_name = EMU_SIG_ID("TRIG", trig_index++);
             Wire *newport = module->addWire(newinfo.port_name);
             newport->port_output = true;
@@ -145,9 +145,9 @@ void PortTransformer::promote_common_ports(Module *module)
 
     // export submodule ports
 
-    auto &node = hier.node(module->name);
+    auto &node = hier.dag.findNode(module->name);
     for (auto &edge : node.outEdges()) {
-        Cell *inst = module->cell(edge.data);
+        Cell *inst = module->cell(edge.name.second);
 
         for (auto &it : common_ports) {
             Wire *wire = module->addWire(NEW_ID);
@@ -250,14 +250,14 @@ void PortTransformer::promote_fifo_ports(Module *module)
 
     // export submodule ports
 
-    auto &node = hier.node(module->name);
+    auto &node = hier.dag.findNode(module->name);
     for (auto &edge : node.outEdges()) {
         auto &child = edge.toNode();
-        Cell *inst = module->cell(edge.data);
+        Cell *inst = module->cell(edge.name.second);
 
-        for (auto &info : database.fifo_ports.at(child.data)) {
+        for (auto &info : database.fifo_ports.at(child.name)) {
             FifoPortInfo newinfo = info;
-            newinfo.scope.push_back(edge.data);
+            newinfo.scope.push_back(edge.name.second);
             newinfo.port_name = EMU_SIG_NAME("FIFO", index++);
 
             Wire *wire_enable = module->addWire("\\" + newinfo.port_name + "_enable");
@@ -384,8 +384,8 @@ void PortTransformer::promote_channel_ports(Module *module)
 
 void PortTransformer::promote()
 {
-    for (auto &node : hier.topoSort(true)) {
-        Module *module = design->module(node.data);
+    for (auto &node : hier.dag.topoSort(true)) {
+        Module *module = design->module(node.name);
         log("Processing module %s...\n", log_id(module));
         promote_user_sigs(module);
         promote_common_ports(module);

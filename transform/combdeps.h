@@ -16,55 +16,6 @@ class CombDeps
 {
 public:
 
-    struct HashablePath
-    {
-        std::vector<Yosys::IdString> path;
-        unsigned int hash_val;
-
-        void update_hash()
-        {
-            hash_val = Yosys::mkhash(path);
-        }
-
-        unsigned int hash() const
-        {
-            return hash_val;
-        }
-
-        bool operator==(const HashablePath &other) const
-        {
-            return hash_val == other.hash_val && path == other.path;
-        }
-
-        HashablePath push(Yosys::IdString sub)
-        {
-            decltype(path) res(path);
-            res.push_back(sub);
-            return res;
-        }
-
-        HashablePath pop()
-        {
-            decltype(path) res(path);
-            res.pop_back();
-            return res;
-        }
-
-        HashablePath() = default;
-
-        HashablePath(const std::vector<Yosys::IdString> &p) : path(p)
-        {
-            update_hash();
-        }
-
-        HashablePath(const Hierarchy::Path &p)
-        {
-            for (auto &x : p)
-                path.push_back(x->data);
-            update_hash();
-        }
-    };
-
     struct WireBit
     {
         Yosys::IdString name;
@@ -87,12 +38,12 @@ public:
 
     struct SignalInfo
     {
-        HashablePath path;
+        int path;
         WireBit bit;
 
         unsigned int hash() const
         {
-            return Yosys::mkhash(path.hash(), bit.hash());
+            return Yosys::mkhash(Yosys::mkhash(path), bit.hash());
         }
 
         bool operator==(const SignalInfo &other) const
@@ -102,18 +53,19 @@ public:
 
         SignalInfo() = default;
 
-        SignalInfo(const HashablePath &path, const WireBit &bit)
+        SignalInfo(int path, const WireBit &bit)
             : path(path), bit(bit) {}
     };
 
-    struct SignalDAG : DAG<SignalInfo>
+    struct __empty {};
+
+    struct SignalDAG : DAG<SignalInfo, __empty, __empty, __empty>
     {
-        Yosys::dict<HashablePath, Yosys::dict<WireBit, int>> signal_dag_map; // path -> {bit -> node}
+        std::vector<Yosys::dict<WireBit, int>> signal_dag_map; // path -> {bit -> node}
 
         bool has(const SignalInfo &info) const
         {
-            return signal_dag_map.count(info.path) &&
-                signal_dag_map.at(info.path).count(info.bit);
+            return signal_dag_map.at(info.path).count(info.bit);
         }
 
         SignalDAG::Node& operator[](const SignalInfo &info)
@@ -122,7 +74,7 @@ public:
             if (this_map.count(info.bit))
                 return nodes.at(this_map.at(info.bit));
 
-            auto &node = addNode(info);
+            auto &node = addNode(std::make_pair(__empty(), info));
             this_map[info.bit] = node.index;
             return node;
         }
@@ -130,6 +82,11 @@ public:
         SignalDAG::Node& at(const SignalInfo &info)
         {
             return nodes.at(signal_dag_map.at(info.path).at(info.bit));
+        }
+
+        SignalDAG(Hierarchy &hier)
+        {
+            signal_dag_map.assign(hier.tree.nodes.size(), {});
         }
     };
 
@@ -193,7 +150,7 @@ public:
         return DepEnumerator(&signal_dag, start);
     }
 
-    CombDeps(Yosys::Design *design, Hierarchy &hier) : design(design), hier(hier)
+    CombDeps(Yosys::Design *design, Hierarchy &hier) : design(design), hier(hier), signal_dag(hier)
     {
         setup();
     }

@@ -114,7 +114,7 @@ void ClockTreeAnalyzer::analyze_clock_propagation()
             auto &sigmap = modwalker.sigmap;
             auto &signals = clock_signals.at(module);
 
-            auto &hier_node = hier.node(module->name);
+            auto &hier_node = hier.dag.findNode(module->name);
 
             // identify signals by ports
 
@@ -124,8 +124,8 @@ void ClockTreeAnalyzer::analyze_clock_propagation()
             // identify signals by submodule ports
 
             for (auto &out : hier_node.outEdges()) {
-                Cell *inst = module->cell(out.data);
-                Module *submodule = design->module(out.toNode().data);
+                Cell *inst = module->cell(out.name.second);
+                Module *submodule = design->module(out.toNode().name);
 
                 for (SigBit s_b : clock_ports[submodule]) {
                     SigBit b = inst->getPort(s_b.wire->name)[s_b.offset];
@@ -150,13 +150,13 @@ void ClockTreeAnalyzer::analyze_clock_propagation()
 
             if (ports_changed)
                 for (auto &in : hier_node.inEdges())
-                    changed_list.insert(design->module(in.fromNode().data));
+                    changed_list.insert(design->module(in.fromNode().name));
 
             // identify submodule ports by signals
 
             for (auto &out : hier_node.outEdges()) {
-                Cell *inst = module->cell(out.data);
-                Module *submodule = design->module(out.toNode().data);
+                Cell *inst = module->cell(out.name.second);
+                Module *submodule = design->module(out.toNode().name);
                 bool submodule_ports_changed = false;
 
                 for (auto port : submodule->ports) {
