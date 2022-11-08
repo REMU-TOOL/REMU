@@ -4,30 +4,25 @@
 #include "kernel/yosys.h"
 
 #include "hier.h"
-#include "walker_cache.h"
+#include "database.h"
 
 namespace Emu {
 
-struct ClockTreeAnalyzer
+struct ClockTreeHelper
 {
-    Yosys::Design *design;
     Hierarchy &hier;
-    Yosys::ModWalkerCache modwalkers;
+    Yosys::dict<Yosys::IdString, Yosys::pool<Yosys::SigBit>> primary_clock_bits;
 
-    Yosys::dict<Yosys::Module*, Yosys::pool<Yosys::SigBit>> clock_signals; // sigmapped
-    Yosys::dict<Yosys::Module*, Yosys::pool<Yosys::SigBit>> clock_ports; // exactly the port sigbit, not sigmapped
-
-    void analyze_clocked_cells();
-    void analyze_clock_propagation();
-
-    void analyze()
+    void addTopClock(Yosys::SigBit clk)
     {
-        modwalkers.clear();
-        analyze_clocked_cells();
-        analyze_clock_propagation();
+        log_assert(clk.is_wire());
+        log_assert(clk.wire->module->name == hier.top);
+        primary_clock_bits[hier.top].insert(clk);
     }
 
-    ClockTreeAnalyzer(Yosys::Design *design, Hierarchy &hier) : design(design), hier(hier) {}
+    void run();
+
+    ClockTreeHelper(Hierarchy &hier) : hier(hier) {}
 };
 
 };

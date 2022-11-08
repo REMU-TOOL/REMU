@@ -2,6 +2,7 @@
 #define _EMU_HIER_H_
 
 #include "kernel/yosys.h"
+#include "kernel/celltypes.h"
 
 #include "dag.h"
 
@@ -63,8 +64,21 @@ struct Hierarchy
     template<typename T>
     using MapType = Yosys::dict<T, int>;
 
-    struct DAGNode {};
-    struct DAGEdge {};
+    Yosys::Design *design;
+    Yosys::CellTypes celltypes;
+    Yosys::IdString top;
+
+    struct DAGNode
+    {
+        Yosys::Module *module;
+        DAGNode(Yosys::Module *module) : module(module) {}
+    };
+
+    struct DAGEdge
+    {
+        Yosys::Cell *inst;
+        DAGEdge(Yosys::Cell *inst) : inst(inst) {}
+    };
 
     using DAGNodeName = Yosys::IdString;
     using DAGEdgeName = std::pair<int, Yosys::IdString>; // (node id, edge name)
@@ -72,10 +86,21 @@ struct Hierarchy
     using DAGNodeMap = MapType<DAGNodeName>;
     using DAGEdgeMap = MapType<DAGEdgeName>;
 
+    HierDAG<DAGNode, DAGEdge, DAGNodeName, DAGEdgeName, DAGNodeMap, DAGEdgeMap> dag;
+
     struct TreeNode
     {
-        std::vector<Yosys::IdString> hier;
+        decltype(dag) *dag_p;
         int dag_node;
+        Yosys::Module *module;
+        std::vector<Yosys::IdString> hier;
+
+        decltype(dag)::Node &toDAGNode()
+        {
+            return dag_p->nodes.at(dag_node);
+        }
+
+        TreeNode(decltype(dag) *dag_p, decltype(dag)::Node &dag_node) : dag_p(dag_p), dag_node(dag_node.index), module(dag_node.data.module) {}
     };
 
     struct TreeEdge {};
@@ -86,15 +111,9 @@ struct Hierarchy
     using TreeNodeMap = void;
     using TreeEdgeMap = MapType<TreeEdgeName>;
 
-    HierDAG<DAGNode, DAGEdge, DAGNodeName, DAGEdgeName, DAGNodeMap, DAGEdgeMap> dag;
     HierDAG<TreeNode, TreeEdge, TreeNodeName, TreeEdgeName, TreeNodeMap, TreeEdgeMap> tree;
 
-    void setup(Yosys::Design *design);
-
-    Hierarchy(Yosys::Design *design)
-    {
-        setup(design);
-    }
+    Hierarchy(Yosys::Design *design);
 };
 
 }

@@ -9,6 +9,8 @@ using namespace Emu;
 
 void CombDeps::setup()
 {
+    design_types.clear();
+    design_types.setup_design(hier.design);
     primitive_types.clear();
     primitive_types.setup_internals();
     primitive_types.setup_stdcells();
@@ -17,7 +19,7 @@ void CombDeps::setup()
 
     for (auto &path : hier.tree.topoSort(true)) {
         auto &node = hier.dag.nodes.at(path.data.dag_node);
-        Module *module = design->module(node.name);
+        Module *module = hier.design->module(node.name);
         module_sigmap.insert({node.name, SigMap(module)});
         auto &sigmap = module_sigmap.at(node.name);
 
@@ -42,14 +44,14 @@ void CombDeps::setup()
                     }
                 }
             }
-            else if (cell->type[0] == '\\') {
+            else if (design_types.cell_known(cell->type)) {
                 auto &subpath = hier.tree.follow(path, cell->name);
                 for (auto &conn : cell->connections()) {
                     for (auto b : conn.second) {
                         sigmap.apply(b);
                         if (!b.is_wire())
                             continue;
-                        Module *submodule = design->module(cell->type);
+                        Module *submodule = hier.design->module(cell->type);
                         Wire *subwire = submodule->wire(conn.first);
                         SigBit s(subwire, b.offset);
                         module_sigmap.at(cell->type).apply(s);
@@ -107,7 +109,7 @@ struct EmuTestCombDeps : public Pass {
 
         Hierarchy hier(design);
         Module *module = design->module(hier.dag.rootNode().name);
-        CombDeps deps(design, hier);
+        CombDeps deps(hier);
 
         std::vector<IdString> path;
         pool<CombDeps::SignalInfo> signals;

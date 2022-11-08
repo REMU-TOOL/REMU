@@ -62,9 +62,14 @@ struct CommonPort
 
 struct PortTransformer
 {
-    Yosys::Design *design;
     Hierarchy &hier;
     EmulationDatabase &database;
+
+    Yosys::dict<Yosys::IdString, std::vector<ClockInfo>> all_clock_ports;
+    Yosys::dict<Yosys::IdString, std::vector<ResetInfo>> all_reset_ports;
+    Yosys::dict<Yosys::IdString, std::vector<TrigInfo>> all_trig_ports;
+    Yosys::dict<Yosys::IdString, std::vector<FifoPortInfo>> all_fifo_ports;
+    Yosys::dict<Yosys::IdString, std::vector<ChannelInfo>> all_channel_ports;
 
     void promote_user_sigs(Yosys::Module *module);
     void promote_common_ports(Yosys::Module *module);
@@ -73,8 +78,8 @@ struct PortTransformer
 
     void promote();
 
-    PortTransformer(Yosys::Design *design, Hierarchy &hier, EmulationDatabase &database)
-        : design(design), hier(hier), database(database) {}
+    PortTransformer(Hierarchy &hier, EmulationDatabase &database)
+        : hier(hier), database(database) {}
 };
 
 };

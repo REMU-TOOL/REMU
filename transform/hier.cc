@@ -9,27 +9,27 @@ USING_YOSYS_NAMESPACE
 
 using namespace Emu;
 
-void Hierarchy::setup(Design *design)
+Hierarchy::Hierarchy(Design *design) : design(design)
 {
-    dag.clear();
-    tree.clear();
+    celltypes.setup_design(design);
 
     // setup DAG nodes
 
     dag.nodes.reserve(design->modules_.size());
     size_t dag_edge_count = 0;
     for (Module *module : design->modules()) {
-        dag.addNode(std::make_pair(module->name, DAGNode()));
+        dag.addNode(std::make_pair(module->name, DAGNode(module)));
         for (Cell *cell : module->cells())
-            if (cell->type[0] == '\\')
+            if (celltypes.cell_known(cell->type))
                 dag_edge_count++;
     }
 
-    Module *top = design->top_module();
-    if (!top)
+    Module *top_mod = design->top_module();
+    if (!top_mod)
         log_error("No top module found\n");
+    top = top_mod->name;
 
-    auto &dag_root = dag.findNode(top->name);
+    auto &dag_root = dag.findNode(top);
     dag.root = dag_root.index;
 
     // setup DAG edges
@@ -37,7 +37,7 @@ void Hierarchy::setup(Design *design)
     dag.edges.reserve(dag_edge_count);
     for (Module *module : design->modules())
         for (Cell *cell : module->cells())
-            if (cell->type[0] == '\\') {
+            if (celltypes.cell_known(cell->type)) {
                 Module *from_module = cell->module;
                 Module *to_module = design->module(cell->type);
                 if (!to_module)
@@ -47,7 +47,7 @@ void Hierarchy::setup(Design *design)
                 auto &to_node = dag.findNode(to_module->name);
 
                 auto edge_name = std::make_pair(from_node.index, cell->name);
-                dag.addEdge(std::make_pair(edge_name, DAGEdge()),
+                dag.addEdge(std::make_pair(edge_name, DAGEdge(cell)),
                     from_node.index,
                     to_node.index);
             }
@@ -88,9 +88,7 @@ void Hierarchy::setup(Design *design)
     tree.nodes.reserve(tree_node_count);
     tree.edges.reserve(tree_node_count);
 
-    TreeNode tree_root_data;
-    tree_root_data.dag_node = dag.root;
-
+    TreeNode tree_root_data(&dag, dag.rootNode());
     tree.root = tree.addNode(std::make_pair(dag_root.name, tree_root_data)).index;
 
     workqueue.push(tree.root);
@@ -102,10 +100,9 @@ void Hierarchy::setup(Design *design)
         auto node_data = tree_node.data;
         for (auto &dag_edge : dag_node.outEdges()) {
             // Note: tree_node may be invalidated by addNode()
-            TreeNode subnode_data;
+            TreeNode subnode_data(&dag, dag_edge.toNode());
             subnode_data.hier = node_data.hier;
             subnode_data.hier.push_back(dag_edge.name.second);
-            subnode_data.dag_node = dag_edge.to;
             auto &tree_subnode = tree.addNode(std::make_pair(dag_edge.toNode().name, subnode_data));
             auto tree_edge_name = std::make_pair(tree_nid, dag_edge.name.second);
             tree.addEdge(std::make_pair(tree_edge_name, TreeEdge()),

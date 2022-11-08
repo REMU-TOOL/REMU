@@ -1,12 +1,11 @@
 #include "kernel/yosys.h"
 #include "kernel/mem.h"
 
-#include "yaml-cpp/yaml.h"
-
 #include "escape.h"
 
 #include "attr.h"
 #include "database.h"
+#include "utils.h"
 
 using namespace Emu;
 
@@ -133,9 +132,6 @@ void EmulationDatabase::write_yaml(std::string yaml_file) {
 
     YAML::Node root;
 
-    root["ff_width"]  = ff_width;
-    root["mem_width"] = ram_width;
-
     for (auto &src : scanchain_ff) {
         YAML::Node ff_node;
         for (auto &c : src.info) {
@@ -160,41 +156,13 @@ void EmulationDatabase::write_yaml(std::string yaml_file) {
 
     root["circuit"] = ci_root.to_yaml();
 
+    root["clock"] = user_clocks;
+    root["reset"] = user_resets;
+    root["trigger"] = user_trigs;
+    root["fifo_port"] = fifo_ports;
+    root["channels"] = channels;
+
 #if 0
-    for (auto &info : user_clocks) {
-        YAML::Node node;
-        node["name"] = info.name;
-        node["top_name"] = info.top_name;
-        root["clock"].push_back(node);
-    }
-
-    for (auto &info : user_resets) {
-        YAML::Node node;
-        node["name"] = info.name;
-        node["top_name"] = info.top_name;
-        node["index"] = info.index;
-        root["reset"].push_back(node);
-    }
-
-    for (auto &info : user_trigs) {
-        YAML::Node node;
-        node["name"] = info.name;
-        node["top_name"] = info.top_name;
-        node["desc"] = info.desc;
-        node["index"] = info.index;
-        root["trigger"].push_back(node);
-    }
-
-    for (auto &info : fifo_ports) {
-        YAML::Node node;
-        node["name"] = info.name;
-        node["top_name"] = info.top_name;
-        node["type"] = info.type;
-        node["width"] = info.width;
-        node["index"] = info.index;
-        root["fifo_port"].push_back(node);
-    }
-
     for (auto &info : model_mods) {
         YAML::Node node;
         node["name"] = info.name;

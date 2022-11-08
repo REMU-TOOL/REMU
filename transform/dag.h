@@ -38,7 +38,7 @@ struct DAG
 
         Iterator() {}
         Iterator(const OPS &ops) : ops(ops) {}
-        Iterator(OPS &&ops) : ops(ops) {}
+        Iterator(OPS &&ops) : ops(std::move(ops)) {}
 
         reference operator*() const { return ops.get(); }
         pointer operator->() { return &ops.get(); }
@@ -103,7 +103,7 @@ struct DAG
         int firstOut() { return out.empty() ? -1 : out.at(0); }
 
         Node(const std::pair<NKT, NT> &value, DAG *dag) : name(value.first), data(value.second), dag(dag) {}
-        Node(std::pair<NKT, NT> &&value, DAG *dag) : name(value.first), data(value.second), dag(dag) {}
+        Node(std::pair<NKT, NT> &&value, DAG *dag) : name(std::move(value.first)), data(std::move(value.second)), dag(dag) {}
     };
 
     struct Edge
@@ -122,7 +122,7 @@ struct DAG
         Edge& nextEdge() { return dag->edges.at(next); }
 
         Edge(const std::pair<EKT, ET> &value, DAG *dag) : name(value.first), data(value.second), dag(dag) {}
-        Edge(std::pair<EKT, ET> &&value, DAG *dag) : name(value.first), data(value.second), dag(dag) {}
+        Edge(std::pair<EKT, ET> &&value, DAG *dag) : name(std::move(value.first)), data(std::move(value.second)), dag(dag) {}
     };
 
     template<typename T>
@@ -198,7 +198,7 @@ struct DAG
     Node& addNode(std::pair<NKT, NT> &&value)
     {
         __check_nodes();
-        return __post_add(nodes.emplace(nodes.end(), value, this));
+        return __post_add(nodes.emplace(nodes.end(), std::move(value), this));
     }
 
     Edge& addEdge(const std::pair<EKT, ET> &value, int from, int to)
@@ -210,7 +210,7 @@ struct DAG
     Edge& addEdge(std::pair<EKT, ET> &&value, int from, int to)
     {
         __check_edges();
-        return __post_add(edges.emplace(edges.end(), value, this), from, to);
+        return __post_add(edges.emplace(edges.end(), std::move(value), this), from, to);
     }
 
     Node& findNode(const NKT &name)
@@ -234,7 +234,7 @@ struct DAG
         Iterator<Node, IndirectIteratorOps<Node>> rbegin() { return IndirectIteratorOps<Node>(vector_p, sorted.rbegin()); }
         Iterator<Node, IndirectIteratorOps<Node>> rend() { return IndirectIteratorOps<Node>(vector_p, sorted.rend()); }
         SortRange(decltype(vector_p) vector_p, decltype(sorted) &&sorted)
-            : vector_p(vector_p), sorted(sorted) {}
+            : vector_p(vector_p), sorted(std::move(sorted)) {}
     };
 
     struct DFSWorker

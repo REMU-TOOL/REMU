@@ -133,10 +133,9 @@ public:
 
 private:
 
-    Yosys::Design *design;
     Hierarchy &hier;
 
-    Yosys::CellTypes primitive_types;
+    Yosys::CellTypes design_types, primitive_types;
     Yosys::dict<Yosys::IdString, Yosys::SigMap> module_sigmap;
 
     SignalDAG signal_dag;
@@ -150,7 +149,7 @@ public:
         return DepEnumerator(&signal_dag, start);
     }
 
-    CombDeps(Yosys::Design *design, Hierarchy &hier) : design(design), hier(hier), signal_dag(hier)
+    CombDeps(Hierarchy &hier) : hier(hier), signal_dag(hier)
     {
         setup();
     }

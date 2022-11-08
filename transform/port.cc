@@ -4,6 +4,8 @@
 #include "port.h"
 #include "utils.h"
 
+#include <sstream>
+
 using namespace Emu;
 
 USING_YOSYS_NAMESPACE
@@ -86,20 +88,21 @@ void CommonPort::put(Module *module, ID id, SigSpec sig)
     }
 }
 
-#define EMU_SIG_NAME(type, index) stringf("EMU_" type "_%d", index)
-#define EMU_SIG_ID(type, index) IdString(stringf("\\EMU_" type "_%d", index))
+inline std::string path_prefix(const std::vector<Yosys::IdString> &path)
+{
+    std::ostringstream ss;
+    for (auto &p : path)
+        ss << pretty_name(p) << "_";
+    return ss.str();
+}
 
 void PortTransformer::promote_user_sigs(Module *module)
 {
     std::vector<Wire *> clocks, resets, trigs;
 
-    int clock_index = 0;
-    int reset_index = 0;
-    int trig_index = 0;
-
-    auto &clockinfo = database.user_clocks[module->name];
-    auto &resetinfo = database.user_resets[module->name];
-    auto &triginfo = database.user_trigs[module->name];
+    std::vector<ClockInfo> clockinfo;
+    std::vector<ResetInfo> resetinfo;
+    std::vector<TrigInfo> triginfo;
 
     // scan ports
 
@@ -119,8 +122,7 @@ void PortTransformer::promote_user_sigs(Module *module)
         log_assert(wire->width == 1);
         ClockInfo info;
         info.orig_name = wire->name;
-        info.port_name = EMU_SIG_ID("CLOCK", clock_index++);
-        module->rename(wire, info.port_name);
+        info.port_name = wire->name;
         wire->port_input = true;
         wire->port_output = false;
         clockinfo.push_back(info);
@@ -130,8 +132,7 @@ void PortTransformer::promote_user_sigs(Module *module)
         log_assert(wire->width == 1);
         ResetInfo info;
         info.orig_name = wire->name;
-        info.port_name = EMU_SIG_ID("RESET", reset_index++);
-        module->rename(wire, info.port_name);
+        info.port_name = wire->name;
         wire->port_input = true;
         wire->port_output = false;
         resetinfo.push_back(info);
@@ -141,8 +142,7 @@ void PortTransformer::promote_user_sigs(Module *module)
         log_assert(wire->width == 1);
         TrigInfo info;
         info.orig_name = wire->name;
-        info.port_name = EMU_SIG_ID("TRIG", trig_index++);
-        module->rename(wire, info.port_name);
+        info.port_name = wire->name;
         wire->port_input = false;
         wire->port_output = true;
         triginfo.push_back(info);
@@ -155,38 +155,42 @@ void PortTransformer::promote_user_sigs(Module *module)
         auto &child = edge.toNode();
         Cell *inst = module->cell(edge.name.second);
 
-        for (auto &info : database.user_clocks.at(child.name)) {
+        for (auto &info : all_clock_ports.at(child.name)) {
             ClockInfo newinfo = info;
-            newinfo.scope.push_back(edge.name.second);
-            newinfo.port_name = EMU_SIG_ID("CLOCK", clock_index++);
+            newinfo.path.insert(newinfo.path.begin(), edge.name.second);
+            newinfo.port_name = "\\EMU_PORT_" + path_prefix(newinfo.path) + pretty_name(info.port_name);
             Wire *newport = module->addWire(newinfo.port_name);
             newport->port_input = true;
-            inst->setPort(newinfo.port_name, newport);
-            clockinfo.push_back(info);
+            inst->setPort(info.port_name, newport);
+            clockinfo.push_back(newinfo);
         }
 
-        for (auto &info : database.user_resets.at(child.name)) {
+        for (auto &info : all_reset_ports.at(child.name)) {
             ResetInfo newinfo = info;
-            newinfo.scope.push_back(edge.name.second);
-            newinfo.port_name = EMU_SIG_ID("RESET", reset_index++);
+            newinfo.path.insert(newinfo.path.begin(), edge.name.second);
+            newinfo.port_name = "\\EMU_PORT_" + path_prefix(newinfo.path) + pretty_name(info.port_name);
             Wire *newport = module->addWire(newinfo.port_name);
             newport->port_input = true;
-            inst->setPort(newinfo.port_name, newport);
-            resetinfo.push_back(info);
+            inst->setPort(info.port_name, newport);
+            resetinfo.push_back(newinfo);
         }
 
-        for (auto &info : database.user_trigs.at(child.name)) {
+        for (auto &info : all_trig_ports.at(child.name)) {
             TrigInfo newinfo = info;
-            newinfo.scope.push_back(edge.name.second);
-            newinfo.port_name = EMU_SIG_ID("TRIG", trig_index++);
+            newinfo.path.insert(newinfo.path.begin(), edge.name.second);
+            newinfo.port_name = "\\EMU_PORT_" + path_prefix(newinfo.path) + pretty_name(info.port_name);
             Wire *newport = module->addWire(newinfo.port_name);
             newport->port_output = true;
-            inst->setPort(newinfo.port_name, newport);
-            triginfo.push_back(info);
+            inst->setPort(info.port_name, newport);
+            triginfo.push_back(newinfo);
         }
     }
 
     module->fixup_ports();
+
+    all_clock_ports[module->name] = clockinfo;
+    all_reset_ports[module->name] = resetinfo;
+    all_trig_ports[module->name] = triginfo;
 }
 
 void PortTransformer::promote_common_ports(Module *module)
@@ -241,8 +245,7 @@ void PortTransformer::promote_common_ports(Module *module)
 
 void PortTransformer::promote_fifo_ports(Module *module)
 {
-    int index = 0;
-    auto &fifoportinfo = database.fifo_ports[module->name];
+    std::vector<FifoPortInfo> fifoportinfo;
 
     // process this module
 
@@ -255,7 +258,7 @@ void PortTransformer::promote_fifo_ports(Module *module)
 
         FifoPortInfo info;
         info.orig_name = name;
-        info.port_name = EMU_SIG_NAME("FIFO", index++);
+        info.port_name = name;
 
         std::string type = wire->get_string_attribute(Attr::FifoPortType);
         if (type.empty())
@@ -286,13 +289,14 @@ void PortTransformer::promote_fifo_ports(Module *module)
         log_assert(wire_data);
         log_assert(wire_flag && wire_flag->width == 1);
 
-        module->rename(wire_enable, "\\" + info.port_name + "_enable");
+        info.port_enable = wire_enable->name;
+        info.port_data = wire_data->name;
+        info.port_flag = wire_flag->name;
+
         wire_enable->port_input = true;
         wire_enable->port_output = false;
-        module->rename(wire_data, "\\" + info.port_name + "_data");
         wire_data->port_input = info.type == FifoPortInfo::SOURCE;
         wire_data->port_output = !wire_data->port_input;
-        module->rename(wire_flag, "\\" + info.port_name + "_flag");
         wire_flag->port_input = false;
         wire_flag->port_output = true;
 
@@ -308,34 +312,39 @@ void PortTransformer::promote_fifo_ports(Module *module)
         auto &child = edge.toNode();
         Cell *inst = module->cell(edge.name.second);
 
-        for (auto &info : database.fifo_ports.at(child.name)) {
+        for (auto &info : all_fifo_ports.at(child.name)) {
             FifoPortInfo newinfo = info;
-            newinfo.scope.push_back(edge.name.second);
-            newinfo.port_name = EMU_SIG_NAME("FIFO", index++);
+            newinfo.path.insert(newinfo.path.begin(), edge.name.second);
+            newinfo.port_name = "EMU_PORT_" + path_prefix(newinfo.path) + info.port_name;
+            newinfo.port_enable = "\\" + newinfo.port_name + "_enable";
+            newinfo.port_data = "\\" + newinfo.port_name + "_data";
+            newinfo.port_flag = "\\" + newinfo.port_name + "_flag";
 
-            Wire *wire_enable = module->addWire("\\" + newinfo.port_name + "_enable");
+            Wire *wire_enable = module->addWire(newinfo.port_enable);
             wire_enable->port_input = true;
             wire_enable->port_output = false;
-            inst->setPort("\\" + info.port_name + "_enable", wire_enable);
-            Wire *wire_data = module->addWire("\\" + newinfo.port_name + "_data", newinfo.width);
-            wire_enable->port_input = newinfo.type == 0;
-            wire_enable->port_output = !wire_enable->port_input;
-            inst->setPort("\\" + info.port_name + "_data", wire_data);
-            Wire *wire_flag = module->addWire("\\" + newinfo.port_name + "_flag");
-            wire_enable->port_input = false;
-            wire_enable->port_output = true;
-            inst->setPort("\\" + info.port_name + "_flag", wire_flag);
+            inst->setPort(info.port_enable, wire_enable);
+            Wire *wire_data = module->addWire(newinfo.port_data, newinfo.width);
+            wire_data->port_input = newinfo.type == 0;
+            wire_data->port_output = !wire_data->port_input;
+            inst->setPort(info.port_data, wire_data);
+            Wire *wire_flag = module->addWire(newinfo.port_flag);
+            wire_flag->port_input = false;
+            wire_flag->port_output = true;
+            inst->setPort(info.port_flag, wire_flag);
 
             fifoportinfo.push_back(newinfo);
         }
     }
 
     module->fixup_ports();
+
+    all_fifo_ports[module->name] = fifoportinfo;
 }
 
 void PortTransformer::promote_channel_ports(Module *module)
 {
-    auto &channels = database.channels[module->name];
+    std::vector<ChannelInfo> channels;
     pool<std::string> channel_names;
 
     for (auto portid : module->ports) {
@@ -356,7 +365,8 @@ void PortTransformer::promote_channel_ports(Module *module)
         channel_names.insert(name);
 
         ChannelInfo info;
-        info.name = name;
+        info.orig_name = name;
+        info.port_name = name;
 
         // Process channel direction
 
@@ -404,47 +414,85 @@ void PortTransformer::promote_channel_ports(Module *module)
         // Process channel valid/ready port
 
         std::string valid = wire->get_string_attribute(Attr::ChannelValid);
-        if (!valid.empty()) {
-            Wire *wire_valid = module->wire("\\" + valid);
-            if (wire_valid == nullptr)
-                log_error("%s.%s: valid port %s of channel %s does not exist\n", 
-                    log_id(module), log_id(wire), valid.c_str(), name.c_str());
-
-            info.valid = wire_valid->name;
-        }
-        else {
+        if (valid.empty())
             log_error("%s.%s: valid port of channel %s is required\n", 
                 log_id(module), log_id(wire), name.c_str());
-        }
+
+        Wire *wire_valid = module->wire("\\" + valid);
+        if (wire_valid == nullptr)
+            log_error("%s.%s: valid port %s of channel %s does not exist\n", 
+                log_id(module), log_id(wire), valid.c_str(), name.c_str());
+
+        info.port_valid = wire_valid->name;
 
         std::string ready = wire->get_string_attribute(Attr::ChannelReady);
-        if (!ready.empty()) {
-            Wire *wire_ready = module->wire("\\" + ready);
-            if (wire_ready == nullptr)
-                log_error("%s.%s: ready port %s of channel %s does not exist\n", 
-                    log_id(module), log_id(wire), ready.c_str(), name.c_str());
-
-            info.ready = wire_ready->name;
-        }
-        else {
+        if (ready.empty())
             log_error("%s.%s: ready port of channel %s is required\n", 
                 log_id(module), log_id(wire), name.c_str());
-        }
+
+        Wire *wire_ready = module->wire("\\" + ready);
+        if (wire_ready == nullptr)
+            log_error("%s.%s: ready port %s of channel %s does not exist\n", 
+                log_id(module), log_id(wire), ready.c_str(), name.c_str());
+
+        info.port_ready = wire_ready->name;
+
+        wire_valid->port_input = info.dir == ChannelInfo::IN;
+        wire_valid->port_output = !wire_valid->port_input;
+        wire_ready->port_input = !wire_valid->port_input;
+        wire_ready->port_output = !wire_ready->port_input;
 
         channels.push_back(info);
     }
+
+    // export submodule ports
+
+    auto &node = hier.dag.findNode(module->name);
+    for (auto &edge : node.outEdges()) {
+        auto &child = edge.toNode();
+        Cell *inst = module->cell(edge.name.second);
+
+        for (auto &info : all_channel_ports.at(child.name)) {
+            ChannelInfo newinfo = info;
+            newinfo.path.insert(newinfo.path.begin(), edge.name.second);
+            newinfo.port_name = "EMU_PORT_" + path_prefix(newinfo.path) + info.port_name;
+            newinfo.port_valid = "\\" + newinfo.port_name + "_valid";
+            newinfo.port_ready = "\\" + newinfo.port_name + "_ready";
+
+            Wire *wire_valid = module->addWire(newinfo.port_valid);
+            wire_valid->port_input = info.dir == ChannelInfo::IN;
+            wire_valid->port_output = !wire_valid->port_input;
+            inst->setPort(info.port_valid, wire_valid);
+            Wire *wire_ready = module->addWire(newinfo.port_ready);
+            wire_ready->port_input = !wire_valid->port_input;
+            wire_ready->port_output = !wire_ready->port_input;
+            inst->setPort(info.port_ready, wire_ready);
+
+            channels.push_back(newinfo);
+        }
+    }
+
+    module->fixup_ports();
+
+    all_channel_ports[module->name] = channels;
 }
 
 void PortTransformer::promote()
 {
     for (auto &node : hier.dag.topoSort(true)) {
-        Module *module = design->module(node.name);
+        Module *module = hier.design->module(node.name);
         log("Processing module %s...\n", log_id(module));
         promote_user_sigs(module);
         promote_common_ports(module);
         promote_fifo_ports(module);
         promote_channel_ports(module);
     }
+    IdString top = hier.dag.rootNode().name;
+    database.user_clocks = all_clock_ports.at(top);
+    database.user_resets = all_reset_ports.at(top);
+    database.user_trigs = all_trig_ports.at(top);
+    database.fifo_ports = all_fifo_ports.at(top);
+    database.channels = all_channel_ports.at(top);
 }
 
 PRIVATE_NAMESPACE_BEGIN
@@ -458,9 +506,10 @@ struct EmuTestPort : public Pass {
 
         Hierarchy hier(design);
         EmulationDatabase database;
-        PortTransformer worker(design, hier, database);
+        PortTransformer worker(hier, database);
 
         worker.promote();
+        database.write_yaml("output.yml");
     }
 } EmuTestPort;
 

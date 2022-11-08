@@ -2,7 +2,7 @@
 #define _DATABASE_H_
 
 #include "kernel/yosys.h"
-
+#include "yaml-cpp/yaml.h"
 #include "circuit_info.h"
 
 namespace Emu {
@@ -33,71 +33,210 @@ struct MemInfo {
     Yosys::Const init_data;
 };
 
-struct InfoWithScope {
-    std::vector<Yosys::IdString> scope; // reversed path
-};
+#define DB_ENCODE(node, field) node[#field] = field
+#define DB_ENCODE_ENUM(node, field) node[#field] = static_cast<int>(field)
+#define DB_DECODE(node, field) field = node[#field].as<decltype(field)>()
+#define DB_DECODE_ENUM(node, field) field = static_cast<decltype(field)>(node[#field].as<int>())
 
-template<typename T>
-struct InfoWithName {
-    T orig_name;
-    T port_name;
-};
-
-struct SinglePortBaseInfo : public InfoWithScope, public InfoWithName<Yosys::IdString> {};
-struct GroupPortBaseInfo : public InfoWithScope, public InfoWithName<std::string> {};
-
-struct PortInfo : public SinglePortBaseInfo {
-    std::vector<Yosys::IdString> scope; // reversed path
+struct ClockInfo
+{
+    std::vector<Yosys::IdString> path;
     Yosys::IdString orig_name;
     Yosys::IdString port_name;
-};
-
-struct ClockInfo : public SinglePortBaseInfo {
     // TODO: frequency, phase, etc.
     Yosys::IdString ff_clk;
     Yosys::IdString ram_clk;
+
+    YAML::Node encode() const
+    {
+        YAML::Node res;
+        DB_ENCODE(res, path);
+        DB_ENCODE(res, orig_name);
+        DB_ENCODE(res, port_name);
+        DB_ENCODE(res, ff_clk);
+        DB_ENCODE(res, ram_clk);
+        return res;
+    }
+
+    ClockInfo() = default;
+
+    ClockInfo(const YAML::Node &node)
+    {
+        DB_DECODE(node, path);
+        DB_DECODE(node, orig_name);
+        DB_DECODE(node, port_name);
+        DB_DECODE(node, ff_clk);
+        DB_DECODE(node, ram_clk);
+    }
 };
 
-struct ResetInfo : public SinglePortBaseInfo {
+struct ResetInfo
+{
+    std::vector<Yosys::IdString> path;
+    Yosys::IdString orig_name;
+    Yosys::IdString port_name;
     // TODO: duration, etc.
+
+    YAML::Node encode() const
+    {
+        YAML::Node res;
+        DB_ENCODE(res, path);
+        DB_ENCODE(res, orig_name);
+        DB_ENCODE(res, port_name);
+        return res;
+    }
+
+    ResetInfo() = default;
+
+    ResetInfo(const YAML::Node &node)
+    {
+        DB_DECODE(node, path);
+        DB_DECODE(node, orig_name);
+        DB_DECODE(node, port_name);
+    }
 };
 
-struct TrigInfo : public SinglePortBaseInfo {
+struct TrigInfo
+{
+    std::vector<Yosys::IdString> path;
+    Yosys::IdString orig_name;
+    Yosys::IdString port_name;
     std::string desc;
+
+    YAML::Node encode() const
+    {
+        YAML::Node res;
+        DB_ENCODE(res, path);
+        DB_ENCODE(res, orig_name);
+        DB_ENCODE(res, port_name);
+        DB_ENCODE(res, desc);
+        return res;
+    }
+
+    TrigInfo() = default;
+
+    TrigInfo(const YAML::Node &node)
+    {
+        DB_DECODE(node, path);
+        DB_DECODE(node, orig_name);
+        DB_DECODE(node, port_name);
+        DB_DECODE(node, desc);
+    }
 };
 
-struct FifoPortInfo : public GroupPortBaseInfo {
-    std::vector<Yosys::IdString> scope; // reversed path
-    std::string name;
+struct FifoPortInfo
+{
+    std::vector<Yosys::IdString> path;
+    std::string orig_name;
+    std::string port_name;
     enum {SOURCE, SINK} type;
     int width = 0;
+    Yosys::IdString port_enable;
+    Yosys::IdString port_data;
+    Yosys::IdString port_flag;
+
+    YAML::Node encode() const
+    {
+        YAML::Node res;
+        DB_ENCODE(res, path);
+        DB_ENCODE(res, orig_name);
+        DB_ENCODE(res, port_name);
+        DB_ENCODE_ENUM(res, type);
+        DB_ENCODE(res, width);
+        DB_ENCODE(res, port_enable);
+        DB_ENCODE(res, port_data);
+        DB_ENCODE(res, port_flag);
+        return res;
+    }
+
+    FifoPortInfo() = default;
+
+    FifoPortInfo(const YAML::Node &node)
+    {
+        DB_DECODE(node, path);
+        DB_DECODE(node, orig_name);
+        DB_DECODE(node, port_name);
+        DB_DECODE_ENUM(node, type);
+        DB_DECODE(node, width);
+        DB_DECODE(node, port_enable);
+        DB_DECODE(node, port_data);
+        DB_DECODE(node, port_flag);
+    }
 };
 
-struct ChannelInfo : public GroupPortBaseInfo {
-    std::vector<Yosys::IdString> scope; // reversed path
-    std::string name;
+struct ChannelInfo
+{
+    std::vector<Yosys::IdString> path;
+    std::string orig_name;
+    std::string port_name;
     enum {IN, OUT} dir;
-    std::vector<std::string> deps;
-    Yosys::IdString valid;
-    Yosys::IdString ready;
-    std::vector<Yosys::IdString> payloads;
+    Yosys::IdString port_valid;
+    Yosys::IdString port_ready;
+    std::vector<std::string> deps; // relative to path
+    std::vector<Yosys::IdString> payloads; // relative to path
+
+    YAML::Node encode() const
+    {
+        YAML::Node res;
+        DB_ENCODE(res, path);
+        DB_ENCODE(res, orig_name);
+        DB_ENCODE(res, port_name);
+        DB_ENCODE_ENUM(res, dir);
+        DB_ENCODE(res, port_valid);
+        DB_ENCODE(res, port_ready);
+        DB_ENCODE(res, deps);
+        DB_ENCODE(res, payloads);
+        return res;
+    }
+
+    ChannelInfo() = default;
+
+    ChannelInfo(const YAML::Node &node)
+    {
+        DB_DECODE(node, path);
+        DB_DECODE(node, orig_name);
+        DB_DECODE(node, port_name);
+        DB_DECODE_ENUM(node, dir);
+        DB_DECODE(node, port_valid);
+        DB_DECODE(node, port_ready);
+        DB_DECODE(node, deps);
+        DB_DECODE(node, payloads);
+    }
 };
 
-struct ModelInfo {
+#undef DB_ENCODE
+#undef DB_ENCDE_ENUM
+#undef DB_DECODE
+#undef DB_DECODE_ENUM
+
+template<typename T>
+struct YAMLConv
+{
+    static YAML::Node encode(const T &rhs)
+    {
+        return rhs.encode();
+    }
+
+    static bool decode(const YAML::Node& node, T& rhs)
+    {
+        return T(node);
+    }
+};
+
+struct ModelInfo
+{
     std::vector<std::string> name;
     std::string type;
 };
 
 struct EmulationDatabase
 {
-    Yosys::IdString top;
-
-    Yosys::dict<Yosys::IdString, std::vector<ClockInfo>> user_clocks;
-    Yosys::dict<Yosys::IdString, std::vector<ResetInfo>> user_resets;
-    Yosys::dict<Yosys::IdString, std::vector<TrigInfo>> user_trigs;
-    Yosys::dict<Yosys::IdString, std::vector<FifoPortInfo>> fifo_ports;
-    Yosys::dict<Yosys::IdString, std::vector<ChannelInfo>> channels;
-    Yosys::dict<Yosys::IdString, std::vector<ModelInfo>> models;
+    std::vector<ClockInfo> user_clocks;
+    std::vector<ResetInfo> user_resets;
+    std::vector<TrigInfo> user_trigs;
+    std::vector<FifoPortInfo> fifo_ports;
+    std::vector<ChannelInfo> channels;
+    std::vector<ModelInfo> models;
 
     // written by InsertScanchain
     int ff_width;
@@ -139,5 +278,33 @@ public:
 #endif
 
 } // namespace Emu
+
+namespace YAML {
+
+template<>
+struct convert<Yosys::IdString>
+{
+    static Node encode(Yosys::IdString rhs)
+    {
+        return Node(rhs[0] == '\\' ? rhs.substr(1) : rhs.str());
+    }
+
+    static bool decode(const Node& node, Yosys::IdString& rhs)
+    {
+        std::string temp;
+        if (!convert<std::string>::decode(node, temp))
+            return false;
+        rhs = '\\' + temp;
+        return true;
+    }
+};
+
+template<> struct convert<Emu::ClockInfo> : public Emu::YAMLConv<Emu::ClockInfo> {};
+template<> struct convert<Emu::ResetInfo> : public Emu::YAMLConv<Emu::ResetInfo> {};
+template<> struct convert<Emu::TrigInfo> : public Emu::YAMLConv<Emu::TrigInfo> {};
+template<> struct convert<Emu::FifoPortInfo> : public Emu::YAMLConv<Emu::FifoPortInfo> {};
+template<> struct convert<Emu::ChannelInfo> : public Emu::YAMLConv<Emu::ChannelInfo> {};
+
+}; // namespace YAML
 
 #endif // #ifndef _DATABASE_H_
