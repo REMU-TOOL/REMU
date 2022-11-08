@@ -1,9 +1,12 @@
 `timescale 1 ns / 1 ps
 
-(* keep, noblackbox *)
+(* keep *)
 module EmuReset (
+    output wire reset,
     (* __emu_user_rst *)
-    output wire reset
+    input wire user_rst
 );
+
+    assign reset = user_rst;
 
 endmodule

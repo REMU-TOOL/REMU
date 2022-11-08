@@ -1,9 +1,12 @@
 `timescale 1ns / 1ps
 
-(* keep, noblackbox *)
+(* keep *)
 module EmuClock (
+    output wire clock,
     (* __emu_user_clk *)
-    output wire clock
+    input wire user_clk
 );
+
+    assign clock = user_clk;
 
 endmodule
