@@ -26,6 +26,8 @@ struct CommonPort
         NAME_RAM_SD,
         NAME_RAM_DI,
         NAME_RAM_DO,
+        NAME_RAM_LI,
+        NAME_RAM_LO,
     };
 
     enum Type {
@@ -62,7 +64,7 @@ struct CommonPort
 
 struct PortTransformer
 {
-    Hierarchy &hier;
+    Hierarchy hier;
     EmulationDatabase &database;
 
     Yosys::dict<Yosys::IdString, std::vector<ClockInfo>> all_clock_ports;
@@ -78,8 +80,8 @@ struct PortTransformer
 
     void promote();
 
-    PortTransformer(Hierarchy &hier, EmulationDatabase &database)
-        : hier(hier), database(database) {}
+    PortTransformer(Yosys::Design *design, EmulationDatabase &database)
+        : hier(design), database(database) {}
 };
 
 };

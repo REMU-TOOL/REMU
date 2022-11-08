@@ -10,7 +10,7 @@ namespace Emu {
 
 struct ClockTreeHelper
 {
-    Hierarchy &hier;
+    Hierarchy hier;
     Yosys::dict<Yosys::IdString, Yosys::pool<Yosys::SigBit>> primary_clock_bits;
 
     void addTopClock(Yosys::SigBit clk)
@@ -22,7 +22,7 @@ struct ClockTreeHelper
 
     void run();
 
-    ClockTreeHelper(Hierarchy &hier) : hier(hier) {}
+    ClockTreeHelper(Yosys::Design *design) : hier(design) {}
 };
 
 };

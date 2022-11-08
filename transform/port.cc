@@ -26,6 +26,8 @@ const std::vector<CommonPort::Info> CommonPort::info_list = {
     {NAME_RAM_SD,       "\\EMU_RAM_SD",     false,  PORT_INPUT},
     {NAME_RAM_DI,       "\\EMU_RAM_DI",     false,  PORT_INPUT},
     {NAME_RAM_DO,       "\\EMU_RAM_DO",     false,  PORT_OUTPUT},
+    {NAME_RAM_LI,       "\\EMU_RAM_LI",     false,  PORT_INPUT},
+    {NAME_RAM_LO,       "\\EMU_RAM_LO",     false,  PORT_OUTPUT},
 };
 
 const Yosys::dict<std::string, CommonPort::ID> CommonPort::name_list = {
@@ -504,9 +506,8 @@ struct EmuTestPort : public Pass {
         extra_args(args, 1, design);
         log_header(design, "Executing EMU_TEST_PORT pass.\n");
 
-        Hierarchy hier(design);
         EmulationDatabase database;
-        PortTransformer worker(hier, database);
+        PortTransformer worker(design, database);
 
         worker.promote();
         database.write_yaml("output.yml");

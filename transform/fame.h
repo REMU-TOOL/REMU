@@ -11,7 +11,7 @@ namespace Emu {
 struct FAMETransformer
 {
     Yosys::Design *design;
-    Hierarchy &hier;
+    Hierarchy hier;
     EmulationDatabase &database;
 
 

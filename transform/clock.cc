@@ -215,12 +215,11 @@ struct EmuTestClockTree : public Pass {
         extra_args(args, 1, design);
         log_header(design, "Executing EMU_TEST_CLOCK_TREE pass.\n");
 
-        Hierarchy hier(design);
         EmulationDatabase database;
-        PortTransformer port(hier, database);
+        PortTransformer port(design, database);
         port.promote();
-        ClockTreeHelper helper(hier);
-        Module *top = design->module(hier.top);
+        ClockTreeHelper helper(design);
+        Module *top = design->top_module();
         for (auto &info : database.user_clocks)
             helper.addTopClock(top->wire(info.port_name));
         helper.run();
