@@ -1,4 +1,5 @@
 #include "kernel/yosys.h"
+#include "kernel/ff.h"
 #include "kernel/mem.h"
 
 #include "escape.h"
@@ -11,6 +12,7 @@ using namespace Emu;
 
 USING_YOSYS_NAMESPACE
 
+#if 0
 PRIVATE_NAMESPACE_BEGIN
 
 std::string const2hex(const Const &val) {
@@ -46,7 +48,6 @@ std::string hier2flat(const std::vector<std::string> &hier) {
 
 PRIVATE_NAMESPACE_END
 
-#if 0
 void FfMemInfoExtractor::add_ff(const SigSpec &sig, const Const &initval) {
     FfInfo res;
     for (auto &chunk : sig.chunks()) {
@@ -95,26 +96,75 @@ void FfMemInfoExtractor::add_mem(const Mem &mem, int slices) {
 }
 #endif
 
+EmulationDatabase::EmulationDatabase(Design *design)
+{
+    design_info.top = pretty_name(design->top_module()->name);
+    for (Module *module : design->modules()) {
+        ModuleInfo module_info;
+        for (Cell *cell : module->cells()) {
+            if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
+                FfData ff(nullptr, cell);
+                for (auto &chunk : ff.sig_q.chunks()) {
+                    log_assert(chunk.is_wire());
+                    Wire *wire = chunk.wire;
+                    std::string name = pretty_name(wire->name);
+                    if (module_info.cells.count(name))
+                        continue;
+                    RegInfo reg;
+                    reg.width = wire->width;
+                    reg.start_offset = wire->start_offset;
+                    reg.upto = wire->upto;
+                    module_info.cells.emplace(
+                        std::piecewise_construct,
+                        std::forward_as_tuple(name),
+                        std::forward_as_tuple(std::move(reg)));
+                }
+            }
+            else if (design->has(cell->type)) {
+                std::string name = pretty_name(cell->name);
+                std::string module_name = pretty_name(cell->type);
+                module_info.cells.emplace(
+                    std::piecewise_construct,
+                    std::forward_as_tuple(name),
+                    std::forward_as_tuple(module_name));
+            }
+        }
+        for (auto &mem : Mem::get_all_memories(module)) {
+            std::string name = pretty_name(mem.memid);
+            RegArrayInfo array;
+            array.width = mem.width;
+            array.depth = mem.size;
+            array.start_offset = mem.start_offset;
+            array.dissolved = false;
+            module_info.cells.emplace(
+                std::piecewise_construct,
+                std::forward_as_tuple(name),
+                std::forward_as_tuple(std::move(array)));
+        }
+        std::string name = pretty_name(module->name);
+        design_info.modules.emplace(
+            std::piecewise_construct,
+            std::forward_as_tuple(name),
+            std::forward_as_tuple(std::move(module_info)));
+    }
+}
+
 void EmulationDatabase::write_init(std::string init_file) {
     std::ofstream f;
 
-    f.open(init_file.c_str(), std::ofstream::binary);
+    f.open(init_file.c_str(), std::ios::binary);
     if (f.fail()) {
         log_error("Can't open file `%s' for writing: %s\n", init_file.c_str(), strerror(errno));
     }
 
     log("Writing to file `%s'\n", init_file.c_str());
 
-    for (auto &src : scanchain_ff) {
-        f << const2hex(src.initval) << "\n";
+    for (auto &ff : ff_list) {
+        f << ff.init_data.as_string() << "\n";
     }
 
-    for (auto &mem : scanchain_ram) {
-        for (int i = 0; i < mem.mem_depth; i++) {
-            Const word = mem.init_data.extract(i * mem.mem_width, mem.mem_width);
-            for (int j = 0; j < mem.mem_width; j += ram_width)
-                f << const2hex(word.extract(j, ram_width)) << "\n";
-        }
+    for (auto &mem : ram_list) {
+        f << mem.init_data.as_string() << "\n";
     }
 
     f.close();
@@ -123,7 +173,7 @@ void EmulationDatabase::write_init(std::string init_file) {
 void EmulationDatabase::write_yaml(std::string yaml_file) {
     std::ofstream f;
 
-    f.open(yaml_file.c_str(), std::ofstream::trunc);
+    f.open(yaml_file.c_str(), std::ios::trunc);
     if (f.fail()) {
         log_error("Can't open file `%s' for writing: %s\n", yaml_file.c_str(), strerror(errno));
     }
@@ -132,30 +182,9 @@ void EmulationDatabase::write_yaml(std::string yaml_file) {
 
     YAML::Node root;
 
-    for (auto &src : scanchain_ff) {
-        YAML::Node ff_node;
-        for (auto &c : src.info) {
-            YAML::Node src_node;
-            for (auto &s : c.wire_name)
-                src_node["name"].push_back(s);
-            src_node["offset"] = c.offset;
-            src_node["width"] = c.width;
-            src_node["is_src"] = c.is_src;
-            ff_node.push_back(src_node);
-        }
-        root["ff"].push_back(ff_node);
-    }
-
-    for (auto &mem : scanchain_ram) {
-        YAML::Node mem_node;
-        for (auto &s : mem.name)
-            mem_node["name"].push_back(s);
-        mem_node["is_src"] = mem.is_src;
-        root["mem"].push_back(mem_node);
-    }
-
-    root["circuit"] = ci_root.to_yaml();
-
+    root["design"] = design_info;
+    root["ff"] = ff_list;
+    root["ram"] = ram_list;
     root["clock"] = user_clocks;
     root["reset"] = user_resets;
     root["trigger"] = user_trigs;
@@ -178,19 +207,18 @@ void EmulationDatabase::write_yaml(std::string yaml_file) {
 void EmulationDatabase::write_loader(std::string loader_file) {
     std::ofstream os;
 
-    os.open(loader_file.c_str(), std::ofstream::trunc);
+    os.open(loader_file.c_str(), std::ios::trunc);
     if (os.fail()) {
         log_error("Can't open file `%s' for writing: %s\n", loader_file.c_str(), strerror(errno));
     }
 
     log("Writing to file `%s'\n", loader_file.c_str());
 
+#if 0
+
     int addr;
 
     os << "`define LOAD_DECLARE integer __load_i;\n";
-    os << "`define LOAD_FF_WIDTH " << ff_width << "\n";
-    os << "`define LOAD_MEM_WIDTH " << ram_width << "\n";
-
     os << "`define LOAD_FF(__LOAD_DATA_FUNC, __LOAD_DUT) \\\n";
     addr = 0;
     for (auto &src : scanchain_ff) {
@@ -232,6 +260,7 @@ void EmulationDatabase::write_loader(std::string loader_file) {
     }
     os << "\n";
     os << "`define CHAIN_MEM_WORDS " << addr << "\n";
+#endif
 
     os.close();
 }

@@ -214,7 +214,7 @@ struct EmuTransformPass : public Pass {
 
         pre_integrate(design);
 
-        EmulationDatabase database;
+        EmulationDatabase database(design);
 
 #if 0
         EmulationRewriter rewriter(design);
