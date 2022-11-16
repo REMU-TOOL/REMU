@@ -12,90 +12,6 @@ using namespace Emu;
 
 USING_YOSYS_NAMESPACE
 
-#if 0
-PRIVATE_NAMESPACE_BEGIN
-
-std::string const2hex(const Const &val) {
-    int len = (GetSize(val) + 3) / 4;
-    std::string res;
-    res.resize(len, ' ');
-
-    for (int i = 0; i < len; i++) {
-        int digit = val.extract(i*4, 4).as_int();
-        char c;
-        if (digit >= 10)
-            c = 'a' + digit - 10;
-        else
-            c = '0' + digit;
-        res[len-1-i] = c;
-    }
-
-    return res;
-}
-
-std::string hier2flat(const std::vector<std::string> &hier) {
-    std::ostringstream ss;
-    bool is_first = true;
-    for (auto & s : hier) {
-        if (is_first)
-            is_first = false;
-        else
-            ss << ".";
-        ss << Escape::escape_verilog_id(s);
-    }
-    return ss.str();
-}
-
-PRIVATE_NAMESPACE_END
-
-void FfMemInfoExtractor::add_ff(const SigSpec &sig, const Const &initval) {
-    FfInfo res;
-    for (auto &chunk : sig.chunks()) {
-        log_assert(chunk.is_wire());
-        std::vector<std::string> path = design.hier_name_of(chunk.wire, target);
-
-        FfInfoChunk chunkinfo;
-        chunkinfo.wire_name = path;
-        chunkinfo.wire_width = chunk.wire->width;
-        chunkinfo.wire_start_offset = chunk.wire->start_offset;
-        chunkinfo.wire_upto = chunk.wire->upto;
-        chunkinfo.width = chunk.width;
-        chunkinfo.offset = chunk.offset;
-        chunkinfo.is_src = chunk.wire->has_attribute(ID::src);
-        res.info.push_back(chunkinfo);
-
-        database.ci_root.add(path, CircuitInfo::Wire(
-            chunk.wire->width,
-            chunk.wire->start_offset,
-            chunk.wire->upto
-        ));
-    }
-    res.initval = initval;
-    database.scanchain_ff.push_back(res);
-}
-
-void FfMemInfoExtractor::add_mem(const Mem &mem, int slices) {
-    std::vector<std::string> path = design.hier_name_of(mem.memid, mem.module, target);
-
-    MemInfo res;
-    res.name = path;
-    res.depth = mem.size * slices;
-    res.slices = slices;
-    res.mem_width = mem.width;
-    res.mem_depth = mem.size;
-    res.mem_start_offset = mem.start_offset;
-    res.is_src = mem.has_attribute(ID::src);
-    res.init_data = mem.get_init_data();
-    database.scanchain_ram.push_back(res);
-
-    database.ci_root.add(path, CircuitInfo::Mem(
-        mem.width,
-        mem.size,
-        mem.start_offset
-    ));
-}
-#endif
-
 EmulationDatabase::EmulationDatabase(Design *design)
 {
     design_info.top = pretty_name(design->top_module()->name);
@@ -182,7 +98,8 @@ void EmulationDatabase::write_yaml(std::string yaml_file) {
 
     YAML::Node root;
 
-    root["design"] = design_info;
+    // TODO: is design_info necessary?
+    //root["design"] = design_info;
     root["ff"] = ff_list;
     root["ram"] = ram_list;
     root["clock"] = user_clocks;
@@ -214,53 +131,38 @@ void EmulationDatabase::write_loader(std::string loader_file) {
 
     log("Writing to file `%s'\n", loader_file.c_str());
 
-#if 0
-
     int addr;
 
-    os << "`define LOAD_DECLARE integer __load_i;\n";
-    os << "`define LOAD_FF(__LOAD_DATA_FUNC, __LOAD_DUT) \\\n";
+    os << "`define LOAD_FF(__LOAD_DATA, __LOAD_DUT) \\\n";
     addr = 0;
-    for (auto &src : scanchain_ff) {
-        int offset = 0;
-        for (auto chunk : src.info) {
-            if (!chunk.is_src)
-                continue;
-            os  << "    __LOAD_DUT." << hier2flat(chunk.wire_name);
-            if (chunk.width != chunk.wire_width) {
-                if (chunk.width == 1)
-                    os << stringf("[%d]", chunk.wire_start_offset + chunk.offset);
-                else if (chunk.wire_upto)
-                    os << stringf("[%d:%d]", (chunk.wire_width - (chunk.offset + chunk.width - 1) - 1) + chunk.wire_start_offset,
-                            (chunk.wire_width - chunk.offset - 1) + chunk.wire_start_offset);
-                else
-                    os << stringf("[%d:%d]", chunk.wire_start_offset + chunk.offset + chunk.width - 1,
-                            chunk.wire_start_offset + chunk.offset);
-            }
-            os  << " = __LOAD_DATA_FUNC(" << addr << ")"
-                << " >> " << offset << "; \\\n";
-            offset += chunk.width;
+    for (auto &ff : ff_list) {
+        os << "    __LOAD_DUT." << pretty_name(ff.name);
+        if (ff.width != ff.wire_width) {
+            if (ff.width == 1)
+                os << stringf("[%d]", ff.wire_start_offset + ff.offset);
+            else if (ff.wire_upto)
+                os << stringf("[%d:%d]", (ff.wire_width - (ff.offset + ff.width - 1) - 1) + ff.wire_start_offset,
+                        (ff.wire_width - ff.offset - 1) + ff.wire_start_offset);
+            else
+                os << stringf("[%d:%d]", ff.wire_start_offset + ff.offset + ff.width - 1,
+                        ff.wire_start_offset + ff.offset);
         }
-        addr++;
+        os << " = __LOAD_DATA[" << addr << "+:" << ff.width << "]; \\\n";
+        addr += ff.width;
     }
     os << "\n";
-    os << "`define CHAIN_FF_WORDS " << addr << "\n";
+    os << "`define FF_BIT_COUNT " << addr << "\n";
 
-    os << "`define LOAD_MEM(__LOAD_DATA_FUNC, __LOAD_DUT) \\\n";
+    os << "`define LOAD_MEM(__LOOP_VAR, __LOAD_DATA, __LOAD_DUT) \\\n";
     addr = 0;
-    for (auto &mem : scanchain_ram) {
-        if (!mem.is_src)
-            continue;
-        os  << "    for (__load_i=0; __load_i<" << mem.mem_depth << "; __load_i=__load_i+1) __LOAD_DUT."
-            << hier2flat(mem.name) << "[__load_i+" << mem.mem_start_offset << "] = {";
-        for (int i = mem.slices - 1; i >= 0; i--)
-            os << "__LOAD_DATA_FUNC(__load_i*" << mem.slices << "+" << addr + i << ")" << (i != 0 ? ", " : "");
-        os << "}; \\\n";
+    for (auto &mem : ram_list) {
+        os  << "    for (__LOOP_VAR=0; __LOOP_VAR<" << mem.depth << "; __LOOP_VAR=__LOOP_VAR+1) __LOAD_DUT."
+            << pretty_name(mem.name) << "[__LOOP_VAR+" << mem.start_offset << "] = __LOAD_DATA["
+            << addr << "+__LOOP_VAR*" << mem.width << "+:" << mem.width << "]; \\\n";
         addr += mem.depth;
     }
     os << "\n";
-    os << "`define CHAIN_MEM_WORDS " << addr << "\n";
-#endif
+    os << "`define RAM_BIT_COUNT " << addr << "\n";
 
     os.close();
 }

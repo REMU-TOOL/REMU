@@ -13,7 +13,7 @@ using namespace Emu;
 
 void ScanchainWorker::instrument_module_ff(Module *module, SigSpec ff_di, SigSpec ff_do, std::vector<FFInfo> &info_list)
 {
-    Wire *scan_mode = CommonPort::get(module, CommonPort::NAME_SCAN_MODE);
+    Wire *scan_mode = CommonPort::get(module, CommonPort::PORT_SCAN_MODE);
 
     // process clock, reset, enable signals and insert sdi
     // Original:
@@ -104,6 +104,9 @@ void ScanchainWorker::instrument_module_ff(Module *module, SigSpec ff_di, SigSpe
         info.name = {chunk.wire->name};
         info.width = chunk.width;
         info.offset = chunk.offset;
+        info.wire_width = chunk.wire->width;
+        info.wire_start_offset = chunk.wire->start_offset;
+        info.wire_upto = chunk.wire->upto;
         info.init_data = initvals(SigSpec(chunk));
         info_list.push_back(std::move(info));
     }
@@ -111,9 +114,9 @@ void ScanchainWorker::instrument_module_ff(Module *module, SigSpec ff_di, SigSpe
 
 void ScanchainWorker::restore_sync_read_port_ff(Module *module, SigSpec ff_di, SigSpec ff_do, std::vector<FFInfo> &info_list)
 {
-    Wire *host_clk  = CommonPort::get(module, CommonPort::NAME_HOST_CLK);
-    Wire *ff_se     = CommonPort::get(module, CommonPort::NAME_FF_SE);
-    Wire *ram_se    = CommonPort::get(module, CommonPort::NAME_RAM_SE);
+    Wire *host_clk  = CommonPort::get(module, CommonPort::PORT_HOST_CLK);
+    Wire *ff_se     = CommonPort::get(module, CommonPort::PORT_FF_SE);
+    Wire *ram_se    = CommonPort::get(module, CommonPort::PORT_RAM_SE);
 
     struct WorkInfo {
         Mem &mem;
@@ -206,6 +209,9 @@ void ScanchainWorker::restore_sync_read_port_ff(Module *module, SigSpec ff_di, S
         info.name = {chunk.wire->name};
         info.width = chunk.width;
         info.offset = chunk.offset;
+        info.wire_width = chunk.wire->width;
+        info.wire_start_offset = chunk.wire->start_offset;
+        info.wire_upto = chunk.wire->upto;
         info.init_data = info_init.as_const();
         info_list.push_back(std::move(info));
     }
@@ -213,11 +219,11 @@ void ScanchainWorker::restore_sync_read_port_ff(Module *module, SigSpec ff_di, S
 
 void ScanchainWorker::instrument_module_ram(Module *module, SigSpec ram_di, SigSpec ram_do, SigSpec ram_li, SigSpec ram_lo, std::vector<RAMInfo> &info_list)
 {
-    Wire *host_clk  = CommonPort::get(module, CommonPort::NAME_HOST_CLK);
-    Wire *scan_mode = CommonPort::get(module, CommonPort::NAME_SCAN_MODE);
-    Wire *ram_sr    = CommonPort::get(module, CommonPort::NAME_RAM_SR);
-    Wire *ram_se    = CommonPort::get(module, CommonPort::NAME_RAM_SE);
-    Wire *ram_sd    = CommonPort::get(module, CommonPort::NAME_RAM_SD);
+    Wire *host_clk  = CommonPort::get(module, CommonPort::PORT_HOST_CLK);
+    Wire *scan_mode = CommonPort::get(module, CommonPort::PORT_SCAN_MODE);
+    Wire *ram_sr    = CommonPort::get(module, CommonPort::PORT_RAM_SR);
+    Wire *ram_se    = CommonPort::get(module, CommonPort::PORT_RAM_SE);
+    Wire *ram_sd    = CommonPort::get(module, CommonPort::PORT_RAM_SD);
 
     SigSpec ram_di_list, ram_do_list, ram_li_list, ram_lo_list;
 
@@ -378,6 +384,10 @@ void ScanchainWorker::instrument_module_ram(Module *module, SigSpec ram_di, SigS
 
         RAMInfo info;
         info.name = {mem.memid};
+        info.width = mem.width;
+        info.depth = mem.size;
+        info.start_offset = mem.start_offset;
+        info.dissolved = false; // TODO
         info.init_data = mem.get_init_data();
         info_list.push_back(std::move(info));
     }
@@ -397,16 +407,16 @@ inline void copy_info_from_child(std::vector<T> &to, const std::vector<T> &from,
 
 void ScanchainWorker::instrument_module(Module *module)
 {
-    Wire *ff_se     = CommonPort::get(module, CommonPort::NAME_FF_SE);
-    Wire *ff_di     = CommonPort::get(module, CommonPort::NAME_FF_DI);
-    Wire *ff_do     = CommonPort::get(module, CommonPort::NAME_FF_DO);
-    Wire *ram_sr    = CommonPort::get(module, CommonPort::NAME_RAM_SR);
-    Wire *ram_se    = CommonPort::get(module, CommonPort::NAME_RAM_SE);
-    Wire *ram_sd    = CommonPort::get(module, CommonPort::NAME_RAM_SD);
-    Wire *ram_di    = CommonPort::get(module, CommonPort::NAME_RAM_DI);
-    Wire *ram_do    = CommonPort::get(module, CommonPort::NAME_RAM_DO);
-    Wire *ram_li    = CommonPort::get(module, CommonPort::NAME_RAM_LI);
-    Wire *ram_lo    = CommonPort::get(module, CommonPort::NAME_RAM_LO);
+    Wire *ff_se     = CommonPort::get(module, CommonPort::PORT_FF_SE);
+    Wire *ff_di     = CommonPort::get(module, CommonPort::PORT_FF_DI);
+    Wire *ff_do     = CommonPort::get(module, CommonPort::PORT_FF_DO);
+    Wire *ram_sr    = CommonPort::get(module, CommonPort::PORT_RAM_SR);
+    Wire *ram_se    = CommonPort::get(module, CommonPort::PORT_RAM_SE);
+    Wire *ram_sd    = CommonPort::get(module, CommonPort::PORT_RAM_SD);
+    Wire *ram_di    = CommonPort::get(module, CommonPort::PORT_RAM_DI);
+    Wire *ram_do    = CommonPort::get(module, CommonPort::PORT_RAM_DO);
+    Wire *ram_li    = CommonPort::get(module, CommonPort::PORT_RAM_LI);
+    Wire *ram_lo    = CommonPort::get(module, CommonPort::PORT_RAM_LO);
 
     std::vector<FFInfo> ff_list;
     std::vector<RAMInfo> ram_list;
@@ -452,16 +462,16 @@ void ScanchainWorker::instrument_module(Module *module)
         sig_ram_li = sig_ram_lo;
         sig_ram_lo = module->addWire(NEW_ID);
 
-        cell->setPort(CommonPort::info_by_id(CommonPort::NAME_FF_SE).id_str,    ff_se);
-        cell->setPort(CommonPort::info_by_id(CommonPort::NAME_FF_DI).id_str,    sig_ff_di);
-        cell->setPort(CommonPort::info_by_id(CommonPort::NAME_FF_DO).id_str,    sig_ff_do);
-        cell->setPort(CommonPort::info_by_id(CommonPort::NAME_RAM_SR).id_str,   ram_sr);
-        cell->setPort(CommonPort::info_by_id(CommonPort::NAME_RAM_SE).id_str,   ram_se);
-        cell->setPort(CommonPort::info_by_id(CommonPort::NAME_RAM_SD).id_str,   ram_sd);
-        cell->setPort(CommonPort::info_by_id(CommonPort::NAME_RAM_DI).id_str,   sig_ram_di);
-        cell->setPort(CommonPort::info_by_id(CommonPort::NAME_RAM_DO).id_str,   sig_ram_do);
-        cell->setPort(CommonPort::info_by_id(CommonPort::NAME_RAM_LI).id_str,   sig_ram_li);
-        cell->setPort(CommonPort::info_by_id(CommonPort::NAME_RAM_LO).id_str,   sig_ram_lo);
+        cell->setPort(CommonPort::PORT_FF_SE.id,    ff_se);
+        cell->setPort(CommonPort::PORT_FF_DI.id,    sig_ff_di);
+        cell->setPort(CommonPort::PORT_FF_DO.id,    sig_ff_do);
+        cell->setPort(CommonPort::PORT_RAM_SR.id,   ram_sr);
+        cell->setPort(CommonPort::PORT_RAM_SE.id,   ram_se);
+        cell->setPort(CommonPort::PORT_RAM_SD.id,   ram_sd);
+        cell->setPort(CommonPort::PORT_RAM_DI.id,   sig_ram_di);
+        cell->setPort(CommonPort::PORT_RAM_DO.id,   sig_ram_do);
+        cell->setPort(CommonPort::PORT_RAM_LI.id,   sig_ram_li);
+        cell->setPort(CommonPort::PORT_RAM_LO.id,   sig_ram_lo);
 
         copy_info_from_child(ff_list, ff_lists.at(cell->type), cell->name);
         copy_info_from_child(ram_list, ram_lists.at(cell->type), cell->name);
@@ -478,6 +488,75 @@ void ScanchainWorker::instrument_module(Module *module)
     ram_lists[module->name] = ram_list;
 }
 
+void ScanchainWorker::tieoff_ram_last(Module *module)
+{
+    auto &ram_list = ram_lists.at(module->name);
+    const int depth = ram_list.size();
+    const int cntbits = ceil_log2(depth + 1);
+
+    Wire *host_clk  = CommonPort::get(module, CommonPort::PORT_HOST_CLK);
+    Wire *ram_sr    = CommonPort::get(module, CommonPort::PORT_RAM_SR);
+    Wire *ram_se    = CommonPort::get(module, CommonPort::PORT_RAM_SE);
+    Wire *ram_sd    = CommonPort::get(module, CommonPort::PORT_RAM_SD);
+    Wire *ram_li    = CommonPort::get(module, CommonPort::PORT_RAM_LI);
+    Wire *ram_lo    = CommonPort::get(module, CommonPort::PORT_RAM_LO);
+
+    make_internal(ram_li);
+    make_internal(ram_lo);
+    module->fixup_ports();
+
+    // reg [CNTBITS-1:0] in_cnt;
+    // wire in_full = in_cnt == DEPTH;
+    SigSpec in_cnt = module->addWire(NEW_ID, cntbits);
+    SigSpec in_full = module->Eq(NEW_ID, in_cnt, Const(depth, cntbits));
+
+    // always @(posedge clk)
+    //     if (ram_sr)
+    //         in_cnt <= 0;
+    //     else if (ram_se && !in_full)
+    //         in_cnt <= in_cnt + 1;
+    module->addSdffe(NEW_ID,
+        host_clk,
+        module->And(NEW_ID, ram_se, module->Not(NEW_ID, in_full)),
+        ram_sr,
+        module->Add(NEW_ID, in_cnt, Const(1, cntbits)),
+        in_cnt,
+        Const(0, cntbits));
+
+    // reg out_flag;
+    SigSpec out_flag = module->addWire(NEW_ID);
+
+    // always @(posedge clk)
+    //     if (ram_sr)
+    //         out_flag <= 1'b0;
+    //     else if (ram_se)
+    //         out_flag <= 1'b1;
+    module->addSdffe(NEW_ID,
+        host_clk,
+        ram_se,
+        ram_sr,
+        State::S1,
+        out_flag,
+        State::S0);
+
+    // wire start = ram_sd ? in_full : out_flag;
+    // reg start_r;
+    SigSpec start = module->Mux(NEW_ID, out_flag, in_full, ram_sd);
+    SigSpec start_r = module->addWire(NEW_ID);
+
+    // always @(posedge clk)
+    //     if (ram_se)
+    //         start_r <= start;
+    module->addDffe(NEW_ID,
+        host_clk,
+        ram_se,
+        start,
+        start_r);
+
+    // assign ram_li = start && !start_r;
+    module->connect(ram_li, module->And(NEW_ID, start, module->Not(NEW_ID, start_r)));
+}
+
 void ScanchainWorker::run()
 {
     // Note: in instrumentation process new modules are created,
@@ -490,7 +569,11 @@ void ScanchainWorker::run()
         log("Creating instrumented module %s from %s\n", log_id(newid), log_id(module));
 
         Module *newmod = module->clone();
+        module->attributes.erase(ID::top);
         instrument_module(newmod);
+
+        if (node.index == hier.dag.root)
+            tieoff_ram_last(newmod);
 
         // Rename new module AFTER instrumentation
         newmod->name = newid;
@@ -511,8 +594,8 @@ struct EmuTestScanchain : public Pass {
         log_header(design, "Executing EMU_TEST_SCANCHAIN pass.\n");
 
         EmulationDatabase database(design);
-        PortTransformer port(design, database);
-        port.promote();
+        PortTransform port(design, database);
+        port.run();
         ScanchainWorker worker(design, database);
         worker.run();
         database.write_yaml("output.yml");

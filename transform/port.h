@@ -10,59 +10,60 @@ namespace Emu {
 
 struct CommonPort
 {
-    enum ID {
-        NAME_HOST_CLK = 0,
-        NAME_HOST_RST,
-        NAME_MDL_CLK,
-        NAME_MDL_RST,
-        NAME_RUN_MODE,
-        NAME_SCAN_MODE,
-        NAME_IDLE,
-        NAME_FF_SE,
-        NAME_FF_DI,
-        NAME_FF_DO,
-        NAME_RAM_SR,
-        NAME_RAM_SE,
-        NAME_RAM_SD,
-        NAME_RAM_DI,
-        NAME_RAM_DO,
-        NAME_RAM_LI,
-        NAME_RAM_LO,
-    };
-
     enum Type {
-        PORT_INPUT,
-        PORT_OUTPUT,
-        PORT_OUTPUT_ANDREDUCE,
-        PORT_OUTPUT_ORREDUCE,
+        PT_INPUT,
+        PT_OUTPUT,
+        PT_OUTPUT_AND,
+        PT_OUTPUT_OR,
     };
 
     struct Info {
-        ID id;
-        Yosys::IdString id_str;
+        Yosys::IdString id;
         bool autoconn;
         Type type;
+
+        static std::vector<Info*> list;
+
+        Info(Yosys::IdString id, bool autoconn, Type type)
+            : id(id), autoconn(autoconn), type(type)
+        {
+            list.push_back(this);
+        }
     };
 
-    static const std::vector<Info> info_list;
-    static const Yosys::dict<std::string, ID> name_list;
+    static const Info PORT_HOST_CLK;
+    static const Info PORT_HOST_RST;
+    static const Info PORT_MDL_CLK;
+    static const Info PORT_MDL_CLK_FF;
+    static const Info PORT_MDL_CLK_RAM;
+    static const Info PORT_MDL_RST;
+    static const Info PORT_RUN_MODE;
+    static const Info PORT_SCAN_MODE;
+    static const Info PORT_IDLE;
+    static const Info PORT_FF_SE;
+    static const Info PORT_FF_DI;
+    static const Info PORT_FF_DO;
+    static const Info PORT_RAM_SR;
+    static const Info PORT_RAM_SE;
+    static const Info PORT_RAM_SD;
+    static const Info PORT_RAM_DI;
+    static const Info PORT_RAM_DO;
+    static const Info PORT_RAM_LI;
+    static const Info PORT_RAM_LO;
 
-    static const Info& info_by_id(ID id)
-    {
-        return info_list.at(id);
-    }
+    static const Yosys::dict<std::string, const Info *> name_dict;
 
     static const Info& info_by_name(const std::string &name)
     {
-        return info_by_id(name_list.at(name));
+        return *name_dict.at(name);
     }
 
     static void create_ports(Yosys::Module *module);
-    static Yosys::Wire* get(Yosys::Module *module, ID id);
-    static void put(Yosys::Module *module, ID id, Yosys::SigSpec sig);
+    static Yosys::Wire* get(Yosys::Module *module, const Info &id);
+    static void put(Yosys::Module *module, const Info &id, Yosys::SigSpec sig);
 };
 
-struct PortTransformer
+struct PortTransform
 {
     Hierarchy hier;
     EmulationDatabase &database;
@@ -78,9 +79,9 @@ struct PortTransformer
     void promote_fifo_ports(Yosys::Module *module);
     void promote_channel_ports(Yosys::Module *module);
 
-    void promote();
+    void run();
 
-    PortTransformer(Yosys::Design *design, EmulationDatabase &database)
+    PortTransform(Yosys::Design *design, EmulationDatabase &database)
         : hier(design), database(database) {}
 };
 

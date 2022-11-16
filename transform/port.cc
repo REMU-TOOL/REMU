@@ -10,95 +10,88 @@ using namespace Emu;
 
 USING_YOSYS_NAMESPACE
 
-const std::vector<CommonPort::Info> CommonPort::info_list = {
-    {NAME_HOST_CLK,     "\\EMU_HOST_CLK",   true,   PORT_INPUT},
-    {NAME_HOST_RST,     "\\EMU_HOST_RST",   true,   PORT_INPUT},
-    {NAME_MDL_CLK,      "\\EMU_MDL_CLK",    true,   PORT_INPUT},
-    {NAME_MDL_RST,      "\\EMU_MDL_RST",    true,   PORT_INPUT},
-    {NAME_RUN_MODE,     "\\EMU_RUN_MODE",   true,   PORT_INPUT},
-    {NAME_SCAN_MODE,    "\\EMU_SCAN_MODE",  true,   PORT_INPUT},
-    {NAME_IDLE,         "\\EMU_IDLE",       true,   PORT_OUTPUT_ANDREDUCE},
-    {NAME_FF_SE,        "\\EMU_FF_SE",      false,  PORT_INPUT},
-    {NAME_FF_DI,        "\\EMU_FF_DI",      false,  PORT_INPUT},
-    {NAME_FF_DO,        "\\EMU_FF_DO",      false,  PORT_OUTPUT},
-    {NAME_RAM_SR,       "\\EMU_RAM_SR",     false,  PORT_INPUT},
-    {NAME_RAM_SE,       "\\EMU_RAM_SE",     false,  PORT_INPUT},
-    {NAME_RAM_SD,       "\\EMU_RAM_SD",     false,  PORT_INPUT},
-    {NAME_RAM_DI,       "\\EMU_RAM_DI",     false,  PORT_INPUT},
-    {NAME_RAM_DO,       "\\EMU_RAM_DO",     false,  PORT_OUTPUT},
-    {NAME_RAM_LI,       "\\EMU_RAM_LI",     false,  PORT_INPUT},
-    {NAME_RAM_LO,       "\\EMU_RAM_LO",     false,  PORT_OUTPUT},
-};
+std::vector<CommonPort::Info*> CommonPort::Info::list;
 
-const Yosys::dict<std::string, CommonPort::ID> CommonPort::name_list = {
-    {"mdl_clk",     NAME_MDL_CLK},
-    {"mdl_rst",     NAME_MDL_RST},
-    {"run_mode",    NAME_RUN_MODE},
-    {"scan_mode",   NAME_SCAN_MODE},
-    {"idle",        NAME_IDLE},
+const CommonPort::Info CommonPort::PORT_HOST_CLK    ("\\EMU_HOST_CLK",      true,   PT_INPUT);
+const CommonPort::Info CommonPort::PORT_HOST_RST    ("\\EMU_HOST_RST",      true,   PT_INPUT);
+const CommonPort::Info CommonPort::PORT_MDL_CLK     ("\\EMU_MDL_CLK",       true,   PT_INPUT);
+const CommonPort::Info CommonPort::PORT_MDL_CLK_FF  ("\\EMU_MDL_CLK_FF",    true,   PT_INPUT);
+const CommonPort::Info CommonPort::PORT_MDL_CLK_RAM ("\\EMU_MDL_CLK_RAM",   true,   PT_INPUT);
+const CommonPort::Info CommonPort::PORT_MDL_RST     ("\\EMU_MDL_RST",       true,   PT_INPUT);
+const CommonPort::Info CommonPort::PORT_RUN_MODE    ("\\EMU_RUN_MODE",      true,   PT_INPUT);
+const CommonPort::Info CommonPort::PORT_SCAN_MODE   ("\\EMU_SCAN_MODE",     true,   PT_INPUT);
+const CommonPort::Info CommonPort::PORT_IDLE        ("\\EMU_IDLE",          true,   PT_OUTPUT_AND);
+const CommonPort::Info CommonPort::PORT_FF_SE       ("\\EMU_FF_SE",         false,  PT_INPUT);
+const CommonPort::Info CommonPort::PORT_FF_DI       ("\\EMU_FF_DI",         false,  PT_INPUT);
+const CommonPort::Info CommonPort::PORT_FF_DO       ("\\EMU_FF_DO",         false,  PT_OUTPUT);
+const CommonPort::Info CommonPort::PORT_RAM_SR      ("\\EMU_RAM_SR",        false,  PT_INPUT);
+const CommonPort::Info CommonPort::PORT_RAM_SE      ("\\EMU_RAM_SE",        false,  PT_INPUT);
+const CommonPort::Info CommonPort::PORT_RAM_SD      ("\\EMU_RAM_SD",        false,  PT_INPUT);
+const CommonPort::Info CommonPort::PORT_RAM_DI      ("\\EMU_RAM_DI",        false,  PT_INPUT);
+const CommonPort::Info CommonPort::PORT_RAM_DO      ("\\EMU_RAM_DO",        false,  PT_OUTPUT);
+const CommonPort::Info CommonPort::PORT_RAM_LI      ("\\EMU_RAM_LI",        false,  PT_INPUT);
+const CommonPort::Info CommonPort::PORT_RAM_LO      ("\\EMU_RAM_LO",        false,  PT_OUTPUT);
+
+const Yosys::dict<std::string, const CommonPort::Info*> CommonPort::name_dict = {
+    {"mdl_clk",     &CommonPort::PORT_MDL_CLK},
+    {"mdl_rst",     &CommonPort::PORT_MDL_RST},
+    {"run_mode",    &CommonPort::PORT_RUN_MODE},
+    {"scan_mode",   &CommonPort::PORT_SCAN_MODE},
+    {"idle",        &CommonPort::PORT_IDLE},
     // other ports are not allowed in verilog source code
 };
 
 void CommonPort::create_ports(Module *module)
 {
-    for (auto &info : info_list) {
-        Wire *wire = module->addWire(info.id_str);
-        switch (info.type) {
-            case PORT_INPUT:
+    for (auto info : Info::list) {
+        Wire *wire = module->addWire(info->id);
+        switch (info->type) {
+            case PT_INPUT:
                 wire->port_input = true;
                 break;
-            case PORT_OUTPUT:
-            case PORT_OUTPUT_ANDREDUCE:
-            case PORT_OUTPUT_ORREDUCE:
+            case PT_OUTPUT:
+            case PT_OUTPUT_AND:
+            case PT_OUTPUT_OR:
                 wire->port_output = true;
-                if (info.type == PORT_OUTPUT_ANDREDUCE)
+                if (info->type == PT_OUTPUT_AND)
                     module->connect(wire, State::S1);
-                else if (info.type == PORT_OUTPUT_ORREDUCE)
+                else if (info->type == PT_OUTPUT_OR)
                     module->connect(wire, State::S0);
                 break;
             default:
-                log_error("unknown port direction for %s\n", log_id(info.id_str));
+                log_error("unknown port direction for %s\n", log_id(info->id));
         }
     }
     module->fixup_ports();
 }
 
-Wire* CommonPort::get(Module *module, ID id)
+Wire* CommonPort::get(Module *module, const Info &info)
 {
-    return module->wire(info_by_id(id).id_str);
+    return module->wire(info.id);
 }
 
-void CommonPort::put(Module *module, ID id, SigSpec sig)
+void CommonPort::put(Module *module, const Info &info, SigSpec sig)
 {
-    auto &info = info_by_id(id);
-    Wire *wire = module->wire(info_by_id(id).id_str);
-    if (info.type == PORT_OUTPUT) {
+    Wire *wire = module->wire(info.id);
+    if (info.type == PT_OUTPUT) {
         module->connect(wire, sig);
     }
-    else if (info.type == PORT_OUTPUT_ANDREDUCE || info.type == PORT_OUTPUT_ORREDUCE) {
+    else if (info.type == PT_OUTPUT_AND || info.type == PT_OUTPUT_OR) {
         module->rename(wire, NEW_ID);
-        Wire *new_wire = module->addWire(info.id_str, wire);
+        Wire *new_wire = module->addWire(info.id, wire);
         wire->port_output = false;
-        if (info.type == PORT_OUTPUT_ANDREDUCE)
+        if (info.type == PT_OUTPUT_AND)
             module->addAnd(NEW_ID, wire, sig, new_wire);
         else
             module->addOr(NEW_ID, wire, sig, new_wire);
         // no need to call fixup_ports()
     }
     else {
-        log_error("unknown port direction for %s\n", log_id(info.id_str));
+        log_error("unknown port direction for %s\n", log_id(info.id));
     }
 }
 
-inline std::string path_prefix(const std::vector<Yosys::IdString> &path)
-{
-    std::ostringstream ss;
-    for (auto &p : path)
-        ss << pretty_name(p) << "_";
-    return ss.str();
-}
-
-void PortTransformer::promote_user_sigs(Module *module)
+void PortTransform::promote_user_sigs(Module *module)
 {
     std::vector<Wire *> clocks, resets, trigs;
 
@@ -127,6 +120,14 @@ void PortTransformer::promote_user_sigs(Module *module)
         info.port_name = wire->name;
         wire->port_input = true;
         wire->port_output = false;
+        info.ff_clk = info.port_name.str() + "_FF";
+        info.ram_clk = info.port_name.str() + "_RAM";
+        Wire *ff_clk = module->addWire(info.ff_clk);
+        Wire *ram_clk = module->addWire(info.ram_clk);
+        ff_clk->port_input = true;
+        ram_clk->port_input = true;
+        wire->set_string_attribute("\\associated_ff_clk", info.ff_clk.str());
+        wire->set_string_attribute("\\associated_ram_clk", info.ram_clk.str());
         clockinfo.push_back(info);
     }
 
@@ -160,17 +161,27 @@ void PortTransformer::promote_user_sigs(Module *module)
         for (auto &info : all_clock_ports.at(child.name)) {
             ClockInfo newinfo = info;
             newinfo.path.insert(newinfo.path.begin(), edge.name.second);
-            newinfo.port_name = "\\EMU_PORT_" + path_prefix(newinfo.path) + pretty_name(info.port_name);
+            newinfo.port_name = "\\EMU_PORT_" + path_prefix(newinfo.path) + pretty_name(info.port_name, false);
+            newinfo.ff_clk = newinfo.port_name.str() + "_FF";
+            newinfo.ram_clk = newinfo.port_name.str() + "_RAM";
             Wire *newport = module->addWire(newinfo.port_name);
+            Wire *new_ff_clk = module->addWire(newinfo.ff_clk);
+            Wire *new_ram_clk = module->addWire(newinfo.ram_clk);
             newport->port_input = true;
+            new_ff_clk->port_input = true;
+            new_ram_clk->port_input = true;
             inst->setPort(info.port_name, newport);
+            inst->setPort(info.ff_clk, new_ff_clk);
+            inst->setPort(info.ram_clk, new_ram_clk);
+            newport->set_string_attribute("\\associated_ff_clk", newinfo.ff_clk.str());
+            newport->set_string_attribute("\\associated_ram_clk", newinfo.ram_clk.str());
             clockinfo.push_back(newinfo);
         }
 
         for (auto &info : all_reset_ports.at(child.name)) {
             ResetInfo newinfo = info;
             newinfo.path.insert(newinfo.path.begin(), edge.name.second);
-            newinfo.port_name = "\\EMU_PORT_" + path_prefix(newinfo.path) + pretty_name(info.port_name);
+            newinfo.port_name = "\\EMU_PORT_" + path_prefix(newinfo.path) + pretty_name(info.port_name, false);
             Wire *newport = module->addWire(newinfo.port_name);
             newport->port_input = true;
             inst->setPort(info.port_name, newport);
@@ -180,7 +191,7 @@ void PortTransformer::promote_user_sigs(Module *module)
         for (auto &info : all_trig_ports.at(child.name)) {
             TrigInfo newinfo = info;
             newinfo.path.insert(newinfo.path.begin(), edge.name.second);
-            newinfo.port_name = "\\EMU_PORT_" + path_prefix(newinfo.path) + pretty_name(info.port_name);
+            newinfo.port_name = "\\EMU_PORT_" + path_prefix(newinfo.path) + pretty_name(info.port_name, false);
             Wire *newport = module->addWire(newinfo.port_name);
             newport->port_output = true;
             inst->setPort(info.port_name, newport);
@@ -195,7 +206,7 @@ void PortTransformer::promote_user_sigs(Module *module)
     all_trig_ports[module->name] = triginfo;
 }
 
-void PortTransformer::promote_common_ports(Module *module)
+void PortTransform::promote_common_ports(Module *module)
 {
     CommonPort::create_ports(module);
 
@@ -214,11 +225,11 @@ void PortTransformer::promote_common_ports(Module *module)
         wire->port_output = false;
 
         auto &info = CommonPort::info_by_name(name);
-        if (info.type == CommonPort::PORT_INPUT) {
-            module->connect(wire, CommonPort::get(module, info.id));
+        if (info.type == CommonPort::PT_INPUT) {
+            module->connect(wire, CommonPort::get(module, info));
         }
         else {
-            CommonPort::put(module, info.id, wire);
+            CommonPort::put(module, info, wire);
         }
     }
 
@@ -228,15 +239,15 @@ void PortTransformer::promote_common_ports(Module *module)
     for (auto &edge : node.outEdges()) {
         Cell *inst = module->cell(edge.name.second);
 
-        for (auto &info : CommonPort::info_list) {
-            if (info.autoconn) {
+        for (auto info : CommonPort::Info::list) {
+            if (info->autoconn) {
                 Wire *wire = module->addWire(NEW_ID);
-                inst->setPort(info.id_str, wire);
-                if (info.type == CommonPort::PORT_INPUT) {
-                    module->connect(wire, CommonPort::get(module, info.id));
+                inst->setPort(info->id, wire);
+                if (info->type == CommonPort::PT_INPUT) {
+                    module->connect(wire, CommonPort::get(module, *info));
                 }
                 else {
-                    CommonPort::put(module, info.id, wire);
+                    CommonPort::put(module, *info, wire);
                 }
             }
         }
@@ -245,7 +256,7 @@ void PortTransformer::promote_common_ports(Module *module)
     module->fixup_ports();
 }
 
-void PortTransformer::promote_fifo_ports(Module *module)
+void PortTransform::promote_fifo_ports(Module *module)
 {
     std::vector<FifoPortInfo> fifoportinfo;
 
@@ -344,7 +355,7 @@ void PortTransformer::promote_fifo_ports(Module *module)
     all_fifo_ports[module->name] = fifoportinfo;
 }
 
-void PortTransformer::promote_channel_ports(Module *module)
+void PortTransform::promote_channel_ports(Module *module)
 {
     std::vector<ChannelInfo> channels;
     pool<std::string> channel_names;
@@ -479,8 +490,13 @@ void PortTransformer::promote_channel_ports(Module *module)
     all_channel_ports[module->name] = channels;
 }
 
-void PortTransformer::promote()
+void PortTransform::run()
 {
+    if (hier.design->scratchpad_get_bool("emu.port.promoted")) {
+        log("Design is already processed.\n");
+        return;
+    }
+
     for (auto &node : hier.dag.topoSort(true)) {
         Module *module = hier.design->module(node.name);
         log("Processing module %s...\n", log_id(module));
@@ -489,12 +505,15 @@ void PortTransformer::promote()
         promote_fifo_ports(module);
         promote_channel_ports(module);
     }
+
     IdString top = hier.dag.rootNode().name;
     database.user_clocks = all_clock_ports.at(top);
     database.user_resets = all_reset_ports.at(top);
     database.user_trigs = all_trig_ports.at(top);
     database.fifo_ports = all_fifo_ports.at(top);
     database.channels = all_channel_ports.at(top);
+
+    hier.design->scratchpad_set_bool("emu.port.promoted", true);
 }
 
 PRIVATE_NAMESPACE_BEGIN
@@ -507,9 +526,9 @@ struct EmuTestPort : public Pass {
         log_header(design, "Executing EMU_TEST_PORT pass.\n");
 
         EmulationDatabase database(design);
-        PortTransformer worker(design, database);
+        PortTransform worker(design, database);
 
-        worker.promote();
+        worker.run();
         database.write_yaml("output.yml");
     }
 } EmuTestPort;

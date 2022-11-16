@@ -8,21 +8,15 @@
 
 namespace Emu {
 
-struct ClockTreeHelper
+struct ClockTreeRewriter
 {
     Hierarchy hier;
-    Yosys::dict<Yosys::IdString, Yosys::pool<Yosys::SigBit>> primary_clock_bits;
-
-    void addTopClock(Yosys::SigBit clk)
-    {
-        log_assert(clk.is_wire());
-        log_assert(clk.wire->module->name == hier.top);
-        primary_clock_bits[hier.top].insert(clk);
-    }
+    EmulationDatabase &database;
 
     void run();
 
-    ClockTreeHelper(Yosys::Design *design) : hier(design) {}
+    ClockTreeRewriter(Yosys::Design *design, EmulationDatabase &database)
+        : hier(design), database(database) {}
 };
 
 };

@@ -13,6 +13,9 @@ struct FFInfo
     std::vector<Yosys::IdString> name;
     int width;
     int offset;
+    int wire_width;
+    int wire_start_offset;
+    bool wire_upto;
     Yosys::Const init_data;
 
     YAML::Node to_yaml() const
@@ -21,6 +24,9 @@ struct FFInfo
         res["name"] = name;
         res["width"] = width;
         res["offset"] = offset;
+        res["wire_width"] = wire_width;
+        res["wire_start_offset"] = wire_start_offset;
+        res["wire_upto"] = wire_upto;
         return res;
     }
 };
@@ -28,12 +34,20 @@ struct FFInfo
 struct RAMInfo
 {
     std::vector<Yosys::IdString> name;
+    int width;
+    int depth;
+    int start_offset;
+    bool dissolved;
     Yosys::Const init_data;
 
     YAML::Node to_yaml() const
     {
         YAML::Node res;
         res["name"] = name;
+        res["width"] = width;
+        res["depth"] = depth;
+        res["start_offset"] = start_offset;
+        res["dissolved"] = dissolved;
         return res;
     }
 };
@@ -46,6 +60,7 @@ struct ClockInfo
     // TODO: frequency, phase, etc.
     Yosys::IdString ff_clk;
     Yosys::IdString ram_clk;
+    int index = -1;
 
     YAML::Node to_yaml() const
     {
@@ -55,6 +70,7 @@ struct ClockInfo
         res["port_name"] = port_name;
         res["ff_clk"] = ff_clk;
         res["ram_clk"] = ram_clk;
+        res["index"] = index;
         return res;
     }
 };
@@ -65,6 +81,7 @@ struct ResetInfo
     Yosys::IdString orig_name;
     Yosys::IdString port_name;
     // TODO: duration, etc.
+    int index = -1;
 
     YAML::Node to_yaml() const
     {
@@ -72,6 +89,7 @@ struct ResetInfo
         res["path"] = path;
         res["orig_name"] = orig_name;
         res["port_name"] = port_name;
+        res["index"] = index;
         return res;
     }
 };
@@ -82,6 +100,7 @@ struct TrigInfo
     Yosys::IdString orig_name;
     Yosys::IdString port_name;
     std::string desc;
+    int index = -1;
 
     YAML::Node to_yaml() const
     {
@@ -90,6 +109,7 @@ struct TrigInfo
         res["orig_name"] = orig_name;
         res["port_name"] = port_name;
         res["desc"] = desc;
+        res["index"] = index;
         return res;
     }
 };
@@ -104,6 +124,7 @@ struct FifoPortInfo
     Yosys::IdString port_enable;
     Yosys::IdString port_data;
     Yosys::IdString port_flag;
+    int index = -1;
 
     YAML::Node to_yaml() const
     {
@@ -116,6 +137,7 @@ struct FifoPortInfo
         res["port_enable"] = port_enable;
         res["port_data"] = port_data;
         res["port_flag"] = port_flag;
+        res["index"] = index;
         return res;
     }
 };
@@ -148,7 +170,8 @@ struct ChannelInfo
 
 struct ModelInfo
 {
-    std::vector<std::string> name;
+    std::vector<Yosys::IdString> path;
+    Yosys::IdString name;
     std::string type;
 };
 

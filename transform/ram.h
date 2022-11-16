@@ -1,5 +1,5 @@
-#ifndef _EMU_FAME_H_
-#define _EMU_FAME_H_
+#ifndef _EMU_RAM_H_
+#define _EMU_RAM_H_
 
 #include "kernel/yosys.h"
 
@@ -8,17 +8,17 @@
 
 namespace Emu {
 
-struct FAMETransform
+struct RAMTransform
 {
     Yosys::Design *design;
     EmulationDatabase &database;
 
     void run();
 
-    FAMETransform(Yosys::Design *design, EmulationDatabase &database)
+    RAMTransform(Yosys::Design *design, EmulationDatabase &database)
         : design(design), database(database) {}
 };
 
 };
 
-#endif // #ifndef _EMU_FAME_H_
+#endif // #ifndef _EMU_RAM_H_

@@ -1,28 +1,18 @@
 #include "kernel/yosys.h"
 
 #include "database.h"
+#include "ram.h"
+#include "port.h"
+#include "clock.h"
+#include "scanchain.h"
+#include "fame.h"
+#include "platform.h"
+#include "package.h"
 
 using namespace Emu;
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
-
-#if 0
-struct TransformHelper {
-
-    EmulationDatabase &database;
-    EmulationRewriter &rewriter;
-
-    void run(Transform &&transform) {
-        transform.execute(database, rewriter);
-        rewriter.update_design();
-    }
-
-    TransformHelper(EmulationDatabase &database, EmulationRewriter &rewriter)
-        : database(database), rewriter(rewriter) {}
-
-};
-#endif
 
 struct EmuTransformPass : public Pass {
     EmuTransformPass() : Pass("emu_transform", "perform emulation transformation") { }
@@ -55,7 +45,6 @@ struct EmuTransformPass : public Pass {
     }
 
     std::string top, elab_file, init_file, yaml_file, loader_file;
-    int ff_width = 64, ram_width = 64;
     bool raw_plat = false;
 
     void elaborate(Design *design) {
@@ -118,8 +107,6 @@ struct EmuTransformPass : public Pass {
         Pass::call(design, "opt_clean");
 
         Pass::call(design, "emu_check");
-        Pass::call(design, "uniquify");
-        Pass::call(design, "hierarchy");
 
         log_pop();
     }
@@ -161,8 +148,6 @@ struct EmuTransformPass : public Pass {
         Pass::call(design, "select -clear");
         Pass::call(design, "opt_clean");
         Pass::call(design, "emu_remove_keep");
-        Pass::call(design, "uniquify");
-        Pass::call(design, "hierarchy");
 
         log_pop();
     }
@@ -176,14 +161,6 @@ struct EmuTransformPass : public Pass {
         {
             if (args[argidx] == "-top" && argidx+1 < args.size()) {
                 top = args[++argidx];
-                continue;
-            }
-            if (args[argidx] == "-ff_width" && argidx+1 < args.size()) {
-                ff_width = std::stoi(args[++argidx]);
-                continue;
-            }
-            if (args[argidx] == "-ram_width" && argidx+1 < args.size()) {
-                ram_width = std::stoi(args[++argidx]);
                 continue;
             }
             if (args[argidx] == "-elab" && argidx+1 < args.size()) {
@@ -216,25 +193,60 @@ struct EmuTransformPass : public Pass {
 
         EmulationDatabase database(design);
 
-#if 0
-        EmulationRewriter rewriter(design);
-        rewriter.setup_wires(ff_width, ram_width);
+        {
+            log_header(design, "Executing RAM transformation.\n");
+            log_push();
+            RAMTransform worker(design, database);
+            worker.run();
+            log_pop();
+        }
 
-        TransformHelper helper(database, rewriter);
+        {
+            log_header(design, "Executing port transformation.\n");
+            log_push();
+            PortTransform worker(design, database);
+            worker.run();
+            log_pop();
+        }
 
-        helper.run(IdentifySyncReadMem());
-        helper.run(PortTransform());
-        helper.run(TargetTransform());
-        helper.run(ClockTransform());
-        helper.run(InsertScanchain());
-        if (!raw_plat)
-            helper.run(PlatformTransform());
+        {
+            log_header(design, "Executing clock tree transformation.\n");
+            log_push();
+            ClockTreeRewriter worker(design, database);
+            worker.run();
+            log_pop();
+        }
+
+        {
+            log_header(design, "Executing scanchain insertion.\n");
+            log_push();
+            ScanchainWorker worker(design, database);
+            worker.run();
+            log_pop();
+        }
+
+        {
+            log_header(design, "Executing FAME transformation.\n");
+            log_push();
+            FAMETransform worker(design, database);
+            worker.run();
+            log_pop();
+        }
 
         post_integrate(design);
 
-        ExportInterfaceWorker intf_worker(database, design);
-        intf_worker.run();
-#endif
+        if (!raw_plat) {
+            log_header(design, "Executing platform transformation.\n");
+            log_push();
+            PlatformTransform worker(design, database);
+            worker.run();
+            log_pop();
+        }
+
+        {
+            PackageWorker worker(design);
+            worker.run();
+        }
 
         final_cleanup(design);
 
