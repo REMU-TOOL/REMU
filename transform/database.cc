@@ -159,7 +159,7 @@ void EmulationDatabase::write_loader(std::string loader_file) {
         os  << "    for (__LOOP_VAR=0; __LOOP_VAR<" << mem.depth << "; __LOOP_VAR=__LOOP_VAR+1) __LOAD_DUT."
             << pretty_name(mem.name) << "[__LOOP_VAR+" << mem.start_offset << "] = __LOAD_DATA["
             << addr << "+__LOOP_VAR*" << mem.width << "+:" << mem.width << "]; \\\n";
-        addr += mem.depth;
+        addr += mem.width * mem.depth;
     }
     os << "\n";
     os << "`define RAM_BIT_COUNT " << addr << "\n";

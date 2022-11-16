@@ -515,8 +515,11 @@ struct MemoryDffWorker
         }
 
         // OK, it worked.
-        if (dry_run)
+        if (dry_run) {
+            log("OK to merge.\n");
             return true;
+        }
+
         log("merging output FF to cell.\n");
 
         merger.remove_output_ff(bits);
@@ -562,8 +565,10 @@ struct MemoryDffWorker
                 log("    Write port %d: non-transparent.\n", pi);
             }
         }
+        auto port_list = mem.get_intvec_attribute("\\mem_data_rd_port_list");
+        port_list.push_back(idx);
+        mem.set_intvec_attribute("\\mem_data_rd_port_list", port_list);
         mem.emit();
-        database.mem_sr_data.insert({mem.cell, idx});
         remove_ff_bits(bits, initvals);
         return true;
     }
@@ -606,8 +611,10 @@ struct MemoryDffWorker
                 return false;
             }
         }
-        if (dry_run)
+        if (dry_run) {
+            log("OK to merge.\n");
             return true;
+        }
         // Now we're commited to merge it.
         merger.mark_input_ff(bits);
         // If the address FF has enable and/or sync reset, unmap it.
@@ -619,9 +626,11 @@ struct MemoryDffWorker
         port.clk_polarity = ff.pol_clk;
         for (int i = 0; i < GetSize(mem.wr_ports); i++)
             port.transparency_mask[i] = true;
+        auto port_list = mem.get_intvec_attribute("\\mem_addr_rd_port_list");
+        port_list.push_back(idx);
+        mem.set_intvec_attribute("\\mem_addr_rd_port_list", port_list);
         mem.emit();
         log("merged address FF to cell.\n");
-        database.mem_sr_addr.insert({mem.cell, idx});
         return true;
     }
 

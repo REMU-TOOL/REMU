@@ -187,10 +187,6 @@ struct EmulationDatabase
     std::vector<ChannelInfo> channels;
     std::vector<ModelInfo> models;
 
-    // written by IdentifySyncReadMem to tag sync read ports (mem, rd_index)
-    Yosys::pool<std::pair<Yosys::Cell *, int>> mem_sr_addr;
-    Yosys::pool<std::pair<Yosys::Cell *, int>> mem_sr_data;
-
     void write_init(std::string init_file);
     void write_yaml(std::string yaml_file);
     void write_loader(std::string loader_file);

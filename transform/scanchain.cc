@@ -131,12 +131,20 @@ void ScanchainWorker::restore_sync_read_port_ff(Module *module, SigSpec ff_di, S
         if (mem.get_bool_attribute(Attr::NoScanchain))
             continue;
 
+        std::vector<bool> is_addr_port, is_data_port;
+        is_addr_port.assign(mem.rd_ports.size(), false);
+        is_data_port.assign(mem.rd_ports.size(), false);
+        for (auto idx : mem.get_intvec_attribute("\\mem_addr_rd_port_list"))
+            is_addr_port[idx] = true;
+        for (auto idx : mem.get_intvec_attribute("\\mem_data_rd_port_list"))
+            is_data_port[idx] = true;
+
         for (int idx = 0; idx < GetSize(mem.rd_ports); idx++) {
             auto &rd = mem.rd_ports[idx];
             if (rd.clk_enable) {
-                if (database.mem_sr_addr.count({mem.cell, idx}) > 0)
+                if (is_addr_port.at(idx))
                     worklist.push_back({mem, idx, true});
-                else if (database.mem_sr_data.count({mem.cell, idx}) > 0)
+                else if (is_data_port.at(idx))
                     worklist.push_back({mem, idx, false});
                 else
                     log_error(
@@ -273,14 +281,16 @@ void ScanchainWorker::instrument_module_ram(Module *module, SigSpec ram_di, SigS
             //   reg [cbits-1:0] cnt;
             //   assign cnt_is_last = cnt == 0;
             //   always @(posedge host_clk)
-            //     if (addr_inc) cnt <= mem.width - 1;
-            //     else if (ram_se) cnt <= cnt - !cnt_is_last;
+            //     if (ram_se) cnt <= addr_inc ? mem.width - 1 : cnt - !cnt_is_last;
             // end
             SigSpec cnt = module->addWire(module->uniquify(name + "_cnt"), cbits);
             cnt_is_last = module->Eq(NEW_ID, cnt, Const(0, cbits));
-            module->addSdffe(NEW_ID, host_clk, ram_se, addr_inc,
-                module->Sub(NEW_ID, cnt, {Const(0, cbits - 1), module->Not(NEW_ID, cnt_is_last)}),
-                cnt, Const(mem.width - 1, cbits));
+            module->addDffe(NEW_ID, host_clk, ram_se,
+                module->Mux(NEW_ID,
+                    module->Sub(NEW_ID, cnt, {Const(0, cbits - 1), module->Not(NEW_ID, cnt_is_last)}),
+                    Const(mem.width - 1, cbits),
+                    addr_inc),
+                cnt);
         }
         else {
             // else
@@ -301,10 +311,11 @@ void ScanchainWorker::instrument_module_ram(Module *module, SigSpec ram_di, SigS
             module->connect(last_o, last_i);
 
         // always @(posedge host_clk)
-        //   if (ram_sr || last_o) run_flag <= 0;
-        //   else if (last_i) run_flag <= 1;
-        module->addSdffe(NEW_ID, host_clk,
-            last_i, module->Or(NEW_ID, ram_sr, last_o), State::S1, run_flag, State::S0);
+        //   if (ram_sr) run_flag <= 0;
+        //   else if (ram_se) run_flag <= last_i || run_flag && !last_o;
+        module->addSdffe(NEW_ID, host_clk, ram_se, ram_sr,
+            module->Or(NEW_ID, last_i, module->And(NEW_ID, run_flag, module->Not(NEW_ID, last_o))),
+            run_flag, State::S0);
 
         // assign addr_inc = cnt_is_last && run_flag || last_i;
         module->connect(addr_inc,
@@ -421,25 +432,25 @@ void ScanchainWorker::instrument_module(Module *module)
     std::vector<FFInfo> ff_list;
     std::vector<RAMInfo> ram_list;
 
-    SigSpec sig_ff_di;
-    SigSpec sig_ff_do = ff_di;
-    SigSpec sig_ram_di;
-    SigSpec sig_ram_do = ram_di;
+    SigSpec sig_ff_di = ff_do;
+    SigSpec sig_ff_do;
+    SigSpec sig_ram_di = ram_do;
+    SigSpec sig_ram_do;
     SigSpec sig_ram_li;
     SigSpec sig_ram_lo = ram_li;
 
     // Process FFs & RAMs in this module
 
-    sig_ff_di = sig_ff_do;
-    sig_ff_do = module->addWire(NEW_ID);
+    sig_ff_do = sig_ff_di;
+    sig_ff_di = module->addWire(NEW_ID);
     instrument_module_ff(module, sig_ff_di, sig_ff_do, ff_list);
 
-    sig_ff_di = sig_ff_do;
-    sig_ff_do = module->addWire(NEW_ID);
+    sig_ff_do = sig_ff_di;
+    sig_ff_di = module->addWire(NEW_ID);
     restore_sync_read_port_ff(module, sig_ff_di, sig_ff_do, ff_list);
 
-    sig_ram_di = sig_ram_do;
-    sig_ram_do = module->addWire(NEW_ID);
+    sig_ram_do = sig_ram_di;
+    sig_ram_di = module->addWire(NEW_ID);
     sig_ram_li = sig_ram_lo;
     sig_ram_lo = module->addWire(NEW_ID);
     instrument_module_ram(module, sig_ram_di, sig_ram_do, sig_ram_li, sig_ram_lo, ram_list);
@@ -455,10 +466,10 @@ void ScanchainWorker::instrument_module(Module *module)
             continue;
         }
 
-        sig_ff_di = sig_ff_do;
-        sig_ff_do = module->addWire(NEW_ID);
-        sig_ram_di = sig_ram_do;
-        sig_ram_do = module->addWire(NEW_ID);
+        sig_ff_do = sig_ff_di;
+        sig_ff_di = module->addWire(NEW_ID);
+        sig_ram_do = sig_ram_di;
+        sig_ram_di = module->addWire(NEW_ID);
         sig_ram_li = sig_ram_lo;
         sig_ram_lo = module->addWire(NEW_ID);
 
@@ -479,8 +490,8 @@ void ScanchainWorker::instrument_module(Module *module)
         cell->type = derived_name(cell->type);
     }
 
-    module->connect(ff_do, sig_ff_do);
-    module->connect(ram_do, sig_ram_do);
+    module->connect(sig_ff_di, ff_di);
+    module->connect(sig_ram_di, ram_di);
     module->connect(ram_lo, sig_ram_lo);
 
     // Note: module->name here is its original name
@@ -491,7 +502,10 @@ void ScanchainWorker::instrument_module(Module *module)
 void ScanchainWorker::tieoff_ram_last(Module *module)
 {
     auto &ram_list = ram_lists.at(module->name);
-    const int depth = ram_list.size();
+    int depth = 0; // RAM chain depth is the sum of RAM widths
+    for (auto &ram : ram_list)
+        depth += ram.width;
+
     const int cntbits = ceil_log2(depth + 1);
 
     Wire *host_clk  = CommonPort::get(module, CommonPort::PORT_HOST_CLK);
