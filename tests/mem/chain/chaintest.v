@@ -9,12 +9,12 @@ module sim_top();
     reg clk = 0, rst = 1;
     reg run_mode = 1, scan_mode = 0;
     reg ff_scan = 0, ff_dir = 0;
-    reg [63:0] ff_sdi = 0;
-    wire [63:0] ff_sdo;
+    reg ff_sdi = 0;
+    wire ff_sdo;
     reg ram_scan_reset = 0;
     reg ram_scan = 0, ram_dir = 0;
-    reg [63:0] ram_sdi = 0;
-    wire [63:0] ram_sdo;
+    reg ram_sdi = 0;
+    wire ram_sdo;
 
     reg ren1 = 0, wen1 = 0, ren2 = 0, wen2 = 0, ren3 = 0, wen3 = 0;
     reg [2:0] raddr1 = 0, waddr1 = 0, raddr2 = 0, waddr2 = 0, raddr3 = 0, waddr3 = 0;
@@ -26,35 +26,35 @@ module sim_top();
     wire [127:0] rdata3;
 
     EMU_SYSTEM emu_dut(
-        .host_clk       (clk),
-        .run_mode       (run_mode),
-        .scan_mode      (scan_mode),
-        .ff_se          (ff_scan),
-        .ff_di          (ff_dir ? ff_sdi : ff_sdo),
-        .ff_do          (ff_sdo),
-        .ram_sr         (ram_scan_reset),
-        .ram_se         (ram_scan),
-        .ram_sd         (ram_dir),
-        .ram_di         (ram_sdi),
-        .ram_do         (ram_sdo),
-        .target_ren1(ren1),
-        .target_raddr1(raddr1),
-        .target_rdata1(rdata1),
-        .target_wen1(wen1),
-        .target_waddr1(waddr1),
-        .target_wdata1(wdata1),
-        .target_ren2(ren2),
-        .target_raddr2(raddr2),
-        .target_rdata2(rdata2),
-        .target_wen2(wen2),
-        .target_waddr2(waddr2),
-        .target_wdata2(wdata2),
-        .target_ren3(ren3),
-        .target_raddr3(raddr3),
-        .target_rdata3(rdata3),
-        .target_wen3(wen3),
-        .target_waddr3(waddr3),
-        .target_wdata3(wdata3)
+        .EMU_HOST_CLK       (clk),
+        .EMU_RUN_MODE       (run_mode),
+        .EMU_SCAN_MODE      (scan_mode),
+        .EMU_FF_SE          (ff_scan),
+        .EMU_FF_DI          (ff_dir ? ff_sdi : ff_sdo),
+        .EMU_FF_DO          (ff_sdo),
+        .EMU_RAM_SR         (ram_scan_reset),
+        .EMU_RAM_SE         (ram_scan),
+        .EMU_RAM_SD         (ram_dir),
+        .EMU_RAM_DI         (ram_sdi),
+        .EMU_RAM_DO         (ram_sdo),
+        .ren1(ren1),
+        .raddr1(raddr1),
+        .rdata1(rdata1),
+        .wen1(wen1),
+        .waddr1(waddr1),
+        .wdata1(wdata1),
+        .ren2(ren2),
+        .raddr2(raddr2),
+        .rdata2(rdata2),
+        .wen2(wen2),
+        .waddr2(waddr2),
+        .wdata2(wdata2),
+        .ren3(ren3),
+        .raddr3(raddr3),
+        .rdata3(rdata3),
+        .wen3(wen3),
+        .waddr3(waddr3),
+        .wdata3(wdata3)
     );
 
     integer i, j;
@@ -64,12 +64,10 @@ module sim_top();
     reg [31:0] rdata_save1 [ROUND-1:0];
     reg [63:0] rdata_save2 [ROUND-1:0];
     reg [128:0] rdata_save3 [ROUND-1:0];
-    reg [`LOAD_MEM_WIDTH-1:0] scan_save [ROUND-1:0][`CHAIN_MEM_WORDS-1:0];
-    reg [`LOAD_FF_WIDTH-1:0] ff_scan_save [ROUND-1:0][`CHAIN_FF_WORDS-1:0];
+    reg [`RAM_BIT_COUNT-1:0] scan_save [ROUND-1:0];
+    reg [`FF_BIT_COUNT-1:0] ff_scan_save [ROUND-1:0];
 
     always #5 clk = ~clk;
-
-    `LOAD_DECLARE
 
     initial begin
         #30;
@@ -131,7 +129,7 @@ module sim_top();
             // dump ff
             ff_scan = 1;
             ff_dir = 0;
-            for (j=0; j<`CHAIN_FF_WORDS; j=j+1) begin
+            for (j=0; j<`FF_BIT_COUNT; j=j+1) begin
                 // randomize backpressure
                 ff_scan = 0;
                 while (!ff_scan) begin
@@ -139,15 +137,15 @@ module sim_top();
                     ff_scan = $random;
                 end
                 ff_scan_save[i][j] = ff_sdo;
-                $display("round %0d: ff scan data %h = %h", i, j, ff_sdo);
                 #10;
             end
+            $display("round %0d: ff scan data = %h", i, ff_scan_save[i]);
             ff_scan = 0;
             // dump mem
             ram_scan = 1;
             ram_dir = 0;
             #20;
-            for (j=0; j<`CHAIN_MEM_WORDS; j=j+1) begin
+            for (j=0; j<`RAM_BIT_COUNT; j=j+1) begin
                 // randomize backpressure
                 ram_scan = 0;
                 while (!ram_scan) begin
@@ -155,9 +153,9 @@ module sim_top();
                     ram_scan = $random;
                 end
                 scan_save[i][j] = ram_sdo;
-                $display("round %0d: ram scan data %h: %h", i, j, ram_sdo);
                 #10;
             end
+            $display("round %0d: scan data: %h", i, scan_save[i]);
             ram_scan = 0;
             #10;
             scan_mode = 0; #10; run_mode = 1;
@@ -173,7 +171,7 @@ module sim_top();
             // load ff
             ff_scan = 1;
             ff_dir = 1;
-            for (j=0; j<`CHAIN_FF_WORDS; j=j+1) begin
+            for (j=0; j<`FF_BIT_COUNT; j=j+1) begin
                 // randomize backpressure
                 ff_scan = 0;
                 while (!ff_scan) begin
@@ -187,7 +185,7 @@ module sim_top();
             // load mem
             ram_scan = 1;
             ram_dir = 1;
-            for (j=0; j<`CHAIN_MEM_WORDS; j=j+1) begin
+            for (j=0; j<`RAM_BIT_COUNT; j=j+1) begin
                 // randomize backpressure
                 ram_scan = 0;
                 while (!ram_scan) begin

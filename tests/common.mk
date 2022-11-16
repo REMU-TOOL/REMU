@@ -35,7 +35,7 @@ TRANSFORM_ARGS += -no_plat
 endif
 
 ifeq ($(TIMEOUT),)
-TIMEOUT = 1000000
+TIMEOUT = 10000000
 endif
 
 ifneq ($(EMU_TOP),)
