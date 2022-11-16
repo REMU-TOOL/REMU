@@ -157,6 +157,8 @@ void ClockTreeRewriter::run()
         Module *module = node.data.module;
         auto &sigmap = sigmaps.at(module->name);
 
+        log("Processing module %s\n", log_id(module));
+
         FfInitVals initvals;
         initvals.set(&sigmap, module);
 
@@ -275,6 +277,8 @@ void ClockTreeRewriter::run()
     for (auto clk : primary_clock_bits) {
         Module *module = clk.wire->module;
         auto &modwalker = mwc[module];
+
+        log("Checking module %s\n", log_id(module));
 
         pool<ModWalker::PortBit> portbits;
         modwalker.get_consumers(portbits, SigSpec(clk));
