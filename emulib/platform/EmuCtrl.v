@@ -5,11 +5,13 @@
 module EmuCtrl #(
     parameter       TRIG_COUNT      = 1, // max = 128
     parameter       RESET_COUNT     = 1, // max = 128
-
     parameter       FF_COUNT        = 0,
     parameter       MEM_COUNT       = 0,
-    parameter       FF_WIDTH        = 64,
-    parameter       MEM_WIDTH       = 64
+
+    parameter       __CKPT_FF_CNT   = (FF_COUNT + 63) / 64,
+    parameter       __CKPT_MEM_CNT  = (MEM_COUNT + 63) / 64,
+    parameter       __CKPT_CNT      = __CKPT_FF_CNT + __CKPT_MEM_CNT,
+    parameter       __CKPT_PAGES    = (__CKPT_CNT * 8 + 'hfff) / 'h1000
 )(
 
     input  wire         host_clk,
@@ -22,13 +24,13 @@ module EmuCtrl #(
     output reg          scan_mode,
 
     output wire         ff_se,
-    output wire [63:0]  ff_di,
-    input  wire [63:0]  ff_do,
+    output wire         ff_di,
+    input  wire         ff_do,
     output wire         ram_sr,
     output wire         ram_se,
     output wire         ram_sd,
-    output wire [63:0]  ram_di,
-    input  wire [63:0]  ram_do,
+    output wire         ram_di,
+    input  wire         ram_do,
 
     output wire         source_wen,
     output wire [ 7:0]  source_waddr,
@@ -45,7 +47,12 @@ module EmuCtrl #(
     input  wire [31:0]  sink_rdata,
 
     input  wire [TRIG_COUNT-1:0]    trig,
-    output reg  [TRIG_COUNT-1:0]    rst
+    output reg  [RESET_COUNT-1:0]   rst,
+
+    (* __emu_extern_intf = "scan_dma_axi" *)
+    (* __emu_extern_intf_type = "axi4" *)
+    (* __emu_extern_intf_addr_pages = __CKPT_PAGES *)
+    `AXI4_MASTER_IF_NO_ID           (scan_dma_axi, 32, 64)
 
 );
 
@@ -342,8 +349,7 @@ module EmuCtrl #(
     ScanchainCtrl #(
         .FF_COUNT   (FF_COUNT),
         .MEM_COUNT  (MEM_COUNT),
-        .FF_WIDTH   (FF_WIDTH),
-        .MEM_WIDTH  (MEM_WIDTH)
+        .__CKPT_CNT (__CKPT_CNT)
     ) scanchain (
         .host_clk       (host_clk),
         .host_rst       (host_rst),
@@ -357,7 +363,8 @@ module EmuCtrl #(
         .ram_do         (ram_do),
         .dma_start      (dma_start),
         .dma_running    (dma_running),
-        .dma_direction  (dma_direction)
+        .dma_direction  (dma_direction),
+        `AXI4_CONNECT_NO_ID     (dma_axi, scan_dma_axi)
     );
 
 endmodule

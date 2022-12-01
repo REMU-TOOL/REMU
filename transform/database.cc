@@ -107,6 +107,7 @@ void EmulationDatabase::write_yaml(std::string yaml_file) {
     root["trigger"] = user_trigs;
     root["fifo_port"] = fifo_ports;
     root["channels"] = channels;
+    root["axi"] = axi_intfs;
 
 #if 0
     for (auto &info : model_mods) {

@@ -198,10 +198,6 @@ void PlatformTransform::connect_scanchain(Module *top, Cell *emu_ctrl)
         mem_count += mem.width * mem.depth;
     emu_ctrl->setParam("\\MEM_COUNT", Const(mem_count));
 
-    // TODO: width
-    emu_ctrl->setParam("\\FF_WIDTH", Const(1));
-    emu_ctrl->setParam("\\MEM_WIDTH", Const(1));
-
     emu_ctrl->setPort("\\ff_se",    ff_se);
     emu_ctrl->setPort("\\ff_di",    ff_di);
     emu_ctrl->setPort("\\ff_do",    ff_do);
@@ -215,7 +211,7 @@ void PlatformTransform::connect_scanchain(Module *top, Cell *emu_ctrl)
 void PlatformTransform::run()
 {
     Module *top = design->top_module();
-    Cell *emu_ctrl = top->addCell(NEW_ID, "\\EmuCtrl");
+    Cell *emu_ctrl = top->addCell(top->uniquify("\\ctrl"), "\\EmuCtrl");
 
     connect_main_sigs(top, emu_ctrl);
     connect_resets(top, emu_ctrl);
@@ -224,4 +220,22 @@ void PlatformTransform::run()
     connect_scanchain(top, emu_ctrl);
 
     top->fixup_ports();
+
+    // Load & parameterize EmuCtrl module in a temporary design to not mess up the original design
+
+    Design *tmp = new Design;
+
+    std::vector<std::string> load_plat_cmd({"read_verilog", "-noautowire", "-lib", "-I", emulib.verilog_include_path});
+    load_plat_cmd.insert(load_plat_cmd.end(), emulib.platform_sources.begin(), emulib.platform_sources.end());
+
+    Pass::call(tmp, load_plat_cmd);
+
+    Module *orig_mod = tmp->module(emu_ctrl->type);
+    Module *derived_mod = tmp->module(orig_mod->derive(tmp, emu_ctrl->parameters));
+    derived_mod->makeblackbox();
+
+    Module *cloned_mod = design->addModule(emu_ctrl->type);
+    derived_mod->cloneInto(cloned_mod);
+
+    delete tmp;
 }

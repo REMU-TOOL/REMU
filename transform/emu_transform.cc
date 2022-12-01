@@ -8,6 +8,8 @@
 #include "fame.h"
 #include "platform.h"
 #include "package.h"
+#include "interface.h"
+#include "emulib.h"
 
 using namespace Emu;
 
@@ -47,17 +49,16 @@ struct EmuTransformPass : public Pass {
     std::string top, elab_file, init_file, yaml_file, loader_file;
     bool raw_plat = false;
 
+    EmuLibInfo emulib;
+
     void elaborate(Design *design) {
         log_header(design, "Executing design elaboration.\n");
         log_push();
 
-        std::string share_dirname = proc_share_dirname() + "../recheck/";
+        std::vector<std::string> load_stub_cmd({"read_verilog", "-noautowire"});
+        load_stub_cmd.insert(load_stub_cmd.end(), emulib.model_stub_sources.begin(), emulib.model_stub_sources.end());
 
-        Pass::call(design, {
-            "read_verilog",
-            "-noautowire",
-            share_dirname + "emulib/stub/*.v"
-        });
+        Pass::call(design, load_stub_cmd);
 
         if (top.empty())
             Pass::call(design, "hierarchy -auto-top");
@@ -76,22 +77,16 @@ struct EmuTransformPass : public Pass {
         log_pop();
     }
 
-    void pre_integrate(Design *design) {
-        log_header(design, "Executing pre-transform integration.\n");
+    void integrate(Design *design) {
+        log_header(design, "Executing model integration.\n");
         log_push();
-
-        std::string share_dirname = proc_share_dirname() + "../recheck/";
 
         Pass::call(design, "setattr -mod -set _EMU_EXISTING 1");
 
-        Pass::call(design, {
-            "read_verilog",
-            "-noautowire",
-            "-I",
-            share_dirname + "emulib/include",
-            share_dirname + "emulib/common/*.v",
-            share_dirname + "emulib/fpga/*.v"
-        });
+        std::vector<std::string> load_imp_cmd({"read_verilog", "-noautowire", "-I", emulib.verilog_include_path});
+        load_imp_cmd.insert(load_imp_cmd.end(), emulib.model_sources.begin(), emulib.model_sources.end());
+
+        Pass::call(design, load_imp_cmd);
 
         Pass::call(design, "hierarchy -purge_lib");
         Pass::call(design, "select A:_EMU_EXISTING %n");
@@ -107,33 +102,6 @@ struct EmuTransformPass : public Pass {
         Pass::call(design, "opt_clean");
 
         Pass::call(design, "emu_check");
-
-        log_pop();
-    }
-
-    void post_integrate(Design *design) {
-        log_header(design, "Executing post-transform integration.\n");
-        log_push();
-
-        Pass::call(design, "setattr -mod -set _EMU_EXISTING 1");
-
-        std::string share_dirname = proc_share_dirname() + "../recheck/";
-
-        Pass::call(design, {
-            "read_verilog",
-            "-noautowire",
-            "-I",
-            share_dirname + "emulib/include",
-            share_dirname + "emulib/platform/*.v"
-        });
-
-        Pass::call(design, "hierarchy");
-        Pass::call(design, "select A:_EMU_EXISTING %n");
-        Pass::call(design, "proc");
-        Pass::call(design, "opt -fast");
-        Pass::call(design, "select -clear");
-
-        Pass::call(design, "setattr -mod -unset _EMU_EXISTING");
 
         log_pop();
     }
@@ -189,7 +157,7 @@ struct EmuTransformPass : public Pass {
 
         elaborate(design);
 
-        pre_integrate(design);
+        integrate(design);
 
         EmulationDatabase database(design);
 
@@ -233,19 +201,28 @@ struct EmuTransformPass : public Pass {
             log_pop();
         }
 
-        post_integrate(design);
+        {
+            log_header(design, "Executing packaging transformation.\n");
+            log_push();
+            PackageWorker worker(design);
+            worker.run();
+            log_pop();
+        }
 
         if (!raw_plat) {
             log_header(design, "Executing platform transformation.\n");
             log_push();
-            PlatformTransform worker(design, database);
+            PlatformTransform worker(design, database, emulib);
             worker.run();
             log_pop();
         }
 
         {
-            PackageWorker worker(design);
+            log_header(design, "Executing interface transformation.\n");
+            log_push();
+            InterfaceWorker worker(design, database);
             worker.run();
+            log_pop();
         }
 
         final_cleanup(design);

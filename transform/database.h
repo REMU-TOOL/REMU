@@ -5,6 +5,7 @@
 #include "yaml-cpp/yaml.h"
 #include "hier.h"
 #include "design_info.h"
+#include "axi.h"
 
 namespace Emu {
 
@@ -160,10 +161,26 @@ struct ChannelInfo
         res["orig_name"] = orig_name;
         res["port_name"] = port_name;
         res["dir"] = static_cast<int>(dir);
-        res["port_valid"] = port_valid;
-        res["port_ready"] = port_ready;
         res["deps"] = deps;
-        res["payloads"] = payloads;
+        return res;
+    }
+};
+
+struct AXIIntfInfo
+{
+    std::vector<Yosys::IdString> path;
+    std::string orig_name;
+    std::string port_name;
+    AXI::AXI4 axi;
+    int pages;
+
+    YAML::Node to_yaml() const
+    {
+        YAML::Node res;
+        res["path"] = path;
+        res["orig_name"] = orig_name;
+        res["port_name"] = port_name;
+        res["pages"] = pages;
         return res;
     }
 };
@@ -185,6 +202,7 @@ struct EmulationDatabase
     std::vector<TrigInfo> user_trigs;
     std::vector<FifoPortInfo> fifo_ports;
     std::vector<ChannelInfo> channels;
+    std::vector<AXIIntfInfo> axi_intfs;
     std::vector<ModelInfo> models;
 
     void write_init(std::string init_file);
@@ -233,6 +251,7 @@ EMU_CONV_DEF(Emu::ResetInfo)
 EMU_CONV_DEF(Emu::TrigInfo)
 EMU_CONV_DEF(Emu::FifoPortInfo)
 EMU_CONV_DEF(Emu::ChannelInfo)
+EMU_CONV_DEF(Emu::AXIIntfInfo)
 
 #undef EMU_CONV_DEF
 

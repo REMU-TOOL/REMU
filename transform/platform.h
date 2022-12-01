@@ -5,6 +5,7 @@
 
 #include "hier.h"
 #include "database.h"
+#include "emulib.h"
 
 namespace Emu {
 
@@ -12,6 +13,7 @@ struct PlatformTransform
 {
     Yosys::Design *design;
     EmulationDatabase &database;
+    EmuLibInfo &emulib;
 
     void connect_main_sigs(Yosys::Module *top, Yosys::Cell *emu_ctrl);
     void connect_resets(Yosys::Module *top, Yosys::Cell *emu_ctrl);
@@ -21,8 +23,8 @@ struct PlatformTransform
 
     void run();
 
-    PlatformTransform(Yosys::Design *design, EmulationDatabase &database)
-        : design(design), database(database) {}
+    PlatformTransform(Yosys::Design *design, EmulationDatabase &database, EmuLibInfo &emulib)
+        : design(design), database(database), emulib(emulib) {}
 };
 
 };

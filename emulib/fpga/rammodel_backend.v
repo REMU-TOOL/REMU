@@ -122,89 +122,10 @@ module emulib_rammodel_backend #(
     output wire [DATA_WIDTH-1:0]    rresp_data,
     output wire                     rresp_last,
 
-    ///// INTERFACE host_axi BEGIN /////
-
+    (* __emu_extern_intf = "host_axi" *)
+    (* __emu_extern_intf_type = "axi4" *)
     (* __emu_extern_intf_addr_pages = PAGE_COUNT *)
-    (* __emu_extern_intf = "host_axi" *)
-    output wire                     host_axi_awvalid,
-    (* __emu_extern_intf = "host_axi" *)
-    input  wire                     host_axi_awready,
-    (* __emu_extern_intf = "host_axi", __emu_extern_intf_type = "address" *)
-    output wire [ADDR_WIDTH-1:0]    host_axi_awaddr,
-    (* __emu_extern_intf = "host_axi" *)
-    output wire [ID_WIDTH-1:0]      host_axi_awid,
-    (* __emu_extern_intf = "host_axi" *)
-    output wire [7:0]               host_axi_awlen,
-    (* __emu_extern_intf = "host_axi" *)
-    output wire [2:0]               host_axi_awsize,
-    (* __emu_extern_intf = "host_axi" *)
-    output wire [1:0]               host_axi_awburst,
-    (* __emu_extern_intf = "host_axi" *)
-    output wire [0:0]               host_axi_awlock,
-    (* __emu_extern_intf = "host_axi" *)
-    output wire [3:0]               host_axi_awcache,
-    (* __emu_extern_intf = "host_axi" *)
-    output wire [2:0]               host_axi_awprot,
-    (* __emu_extern_intf = "host_axi" *)
-    output wire [3:0]               host_axi_awqos,
-    (* __emu_extern_intf = "host_axi" *)
-    output wire [3:0]               host_axi_awregion,
-    (* __emu_extern_intf = "host_axi" *)
-    output wire                     host_axi_wvalid,
-    (* __emu_extern_intf = "host_axi" *)
-    input  wire                     host_axi_wready,
-    (* __emu_extern_intf = "host_axi" *)
-    output wire [DATA_WIDTH-1:0]    host_axi_wdata,
-    (* __emu_extern_intf = "host_axi" *)
-    output wire [DATA_WIDTH/8-1:0]  host_axi_wstrb,
-    (* __emu_extern_intf = "host_axi" *)
-    output wire                     host_axi_wlast,
-    (* __emu_extern_intf = "host_axi" *)
-    input  wire                     host_axi_bvalid,
-    (* __emu_extern_intf = "host_axi" *)
-    output wire                     host_axi_bready,
-    (* __emu_extern_intf = "host_axi" *)
-    input  wire [1:0]               host_axi_bresp,
-    (* __emu_extern_intf = "host_axi" *)
-    input  wire [ID_WIDTH-1:0]      host_axi_bid,
-    (* __emu_extern_intf = "host_axi" *)
-    output wire                     host_axi_arvalid,
-    (* __emu_extern_intf = "host_axi" *)
-    input  wire                     host_axi_arready,
-    (* __emu_extern_intf = "host_axi", __emu_extern_intf_type = "address" *)
-    output wire [ADDR_WIDTH-1:0]    host_axi_araddr,
-    (* __emu_extern_intf = "host_axi" *)
-    output wire [ID_WIDTH-1:0]      host_axi_arid,
-    (* __emu_extern_intf = "host_axi" *)
-    output wire [7:0]               host_axi_arlen,
-    (* __emu_extern_intf = "host_axi" *)
-    output wire [2:0]               host_axi_arsize,
-    (* __emu_extern_intf = "host_axi" *)
-    output wire [1:0]               host_axi_arburst,
-    (* __emu_extern_intf = "host_axi" *)
-    output wire [0:0]               host_axi_arlock,
-    (* __emu_extern_intf = "host_axi" *)
-    output wire [3:0]               host_axi_arcache,
-    (* __emu_extern_intf = "host_axi" *)
-    output wire [2:0]               host_axi_arprot,
-    (* __emu_extern_intf = "host_axi" *)
-    output wire [3:0]               host_axi_arqos,
-    (* __emu_extern_intf = "host_axi" *)
-    output wire [3:0]               host_axi_arregion,
-    (* __emu_extern_intf = "host_axi" *)
-    input  wire                     host_axi_rvalid,
-    (* __emu_extern_intf = "host_axi" *)
-    output wire                     host_axi_rready,
-    (* __emu_extern_intf = "host_axi" *)
-    input  wire [DATA_WIDTH-1:0]    host_axi_rdata,
-    (* __emu_extern_intf = "host_axi" *)
-    input  wire [1:0]               host_axi_rresp,
-    (* __emu_extern_intf = "host_axi" *)
-    input  wire [ID_WIDTH-1:0]      host_axi_rid,
-    (* __emu_extern_intf = "host_axi" *)
-    input  wire                     host_axi_rlast,
-
-    ///// INTERFACE host_axi END /////
+    `AXI4_MASTER_IF                 (host_axi,      ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
 
     (* __emu_model_common_port = "run_mode" *)
     input  wire                     run_mode,
