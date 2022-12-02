@@ -375,9 +375,9 @@ module ScanchainCtrl #(
     if (FF_COUNT == 0)
         assign ff_di = 64'd0; // to avoid combinational logic loop
     else
-        assign ff_di = dma_direction ? m_read_data : ff_do;
+        assign ff_di = dma_direction ? p2s_data : ff_do;
 
-    assign ram_di = m_read_data;
+    assign ram_di = p2s_data;
     assign ram_sd = dma_direction;
 
 endmodule

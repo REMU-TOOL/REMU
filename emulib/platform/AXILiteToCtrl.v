@@ -14,45 +14,7 @@ module AXILiteToCtrl (
     output reg  [ 9:0]  ctrl_raddr,
     input  wire [31:0]  ctrl_rdata,
 
-    (* __emu_extern_intf = "s_axilite" *)
-    input  wire         s_axilite_awvalid,
-    (* __emu_extern_intf = "s_axilite" *)
-    output wire         s_axilite_awready,
-    (* __emu_extern_intf = "s_axilite" *)
-    input  wire [11:0]  s_axilite_awaddr,
-    (* __emu_extern_intf = "s_axilite" *)
-    input  wire [2:0]   s_axilite_awprot,
-    (* __emu_extern_intf = "s_axilite" *)
-    input  wire         s_axilite_wvalid,
-    (* __emu_extern_intf = "s_axilite" *)
-    output wire         s_axilite_wready,
-    (* __emu_extern_intf = "s_axilite" *)
-    input  wire [31:0]  s_axilite_wdata,
-    (* __emu_extern_intf = "s_axilite" *)
-    input  wire [3:0]   s_axilite_wstrb,
-    (* __emu_extern_intf = "s_axilite" *)
-    output wire         s_axilite_bvalid,
-    (* __emu_extern_intf = "s_axilite" *)
-    input  wire         s_axilite_bready,
-    (* __emu_extern_intf = "s_axilite" *)
-    output wire [1:0]   s_axilite_bresp,
-    (* __emu_extern_intf = "s_axilite" *)
-    input  wire         s_axilite_arvalid,
-    (* __emu_extern_intf = "s_axilite" *)
-    output wire         s_axilite_arready,
-    (* __emu_extern_intf = "s_axilite" *)
-    input  wire [11:0]  s_axilite_araddr,
-    (* __emu_extern_intf = "s_axilite" *)
-    input  wire [2:0]   s_axilite_arprot,
-    (* __emu_extern_intf = "s_axilite" *)
-    output wire         s_axilite_rvalid,
-    (* __emu_extern_intf = "s_axilite" *)
-    input  wire         s_axilite_rready,
-    (* __emu_extern_intf = "s_axilite" *)
-    output wire [31:0]  s_axilite_rdata,
-    (* __emu_extern_intf = "s_axilite" *)
-    output wire [1:0]   s_axilite_rresp
-
+    `AXI4LITE_SLAVE_IF  (s_axilite, 12, 32)
 );
 
     localparam [1:0]

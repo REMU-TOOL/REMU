@@ -49,9 +49,16 @@ module EmuCtrl #(
     input  wire [TRIG_COUNT-1:0]    trig,
     output reg  [RESET_COUNT-1:0]   rst,
 
-    (* __emu_extern_intf = "scan_dma_axi" *)
-    (* __emu_extern_intf_type = "axi4" *)
-    (* __emu_extern_intf_addr_pages = __CKPT_PAGES *)
+    (* __emu_axi_name = "s_axilite" *)
+    (* __emu_axi_type = "axi4" *)
+    (* __emu_axi_addr_space = "ctrl" *)
+    (* __emu_axi_addr_pages = 1 *)
+    `AXI4LITE_SLAVE_IF  (s_axilite, 12, 32),
+
+    (* __emu_axi_name = "scan_dma_axi" *)
+    (* __emu_axi_type = "axi4" *)
+    (* __emu_axi_addr_space = "mem" *)
+    (* __emu_axi_addr_pages = __CKPT_PAGES *)
     `AXI4_MASTER_IF_NO_ID           (scan_dma_axi, 32, 64)
 
 );
@@ -343,7 +350,8 @@ module EmuCtrl #(
         .ctrl_wdata (ctrl_wdata),
         .ctrl_ren   (ctrl_ren),
         .ctrl_raddr (ctrl_raddr),
-        .ctrl_rdata (ctrl_rdata)
+        .ctrl_rdata (ctrl_rdata),
+        `AXI4LITE_CONNECT(s_axilite, s_axilite)
     );
 
     ScanchainCtrl #(

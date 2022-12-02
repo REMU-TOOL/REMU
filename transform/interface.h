@@ -9,11 +9,6 @@
 
 namespace Emu {
 
-struct AXIHelper {
-    static AXI::AXI4Lite axi4lite_from_prefix(Yosys::Module *module, const std::string &prefix);
-    static AXI::AXI4 axi4_from_prefix(Yosys::Module *module, const std::string &prefix);
-};
-
 struct InterfaceWorker
 {
     Hierarchy hier;

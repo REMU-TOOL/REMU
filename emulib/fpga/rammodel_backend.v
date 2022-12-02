@@ -122,9 +122,10 @@ module emulib_rammodel_backend #(
     output wire [DATA_WIDTH-1:0]    rresp_data,
     output wire                     rresp_last,
 
-    (* __emu_extern_intf = "host_axi" *)
-    (* __emu_extern_intf_type = "axi4" *)
-    (* __emu_extern_intf_addr_pages = PAGE_COUNT *)
+    (* __emu_axi_name = "host_axi" *)
+    (* __emu_axi_type = "axi4" *)
+    (* __emu_axi_addr_space = "mem" *)
+    (* __emu_axi_addr_pages = PAGE_COUNT *)
     `AXI4_MASTER_IF                 (host_axi,      ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
 
     (* __emu_model_common_port = "run_mode" *)

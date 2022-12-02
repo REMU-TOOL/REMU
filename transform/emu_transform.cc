@@ -29,10 +29,6 @@ struct EmuTransformPass : public Pass {
         log("\n");
         log("    -top <module>\n");
         log("        specify top module name\n");
-        log("    -ff_width <width>\n");
-        log("        specify the width of FF scan chain (default=64)\n");
-        log("    -ram_width <width>\n");
-        log("        specify the width of RAM scan chain (default=64)\n");
         log("    -elab <file>\n");
         log("        write elaborated verilog design to the specified file\n");
         log("    -init <file>\n");
@@ -69,7 +65,6 @@ struct EmuTransformPass : public Pass {
         Pass::call(design, "proc");
         Pass::call(design, "emu_fast_opt");
         Pass::call(design, "check");
-        Pass::call(design, "rename -src");
 
         if (!elab_file.empty())
             Pass::call(design, "write_verilog " + elab_file);

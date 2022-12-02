@@ -171,8 +171,9 @@ struct AXIIntfInfo
     std::vector<Yosys::IdString> path;
     std::string orig_name;
     std::string port_name;
+    std::string addr_space;
+    int addr_pages;
     AXI::AXI4 axi;
-    int pages;
 
     YAML::Node to_yaml() const
     {
@@ -180,7 +181,8 @@ struct AXIIntfInfo
         res["path"] = path;
         res["orig_name"] = orig_name;
         res["port_name"] = port_name;
-        res["pages"] = pages;
+        res["addr_space"] = addr_space;
+        res["addr_pages"] = addr_pages;
         return res;
     }
 };
