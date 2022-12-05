@@ -138,7 +138,7 @@ void ClockTreeRewriter::run()
                         if (sigmap(conn.second[i]) == clk) {
                             SigBit tpl_bit(tpl->wire(conn.first), i);
                             work_queue.push(tpl_bit);
-                            if (clk.wire->name != CommonPort::PORT_MDL_CLK.id) {
+                            if (tpl_bit.wire->name != CommonPort::PORT_MDL_CLK.id) {
                                 cell->setPort(to_ff_clk(tpl_bit), ff_clk);
                                 cell->setPort(to_ram_clk(tpl_bit), ram_clk);
                             }
