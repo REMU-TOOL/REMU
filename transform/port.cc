@@ -161,7 +161,7 @@ void PortTransform::promote_user_sigs(Module *module)
         for (auto &info : all_clock_ports.at(child.name)) {
             ClockInfo newinfo = info;
             newinfo.path.insert(newinfo.path.begin(), edge.name.second);
-            newinfo.port_name = "\\EMU_PORT_" + path_prefix(newinfo.path) + pretty_name(info.port_name, false);
+            newinfo.port_name = "\\EMU_PORT_" + path_prefix(newinfo.path) + pretty_name(info.orig_name, false);
             newinfo.ff_clk = newinfo.port_name.str() + "_FF";
             newinfo.ram_clk = newinfo.port_name.str() + "_RAM";
             Wire *newport = module->addWire(newinfo.port_name);
@@ -181,7 +181,7 @@ void PortTransform::promote_user_sigs(Module *module)
         for (auto &info : all_reset_ports.at(child.name)) {
             ResetInfo newinfo = info;
             newinfo.path.insert(newinfo.path.begin(), edge.name.second);
-            newinfo.port_name = "\\EMU_PORT_" + path_prefix(newinfo.path) + pretty_name(info.port_name, false);
+            newinfo.port_name = "\\EMU_PORT_" + path_prefix(newinfo.path) + pretty_name(info.orig_name, false);
             Wire *newport = module->addWire(newinfo.port_name);
             newport->port_input = true;
             inst->setPort(info.port_name, newport);
@@ -191,7 +191,7 @@ void PortTransform::promote_user_sigs(Module *module)
         for (auto &info : all_trig_ports.at(child.name)) {
             TrigInfo newinfo = info;
             newinfo.path.insert(newinfo.path.begin(), edge.name.second);
-            newinfo.port_name = "\\EMU_PORT_" + path_prefix(newinfo.path) + pretty_name(info.port_name, false);
+            newinfo.port_name = "\\EMU_PORT_" + path_prefix(newinfo.path) + pretty_name(info.orig_name, false);
             Wire *newport = module->addWire(newinfo.port_name);
             newport->port_output = true;
             inst->setPort(info.port_name, newport);
@@ -328,7 +328,7 @@ void PortTransform::promote_fifo_ports(Module *module)
         for (auto &info : all_fifo_ports.at(child.name)) {
             FifoPortInfo newinfo = info;
             newinfo.path.insert(newinfo.path.begin(), edge.name.second);
-            newinfo.port_name = "EMU_PORT_" + path_prefix(newinfo.path) + info.port_name;
+            newinfo.port_name = "EMU_PORT_" + path_prefix(newinfo.path) + info.orig_name;
             newinfo.port_enable = "\\" + newinfo.port_name + "_enable";
             newinfo.port_data = "\\" + newinfo.port_name + "_data";
             newinfo.port_flag = "\\" + newinfo.port_name + "_flag";
@@ -468,7 +468,7 @@ void PortTransform::promote_channel_ports(Module *module)
         for (auto &info : all_channel_ports.at(child.name)) {
             ChannelInfo newinfo = info;
             newinfo.path.insert(newinfo.path.begin(), edge.name.second);
-            newinfo.port_name = "EMU_PORT_" + path_prefix(newinfo.path) + info.port_name;
+            newinfo.port_name = "EMU_PORT_" + path_prefix(newinfo.path) + info.orig_name;
             newinfo.port_valid = "\\" + newinfo.port_name + "_valid";
             newinfo.port_ready = "\\" + newinfo.port_name + "_ready";
 
