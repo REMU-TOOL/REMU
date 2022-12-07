@@ -254,7 +254,7 @@ void ScanchainWorker::instrument_module_ram(Module *module, SigSpec ram_di, SigS
         log("Rewriting RAM %s\n",
             pretty_name(mem.memid).c_str());
 
-        const int abits = ceil_log2(mem.size);
+        const int abits = ceil_log2(mem.size + mem.start_offset);
         const int cbits = ceil_log2(mem.width);
 
         SigSpec run_flag = module->addWire(module->uniquify(name + "_run_flag"));
@@ -264,15 +264,15 @@ void ScanchainWorker::instrument_module_ram(Module *module, SigSpec ram_di, SigS
         // reg [abits-1:0] addr;
         // wire [abits-1:0] addr_next = addr + 1;
         // always @(posedge host_clk)
-        //   if (ram_sr) addr <= 0;
+        //   if (ram_sr) addr <= mem.start_offset;
         //   else if (ram_se && addr_inc) addr <= addr_next;
         SigSpec addr = module->addWire(module->uniquify(name + "_addr"), abits);
         SigSpec addr_next = module->Add(NEW_ID, addr, Const(1, abits));
         module->addSdffe(NEW_ID, host_clk, module->And(NEW_ID, ram_se, addr_inc), ram_sr,
-            addr_next, addr, Const(0, abits));
+            addr_next, addr, Const(mem.start_offset, abits));
 
-        // assign addr_is_last = addr == mem.size - 1;
-        SigSpec addr_is_last = module->Eq(NEW_ID, addr, Const(mem.size - 1, abits));
+        // assign addr_is_last = addr == mem.size + mem.start_offset- 1;
+        SigSpec addr_is_last = module->Eq(NEW_ID, addr, Const(mem.size + mem.start_offset- 1, abits));
 
         SigSpec cnt_is_last;
         if (mem.width > 1) {
@@ -333,8 +333,6 @@ void ScanchainWorker::instrument_module_ram(Module *module, SigSpec ram_di, SigS
         module->connect(se, module->Or(NEW_ID, ram_sd, module->Not(NEW_ID, addr_inc)));
         module->connect(we, module->And(NEW_ID, ram_sd, addr_inc));
 
-        //int extended_addr_len = abits > 32 ? abits : 32;
-
         for (auto &wr : mem.wr_ports) {
             // add pause signal to ports
             wr.en = module->Mux(NEW_ID, wr.en, Const(0, GetSize(wr.en)), scan_mode);
@@ -344,7 +342,6 @@ void ScanchainWorker::instrument_module_ram(Module *module, SigSpec ram_di, SigS
         auto &wr = mem.wr_ports[0];
         wr.en = module->Mux(NEW_ID, wr.en, SigSpec(we, mem.width), scan_mode);
         SigSpec scan_waddr = addr;
-        scan_waddr = module->Add(NEW_ID, scan_waddr, Const(mem.start_offset, abits));
         // FIXME: adjusting original address width may result in inconsistent behavior
         wr.addr.extend_u0(abits);
         wr.addr = module->Mux(NEW_ID, wr.addr, scan_waddr, scan_mode);
@@ -367,7 +364,6 @@ void ScanchainWorker::instrument_module_ram(Module *module, SigSpec ram_di, SigS
         else {
             scan_raddr = addr;
         }
-        scan_raddr = module->Add(NEW_ID, scan_raddr, Const(mem.start_offset, abits));
         // FIXME: adjusting original address width may result in inconsistent behavior
         rd.addr.extend_u0(abits);
         rd.addr = module->Mux(NEW_ID, rd.addr, scan_raddr, scan_mode);
