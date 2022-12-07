@@ -21,12 +21,12 @@ module test(
 
     input                       ff_scan,
     input                       ff_dir,
-    input   [63:0]              ff_sdi,
-    output  [63:0]              ff_sdo,
+    input                       ff_sdi,
+    output                      ff_sdo,
     input                       ram_scan,
     input                       ram_dir,
-    input   [63:0]              ram_sdi,
-    output  [63:0]              ram_sdo,
+    input                       ram_sdi,
+    output                      ram_sdo,
 
     output reg  [63:0]          count,
     input                       count_write,
@@ -53,29 +53,34 @@ module test(
             $write("%c", putchar_rdata);
 
     EMU_SYSTEM emu_dut(
-        .host_clk       (host_clk),
-        .host_rst       (host_rst),
-        .ff_se          (ff_scan),
-        .ff_di          (ff_dir ? ff_sdi : ff_sdo),
-        .ff_do          (ff_sdo),
-        .ram_sr         (ram_scan_reset),
-        .ram_se         (ram_scan),
-        .ram_sd         (ram_dir),
-        .ram_di         (ram_sdi),
-        .ram_do         (ram_sdo),
-        .target_reset_reset    (target_rst),
-        .run_mode       (run_mode),
-        .scan_mode      (scan_mode),
-        .idle           (idle),
-        .target_trap_trig_trigger       (trig),
-        `AXI4_CONNECT       (target_uncore_u_rammodel_backend_host_axi, host_axi),
-        .target_uncore_putchar_sink_ren    (putchar_ren),
-        .target_uncore_putchar_sink_rdata  (putchar_rdata),
-        .target_uncore_putchar_sink_rempty (putchar_rempty)
+        .EMU_HOST_CLK       (host_clk),
+        .EMU_HOST_RST       (host_rst),
+        .EMU_FF_SE          (ff_scan),
+        .EMU_FF_DI          (ff_dir ? ff_sdi : ff_sdo),
+        .EMU_FF_DO          (ff_sdo),
+        .EMU_RAM_SR         (ram_scan_reset),
+        .EMU_RAM_SE         (ram_scan),
+        .EMU_RAM_SD         (ram_dir),
+        .EMU_RAM_DI         (ram_sdi),
+        .EMU_RAM_DO         (ram_sdo),
+        .EMU_PORT_reset_user_rst    (target_rst),
+        .EMU_RUN_MODE       (run_mode),
+        .EMU_SCAN_MODE      (scan_mode),
+        .EMU_IDLE           (idle),
+        .EMU_PORT_trap_trig_user_trig       (trig),
+        `AXI4_CONNECT       (EMU_AXI_uncore_u_rammodel_backend_host_axi, host_axi),
+        .EMU_PORT_uncore_putchar_sink_enable    (putchar_ren),
+        .EMU_PORT_uncore_putchar_sink_data  (putchar_rdata),
+        .EMU_PORT_uncore_putchar_sink_flag (putchar_rempty)
     );
 
-    assign target_clk = emu_dut.target_clock_clock;
-    assign tick = emu_dut.tick;
+    ClockGate target_clk_gate (
+        .CLK(host_clk),
+        .EN(run_mode && tick),
+        .OCLK(target_clk)
+    );
+
+    assign tick = emu_dut.EMU_TICK;
 
     always @(posedge host_clk)
         if (host_rst)

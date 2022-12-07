@@ -92,75 +92,75 @@ module sim_top(
     );
 
     EMU_SYSTEM u_emu_system(
-        .host_clk                   (host_clk),
-        .host_rst                   (host_rst),
+        .EMU_HOST_CLK                   (host_clk),
+        .EMU_HOST_RST                   (host_rst),
 
-        .ctrl_scanchain_dma_axi_arvalid              (ctrl_scanchain_dma_axi_arvalid),
-        .ctrl_scanchain_dma_axi_arready              (ctrl_scanchain_dma_axi_arready),
-        .ctrl_scanchain_dma_axi_araddr               (ctrl_scanchain_dma_axi_araddr),
-        .ctrl_scanchain_dma_axi_arprot               (ctrl_scanchain_dma_axi_arprot),
-        .ctrl_scanchain_dma_axi_arlen                (ctrl_scanchain_dma_axi_arlen),
-        .ctrl_scanchain_dma_axi_arsize               (ctrl_scanchain_dma_axi_arsize),
-        .ctrl_scanchain_dma_axi_arburst              (ctrl_scanchain_dma_axi_arburst),
-        .ctrl_scanchain_dma_axi_arlock               (ctrl_scanchain_dma_axi_arlock),
-        .ctrl_scanchain_dma_axi_arcache              (ctrl_scanchain_dma_axi_arcache),
-        .ctrl_scanchain_dma_axi_rvalid               (ctrl_scanchain_dma_axi_rvalid),
-        .ctrl_scanchain_dma_axi_rready               (ctrl_scanchain_dma_axi_rready),
-        .ctrl_scanchain_dma_axi_rresp                (ctrl_scanchain_dma_axi_rresp),
-        .ctrl_scanchain_dma_axi_rdata                (ctrl_scanchain_dma_axi_rdata),
-        .ctrl_scanchain_dma_axi_rlast                (ctrl_scanchain_dma_axi_rlast),
-        .ctrl_scanchain_dma_axi_awvalid              (ctrl_scanchain_dma_axi_awvalid),
-        .ctrl_scanchain_dma_axi_awready              (ctrl_scanchain_dma_axi_awready),
-        .ctrl_scanchain_dma_axi_awaddr               (ctrl_scanchain_dma_axi_awaddr),
-        .ctrl_scanchain_dma_axi_awprot               (ctrl_scanchain_dma_axi_awprot),
-        .ctrl_scanchain_dma_axi_awlen                (ctrl_scanchain_dma_axi_awlen),
-        .ctrl_scanchain_dma_axi_awsize               (ctrl_scanchain_dma_axi_awsize),
-        .ctrl_scanchain_dma_axi_awburst              (ctrl_scanchain_dma_axi_awburst),
-        .ctrl_scanchain_dma_axi_awlock               (ctrl_scanchain_dma_axi_awlock),
-        .ctrl_scanchain_dma_axi_awcache              (ctrl_scanchain_dma_axi_awcache),
-        .ctrl_scanchain_dma_axi_wvalid               (ctrl_scanchain_dma_axi_wvalid),
-        .ctrl_scanchain_dma_axi_wready               (ctrl_scanchain_dma_axi_wready),
-        .ctrl_scanchain_dma_axi_wdata                (ctrl_scanchain_dma_axi_wdata_raw),
-        .ctrl_scanchain_dma_axi_wstrb                (ctrl_scanchain_dma_axi_wstrb),
-        .ctrl_scanchain_dma_axi_wlast                (ctrl_scanchain_dma_axi_wlast),
-        .ctrl_scanchain_dma_axi_bvalid               (ctrl_scanchain_dma_axi_bvalid),
-        .ctrl_scanchain_dma_axi_bready               (ctrl_scanchain_dma_axi_bready),
-        .ctrl_scanchain_dma_axi_bresp                (ctrl_scanchain_dma_axi_bresp),
+        .EMU_AXI_ctrl_scan_dma_axi_arvalid              (ctrl_scanchain_dma_axi_arvalid),
+        .EMU_AXI_ctrl_scan_dma_axi_arready              (ctrl_scanchain_dma_axi_arready),
+        .EMU_AXI_ctrl_scan_dma_axi_araddr               (ctrl_scanchain_dma_axi_araddr),
+        .EMU_AXI_ctrl_scan_dma_axi_arprot               (ctrl_scanchain_dma_axi_arprot),
+        .EMU_AXI_ctrl_scan_dma_axi_arlen                (ctrl_scanchain_dma_axi_arlen),
+        .EMU_AXI_ctrl_scan_dma_axi_arsize               (ctrl_scanchain_dma_axi_arsize),
+        .EMU_AXI_ctrl_scan_dma_axi_arburst              (ctrl_scanchain_dma_axi_arburst),
+        .EMU_AXI_ctrl_scan_dma_axi_arlock               (ctrl_scanchain_dma_axi_arlock),
+        .EMU_AXI_ctrl_scan_dma_axi_arcache              (ctrl_scanchain_dma_axi_arcache),
+        .EMU_AXI_ctrl_scan_dma_axi_rvalid               (ctrl_scanchain_dma_axi_rvalid),
+        .EMU_AXI_ctrl_scan_dma_axi_rready               (ctrl_scanchain_dma_axi_rready),
+        .EMU_AXI_ctrl_scan_dma_axi_rresp                (ctrl_scanchain_dma_axi_rresp),
+        .EMU_AXI_ctrl_scan_dma_axi_rdata                (ctrl_scanchain_dma_axi_rdata),
+        .EMU_AXI_ctrl_scan_dma_axi_rlast                (ctrl_scanchain_dma_axi_rlast),
+        .EMU_AXI_ctrl_scan_dma_axi_awvalid              (ctrl_scanchain_dma_axi_awvalid),
+        .EMU_AXI_ctrl_scan_dma_axi_awready              (ctrl_scanchain_dma_axi_awready),
+        .EMU_AXI_ctrl_scan_dma_axi_awaddr               (ctrl_scanchain_dma_axi_awaddr),
+        .EMU_AXI_ctrl_scan_dma_axi_awprot               (ctrl_scanchain_dma_axi_awprot),
+        .EMU_AXI_ctrl_scan_dma_axi_awlen                (ctrl_scanchain_dma_axi_awlen),
+        .EMU_AXI_ctrl_scan_dma_axi_awsize               (ctrl_scanchain_dma_axi_awsize),
+        .EMU_AXI_ctrl_scan_dma_axi_awburst              (ctrl_scanchain_dma_axi_awburst),
+        .EMU_AXI_ctrl_scan_dma_axi_awlock               (ctrl_scanchain_dma_axi_awlock),
+        .EMU_AXI_ctrl_scan_dma_axi_awcache              (ctrl_scanchain_dma_axi_awcache),
+        .EMU_AXI_ctrl_scan_dma_axi_wvalid               (ctrl_scanchain_dma_axi_wvalid),
+        .EMU_AXI_ctrl_scan_dma_axi_wready               (ctrl_scanchain_dma_axi_wready),
+        .EMU_AXI_ctrl_scan_dma_axi_wdata                (ctrl_scanchain_dma_axi_wdata_raw),
+        .EMU_AXI_ctrl_scan_dma_axi_wstrb                (ctrl_scanchain_dma_axi_wstrb),
+        .EMU_AXI_ctrl_scan_dma_axi_wlast                (ctrl_scanchain_dma_axi_wlast),
+        .EMU_AXI_ctrl_scan_dma_axi_bvalid               (ctrl_scanchain_dma_axi_bvalid),
+        .EMU_AXI_ctrl_scan_dma_axi_bready               (ctrl_scanchain_dma_axi_bready),
+        .EMU_AXI_ctrl_scan_dma_axi_bresp                (ctrl_scanchain_dma_axi_bresp),
 
-        .ctrl_bridge_s_axilite_arvalid          (ctrl_bridge_s_axilite_arvalid),
-        .ctrl_bridge_s_axilite_arready          (ctrl_bridge_s_axilite_arready),
-        .ctrl_bridge_s_axilite_araddr           (ctrl_bridge_s_axilite_araddr),
-        .ctrl_bridge_s_axilite_arprot           (ctrl_bridge_s_axilite_arprot),
-        .ctrl_bridge_s_axilite_rvalid           (ctrl_bridge_s_axilite_rvalid),
-        .ctrl_bridge_s_axilite_rready           (ctrl_bridge_s_axilite_rready),
-        .ctrl_bridge_s_axilite_rresp            (ctrl_bridge_s_axilite_rresp),
-        .ctrl_bridge_s_axilite_rdata            (ctrl_bridge_s_axilite_rdata),
-        .ctrl_bridge_s_axilite_awvalid          (ctrl_bridge_s_axilite_awvalid),
-        .ctrl_bridge_s_axilite_awready          (ctrl_bridge_s_axilite_awready),
-        .ctrl_bridge_s_axilite_awaddr           (ctrl_bridge_s_axilite_awaddr),
-        .ctrl_bridge_s_axilite_awprot           (ctrl_bridge_s_axilite_awprot),
-        .ctrl_bridge_s_axilite_wvalid           (ctrl_bridge_s_axilite_wvalid),
-        .ctrl_bridge_s_axilite_wready           (ctrl_bridge_s_axilite_wready),
-        .ctrl_bridge_s_axilite_wdata            (ctrl_bridge_s_axilite_wdata),
-        .ctrl_bridge_s_axilite_wstrb            (ctrl_bridge_s_axilite_wstrb),
-        .ctrl_bridge_s_axilite_bvalid           (ctrl_bridge_s_axilite_bvalid),
-        .ctrl_bridge_s_axilite_bready           (ctrl_bridge_s_axilite_bready),
-        .ctrl_bridge_s_axilite_bresp            (ctrl_bridge_s_axilite_bresp)
+        .EMU_AXI_ctrl_s_axilite_arvalid          (ctrl_bridge_s_axilite_arvalid),
+        .EMU_AXI_ctrl_s_axilite_arready          (ctrl_bridge_s_axilite_arready),
+        .EMU_AXI_ctrl_s_axilite_araddr           (ctrl_bridge_s_axilite_araddr),
+        .EMU_AXI_ctrl_s_axilite_arprot           (ctrl_bridge_s_axilite_arprot),
+        .EMU_AXI_ctrl_s_axilite_rvalid           (ctrl_bridge_s_axilite_rvalid),
+        .EMU_AXI_ctrl_s_axilite_rready           (ctrl_bridge_s_axilite_rready),
+        .EMU_AXI_ctrl_s_axilite_rresp            (ctrl_bridge_s_axilite_rresp),
+        .EMU_AXI_ctrl_s_axilite_rdata            (ctrl_bridge_s_axilite_rdata),
+        .EMU_AXI_ctrl_s_axilite_awvalid          (ctrl_bridge_s_axilite_awvalid),
+        .EMU_AXI_ctrl_s_axilite_awready          (ctrl_bridge_s_axilite_awready),
+        .EMU_AXI_ctrl_s_axilite_awaddr           (ctrl_bridge_s_axilite_awaddr),
+        .EMU_AXI_ctrl_s_axilite_awprot           (ctrl_bridge_s_axilite_awprot),
+        .EMU_AXI_ctrl_s_axilite_wvalid           (ctrl_bridge_s_axilite_wvalid),
+        .EMU_AXI_ctrl_s_axilite_wready           (ctrl_bridge_s_axilite_wready),
+        .EMU_AXI_ctrl_s_axilite_wdata            (ctrl_bridge_s_axilite_wdata),
+        .EMU_AXI_ctrl_s_axilite_wstrb            (ctrl_bridge_s_axilite_wstrb),
+        .EMU_AXI_ctrl_s_axilite_bvalid           (ctrl_bridge_s_axilite_bvalid),
+        .EMU_AXI_ctrl_s_axilite_bready           (ctrl_bridge_s_axilite_bready),
+        .EMU_AXI_ctrl_s_axilite_bresp            (ctrl_bridge_s_axilite_bresp)
     );
 
     emu_top emu_ref();
 
-    assign emu_ref.clock.clock = u_emu_system.target_clock_clock;
-    assign emu_ref.reset.reset = u_emu_system.target_reset_reset;
+    assign emu_ref.clock.clock = u_emu_system.clock.clock;
+    assign emu_ref.reset.reset = u_emu_system.reset.reset;
 
     always @(posedge emu_ref.clock.clock) begin
         if (!emu_ref.reset.reset) begin
-            if (u_emu_system.target.u_cpu.rf_wen !== emu_ref.u_cpu.rf_wen ||
-                u_emu_system.target.u_cpu.rf_waddr !== emu_ref.u_cpu.rf_waddr ||
-                u_emu_system.target.u_cpu.rf_wdata !== emu_ref.u_cpu.rf_wdata)
+            if (u_emu_system.u_cpu.rf_wen !== emu_ref.u_cpu.rf_wen ||
+                u_emu_system.u_cpu.rf_waddr !== emu_ref.u_cpu.rf_waddr ||
+                u_emu_system.u_cpu.rf_wdata !== emu_ref.u_cpu.rf_wdata)
             begin
                 $display("ERROR: trace mismatch");
-                $display("DUT: wen=%h waddr=%h wdata=%h", u_emu_system.target.u_cpu.rf_wen, u_emu_system.target.u_cpu.rf_waddr, u_emu_system.target.u_cpu.rf_wdata);
+                $display("DUT: wen=%h waddr=%h wdata=%h", u_emu_system.u_cpu.rf_wen, u_emu_system.u_cpu.rf_waddr, u_emu_system.u_cpu.rf_wdata);
                 $display("REF: wen=%h waddr=%h wdata=%h", emu_ref.u_cpu.rf_wen, emu_ref.u_cpu.rf_waddr, emu_ref.u_cpu.rf_wdata);
                 $fatal;
             end

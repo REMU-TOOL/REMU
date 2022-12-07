@@ -10,26 +10,26 @@ module sim_top();
     reg clk = 0, rst = 1;
     reg run_mode = 1, scan_mode = 0;
     reg ff_scan = 0, ff_dir = 0;
-    reg [63:0] ff_sdi = 0;
-    wire [63:0] ff_sdo;
+    reg ff_sdi = 0;
+    wire ff_sdo;
     reg ram_scan_reset = 0;
     reg ram_scan = 0, ram_dir = 0;
-    reg [63:0] ram_sdi = 0;
-    wire [63:0] ram_sdo;
+    reg ram_sdi = 0;
+    wire ram_sdo;
 
     EMU_SYSTEM emu_dut(
-        .host_clk       (clk),
-        .run_mode       (run_mode),
-        .scan_mode      (scan_mode),
-        .ff_se          (ff_scan),
-        .ff_di          (ff_dir ? ff_sdi : ff_sdo),
-        .ff_do          (ff_sdo),
-        .ram_sr         (ram_scan_reset),
-        .ram_se         (ram_scan),
-        .ram_sd         (ram_dir),
-        .ram_di         (ram_sdi),
-        .ram_do         (ram_sdo),
-        .target_reset_reset    (rst)
+        .EMU_HOST_CLK       (clk),
+        .EMU_RUN_MODE       (run_mode),
+        .EMU_SCAN_MODE      (scan_mode),
+        .EMU_FF_SE          (ff_scan),
+        .EMU_FF_DI          (ff_dir ? ff_sdi : ff_sdo),
+        .EMU_FF_DO          (ff_sdo),
+        .EMU_RAM_SR         (ram_scan_reset),
+        .EMU_RAM_SE         (ram_scan),
+        .EMU_RAM_SD         (ram_dir),
+        .EMU_RAM_DI         (ram_sdi),
+        .EMU_RAM_DO         (ram_sdo),
+        .EMU_PORT_reset_user_rst    (rst)
     );
 
     wire ref_clk;
@@ -42,25 +42,13 @@ module sim_top();
 
     emu_top emu_ref();
 
-    assign emu_ref.clock.clock = ref_clk;
-    assign emu_ref.reset.reset = rst;
+    assign emu_ref.clock.user_clk = ref_clk;
+    assign emu_ref.reset.user_rst = rst;
 
     integer i, j;
-    reg [`LOAD_MEM_WIDTH-1:0] mem_scan_save [N_CKPT-1:0][`CHAIN_MEM_WORDS-1:0];
-    reg [`LOAD_FF_WIDTH-1:0] ff_scan_save [N_CKPT-1:0][`CHAIN_FF_WORDS-1:0];
+    reg [`RAM_BIT_COUNT-1:0] mem_scan_save [N_CKPT-1:0];
+    reg [`FF_BIT_COUNT-1:0] ff_scan_save [N_CKPT-1:0];
     reg [63:0] cycle_save [N_CKPT-1:0], finish_cycle;
-
-    function [`LOAD_FF_WIDTH-1:0] get_ff_save_data(input [$clog2(`CHAIN_FF_WORDS)-1:0] index);
-    begin
-        get_ff_save_data = ff_scan_save[i][index];
-    end
-    endfunction
-
-    function [`LOAD_MEM_WIDTH-1:0] get_mem_save_data(input [$clog2(`CHAIN_MEM_WORDS)-1:0] index);
-    begin
-        get_mem_save_data = mem_scan_save[i][index];
-    end
-    endfunction
 
     always #5 clk = ~clk;
 
@@ -77,12 +65,12 @@ module sim_top();
                 $display("Benchmark finished with result = %d at cycle %d", result, cycle);
                 finish = 1;
             end
-            if (emu_dut.target.u_cpu.rf_wen !== emu_ref.u_cpu.rf_wen ||
-                emu_dut.target.u_cpu.rf_waddr !== emu_ref.u_cpu.rf_waddr ||
-                emu_dut.target.u_cpu.rf_wdata !== emu_ref.u_cpu.rf_wdata)
+            if (emu_dut.u_cpu.rf_wen !== emu_ref.u_cpu.rf_wen ||
+                emu_dut.u_cpu.rf_waddr !== emu_ref.u_cpu.rf_waddr ||
+                emu_dut.u_cpu.rf_wdata !== emu_ref.u_cpu.rf_wdata)
             begin
                 $display("ERROR: trace mismatch at cycle %d", cycle);
-                $display("DUT: wen=%h waddr=%h wdata=%h", emu_dut.target.u_cpu.rf_wen, emu_dut.target.u_cpu.rf_waddr, emu_dut.target.u_cpu.rf_wdata);
+                $display("DUT: wen=%h waddr=%h wdata=%h", emu_dut.u_cpu.rf_wen, emu_dut.u_cpu.rf_waddr, emu_dut.u_cpu.rf_wdata);
                 $display("REF: wen=%h waddr=%h wdata=%h", emu_ref.u_cpu.rf_wen, emu_ref.u_cpu.rf_waddr, emu_ref.u_cpu.rf_wdata);
                 $fatal;
             end
@@ -105,7 +93,7 @@ module sim_top();
             // dump ff
             ff_scan = 1;
             ff_dir = 0;
-            for (j=0; j<`CHAIN_FF_WORDS; j=j+1) begin
+            for (j=0; j<`FF_BIT_COUNT; j=j+1) begin
                 // randomize backpressure
                 ff_scan = 0;
                 while (!ff_scan) begin
@@ -120,7 +108,7 @@ module sim_top();
             ram_scan = 1;
             ram_dir = 0;
             #20;
-            for (j=0; j<`CHAIN_MEM_WORDS; j=j+1) begin
+            for (j=0; j<`RAM_BIT_COUNT; j=j+1) begin
                 // randomize backpressure
                 ram_scan = 0;
                 while (!ram_scan) begin
@@ -150,7 +138,7 @@ module sim_top();
             // load ff
             ff_scan = 1;
             ff_dir = 1;
-            for (j=0; j<`CHAIN_FF_WORDS; j=j+1) begin
+            for (j=0; j<`FF_BIT_COUNT; j=j+1) begin
                 // randomize backpressure
                 ff_scan = 0;
                 while (!ff_scan) begin
@@ -164,7 +152,7 @@ module sim_top();
             // load mem
             ram_scan = 1;
             ram_dir = 1;
-            for (j=0; j<`CHAIN_MEM_WORDS; j=j+1) begin
+            for (j=0; j<`RAM_BIT_COUNT; j=j+1) begin
                 // randomize backpressure
                 ram_scan = 0;
                 while (!ram_scan) begin
@@ -179,8 +167,8 @@ module sim_top();
             #10;
             // load cycle
             cycle = cycle_save[i];
-            `LOAD_FF(get_ff_save_data, emu_ref);
-            `LOAD_MEM(get_mem_save_data, emu_ref);
+            `LOAD_FF(ff_scan_save[i], emu_ref);
+            `LOAD_MEM(j, mem_scan_save[i], emu_ref);
             scan_mode = 0; #10; run_mode = 1;
             while (!finish) #10;
             finish = 0;

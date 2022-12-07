@@ -1,21 +1,13 @@
 `timescale 1 ns / 1 ps
 
 module ff(
-    (* __emu_extern_intf = "test" *)
     input [63:0] d1,
-    (* __emu_extern_intf = "test" *)
     input [31:0] d2,
-    (* __emu_extern_intf = "test" *)
     input [7:0] d3,
-    (* __emu_extern_intf = "test" *)
     input [79:0] d4,
-    (* __emu_extern_intf = "test" *)
     output reg [63:0] q1,
-    (* __emu_extern_intf = "test" *)
     output reg [31:0] q2,
-    (* __emu_extern_intf = "test" *)
     output reg [7:0] q3,
-    (* __emu_extern_intf = "test" *)
     output reg [79:0] q4
 );
 

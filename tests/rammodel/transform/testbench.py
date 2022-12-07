@@ -21,9 +21,8 @@ class TB:
     def load_config(self, path):
         with open(path, 'r') as f:
             self.config = yaml.load(f, Loader=yaml.Loader)
-        mem_width = self.config['mem_width']
-        self.ff_size = len(self.config['ff'])
-        self.mem_size = sum([x['depth'] * ((x['width'] + mem_width - 1) // mem_width) for x in self.config['mem']])
+        self.ff_size = sum([ff['width'] for ff in self.config['ff']])
+        self.mem_size = sum([mem['width'] * mem['depth'] for mem in self.config['ram']])
 
     async def do_reset(self):
         self.dut._log.info("reset asserted")
@@ -45,9 +44,11 @@ class TB:
         self.dut._log.info("reset deasserted")
 
     async def do_save(self):
-        ff_data = []
-        ram_data = []
+        ff_data = ''
+        ram_data = ''
         self.dut._log.info("save begin")
+        while self.dut.idle.value != 1:
+            await RisingEdge(self.dut.host_clk)
         self.dut.scan_mode.value = 1
         self.dut.ram_scan_reset.value = 1
         await RisingEdge(self.dut.host_clk)
@@ -56,7 +57,10 @@ class TB:
         self.dut.ff_dir.value = 0
         for _ in range(self.ff_size):
             await RisingEdge(self.dut.host_clk)
-            ff_data.append(self.dut.ff_sdo.value)
+            if self.dut.ff_sdo.value.binstr == '1':
+                ff_data += '1'
+            else:
+                ff_data += '0'
         self.dut.ff_scan.value = 0
         self.dut.ram_scan.value = 1
         self.dut.ram_dir.value = 0
@@ -64,7 +68,10 @@ class TB:
         await RisingEdge(self.dut.host_clk)
         for _ in range(self.mem_size):
             await RisingEdge(self.dut.host_clk)
-            ram_data.append(self.dut.ram_sdo.value)
+            if self.dut.ram_sdo.value.binstr == '1':
+                ram_data += '1'
+            else:
+                ram_data += '0'
         self.dut.ram_scan.value = 0
         await RisingEdge(self.dut.host_clk)
         self.dut.scan_mode.value = 0
@@ -74,6 +81,8 @@ class TB:
     async def do_load(self, data):
         ff_data, ram_data = data
         self.dut._log.info("load begin")
+        while self.dut.idle.value != 1:
+            await RisingEdge(self.dut.host_clk)
         self.dut.scan_mode.value = 1
         self.dut.ram_scan_reset.value = 1
         await RisingEdge(self.dut.host_clk)
@@ -81,13 +90,19 @@ class TB:
         self.dut.ff_scan.value = 1
         self.dut.ff_dir.value = 1
         for d in ff_data:
-            self.dut.ff_sdi.value = d
+            if d == '1':
+                self.dut.ff_sdi.value = 1
+            else:
+                self.dut.ff_sdi.value = 0
             await RisingEdge(self.dut.host_clk)
         self.dut.ff_scan.value = 0
         self.dut.ram_scan.value = 1
         self.dut.ram_dir.value = 1
         for d in ram_data:
-            self.dut.ram_sdi.value = d
+            if d == '1':
+                self.dut.ram_sdi.value = 1
+            else:
+                self.dut.ram_sdi.value = 0
             await RisingEdge(self.dut.host_clk)
         await RisingEdge(self.dut.host_clk)
         self.dut.ram_scan.value = 0
@@ -102,7 +117,7 @@ async def run_test(dut):
     await tb.do_reset()
 
     async def read_write_worker_func():
-        for step in range(0, 30):
+        for step in range(0, 10):
             burst = random.choice((AxiBurstType.INCR, AxiBurstType.WRAP))
             size = random.randint(0, 3)
             addr = (2 ** size) * random.randint(0, 16)
@@ -119,7 +134,7 @@ async def run_test(dut):
 
     async def pause_resume_worker_func():
         while running:
-            await ClockCycles(dut.host_clk, random.randint(10, 1000))
+            await ClockCycles(dut.host_clk, random.randint(100, 1000))
             dut.run_mode.value = 0
             dut._log.info("pause requested")
             while dut.idle.value != 1:

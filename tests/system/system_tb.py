@@ -215,59 +215,49 @@ class SystemTB:
         return val
 
     def save_checkpoint(self):
-        ff_chain_width = self.config['ff_width']
-        mem_chain_width = self.config['mem_width']
-        if ff_chain_width != 64 or mem_chain_width != 64:
-            raise RuntimeError('scanchain width != 64 is currently unsupported')
-        size = len(self.config['ff']) * 8
-        for mem in self.config['mem']:
-            mem_info = self.circuit_info(mem['name'])
-            mem_width = mem_info['width']
-            mem_slices = (mem_width + mem_chain_width - 1) // mem_chain_width
-            size += mem_info['depth'] * mem_slices * 8
-        return self.axi_sc_ram.read(0, size)
+        ff_bits = sum([ff['width'] for ff in self.config['ff']])
+        mem_bits = sum([mem['width'] * mem['depth'] for mem in self.config['ram']])
+        ff_size = (ff_bits + 63) // 64 * 8
+        mem_size = (mem_bits + 63) // 64 * 8
+        return self.axi_sc_ram.read(0, ff_size + mem_size)
 
     def load_checkpoint(self, data):
         self.axi_sc_ram.write(0, data)
 
     def copy_checkpoint_to(self, handle):
-        ff_chain_width = self.config['ff_width']
-        mem_chain_width = self.config['mem_width']
-        if ff_chain_width != 64 or mem_chain_width != 64:
-            raise RuntimeError('scanchain width != 64 is currently unsupported')
-        addr = 0
+        ff_bits = sum([ff['width'] for ff in self.config['ff']])
+        ff_size = (ff_bits + 63) // 64 * 8
+        ff_data = int.from_bytes(self.axi_sc_ram.read(0, ff_size), byteorder='little')
         for ff in self.config['ff']:
-            slice = self.axi_sc_ram.read_qword(addr)
-            addr += 8
-            for chunk in ff:
-                offset = chunk['offset']
-                width = chunk['width']
-                if chunk['is_src']:
-                    name = hier2flat(chunk['name'])
-                    self.dut._log.info(f"loading {name} ({offset},{width})")
-                    ff_handle = handle._id(name, extended=False)
-                    value = ff_handle.value
-                    mask = ~(~0 << width) << offset
-                    value = (slice << offset) & mask | value & ~mask
-                    ff_handle.value = value
-                slice >>= width
-        for mem in self.config['mem']:
-            is_src = mem['is_src']
-            if is_src:
-                name = hier2flat(mem['name'])
-                self.dut._log.info(f"loading {name}")
-                mem_handle = handle._id(name, extended=False)
-            mem_info = self.circuit_info(mem['name'])
-            mem_width = mem_info['width']
-            mem_slices = (mem_width + mem_chain_width - 1) // mem_chain_width
-            mem_start_offset = mem_info['start_offset']
-            mask = ~(~0 << mem_width)
-            for i in range(mem_info['depth']):
-                value = 0
-                for s in range(mem_slices):
-                    slice = self.axi_sc_ram.read_qword(addr)
-                    addr += 8
-                    value |= slice << (mem_chain_width*s)
-                value &= mask
-                if is_src:
-                    mem_handle[mem_start_offset+i].value = value
+            offset = ff['offset']
+            width = ff['width']
+            wire_width = ff['wire_width']
+            #wire_start_offset = ff['wire_start_offset']
+            wire_upto = ff['wire_upto']
+            name = hier2flat(ff['name'])
+            ff_handle = handle._id(name, extended=False)
+            mask = ~(~0 << width) << offset
+            if wire_upto:
+                lpos = wire_width - (offset + width - 1) - 1
+                rpos = wire_width - offset - 1
+            else:
+                lpos = offset + width - 1
+                rpos = offset
+            self.dut._log.info(f"loading {name}[{lpos}:{rpos}]")
+            ff_handle.value[rpos:lpos] = ff_data & mask
+            ff_data >>= width
+        mem_bits = sum([mem['width'] * mem['depth'] for mem in self.config['ram']])
+        mem_size = (mem_bits + 63) // 64 * 8
+        mem_data = int.from_bytes(self.axi_sc_ram.read(ff_size, mem_size), byteorder='little')
+        for mem in self.config['ram']:
+            name = hier2flat(mem['name'])
+            self.dut._log.info(f"loading {name}")
+            mem_handle = handle._id(name, extended=False)
+            width = mem['width']
+            depth = mem['depth']
+            start_offset = mem['start_offset']
+            mask = ~(~0 << width)
+            for i in range(depth):
+                value = mem_data & mask
+                mem_handle[start_offset+i].value = value
+                mem_data >>= width

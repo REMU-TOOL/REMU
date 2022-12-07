@@ -1,11 +1,8 @@
 `timescale 1 ns / 1 ps
 
 module ffpause(
-    (* __emu_extern_intf = "test" *)
     input en,
-    (* __emu_extern_intf = "test" *)
     input [31:0] d,
-    (* __emu_extern_intf = "test" *)
     output reg [31:0] q
 );
 

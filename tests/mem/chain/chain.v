@@ -1,41 +1,23 @@
 `timescale 1 ns / 1 ps
 
 module chain(
-    (* __emu_extern_intf = "test" *)
     input                   ren1,
-    (* __emu_extern_intf = "test" *)
     input   [2:0]           raddr1,
-    (* __emu_extern_intf = "test" *)
     output  [31:0]          rdata1,
-    (* __emu_extern_intf = "test" *)
     input                   wen1,
-    (* __emu_extern_intf = "test" *)
     input   [2:0]           waddr1,
-    (* __emu_extern_intf = "test" *)
     input   [31:0]          wdata1,
-    (* __emu_extern_intf = "test" *)
     input                   ren2,
-    (* __emu_extern_intf = "test" *)
     input   [2:0]           raddr2,
-    (* __emu_extern_intf = "test" *)
     output  [63:0]          rdata2,
-    (* __emu_extern_intf = "test" *)
     input                   wen2,
-    (* __emu_extern_intf = "test" *)
     input   [2:0]           waddr2,
-    (* __emu_extern_intf = "test" *)
     input   [63:0]          wdata2,
-    (* __emu_extern_intf = "test" *)
     input                   ren3,
-    (* __emu_extern_intf = "test" *)
     input   [2:0]           raddr3,
-    (* __emu_extern_intf = "test" *)
     output  [127:0]          rdata3,
-    (* __emu_extern_intf = "test" *)
     input                   wen3,
-    (* __emu_extern_intf = "test" *)
     input   [2:0]           waddr3,
-    (* __emu_extern_intf = "test" *)
     input   [127:0]          wdata3
 );
 

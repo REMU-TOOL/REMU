@@ -27,9 +27,8 @@ class TB:
     def load_config(self, path):
         with open(path, 'r') as f:
             self.config = yaml.load(f, Loader=yaml.Loader)
-        mem_width = self.config['mem_width']
-        self.ff_size = len(self.config['ff'])
-        self.mem_size = sum([x['depth'] * ((x['width'] + mem_width - 1) // mem_width) for x in self.config['mem']])
+        self.ff_size = sum([ff['width'] for ff in self.config['ff']])
+        self.mem_size = sum([mem['width'] * mem['depth'] for mem in self.config['ram']])
 
     async def do_reset(self):
         self.dut._log.info("reset asserted")
@@ -70,8 +69,8 @@ class TB:
         self.dut.do_resume.value = 0
 
     async def do_save(self):
-        ff_data = []
-        ram_data = []
+        ff_data = ''
+        ram_data = ''
         self.dut._log.info("save begin")
         while self.dut.idle.value != 1:
             await RisingEdge(self.dut.host_clk)
@@ -83,7 +82,10 @@ class TB:
         self.dut.ff_dir.value = 0
         for _ in range(self.ff_size):
             await RisingEdge(self.dut.host_clk)
-            ff_data.append(self.dut.ff_sdo.value)
+            if self.dut.ff_sdo.value.binstr == '1':
+                ff_data += '1'
+            else:
+                ff_data += '0'
         self.dut.ff_scan.value = 0
         self.dut.ram_scan.value = 1
         self.dut.ram_dir.value = 0
@@ -91,7 +93,10 @@ class TB:
         await RisingEdge(self.dut.host_clk)
         for _ in range(self.mem_size):
             await RisingEdge(self.dut.host_clk)
-            ram_data.append(self.dut.ram_sdo.value)
+            if self.dut.ram_sdo.value.binstr == '1':
+                ram_data += '1'
+            else:
+                ram_data += '0'
         self.dut.ram_scan.value = 0
         await RisingEdge(self.dut.host_clk)
         self.dut.scan_mode.value = 0
@@ -110,13 +115,19 @@ class TB:
         self.dut.ff_scan.value = 1
         self.dut.ff_dir.value = 1
         for d in ff_data:
-            self.dut.ff_sdi.value = d
+            if d == '1':
+                self.dut.ff_sdi.value = 1
+            else:
+                self.dut.ff_sdi.value = 0
             await RisingEdge(self.dut.host_clk)
         self.dut.ff_scan.value = 0
         self.dut.ram_scan.value = 1
         self.dut.ram_dir.value = 1
         for d in ram_data:
-            self.dut.ram_sdi.value = d
+            if d == '1':
+                self.dut.ram_sdi.value = 1
+            else:
+                self.dut.ram_sdi.value = 0
             await RisingEdge(self.dut.host_clk)
         await RisingEdge(self.dut.host_clk)
         self.dut.ram_scan.value = 0
@@ -156,12 +167,32 @@ async def run_test(dut):
         await tb.do_count_write(cycle)
         tb.axi_ram.write(0, mem)
 
+    trace = {}
+
+    async def trace_pc():
+        while True:
+            await RisingEdge(dut.target_clk)
+            count = dut.count.value.integer
+            reg_pc = dut.emu_dut.dut.reg_pc.value.integer
+            trace[count] = reg_pc
+
+    async def compare_pc():
+        while True:
+            await RisingEdge(dut.target_clk)
+            count = dut.count.value.integer
+            reg_pc = dut.emu_dut.dut.reg_pc.value.integer
+            if count in trace:
+                if reg_pc != trace[count]:
+                    dut._log.error("cycle %d: reg_pc mismatch, expected %x but got %x" % (count, trace[count], reg_pc))
+                    raise ValueError("reg_pc mismatch")
+
     checkpoints = []
     trig_cycle = 0
     await tb.do_pause()
     await tb.do_count_write(0)
+    trace_task = cocotb.fork(trace_pc())
     while True:
-        await tb.do_step_write(random.randint(2000, 5000))
+        await tb.do_step_write(random.randint(5000, 10000))
         await tb.do_resume()
         await FallingEdge(dut.run_mode)
         await RisingEdge(dut.host_clk)
@@ -174,15 +205,18 @@ async def run_test(dut):
         checkpoints.append(await save_checkpoint())
         await RisingEdge(dut.host_clk)
         dut._log.info("checkpoint cycle = %d", dut.count.value)
+    trace_task.kill()
 
     for checkpoint in checkpoints:
         dut._log.info("load checkpoint")
         await load_checkpoint(checkpoint)
         await RisingEdge(dut.host_clk)
         dut._log.info("checkpoint cycle = %d", dut.count.value)
+        compare_task = cocotb.fork(compare_pc())
         await tb.do_resume()
         await FallingEdge(dut.run_mode)
         await RisingEdge(dut.host_clk)
+        compare_task.kill()
         cycle = dut.count.value
         dut._log.info("DUT trigger activated at cycle %d" % cycle)
         if (cycle != trig_cycle):
