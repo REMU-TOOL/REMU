@@ -49,6 +49,7 @@ module EmuDataSource #(
 
     wire rempty;
 
+    (* __emu_no_scanchain *)
     emulib_fifo #(
         .WIDTH      (DATA_WIDTH),
         .DEPTH      (FIFO_DEPTH)

@@ -177,67 +177,36 @@ module emulib_rammodel_backend #(
 
     // breq & bresp channel
 
-    wire bresp_empty_valid = 1'b1;
-    wire bresp_empty_ready;
+    wire reset_pending = tk_rst_valid && rst;
 
     wire bresp_prejoin_valid;
     wire bresp_prejoin_ready;
 
-    emulib_ready_valid_mux #(
-        .NUM_I      (2),
-        .NUM_O      (1),
-        .DATA_WIDTH (1)
-    ) bresp_mux (
-        .i_valid    ({frontend_bvalid, bresp_empty_valid}),
-        .i_ready    ({frontend_bready, bresp_empty_ready}),
-        .i_data     (2'b00/*unused*/),
-        .i_sel      ({breq_valid, !breq_valid}),
-        .o_valid    (bresp_prejoin_valid),
-        .o_ready    (bresp_prejoin_ready),
-        .o_data     (),
-        .o_sel      (1'b1)
-    );
+    wire b_dequeue = tk_breq_valid && breq_valid && !reset_pending;
 
-    emulib_ready_valid_join #(
-        .BRANCHES   (2)
-    ) bresp_join (
-        .i_valid    ({bresp_prejoin_valid, tk_breq_valid}),
-        .i_ready    ({bresp_prejoin_ready, tk_breq_ready}),
-        .o_valid    (tk_bresp_valid),
-        .o_ready    (tk_bresp_ready)
-    );
+    assign bresp_prejoin_valid = frontend_bvalid || !b_dequeue;
+    assign frontend_bready = bresp_prejoin_ready && b_dequeue;
+
+    assign tk_bresp_valid = bresp_prejoin_valid && tk_breq_valid;
+    assign bresp_prejoin_ready = tk_bresp_ready && tk_breq_valid;
+    assign tk_breq_ready = tk_bresp_ready && bresp_prejoin_valid;
 
     // rreq & rresp channel
-
-    wire rresp_empty_valid = 1'b1;
-    wire rresp_empty_ready;
 
     wire rresp_prejoin_valid;
     wire rresp_prejoin_ready;
 
-    emulib_ready_valid_mux #(
-        .NUM_I      (2),
-        .NUM_O      (1),
-        .DATA_WIDTH (DATA_WIDTH+1)
-    ) rresp_mux (
-        .i_valid    ({frontend_rvalid, rresp_empty_valid}),
-        .i_ready    ({frontend_rready, rresp_empty_ready}),
-        .i_data     ({{frontend_rdata, frontend_rlast}, {DATA_WIDTH+1{1'b0}}}),
-        .i_sel      ({rreq_valid, !rreq_valid}),
-        .o_valid    (rresp_prejoin_valid),
-        .o_ready    (rresp_prejoin_ready),
-        .o_data     ({rresp_data, rresp_last}),
-        .o_sel      (1'b1)
-    );
+    wire r_dequeue = tk_rreq_valid && rreq_valid && !reset_pending;
 
-    emulib_ready_valid_join #(
-        .BRANCHES   (2)
-    ) rresp_join (
-        .i_valid    ({rresp_prejoin_valid, tk_rreq_valid}),
-        .i_ready    ({rresp_prejoin_ready, tk_rreq_ready}),
-        .o_valid    (tk_rresp_valid),
-        .o_ready    (tk_rresp_ready)
-    );
+    assign rresp_prejoin_valid = frontend_rvalid || !r_dequeue;
+    assign frontend_rready = rresp_prejoin_ready && r_dequeue;
+
+    assign tk_rresp_valid = rresp_prejoin_valid && tk_rreq_valid;
+    assign rresp_prejoin_ready = tk_rresp_ready && tk_rreq_valid;
+    assign tk_rreq_ready = tk_rresp_ready && rresp_prejoin_valid;
+
+    assign rresp_data = r_dequeue ? frontend_rdata : {DATA_WIDTH{1'b0}};
+    assign rresp_last = r_dequeue ? frontend_rlast : 1'b0;
 
     // FIFOs for A, W, B, R
 
@@ -417,6 +386,7 @@ module emulib_rammodel_backend #(
         SCHED_DO_R  = 3'd3,
         SCHED_DO_B  = 3'd4;
 
+    (* __emu_no_scanchain *)
     reg [2:0] sched_state, sched_state_next;
 
     wire sched_ok_to_ar = sched_avalid && !sched_awrite && r_fifo_count == 0;
@@ -467,6 +437,7 @@ module emulib_rammodel_backend #(
 
     // Reset handler
 
+    (* __emu_no_scanchain *)
     reset_token_handler resetter (
         .mdl_clk        (mdl_clk),
         .mdl_rst        (mdl_rst),
