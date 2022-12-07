@@ -4,7 +4,7 @@ module emulib_fifo #(
     parameter WIDTH     = 32,
     parameter DEPTH     = 8,
 
-    parameter CNTW      = $clog2(DEPTH)
+    parameter CNTW      = DEPTH > 1 ? $clog2(DEPTH) : 1
 )(
 
     input  wire                 clk,
