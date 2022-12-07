@@ -12,59 +12,6 @@ using namespace Emu;
 
 USING_YOSYS_NAMESPACE
 
-EmulationDatabase::EmulationDatabase(Design *design)
-{
-    design_info.top = pretty_name(design->top_module()->name);
-    for (Module *module : design->modules()) {
-        ModuleInfo module_info;
-        for (Cell *cell : module->cells()) {
-            if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
-                FfData ff(nullptr, cell);
-                for (auto &chunk : ff.sig_q.chunks()) {
-                    log_assert(chunk.is_wire());
-                    Wire *wire = chunk.wire;
-                    std::string name = pretty_name(wire->name);
-                    if (module_info.cells.count(name))
-                        continue;
-                    RegInfo reg;
-                    reg.width = wire->width;
-                    reg.start_offset = wire->start_offset;
-                    reg.upto = wire->upto;
-                    module_info.cells.emplace(
-                        std::piecewise_construct,
-                        std::forward_as_tuple(name),
-                        std::forward_as_tuple(std::move(reg)));
-                }
-            }
-            else if (design->has(cell->type)) {
-                std::string name = pretty_name(cell->name);
-                std::string module_name = pretty_name(cell->type);
-                module_info.cells.emplace(
-                    std::piecewise_construct,
-                    std::forward_as_tuple(name),
-                    std::forward_as_tuple(module_name));
-            }
-        }
-        for (auto &mem : Mem::get_all_memories(module)) {
-            std::string name = pretty_name(mem.memid);
-            RegArrayInfo array;
-            array.width = mem.width;
-            array.depth = mem.size;
-            array.start_offset = mem.start_offset;
-            array.dissolved = false;
-            module_info.cells.emplace(
-                std::piecewise_construct,
-                std::forward_as_tuple(name),
-                std::forward_as_tuple(std::move(array)));
-        }
-        std::string name = pretty_name(module->name);
-        design_info.modules.emplace(
-            std::piecewise_construct,
-            std::forward_as_tuple(name),
-            std::forward_as_tuple(std::move(module_info)));
-    }
-}
-
 void EmulationDatabase::write_init(std::string init_file) {
     std::ofstream f;
 
@@ -98,8 +45,6 @@ void EmulationDatabase::write_yaml(std::string yaml_file) {
 
     YAML::Node root;
 
-    // TODO: is design_info necessary?
-    //root["design"] = design_info;
     root["ff"] = ff_list;
     root["ram"] = ram_list;
     root["clock"] = user_clocks;

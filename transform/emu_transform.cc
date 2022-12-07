@@ -154,7 +154,7 @@ struct EmuTransformPass : public Pass {
 
         integrate(design);
 
-        EmulationDatabase database(design);
+        EmulationDatabase database;
 
         {
             log_header(design, "Executing RAM transformation.\n");

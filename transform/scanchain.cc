@@ -606,7 +606,7 @@ struct EmuTestScanchain : public Pass {
         extra_args(args, 1, design);
         log_header(design, "Executing EMU_TEST_SCANCHAIN pass.\n");
 
-        EmulationDatabase database(design);
+        EmulationDatabase database;
         PortTransform port(design, database);
         port.run();
         ScanchainWorker worker(design, database);

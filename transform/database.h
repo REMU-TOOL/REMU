@@ -4,7 +4,6 @@
 #include "kernel/yosys.h"
 #include "yaml-cpp/yaml.h"
 #include "hier.h"
-#include "design_info.h"
 #include "axi.h"
 
 namespace Emu {
@@ -14,9 +13,9 @@ struct FFInfo
     std::vector<Yosys::IdString> name;
     int width;
     int offset;
-    int wire_width;
-    int wire_start_offset;
-    bool wire_upto;
+    int wire_width;         // redundant for write_loader use
+    int wire_start_offset;  // redundant for write_loader use
+    bool wire_upto;         // redundant for write_loader use
     Yosys::Const init_data;
 
     YAML::Node to_yaml() const
@@ -35,9 +34,9 @@ struct FFInfo
 struct RAMInfo
 {
     std::vector<Yosys::IdString> name;
-    int width;
-    int depth;
-    int start_offset;
+    int width;          // redundant for write_loader use
+    int depth;          // redundant for write_loader use
+    int start_offset;   // redundant for write_loader use
     bool dissolved;
     Yosys::Const init_data;
 
@@ -196,7 +195,6 @@ struct ModelInfo
 
 struct EmulationDatabase
 {
-    DesignInfo design_info;
     std::vector<FFInfo> ff_list;
     std::vector<RAMInfo> ram_list;
     std::vector<ClockInfo> user_clocks;
@@ -211,7 +209,7 @@ struct EmulationDatabase
     void write_yaml(std::string yaml_file);
     void write_loader(std::string loader_file);
 
-    EmulationDatabase(Yosys::Design *design);
+    EmulationDatabase() {}
 };
 
 } // namespace Emu

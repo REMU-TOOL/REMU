@@ -532,7 +532,7 @@ struct EmuTestPort : public Pass {
         extra_args(args, 1, design);
         log_header(design, "Executing EMU_TEST_PORT pass.\n");
 
-        EmulationDatabase database(design);
+        EmulationDatabase database;
         PortTransform worker(design, database);
 
         worker.run();

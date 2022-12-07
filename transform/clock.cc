@@ -322,7 +322,7 @@ struct EmuTestClockTree : public Pass {
         extra_args(args, 1, design);
         log_header(design, "Executing EMU_TEST_CLOCK_TREE pass.\n");
 
-        EmulationDatabase database(design);
+        EmulationDatabase database;
         PortTransform port(design, database);
         port.run();
         ClockTreeRewriter helper(design, database);
