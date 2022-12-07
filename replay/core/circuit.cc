@@ -50,8 +50,10 @@ void CircuitLoader::load(Checkpoint &checkpoint)
         auto name = name_from_yaml(ff["name"]);
         int width = ff["width"].as<int>();
         int offset = ff["offset"].as<int>();
-        auto &reg = circuit.reg(name);
-        reg.data.setValue(offset, ff_data.getValue(ff_offset, width));
+        if (ff["is_src"].as<bool>()) {
+            auto &reg = circuit.reg(name);
+            reg.data.setValue(offset, ff_data.getValue(ff_offset, width));
+        }
         ff_offset += width;
     }
 

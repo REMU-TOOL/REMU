@@ -134,7 +134,8 @@ struct CircuitInfo
         for (auto &ff : ff_list) {
             auto name = ff["name"].as<std::vector<std::string>>();
             int width = ff["wire_width"].as<int>();
-            make_reg(width, name);
+            if (ff["is_src"].as<bool>())
+                make_reg(width, name);
         }
         auto &ram_list = config["ram"];
         for (auto &ram : ram_list) {
