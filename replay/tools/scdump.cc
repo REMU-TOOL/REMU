@@ -5,45 +5,28 @@
 
 using namespace Replay;
 
-void print_scope(const CircuitDataScope &circuit, std::string prefix)
+void print_circuit(CircuitInfo *circuit, std::string prefix = "")
 {
-    prefix += Escape::escape_verilog_id(circuit.scope.name) + ".";
-    for (auto it : circuit.scope) {
-        auto node = it.second;
-        if (node->type() == CircuitInfo::NODE_SCOPE) {
-            auto scope = dynamic_cast<CircuitInfo::Scope*>(node);
-            if (scope == nullptr)
-                throw std::bad_cast();
-            print_scope(circuit.subscope({scope->name}), prefix);
-        }
-        else if (node->type() == CircuitInfo::NODE_WIRE) {
-            auto wire = dynamic_cast<CircuitInfo::Wire*>(node);
-            if (wire == nullptr)
-                throw std::bad_cast();
-            auto &data = circuit.ff(wire->id);
-            std::cout << prefix << Escape::escape_verilog_id(wire->name)
-                << " = " << data.width() << "'h" << data.hex() << std::endl;
-        }
-        else if (node->type() == CircuitInfo::NODE_MEM) {
-            auto mem = dynamic_cast<CircuitInfo::Mem*>(node);
-            if (mem == nullptr)
-                throw std::bad_cast();
-            int width = mem->width;
-            int depth = mem->depth;
-            int start_offset = mem->start_offset;
-            auto &data = circuit.mem(mem->id);
-            for (int i = 0; i < depth; i++) {
-                auto word = data.get(i);
-                std::cout << prefix << Escape::escape_verilog_id(mem->name)
-                    << "[" << i + start_offset << "] = " << word.width() << "'h" << word.hex() << std::endl;
-            }
+    for (auto &it : circuit->regs) {
+        auto name = Escape::escape_verilog_id(it.first);
+        std::cout << prefix << name
+            << " = " << it.second.data.width() << "'h" << it.second.data.hex() << std::endl;
+    }
+    for (auto &it : circuit->regarrays) {
+        auto name = Escape::escape_verilog_id(it.first);
+        int width = it.second.data.width();
+        int depth = it.second.data.depth();
+        int start_offset = it.second.start_offset;
+        for (int i = 0; i < depth; i++) {
+            auto word = it.second.data.get(i);
+            std::cout << prefix << name
+                << "[" << i + start_offset << "] = " << word.width() << "'h" << word.hex() << std::endl;
         }
     }
-}
-
-void print_circuit(const CircuitData &circuit)
-{
-    print_scope(circuit, "");
+    for (auto it : circuit->cells) {
+        auto name = Escape::escape_verilog_id(it.first);
+        print_circuit(it.second, prefix + name + ".");
+    }
 }
 
 int main(int argc, const char *argv[]) {
@@ -67,11 +50,11 @@ int main(int argc, const char *argv[]) {
 
     Checkpoint ckpt(ckpt_path);
 
-    CircuitData circuit(config);
-    CircuitDataLoader loader(config, ckpt, circuit);
-    loader.load();
+    CircuitInfo circuit(config);
+    CircuitLoader loader(config, circuit);
+    loader.load(ckpt);
 
-    print_circuit(circuit);
+    print_circuit(&circuit);
 
     return 0;
 }

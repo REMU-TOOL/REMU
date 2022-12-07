@@ -12,16 +12,24 @@ namespace Replay {
 struct VPILoader
 {
     YAML::Node config;
-    std::unique_ptr<CircuitData> circuit;
+    CircuitInfo *circuit;
     Checkpoint checkpoint;
 
     VPILoader(std::string config_path, std::string ckpt_path) : checkpoint(ckpt_path)
     {
         config = YAML::LoadFile(config_path);
-        circuit = std::unique_ptr<CircuitData>(new CircuitData(config));
-        CircuitDataLoader loader(config, checkpoint, *circuit);
-        loader.load();
+        circuit = new CircuitInfo(config);
+        CircuitLoader loader(config, *circuit);
+        loader.load(checkpoint);
     }
+
+    ~VPILoader()
+    {
+        delete circuit;
+    }
+
+    VPILoader(const VPILoader &) = delete;
+    VPILoader& operator=(const VPILoader &) = delete;
 
     void load();
 };

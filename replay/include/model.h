@@ -13,7 +13,7 @@ namespace Replay {
 
 struct FifoModel {
     std::queue<BitVector> fifo;
-    void load(const CircuitDataScope &circuit);
+    void load(CircuitInfo *circuit);
 };
 
 class RamModel {
@@ -77,7 +77,7 @@ public:
     bool reset();
 
     bool load_data(std::istream &stream);
-    void load_state(const CircuitDataScope &circuit);
+    void load_state(CircuitInfo *circuit);
 
     RamModel(unsigned int addr_w, unsigned int data_w, unsigned int id_w, unsigned int pf) :
         addr_width(addr_w), data_width(data_w), id_width(id_w), pf_count(pf),
