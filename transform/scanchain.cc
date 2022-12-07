@@ -107,6 +107,7 @@ void ScanchainWorker::instrument_module_ff(Module *module, SigSpec ff_di, SigSpe
         info.wire_width = chunk.wire->width;
         info.wire_start_offset = chunk.wire->start_offset;
         info.wire_upto = chunk.wire->upto;
+        info.is_src = true;
         info.init_data = initvals(SigSpec(chunk));
         info_list.push_back(std::move(info));
     }
@@ -220,6 +221,7 @@ void ScanchainWorker::restore_sync_read_port_ff(Module *module, SigSpec ff_di, S
         info.wire_width = chunk.wire->width;
         info.wire_start_offset = chunk.wire->start_offset;
         info.wire_upto = chunk.wire->upto;
+        info.is_src = false;
         info.init_data = info_init.as_const();
         info_list.push_back(std::move(info));
     }
