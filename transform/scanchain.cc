@@ -319,9 +319,9 @@ void ScanchainWorker::instrument_module_ram(Module *module, SigSpec ram_di, SigS
 
         // always @(posedge host_clk)
         //   if (ram_sr) run_flag <= 0;
-        //   else if (ram_se) run_flag <= last_i || run_flag && !last_o;
+        //   else if (ram_se) run_flag <= (last_i || run_flag) && !last_o;
         module->addSdffe(NEW_ID, host_clk, ram_se, ram_sr,
-            module->Or(NEW_ID, last_i, module->And(NEW_ID, run_flag, module->Not(NEW_ID, last_o))),
+            module->And(NEW_ID, module->Or(NEW_ID, last_i, run_flag), module->Not(NEW_ID, last_o)),
             run_flag, State::S0);
 
         // assign addr_inc = cnt_is_last && run_flag || last_i;
