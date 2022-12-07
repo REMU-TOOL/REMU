@@ -8,6 +8,8 @@ module EmuCtrl #(
     parameter       FF_COUNT        = 0,
     parameter       MEM_COUNT       = 0,
 
+    parameter       __TRIG_COUNT    = TRIG_COUNT > 0 ? TRIG_COUNT : 1,
+    parameter       __RESET_COUNT   = RESET_COUNT > 0 ? RESET_COUNT : 1,
     parameter       __CKPT_FF_CNT   = (FF_COUNT + 63) / 64,
     parameter       __CKPT_MEM_CNT  = (MEM_COUNT + 63) / 64,
     parameter       __CKPT_CNT      = __CKPT_FF_CNT + __CKPT_MEM_CNT,
@@ -46,8 +48,8 @@ module EmuCtrl #(
     output wire [ 7:0]  sink_raddr,
     input  wire [31:0]  sink_rdata,
 
-    input  wire [TRIG_COUNT-1:0]    trig,
-    output reg  [RESET_COUNT-1:0]   rst,
+    input  wire [__TRIG_COUNT-1:0]    trig,
+    output reg  [__RESET_COUNT-1:0]   rst,
 
     (* __emu_axi_name = "s_axilite" *)
     (* __emu_axi_type = "axi4" *)
@@ -236,11 +238,11 @@ module EmuCtrl #(
     // 0x8: trig_stat[95]   ...  trig_stat[64]
     // 0xc: trig_stat[127]  ...  trig_stat[96]
 
-    reg [TRIG_COUNT-1:0] trig_stat;
+    reg [__TRIG_COUNT-1:0] trig_stat;
 
     always @(posedge host_clk) begin
         if (host_rst) begin
-            trig_stat <= {TRIG_COUNT{1'b0}};
+            trig_stat <= {__TRIG_COUNT{1'b0}};
         end
         else if (run_mode) begin
             trig_stat <= trig;
@@ -258,9 +260,9 @@ module EmuCtrl #(
     // 0x8: trig_en[95]   ...  trig_en[64]
     // 0xc: trig_en[127]  ...  trig_en[96]
 
-    reg [TRIG_COUNT-1:0] trig_en;
+    reg [__TRIG_COUNT-1:0] trig_en;
 
-    for (i=0; i<TRIG_COUNT; i=i+1) begin
+    for (i=0; i<__TRIG_COUNT; i=i+1) begin
         always @(posedge host_clk) begin
             if (host_rst) begin
                 trig_en[i] <= 1'b0;
@@ -284,7 +286,7 @@ module EmuCtrl #(
     // 0x8: rst[95]   ...  rst[64]
     // 0xc: rst[127]  ...  rst[96]
 
-    for (i=0; i<RESET_COUNT; i=i+1) begin
+    for (i=0; i<__RESET_COUNT; i=i+1) begin
         always @(posedge host_clk) begin
             if (host_rst) begin
                 rst[i] <= 1'b0;

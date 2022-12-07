@@ -48,11 +48,12 @@ module ScanchainCtrl #(
     wire r_idle, w_idle;
 
     localparam COUNT_WIDTH = $clog2(__CKPT_CNT);
+    localparam __COUNT_WIDTH = COUNT_WIDTH > 0 ? COUNT_WIDTH : 1;
 
     emulib_simple_dma #(
         .ADDR_WIDTH     (32),
         .DATA_WIDTH     (64),
-        .COUNT_WIDTH    (COUNT_WIDTH)
+        .COUNT_WIDTH    (__COUNT_WIDTH)
     )
     u_dma(
 
@@ -65,7 +66,7 @@ module ScanchainCtrl #(
 
         .s_read_count_valid     (s_read_count_valid),
         .s_read_count_ready     (s_read_count_ready),
-        .s_read_count           (__CKPT_CNT[COUNT_WIDTH-1:0]),
+        .s_read_count           (__CKPT_CNT[__COUNT_WIDTH-1:0]),
 
         .m_read_data_valid      (m_read_data_valid),
         .m_read_data_ready      (m_read_data_ready),
@@ -77,7 +78,7 @@ module ScanchainCtrl #(
 
         .s_write_count_valid    (s_write_count_valid),
         .s_write_count_ready    (s_write_count_ready),
-        .s_write_count          (__CKPT_CNT[COUNT_WIDTH-1:0]),
+        .s_write_count          (__CKPT_CNT[__COUNT_WIDTH-1:0]),
 
         .s_write_data_valid     (s_write_data_valid),
         .s_write_data_ready     (s_write_data_ready),
