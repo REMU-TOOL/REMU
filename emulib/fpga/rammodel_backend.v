@@ -138,7 +138,7 @@ module emulib_rammodel_backend #(
 );
 
     localparam  W_FIFO_DEPTH    = 256;
-    localparam  B_FIFO_DEPTH    = 1;
+    localparam  B_FIFO_DEPTH    = 2;
     localparam  R_FIFO_DEPTH    = 256;
 
     `AXI4_CUSTOM_A_WIRE(frontend, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
