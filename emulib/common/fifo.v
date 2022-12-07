@@ -20,6 +20,17 @@ module emulib_fifo #(
 
 );
 
+    initial begin
+        if (WIDTH <= 0) begin
+            $display("%m: WIDTH must be a positive number");
+            $finish;
+        end
+        if (DEPTH <= 0) begin
+            $display("%m: DEPTH must be a positive number");
+            $finish;
+        end
+    end
+
     localparam [CNTW-1:0]
         PTR_MAX = DEPTH - 1,
         PTR_ZRO = 0,
