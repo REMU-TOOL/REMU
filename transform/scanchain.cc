@@ -241,18 +241,23 @@ void ScanchainWorker::instrument_module_ram(Module *module, SigSpec ram_di, SigS
         // exclude mem cells without write ports (ROM)
         if (mem.wr_ports.size() == 0) {
             log("Ignoring ROM %s\n",
-                pretty_name(mem.cell).c_str());
+                log_id(mem.memid));
             continue;
         }
 
         if (mem.get_bool_attribute(Attr::NoScanchain)) {
             log("Ignoring RAM %s\n",
-                pretty_name(mem.cell).c_str());
+                log_id(mem.memid));
             continue;
         }
 
         log("Rewriting RAM %s\n",
-            pretty_name(mem.memid).c_str());
+            log_id(mem.memid));
+
+        if (mem.start_offset < 0)
+            log_error("RAM %s has a negative start offset (%d) which is not supported\n",
+                log_id(mem.memid),
+                mem.start_offset);
 
         const int abits = ceil_log2(mem.size + mem.start_offset);
         const int cbits = ceil_log2(mem.width);
@@ -271,7 +276,7 @@ void ScanchainWorker::instrument_module_ram(Module *module, SigSpec ram_di, SigS
         module->addSdffe(NEW_ID, host_clk, module->And(NEW_ID, ram_se, addr_inc), ram_sr,
             addr_next, addr, Const(mem.start_offset, abits));
 
-        // assign addr_is_last = addr == mem.size + mem.start_offset- 1;
+        // assign addr_is_last = addr == mem.size + mem.start_offset - 1;
         SigSpec addr_is_last = module->Eq(NEW_ID, addr, Const(mem.size + mem.start_offset- 1, abits));
 
         SigSpec cnt_is_last;
