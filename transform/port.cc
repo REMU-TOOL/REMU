@@ -513,6 +513,13 @@ void PortTransform::run()
     database.fifo_ports = all_fifo_ports.at(top);
     database.channels = all_channel_ports.at(top);
 
+    Module *top_module = hier.design->module(top);
+    Wire *host_rst = CommonPort::get(top_module, CommonPort::PORT_HOST_RST);
+    Wire *mdl_rst = CommonPort::get(top_module, CommonPort::PORT_MDL_RST);
+    make_internal(mdl_rst);
+    top_module->connect(mdl_rst, host_rst);
+    top_module->fixup_ports();
+
     hier.design->scratchpad_set_bool("emu.port.promoted", true);
 }
 
