@@ -8,7 +8,7 @@
 #include <map>
 #include <stdexcept>
 
-namespace Replay {
+namespace Emu {
 
 struct CircuitInfo
 {

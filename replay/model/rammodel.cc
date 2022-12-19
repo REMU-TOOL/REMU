@@ -3,7 +3,7 @@
 #include <stdexcept>
 #include <sstream>
 
-using namespace Replay;
+using namespace Emu;
 
 void RamModel::schedule() {
     if (a_queue.empty())

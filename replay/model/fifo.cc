@@ -1,6 +1,6 @@
 #include "model.h"
 
-using namespace Replay;
+using namespace Emu;
 
 void FifoModel::load(CircuitInfo *circuit)
 {

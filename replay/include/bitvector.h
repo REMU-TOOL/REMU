@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <utility>
 
-namespace Replay {
+namespace Emu {
 
 class BitVector
 {

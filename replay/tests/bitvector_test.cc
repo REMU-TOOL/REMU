@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-using namespace Replay;
+using namespace Emu;
 
 #define EXPECT(x, res) \
     do { \

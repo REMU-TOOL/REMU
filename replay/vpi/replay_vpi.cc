@@ -9,7 +9,7 @@
 
 #include "escape.h"
 
-using namespace Replay;
+using namespace Emu;
 
 namespace {
 
@@ -49,7 +49,7 @@ T get_value_as(vpiHandle obj) {
     return res;
 }
 
-Replay::BitVector get_value_as_bitvector(vpiHandle obj) {
+Emu::BitVector get_value_as_bitvector(vpiHandle obj) {
     int size = vpi_get(vpiSize, obj);
     int count = (size + 31) / 32;
 
@@ -58,7 +58,7 @@ Replay::BitVector get_value_as_bitvector(vpiHandle obj) {
 
     vpi_get_value(obj, &value);
 
-    Replay::BitVector res(size);
+    Emu::BitVector res(size);
     for (int i = 0; i < count; i++) {
         int chunk = value.value.vector[i].aval & ~value.value.vector[i].bval;
         res.setValue(i * 32, size < 32 ? size : 32, chunk);
@@ -94,7 +94,7 @@ void set_value(vpiHandle obj, T val) {
     vpi_put_value(obj, &value, 0, vpiNoDelay);
 }
 
-void set_value(vpiHandle obj, const Replay::BitVector &val) {
+void set_value(vpiHandle obj, const Emu::BitVector &val) {
     int size = vpi_get(vpiSize, obj);
     int count = (size + 31) / 32;
 
@@ -236,13 +236,7 @@ int rammodel_new_tf(char* user_data) {
     std::string name = vpi_get_str(vpiFullName, scope);
     vpi_printf("rammodel info: %s registered with handle %ld\n", name.c_str(), index);
 
-    GzipReader data_reader(loader->checkpoint.get_file_path(name + ".host_axi"));
-    if (data_reader.fail()) {
-        vpi_printf("ERROR: failed to open rammodel data file\n");
-        set_value(callh, -1);
-        return 0;
-    }
-    std::istream data_stream(data_reader.streambuf());
+    auto data_stream = loader->checkpoint.readItem(name + ".host_axi");
     if (!rammodel_list[index].load_data(data_stream)) {
         vpi_printf("ERROR: failed to load rammodel data from checkpoint\n");
         set_value(callh, -1);
@@ -508,7 +502,7 @@ int cycle_sig_tf(char* user_data) {
         return 0;
     }
 
-    set_value(args[0], loader->checkpoint.get_cycle());
+    set_value(args[0], loader->checkpoint.getTick());
     auto callback = new CycleCallback(args[0], 10000); // TODO: set cycle value
     callback->register_after_delay(10000, false);
 
@@ -519,7 +513,7 @@ int get_init_cycle_tf(char* user_data) {
     auto loader = reinterpret_cast<VPILoader*>(user_data);
     vpiHandle callh = vpi_handle(vpiSysTfCall, 0);
 
-    set_value(callh, loader->checkpoint.get_cycle());
+    set_value(callh, loader->checkpoint.getTick());
     return 0;
 }
 
@@ -536,7 +530,7 @@ PLI_INT32 load_callback(p_cb_data cb_data) {
 
 }; // namespace
 
-void Replay::register_tfs(Replay::VPILoader *loader) {
+void Emu::register_tfs(Emu::VPILoader *loader) {
     s_vpi_systf_data tf_data;
     PLI_BYTE8 *user_data = reinterpret_cast<PLI_BYTE8 *>(loader);
 
@@ -630,7 +624,7 @@ void Replay::register_tfs(Replay::VPILoader *loader) {
     vpi_register_systf(&tf_data);
 }
 
-void Replay::register_load_callback(VPILoader *loader) {
+void Emu::register_load_callback(VPILoader *loader) {
     s_vpi_time cb_time;
     cb_time.type = vpiSimTime;
     vpi_get_time(0, &cb_time);

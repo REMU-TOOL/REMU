@@ -7,7 +7,7 @@
 
 #include "vpi_user.h"
 
-namespace Replay {
+namespace Emu {
 
 struct VPILoader
 {
@@ -34,8 +34,8 @@ struct VPILoader
     void load();
 };
 
-void register_tfs(Replay::VPILoader *loader);
-void register_load_callback(Replay::VPILoader *loader);
+void register_tfs(Emu::VPILoader *loader);
+void register_load_callback(Emu::VPILoader *loader);
 
 };
 

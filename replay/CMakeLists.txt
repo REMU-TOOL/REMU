@@ -1,5 +1,3 @@
-find_package(Boost 1.36.0 REQUIRED COMPONENTS filesystem iostreams)
-
 find_program(iverilog-executable iverilog)
 get_filename_component(iverilog-bin-dir ${iverilog-executable} DIRECTORY)
 set(iverilog-include-dir ${iverilog-bin-dir}/../include/iverilog)
@@ -9,7 +7,7 @@ project(replay)
 include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(${Boost_INCLUDE_DIRS})
 
-link_libraries(yaml-cpp exchange ${Boost_LIBRARIES})
+link_libraries(yaml-cpp exchange)
 
 file(GLOB replay-common-sources "core/*.cc" "model/*.cc")
 

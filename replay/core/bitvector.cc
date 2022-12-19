@@ -1,6 +1,6 @@
 #include "bitvector.h"
 
-using namespace Replay;
+using namespace Emu;
 
 namespace {
 

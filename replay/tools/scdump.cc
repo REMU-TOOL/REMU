@@ -3,7 +3,7 @@
 
 #include "escape.h"
 
-using namespace Replay;
+using namespace Emu;
 
 void print_circuit(CircuitInfo *circuit, std::string prefix = "")
 {

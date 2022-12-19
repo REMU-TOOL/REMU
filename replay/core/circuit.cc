@@ -4,7 +4,7 @@
 
 #include <cstdio>
 
-using namespace Replay;
+using namespace Emu;
 
 namespace {
 
@@ -30,13 +30,7 @@ std::vector<std::string> name_from_yaml(const YAML::Node &node)
 
 void CircuitLoader::load(Checkpoint &checkpoint)
 {
-    GzipReader reader(checkpoint.get_file_path("scanchain"));
-    if (reader.fail()) {
-        std::cerr << "ERROR: Can't open scanchain file" << std::endl;
-        return;
-    }
-
-    std::istream data_stream(reader.streambuf());
+    auto data_stream = checkpoint.readItem("scanchain");
 
     const YAML::Node &ff_list = config["ff"];
     size_t ff_size = 0, ff_offset = 0;

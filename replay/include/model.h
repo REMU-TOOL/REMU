@@ -9,7 +9,7 @@
 #include "bitvector.h"
 #include "circuit.h"
 
-namespace Replay {
+namespace Emu {
 
 struct FifoModel {
     std::queue<BitVector> fifo;
