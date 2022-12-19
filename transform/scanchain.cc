@@ -101,7 +101,7 @@ void ScanchainWorker::instrument_module_ff(Module *module, SigSpec ff_di, SigSpe
     for (auto &chunk : q_list.chunks()) {
         log_assert(chunk.is_wire());
         FFInfo info;
-        info.name = {chunk.wire->name};
+        info.name = {id2str(chunk.wire->name)};
         info.width = chunk.width;
         info.offset = chunk.offset;
         info.wire_width = chunk.wire->width;
@@ -215,7 +215,7 @@ void ScanchainWorker::restore_sync_read_port_ff(Module *module, SigSpec ff_di, S
     for (auto &chunk : info_q.chunks()) {
         log_assert(chunk.is_wire());
         FFInfo info;
-        info.name = {chunk.wire->name};
+        info.name = {id2str(chunk.wire->name)};
         info.width = chunk.width;
         info.offset = chunk.offset;
         info.wire_width = chunk.wire->width;
@@ -395,7 +395,7 @@ void ScanchainWorker::instrument_module_ram(Module *module, SigSpec ram_di, SigS
         mem.emit();
 
         RAMInfo info;
-        info.name = {mem.memid};
+        info.name = {id2str(mem.memid)};
         info.width = mem.width;
         info.depth = mem.size;
         info.start_offset = mem.start_offset;
@@ -412,7 +412,7 @@ template<typename T>
 inline void copy_info_from_child(std::vector<T> &to, const std::vector<T> &from, IdString scope)
 {
     for (auto info : from) {
-        info.name.insert(info.name.begin(), scope);
+        info.name.insert(info.name.begin(), id2str(scope));
         to.push_back(std::move(info));
     }
 }

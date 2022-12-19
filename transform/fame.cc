@@ -65,7 +65,7 @@ void FAMETransform::run()
     }
 
     for (auto &info : database.channels) {
-        log("Emitting channel %s.%s\n", path_prefix(info.path, '.').c_str(), info.orig_name.c_str());
+        log("Emitting channel %s.%s\n", join_string(info.path, '.').c_str(), info.orig_name.c_str());
 
         Wire *valid = top->wire(info.port_valid);
         Wire *ready = top->wire(info.port_ready);

@@ -116,12 +116,12 @@ void PortTransform::promote_user_sigs(Module *module)
     for (Wire *wire : clocks) {
         log_assert(wire->width == 1);
         ClockInfo info;
-        info.orig_name = wire->name;
-        info.port_name = wire->name;
+        info.orig_name = id2str(wire->name);
+        info.port_name = id2str(wire->name);
         wire->port_input = true;
         wire->port_output = false;
-        info.ff_clk = info.port_name.str() + "_FF";
-        info.ram_clk = info.port_name.str() + "_RAM";
+        info.ff_clk = "\\" + info.port_name + "_FF";
+        info.ram_clk = "\\" + info.port_name + "_RAM";
         Wire *ff_clk = module->addWire(info.ff_clk);
         Wire *ram_clk = module->addWire(info.ram_clk);
         ff_clk->port_input = true;
@@ -134,8 +134,8 @@ void PortTransform::promote_user_sigs(Module *module)
     for (Wire *wire : resets) {
         log_assert(wire->width == 1);
         ResetInfo info;
-        info.orig_name = wire->name;
-        info.port_name = wire->name;
+        info.orig_name = id2str(wire->name);
+        info.port_name = id2str(wire->name);
         wire->port_input = true;
         wire->port_output = false;
         resetinfo.push_back(info);
@@ -144,8 +144,8 @@ void PortTransform::promote_user_sigs(Module *module)
     for (Wire *wire : trigs) {
         log_assert(wire->width == 1);
         TrigInfo info;
-        info.orig_name = wire->name;
-        info.port_name = wire->name;
+        info.orig_name = id2str(wire->name);
+        info.port_name = id2str(wire->name);
         wire->port_input = false;
         wire->port_output = true;
         triginfo.push_back(info);
@@ -160,10 +160,10 @@ void PortTransform::promote_user_sigs(Module *module)
 
         for (auto &info : all_clock_ports.at(child.name)) {
             ClockInfo newinfo = info;
-            newinfo.path.insert(newinfo.path.begin(), edge.name.second);
-            newinfo.port_name = "\\EMU_PORT_" + path_prefix(newinfo.path) + pretty_name(info.orig_name, false);
-            newinfo.ff_clk = newinfo.port_name.str() + "_FF";
-            newinfo.ram_clk = newinfo.port_name.str() + "_RAM";
+            newinfo.path.insert(newinfo.path.begin(), id2str(edge.name.second));
+            newinfo.port_name = "\\EMU_PORT_" + join_string(newinfo.path, '_') + "_" + info.orig_name;
+            newinfo.ff_clk = "\\" + newinfo.port_name + "_FF";
+            newinfo.ram_clk = "\\" + newinfo.port_name + "_RAM";
             Wire *newport = module->addWire(newinfo.port_name);
             Wire *new_ff_clk = module->addWire(newinfo.ff_clk);
             Wire *new_ram_clk = module->addWire(newinfo.ram_clk);
@@ -180,8 +180,8 @@ void PortTransform::promote_user_sigs(Module *module)
 
         for (auto &info : all_reset_ports.at(child.name)) {
             ResetInfo newinfo = info;
-            newinfo.path.insert(newinfo.path.begin(), edge.name.second);
-            newinfo.port_name = "\\EMU_PORT_" + path_prefix(newinfo.path) + pretty_name(info.orig_name, false);
+            newinfo.path.insert(newinfo.path.begin(), id2str(edge.name.second));
+            newinfo.port_name = "\\EMU_PORT_" + join_string(newinfo.path, '_') + "_" + info.orig_name;
             Wire *newport = module->addWire(newinfo.port_name);
             newport->port_input = true;
             inst->setPort(info.port_name, newport);
@@ -190,8 +190,8 @@ void PortTransform::promote_user_sigs(Module *module)
 
         for (auto &info : all_trig_ports.at(child.name)) {
             TrigInfo newinfo = info;
-            newinfo.path.insert(newinfo.path.begin(), edge.name.second);
-            newinfo.port_name = "\\EMU_PORT_" + path_prefix(newinfo.path) + pretty_name(info.orig_name, false);
+            newinfo.path.insert(newinfo.path.begin(), id2str(edge.name.second));
+            newinfo.port_name = "\\EMU_PORT_" + join_string(newinfo.path, '_') + "_" + info.orig_name;
             Wire *newport = module->addWire(newinfo.port_name);
             newport->port_output = true;
             inst->setPort(info.port_name, newport);
@@ -280,7 +280,7 @@ void PortTransform::promote_fifo_ports(Module *module)
         if (type != "sink" && type != "source")
             log_error("wrong type in fifo port %s\n", name.c_str());
 
-        info.type = type == "sink" ? FifoPortInfo::SINK : FifoPortInfo::SOURCE;
+        info.type = type == "sink" ? 1 : 0;
 
         std::string enable_attr = wire->get_string_attribute(Attr::FifoPortEnable);
         if (enable_attr.empty())
@@ -308,7 +308,7 @@ void PortTransform::promote_fifo_ports(Module *module)
 
         wire_enable->port_input = true;
         wire_enable->port_output = false;
-        wire_data->port_input = info.type == FifoPortInfo::SOURCE;
+        wire_data->port_input = info.type == 0;
         wire_data->port_output = !wire_data->port_input;
         wire_flag->port_input = false;
         wire_flag->port_output = true;
@@ -327,8 +327,8 @@ void PortTransform::promote_fifo_ports(Module *module)
 
         for (auto &info : all_fifo_ports.at(child.name)) {
             FifoPortInfo newinfo = info;
-            newinfo.path.insert(newinfo.path.begin(), edge.name.second);
-            newinfo.port_name = "EMU_PORT_" + path_prefix(newinfo.path) + info.orig_name;
+            newinfo.path.insert(newinfo.path.begin(), id2str(edge.name.second));
+            newinfo.port_name = "\\EMU_PORT_" + join_string(newinfo.path, '_') + "_" + info.orig_name;
             newinfo.port_enable = "\\" + newinfo.port_name + "_enable";
             newinfo.port_data = "\\" + newinfo.port_name + "_data";
             newinfo.port_flag = "\\" + newinfo.port_name + "_flag";
@@ -467,8 +467,8 @@ void PortTransform::promote_channel_ports(Module *module)
 
         for (auto &info : all_channel_ports.at(child.name)) {
             ChannelInfo newinfo = info;
-            newinfo.path.insert(newinfo.path.begin(), edge.name.second);
-            newinfo.port_name = "EMU_PORT_" + path_prefix(newinfo.path) + info.orig_name;
+            newinfo.path.insert(newinfo.path.begin(), id2str(edge.name.second));
+            newinfo.port_name = "\\EMU_PORT_" + join_string(newinfo.path, '_') + "_" + info.orig_name;
             newinfo.port_valid = "\\" + newinfo.port_name + "_valid";
             newinfo.port_ready = "\\" + newinfo.port_name + "_ready";
 

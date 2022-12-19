@@ -43,27 +43,34 @@ void EmulationDatabase::write_yaml(std::string yaml_file) {
 
     log("Writing to file `%s'\n", yaml_file.c_str());
 
-    YAML::Node root;
+    Config config;
 
-    root["ff"] = ff_list;
-    root["ram"] = ram_list;
-    root["clock"] = user_clocks;
-    root["reset"] = user_resets;
-    root["trigger"] = user_trigs;
-    root["fifo_port"] = fifo_ports;
-    root["channels"] = channels;
-    root["axi"] = axi_intfs;
+    for (auto &x : ff_list)
+        config.ff.push_back(x);
 
-#if 0
-    for (auto &info : model_mods) {
-        YAML::Node node;
-        node["name"] = info.name;
-        node["module_name"] = info.module_name;
-        root["model_mods"].push_back(node);
-    }
-#endif
+    for (auto &x : ram_list)
+        config.ram.push_back(x);
 
-    f << root;
+    for (auto &x : user_clocks)
+        config.clock.push_back(x);
+
+    for (auto &x : user_resets)
+        config.reset.push_back(x);
+
+    for (auto &x : user_trigs)
+        config.trig.push_back(x);
+
+    for (auto &x : fifo_ports)
+        config.fifo_port.push_back(x);
+
+    for (auto &x : axi_intfs)
+        config.axi.push_back(x);
+
+    for (auto &x : models)
+        config.model.push_back(x);
+
+    YAML::Node yaml(config);
+    f << yaml;
     f.close();
 }
 
@@ -82,7 +89,9 @@ void EmulationDatabase::write_loader(std::string loader_file) {
     os << "`define LOAD_FF(__LOAD_DATA, __LOAD_DUT) \\\n";
     addr = 0;
     for (auto &ff : ff_list) {
-        os << "    __LOAD_DUT." << pretty_name(ff.name);
+        os << "    __LOAD_DUT";
+        for (auto &name : ff.name)
+            os << "." << Escape::escape_verilog_id(name);
         if (ff.width != ff.wire_width) {
             if (ff.width == 1)
                 os << stringf("[%d]", ff.wire_start_offset + ff.offset);
@@ -102,9 +111,11 @@ void EmulationDatabase::write_loader(std::string loader_file) {
     os << "`define LOAD_MEM(__LOOP_VAR, __LOAD_DATA, __LOAD_DUT) \\\n";
     addr = 0;
     for (auto &mem : ram_list) {
-        os  << "    for (__LOOP_VAR=0; __LOOP_VAR<" << mem.depth << "; __LOOP_VAR=__LOOP_VAR+1) __LOAD_DUT."
-            << pretty_name(mem.name) << "[__LOOP_VAR+" << mem.start_offset << "] = __LOAD_DATA["
-            << addr << "+__LOOP_VAR*" << mem.width << "+:" << mem.width << "]; \\\n";
+        os << "    for (__LOOP_VAR=0; __LOOP_VAR<" << mem.depth << "; __LOOP_VAR=__LOOP_VAR+1) __LOAD_DUT";
+        for (auto &name : mem.name)
+            os << "." << Escape::escape_verilog_id(name);
+        os << "[__LOOP_VAR+" << mem.start_offset << "] = __LOAD_DATA[";
+        os << addr << "+__LOOP_VAR*" << mem.width << "+:" << mem.width << "]; \\\n";
         addr += mem.width * mem.depth;
     }
     os << "\n";

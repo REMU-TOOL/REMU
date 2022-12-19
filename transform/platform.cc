@@ -86,7 +86,7 @@ void PlatformTransform::connect_fifo_ports(Module *top, Cell *emu_ctrl)
     SigSpec sink_rdata = Const(0, 32);
 
     for (auto &info : database.fifo_ports) {
-        if (info.type == FifoPortInfo::SOURCE) {
+        if (info.type == 0) {
             info.index = source_index;
             auto fifo_wen = top->wire(info.port_enable);
             auto fifo_wdata = top->wire(info.port_data);
@@ -117,7 +117,7 @@ void PlatformTransform::connect_fifo_ports(Module *top, Cell *emu_ctrl)
             adapter->setPort("\\fifo_wfull", fifo_wfull);
             source_rdata = top->Or(NEW_ID, source_rdata, rdata);
         }
-        else if (info.type == FifoPortInfo::SINK) {
+        else if (info.type == 1) {
             info.index = sink_index;
             auto fifo_ren = top->wire(info.port_enable);
             auto fifo_rdata = top->wire(info.port_data);

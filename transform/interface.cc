@@ -113,8 +113,8 @@ void InterfaceWorker::promote_axi_intfs(Module *module)
 
         for (auto &info : all_axi_intfs.at(child.name)) {
             AXIIntfInfo newinfo = info;
-            newinfo.path.insert(newinfo.path.begin(), edge.name.second);
-            newinfo.port_name = "EMU_AXI_" + path_prefix(newinfo.path) + info.orig_name;
+            newinfo.path.insert(newinfo.path.begin(), id2str(edge.name.second));
+            newinfo.port_name = "EMU_AXI_" + join_string(newinfo.path, '_') + "_" + info.orig_name;
             newinfo.axi.setPrefix("\\" + newinfo.port_name);
 
             auto sub_sigs = info.axi.signals();

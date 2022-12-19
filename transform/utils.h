@@ -131,11 +131,17 @@ inline std::vector<std::string> split_string(std::string s, char delim)
     return result;
 }
 
-inline std::string path_prefix(const std::vector<Yosys::IdString> &path, char delim = '_')
+inline std::string join_string(const std::vector<std::string> &vec, char delim)
 {
     std::ostringstream ss;
-    for (auto &p : path)
-        ss << pretty_name(p) << delim;
+    bool first = true;
+    for (auto &s : vec) {
+        if (first)
+            first = false;
+        else
+            ss << delim;
+        ss << s;
+    }
     return ss.str();
 }
 
@@ -143,6 +149,11 @@ inline void make_internal(Yosys::Wire *wire)
 {
     wire->port_input = false;
     wire->port_output = false;
+}
+
+inline std::string id2str(Yosys::IdString id)
+{
+    return id[0] == '\\' ? id.substr(1) : id.str();
 }
 
 } // namespace Emu
