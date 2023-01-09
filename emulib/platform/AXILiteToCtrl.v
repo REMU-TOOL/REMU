@@ -2,20 +2,25 @@
 
 `include "axi.vh"
 
-module AXILiteToCtrl (
+module AXILiteToCtrl #(
+    parameter   ADDR_WIDTH  = 12,
+    parameter   DATA_WIDTH  = 32
+)(
 
-    input  wire         clk,
-    input  wire         rst,
+    input  wire                     clk,
+    input  wire                     rst,
 
-    output wire         ctrl_wen,
-    output reg  [ 9:0]  ctrl_waddr,
-    output reg  [31:0]  ctrl_wdata,
-    output wire         ctrl_ren,
-    output reg  [ 9:0]  ctrl_raddr,
-    input  wire [31:0]  ctrl_rdata,
+    output wire                     ctrl_wen,
+    output reg  [ADDR_WIDTH-1:0]    ctrl_waddr,
+    output reg  [DATA_WIDTH-1:0]    ctrl_wdata,
+    output wire                     ctrl_ren,
+    output reg  [ADDR_WIDTH-1:0]    ctrl_raddr,
+    input  wire [DATA_WIDTH-1:0]    ctrl_rdata,
 
-    `AXI4LITE_SLAVE_IF  (s_axilite, 12, 32)
+    `AXI4LITE_SLAVE_IF  (s_axilite, ADDR_WIDTH, DATA_WIDTH)
 );
+
+    genvar i;
 
     localparam [1:0]
         R_STATE_AXI_AR  = 2'd0,
@@ -42,9 +47,9 @@ module AXILiteToCtrl (
 
     always @(posedge clk)
         if (s_axilite_arvalid && s_axilite_arready)
-            ctrl_raddr <= s_axilite_araddr[11:2];
+            ctrl_raddr <= s_axilite_araddr;
 
-    reg [31:0] read_data;
+    reg [DATA_WIDTH-1:0] read_data;
 
     always @(posedge clk)
         if (r_state == R_STATE_READ)
@@ -84,14 +89,13 @@ module AXILiteToCtrl (
 
     always @(posedge clk)
         if (s_axilite_awvalid && s_axilite_awready)
-            ctrl_waddr <= s_axilite_awaddr[11:2];
+            ctrl_waddr <= s_axilite_awaddr;
 
-    wire [31:0] extended_wstrb = {
-        {8{s_axilite_wstrb[3]}},
-        {8{s_axilite_wstrb[2]}},
-        {8{s_axilite_wstrb[1]}},
-        {8{s_axilite_wstrb[0]}}
-    };
+    wire [DATA_WIDTH-1:0] extended_wstrb;
+
+    for (i=0; i<DATA_WIDTH/8; i=i+1) begin
+        assign extended_wstrb[i*8+:8] = {8{s_axilite_wstrb[i]}};
+    end
 
     always @(posedge clk)
         if (s_axilite_wvalid && s_axilite_wready)

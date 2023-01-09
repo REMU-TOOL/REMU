@@ -34,20 +34,6 @@ module EmuCtrl #(
     output wire         ram_di,
     input  wire         ram_do,
 
-    output wire         source_wen,
-    output wire [ 7:0]  source_waddr,
-    output wire [31:0]  source_wdata,
-    output wire         source_ren,
-    output wire [ 7:0]  source_raddr,
-    input  wire [31:0]  source_rdata,
-
-    output wire         sink_wen,
-    output wire [ 7:0]  sink_waddr,
-    output wire [31:0]  sink_wdata,
-    output wire         sink_ren,
-    output wire [ 7:0]  sink_raddr,
-    input  wire [31:0]  sink_rdata,
-
     input  wire [__TRIG_COUNT-1:0]    trig,
     output reg  [__RESET_COUNT-1:0]   rst,
 
@@ -68,10 +54,10 @@ module EmuCtrl #(
     genvar i;
 
     wire         ctrl_wen;
-    wire [ 9:0]  ctrl_waddr;
+    wire [11:0]  ctrl_waddr;
     wire [31:0]  ctrl_wdata;
     wire         ctrl_ren;
-    wire [ 9:0]  ctrl_raddr;
+    wire [11:0]  ctrl_raddr;
     reg  [31:0]  ctrl_rdata;
 
     localparam  MODE_CTRL   = 10'b0000_0000_00; // 0x000
@@ -82,8 +68,6 @@ module EmuCtrl #(
     localparam  TRIG_STAT   = 10'b0001_0000_??; // 0x100 - 0x10c
     localparam  TRIG_EN     = 10'b0001_0001_??; // 0x110 - 0x11c
     localparam  RESET_CTRL  = 10'b0001_0010_??; // 0x120 - 0x12c
-    localparam  SOURCE_CTRL = 10'b10??_????_??; // 0x800 - 0xbfc
-    localparam  SINK_CTRL   = 10'b11??_????_??; // 0xc00 - 0xffc
 
     reg w_mode_ctrl;
     reg w_step_cnt;
@@ -93,8 +77,6 @@ module EmuCtrl #(
     reg w_trig_stat;
     reg w_trig_en;
     reg w_reset_ctrl;
-    reg w_source_ctrl;
-    reg w_sink_ctrl;
 
     always @* begin
         w_mode_ctrl     = 1'b0;
@@ -107,7 +89,7 @@ module EmuCtrl #(
         w_reset_ctrl    = 1'b0;
         w_source_ctrl   = 1'b0;
         w_sink_ctrl     = 1'b0;
-        casez (ctrl_waddr)
+        casez (ctrl_waddr[11:2])
             MODE_CTRL   :   w_mode_ctrl     = 1'b1;
             STEP_CNT    :   w_step_cnt      = 1'b1;
             TICK_CNT_LO :   w_tick_cnt_lo   = 1'b1;
@@ -116,8 +98,6 @@ module EmuCtrl #(
             TRIG_STAT   :   w_trig_stat     = 1'b1;
             TRIG_EN     :   w_trig_en       = 1'b1;
             RESET_CTRL  :   w_reset_ctrl    = 1'b1;
-            SOURCE_CTRL :   w_source_ctrl   = 1'b1;
-            SINK_CTRL   :   w_sink_ctrl     = 1'b1;
         endcase
     end
 
@@ -299,38 +279,11 @@ module EmuCtrl #(
 
     wire reset_ctrl_rdata = rst[ctrl_raddr[1:0]*32+:32];
 
-    // SOURCE_CTRL
-    // SINK_CTRL
-
-    reg r_source_ctrl;
-    reg r_sink_ctrl;
-
-    always @* begin
-        r_source_ctrl   = 1'b0;
-        r_sink_ctrl     = 1'b0;
-        casez (ctrl_raddr)
-            SOURCE_CTRL :   r_source_ctrl   = 1'b1;
-            SINK_CTRL   :   r_sink_ctrl     = 1'b1;
-        endcase
-    end
-
-    assign source_wen   = ctrl_wen && w_source_ctrl;
-    assign source_waddr = ctrl_waddr[7:0];
-    assign source_wdata = ctrl_wdata;
-    assign source_ren   = ctrl_ren && r_source_ctrl;
-    assign source_raddr = ctrl_raddr[7:0];
-
-    assign sink_wen     = ctrl_wen && w_sink_ctrl;
-    assign sink_waddr   = ctrl_waddr[7:0];
-    assign sink_wdata   = ctrl_wdata;
-    assign sink_ren     = ctrl_ren && r_sink_ctrl;
-    assign sink_raddr   = ctrl_raddr[7:0];
-
     //////////////////// Register Definitions End ////////////////////
 
     always @* begin
         ctrl_rdata = 32'd0;
-        casez (ctrl_raddr)
+        casez (ctrl_raddr[11:2])
             MODE_CTRL   :   ctrl_rdata = mode_ctrl;
             STEP_CNT    :   ctrl_rdata = step_cnt;
             TICK_CNT_LO :   ctrl_rdata = tick_cnt[31:0];
@@ -339,8 +292,6 @@ module EmuCtrl #(
             TRIG_STAT   :   ctrl_rdata = trig_stat_rdata;
             TRIG_EN     :   ctrl_rdata = trig_en_rdata;
             RESET_CTRL  :   ctrl_rdata = reset_ctrl_rdata;
-            SOURCE_CTRL :   ctrl_rdata = source_rdata;
-            SINK_CTRL   :   ctrl_rdata = sink_rdata;
         endcase
     end
 
