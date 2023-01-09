@@ -129,8 +129,8 @@ void PortTransform::promote_user_sigs(Module *module)
     for (Wire *wire : clocks) {
         log_assert(wire->width == 1);
         ClockInfo info;
-        info.orig_name = id2str(wire->name);
         info.port_name = id2str(wire->name);
+        info.name = {info.port_name};
         wire->port_input = true;
         wire->port_output = false;
         info.ff_clk = "\\" + info.port_name + "_FF";
@@ -147,8 +147,8 @@ void PortTransform::promote_user_sigs(Module *module)
     for (Wire *wire : resets) {
         log_assert(wire->width == 1);
         ResetInfo info;
-        info.orig_name = id2str(wire->name);
         info.port_name = id2str(wire->name);
+        info.name = {info.port_name};
         wire->port_input = true;
         wire->port_output = false;
         resetinfo.push_back(info);
@@ -157,8 +157,8 @@ void PortTransform::promote_user_sigs(Module *module)
     for (Wire *wire : trigs) {
         log_assert(wire->width == 1);
         TrigInfo info;
-        info.orig_name = id2str(wire->name);
         info.port_name = id2str(wire->name);
+        info.name = {info.port_name};
         wire->port_input = false;
         wire->port_output = true;
         triginfo.push_back(info);
@@ -173,8 +173,8 @@ void PortTransform::promote_user_sigs(Module *module)
 
         for (auto &info : all_clock_ports.at(child.name)) {
             ClockInfo newinfo = info;
-            newinfo.path.insert(newinfo.path.begin(), id2str(edge.name.second));
-            newinfo.port_name = "EMU_PORT_" + join_string(newinfo.path, '_') + "_" + info.orig_name;
+            newinfo.name.insert(newinfo.name.begin(), id2str(edge.name.second));
+            newinfo.port_name = "EMU_PORT_" + join_string(newinfo.name, '_');
             newinfo.ff_clk = "\\" + newinfo.port_name + "_FF";
             newinfo.ram_clk = "\\" + newinfo.port_name + "_RAM";
             Wire *newport = export_sub_port(inst, "\\" + info.port_name, "\\" + newinfo.port_name);
@@ -187,16 +187,16 @@ void PortTransform::promote_user_sigs(Module *module)
 
         for (auto &info : all_reset_ports.at(child.name)) {
             ResetInfo newinfo = info;
-            newinfo.path.insert(newinfo.path.begin(), id2str(edge.name.second));
-            newinfo.port_name = "EMU_PORT_" + join_string(newinfo.path, '_') + "_" + info.orig_name;
+            newinfo.name.insert(newinfo.name.begin(), id2str(edge.name.second));
+            newinfo.port_name = "EMU_PORT_" + join_string(newinfo.name, '_');
             export_sub_port(inst, "\\" + info.port_name, "\\" + newinfo.port_name);
             resetinfo.push_back(newinfo);
         }
 
         for (auto &info : all_trig_ports.at(child.name)) {
             TrigInfo newinfo = info;
-            newinfo.path.insert(newinfo.path.begin(), id2str(edge.name.second));
-            newinfo.port_name = "EMU_PORT_" + join_string(newinfo.path, '_') + "_" + info.orig_name;
+            newinfo.name.insert(newinfo.name.begin(), id2str(edge.name.second));
+            newinfo.port_name = "EMU_PORT_" + join_string(newinfo.name, '_');
             export_sub_port(inst, "\\" + info.port_name, "\\" + newinfo.port_name);
             triginfo.push_back(newinfo);
         }
@@ -273,7 +273,7 @@ void PortTransform::promote_pipe_ports(Module *module)
             continue;
 
         PipeInfo info;
-        info.orig_name = name;
+        info.name = {name};
         info.port_name = name;
 
         std::string dir = wire->get_string_attribute(Attr::PipeDirection);
@@ -339,8 +339,8 @@ void PortTransform::promote_pipe_ports(Module *module)
 
         for (auto &info : all_pipe_ports.at(child.name)) {
             PipeInfo newinfo = info;
-            newinfo.path.insert(newinfo.path.begin(), id2str(edge.name.second));
-            newinfo.port_name = "EMU_PORT_" + join_string(newinfo.path, '_') + "_" + info.orig_name;
+            newinfo.name.insert(newinfo.name.begin(), id2str(edge.name.second));
+            newinfo.port_name = "EMU_PORT_" + join_string(newinfo.name, '_');
             newinfo.port_valid = "\\" + newinfo.port_name + "_valid";
             newinfo.port_data = "\\" + newinfo.port_name + "_data";
             export_sub_port(inst, info.port_valid, newinfo.port_valid);

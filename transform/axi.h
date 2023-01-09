@@ -17,6 +17,10 @@ struct Sig
     unsigned int width = 0;
     bool output = false;
 
+    Sig() = default;
+    Sig(const std::string &name, unsigned int width, bool output) :
+        name(name), width(width), output(output) {}
+
     bool present() const { return width != 0;}
     bool isConsistentDirection(const Sig &other) const
     {
@@ -31,6 +35,10 @@ struct Sig
 
 struct OptSig : public Sig
 {
+    OptSig() = default;
+    OptSig(const std::string &name, unsigned int width, bool output, bool present = true) :
+        Sig(name, width, output) { if (!present) width = 0; }
+
     void check(std::vector<const char*> &backtrace) const
     {
         __AXI_CHECK(!present() || !name.empty());
@@ -42,6 +50,10 @@ struct FixSig : public Sig
 {
     static_assert(W != 0);
     constexpr unsigned int requiredWidth() const { return W; }
+
+    FixSig() = default;
+    FixSig(const std::string &name, bool output) :
+        Sig(name, W, output) {}
 
     void check(std::vector<const char*> &backtrace) const
     {
@@ -59,6 +71,10 @@ struct OptFixSig : public Sig
     static_assert(W != 0);
     constexpr unsigned int requiredWidth() const { return W; }
 
+    OptFixSig() = default;
+    OptFixSig(const std::string &name, bool output, bool present = true) :
+        Sig(name, W, output) { if (!present) width = 0; }
+
     void check(std::vector<const char*> &backtrace) const
     {
         if (present() && width != W) {
@@ -71,6 +87,8 @@ struct OptFixSig : public Sig
 
 struct DataSig : public Sig
 {
+    using Sig::Sig;
+
     void check(std::vector<const char*> &backtrace) const
     {
         Sig::check(backtrace);
@@ -139,10 +157,55 @@ struct SigRange
 
 #define __AXI_SET_PREFIX(field) field.name = prefix + #field
 
+struct Info
+{
+    unsigned int addr_width;
+    unsigned int data_width;
+    unsigned int id_width;
+    unsigned int user_width;
+    bool is_master;
+    bool is_full;
+    bool has_lock;
+    bool has_cache;
+    bool has_qos;
+    bool has_region;
+
+    Info() = default;
+
+    Info(
+        unsigned int addr_width,
+        unsigned int data_width,
+        bool is_master,
+        bool is_full,
+        unsigned int id_width = 0,
+        unsigned int user_width = 0,
+        bool has_lock = true,
+        bool has_cache = true,
+        bool has_qos = true,
+        bool has_region = true
+    ) :
+        addr_width(addr_width),
+        data_width(data_width),
+        id_width(id_width),
+        user_width(user_width),
+        is_master(is_master),
+        is_full(is_full),
+        has_lock(is_full && has_lock),
+        has_cache(is_full && has_cache),
+        has_qos(is_full && has_qos),
+        has_region(is_full && has_region)
+    {}
+};
+
 struct ChannelBase
 {
     FixSig<1> valid;
     FixSig<1> ready;
+
+    ChannelBase() = default;
+    ChannelBase(const std::string &prefix, bool output) :
+        valid(prefix + "valid", output),
+        ready(prefix + "ready", !output) {}
 
     void check(std::vector<const char*> &backtrace) const
     {
@@ -178,6 +241,21 @@ struct AChannel : public ChannelBase
     OptFixSig<4> qos;
     OptFixSig<4> region;
     OptSig user;
+
+    AChannel() = default;
+
+    AChannel(const std::string &prefix, const Info &info) :
+        ChannelBase(prefix, info.is_master),
+        addr  (prefix + "addr",   info.addr_width, info.is_master),
+        prot  (prefix + "prot",   info.is_master),
+        id    (prefix + "id",     info.id_width, info.is_master, info.is_full),
+        len   (prefix + "len",    info.is_master, info.is_full),
+        size  (prefix + "size",   info.is_master, info.is_full),
+        burst (prefix + "burst",  info.is_master, info.is_full),
+        lock  (prefix + "lock",   info.is_master, info.has_lock),
+        cache (prefix + "cache",  info.is_master, info.has_cache),
+        qos   (prefix + "qos",    info.is_master, info.has_qos),
+        region(prefix + "region", info.is_master, info.has_region) {}
 
     void check(std::vector<const char*> &backtrace) const
     {
@@ -249,6 +327,14 @@ struct WChannel : public ChannelBase
     Sig strb;
     OptFixSig<1> last;
 
+    WChannel() = default;
+
+    WChannel(const std::string &prefix, const Info &info) :
+        ChannelBase(prefix, info.is_master),
+        data(prefix + "data", info.data_width, info.is_master),
+        strb(prefix + "strb", info.data_width / 8, info.is_master),
+        last(prefix + "last", info.is_master, info.is_full) {}
+
     void check(std::vector<const char*> &backtrace) const
     {
         ChannelBase::check(backtrace);
@@ -291,6 +377,13 @@ struct BChannel : public ChannelBase
     FixSig<2> resp;
     OptSig id;
 
+    BChannel() = default;
+
+    BChannel(const std::string &prefix, const Info &info) :
+        ChannelBase(prefix, info.is_master),
+        resp(prefix + "resp", !info.is_master),
+        id  (prefix + "id", info.id_width, !info.is_master) {}
+
     void check(std::vector<const char*> &backtrace) const
     {
         ChannelBase::check(backtrace);
@@ -327,6 +420,14 @@ struct RChannel : public ChannelBase
     FixSig<2> resp;
     OptSig id;
     OptFixSig<1> last;
+
+    RChannel() = default;
+
+    RChannel(const std::string &prefix, const Info &info) :
+        ChannelBase(prefix, info.is_master),
+        data(prefix + "data", info.data_width, !info.is_master),
+        id  (prefix + "id", info.id_width, !info.is_master),
+        last(prefix + "last", !info.is_master, info.is_full) {}
 
     void check(std::vector<const char*> &backtrace) const
     {
@@ -377,6 +478,15 @@ struct AXI4
     BChannel b;
     AChannel ar;
     RChannel r;
+
+    AXI4() = default;
+
+    AXI4(const std::string &prefix, const Info &info) :
+        aw(prefix + "_aw", info),
+        w (prefix + "_w",  info),
+        b (prefix + "_b",  info),
+        ar(prefix + "_ar", info),
+        r (prefix + "_r",  info) {}
 
     bool isFull() const { return aw.len.present(); }
 

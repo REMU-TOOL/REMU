@@ -64,7 +64,6 @@ CONFIG_DEF_STRUCT(RAM,
 
 CONFIG_DEF_STRUCT(Clock,
     (std::vector<std::string>)  (name),
-    (std::string)               (orig_name),
     (std::string)               (port_name),
     // TODO: frequency, phase, etc.
     (int)                       (index)
@@ -72,7 +71,6 @@ CONFIG_DEF_STRUCT(Clock,
 
 CONFIG_DEF_STRUCT(Reset,
     (std::vector<std::string>)  (name),
-    (std::string)               (orig_name),
     (std::string)               (port_name),
     // TODO: duration, etc.
     (int)                       (index)
@@ -80,7 +78,6 @@ CONFIG_DEF_STRUCT(Reset,
 
 CONFIG_DEF_STRUCT(Trig,
     (std::vector<std::string>)  (name),
-    (std::string)               (orig_name),
     (std::string)               (port_name),
     (std::string)               (desc),
     (int)                       (index)
@@ -88,7 +85,6 @@ CONFIG_DEF_STRUCT(Trig,
 
 CONFIG_DEF_STRUCT(Pipe,
     (std::vector<std::string>)  (name),
-    (std::string)               (orig_name),
     (std::string)               (port_name),
     (std::string)               (type),
     (bool)                      (output),
@@ -98,7 +94,6 @@ CONFIG_DEF_STRUCT(Pipe,
 
 CONFIG_DEF_STRUCT(AXI,
     (std::vector<std::string>)  (name),
-    (std::string)               (orig_name),
     (std::string)               (port_name),
     (std::string)               (addr_space),
     (int)                       (addr_pages)
@@ -106,7 +101,6 @@ CONFIG_DEF_STRUCT(AXI,
 
 CONFIG_DEF_STRUCT(Model,
     (std::vector<std::string>)  (name),
-    (std::string)               (name),
     (std::string)               (type)
 )
 

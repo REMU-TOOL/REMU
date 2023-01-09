@@ -1,18 +1,20 @@
 `timescale 1ns / 1ps
 
 module IngressPipePIOAdapter #(
+    parameter   CTRL_ADDR_WIDTH = 32,
+
     parameter   DATA_WIDTH  = 1,
     parameter   FIFO_DEPTH  = 16
 )(
     input  wire                     clk,
     input  wire                     rst,
 
-    input  wire                     ctrl_wen,
-    input  wire [31:0]              ctrl_waddr,
-    input  wire [31:0]              ctrl_wdata,
-    input  wire                     ctrl_ren,
-    input  wire [31:0]              ctrl_raddr,
-    output wire [31:0]              ctrl_rdata,
+    input  wire                         ctrl_wen,
+    input  wire [CTRL_ADDR_WIDTH-1:0]   ctrl_waddr,
+    input  wire [31:0]                  ctrl_wdata,
+    input  wire                         ctrl_ren,
+    input  wire [CTRL_ADDR_WIDTH-1:0]   ctrl_raddr,
+    output wire [31:0]                  ctrl_rdata,
 
     output wire                     stream_valid,
     output wire [DATA_WIDTH-1:0]    stream_data,

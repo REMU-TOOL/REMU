@@ -2,20 +2,15 @@
 
 `include "axi.vh"
 
-module EmuCtrl #(
-    parameter       TRIG_COUNT      = 1, // max = 128
-    parameter       RESET_COUNT     = 1, // max = 128
-    parameter       FF_COUNT        = 0,
-    parameter       MEM_COUNT       = 0,
+module EmuSysCtrl #(
+    parameter   CTRL_ADDR_WIDTH = 32,
 
-    parameter       __TRIG_COUNT    = TRIG_COUNT > 0 ? TRIG_COUNT : 1,
-    parameter       __RESET_COUNT   = RESET_COUNT > 0 ? RESET_COUNT : 1,
-    parameter       __CKPT_FF_CNT   = (FF_COUNT + 63) / 64,
-    parameter       __CKPT_MEM_CNT  = (MEM_COUNT + 63) / 64,
-    parameter       __CKPT_CNT      = __CKPT_FF_CNT + __CKPT_MEM_CNT,
-    parameter       __CKPT_PAGES    = (__CKPT_CNT * 8 + 'hfff) / 'h1000
+    parameter   TRIG_COUNT      = 1, // max = 128
+    parameter   RESET_COUNT     = 1, // max = 128
+
+    parameter   __TRIG_COUNT    = TRIG_COUNT > 0 ? TRIG_COUNT : 1,
+    parameter   __RESET_COUNT   = RESET_COUNT > 0 ? RESET_COUNT : 1
 )(
-
     input  wire         host_clk,
     input  wire         host_rst,
 
@@ -25,40 +20,22 @@ module EmuCtrl #(
     output reg          run_mode,
     output reg          scan_mode,
 
-    output wire         ff_se,
-    output wire         ff_di,
-    input  wire         ff_do,
-    output wire         ram_sr,
-    output wire         ram_se,
-    output wire         ram_sd,
-    output wire         ram_di,
-    input  wire         ram_do,
-
     input  wire [__TRIG_COUNT-1:0]    trig,
     output reg  [__RESET_COUNT-1:0]   rst,
 
-    (* __emu_axi_name = "s_axilite" *)
-    (* __emu_axi_type = "axi4" *)
-    (* __emu_axi_addr_space = "ctrl" *)
-    (* __emu_axi_addr_pages = 1 *)
-    `AXI4LITE_SLAVE_IF  (s_axilite, 12, 32),
+    input  wire                         ctrl_wen,
+    input  wire [CTRL_ADDR_WIDTH-1:0]   ctrl_waddr,
+    input  wire [31:0]                  ctrl_wdata,
+    input  wire                         ctrl_ren,
+    input  wire [CTRL_ADDR_WIDTH-1:0]   ctrl_raddr,
+    output reg  [31:0]                  ctrl_rdata,
 
-    (* __emu_axi_name = "scan_dma_axi" *)
-    (* __emu_axi_type = "axi4" *)
-    (* __emu_axi_addr_space = "mem" *)
-    (* __emu_axi_addr_pages = __CKPT_PAGES *)
-    `AXI4_MASTER_IF_NO_ID           (scan_dma_axi, 32, 64)
-
+    output wire         dma_start,
+    output reg          dma_direction,
+    input  wire         dma_running
 );
 
     genvar i;
-
-    wire         ctrl_wen;
-    wire [11:0]  ctrl_waddr;
-    wire [31:0]  ctrl_wdata;
-    wire         ctrl_ren;
-    wire [11:0]  ctrl_raddr;
-    reg  [31:0]  ctrl_rdata;
 
     localparam  MODE_CTRL   = 10'b0000_0000_00; // 0x000
     localparam  STEP_CNT    = 10'b0000_0000_01; // 0x004
@@ -87,8 +64,6 @@ module EmuCtrl #(
         w_trig_stat     = 1'b0;
         w_trig_en       = 1'b0;
         w_reset_ctrl    = 1'b0;
-        w_source_ctrl   = 1'b0;
-        w_sink_ctrl     = 1'b0;
         casez (ctrl_waddr[11:2])
             MODE_CTRL   :   w_mode_ctrl     = 1'b1;
             STEP_CNT    :   w_step_cnt      = 1'b1;
@@ -193,9 +168,6 @@ module EmuCtrl #(
     //      [0]     -> RUNNING [RO] / START [WO]
     //      [1]     -> DIRECTION [WO]
 
-    wire dma_start, dma_running;
-    reg dma_direction;
-
     always @(posedge host_clk) begin
         if (host_rst) begin
             dma_direction <= 1'b0;
@@ -294,38 +266,5 @@ module EmuCtrl #(
             RESET_CTRL  :   ctrl_rdata = reset_ctrl_rdata;
         endcase
     end
-
-    AXILiteToCtrl bridge (
-        .clk        (host_clk),
-        .rst        (host_rst),
-        .ctrl_wen   (ctrl_wen),
-        .ctrl_waddr (ctrl_waddr),
-        .ctrl_wdata (ctrl_wdata),
-        .ctrl_ren   (ctrl_ren),
-        .ctrl_raddr (ctrl_raddr),
-        .ctrl_rdata (ctrl_rdata),
-        `AXI4LITE_CONNECT(s_axilite, s_axilite)
-    );
-
-    ScanchainCtrl #(
-        .FF_COUNT   (FF_COUNT),
-        .MEM_COUNT  (MEM_COUNT),
-        .__CKPT_CNT (__CKPT_CNT)
-    ) scanchain (
-        .host_clk       (host_clk),
-        .host_rst       (host_rst),
-        .ff_se          (ff_se),
-        .ff_di          (ff_di),
-        .ff_do          (ff_do),
-        .ram_sr         (ram_sr),
-        .ram_se         (ram_se),
-        .ram_sd         (ram_sd),
-        .ram_di         (ram_di),
-        .ram_do         (ram_do),
-        .dma_start      (dma_start),
-        .dma_running    (dma_running),
-        .dma_direction  (dma_direction),
-        `AXI4_CONNECT_NO_ID     (dma_axi, scan_dma_axi)
-    );
 
 endmodule

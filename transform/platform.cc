@@ -11,6 +11,19 @@ using namespace Emu;
 
 PRIVATE_NAMESPACE_BEGIN
 
+const uint32_t  CTRL_ADDR_WIDTH         = 16u;
+
+const uint32_t  SYS_CTRL_BASE           = 0x0000u;
+const uint32_t  SYS_CTRL_WIDTH          = 12u;
+
+const uint32_t  PIPE_INGRESS_PIO_BASE   = 0x1800u;
+const uint32_t  PIPE_INGRESS_PIO_WIDTH  = 5u;
+const uint32_t  PIPE_INGRESS_PIO_LIMIT  = 0x1c00u;
+
+const uint32_t  PIPE_EGRESS_PIO_BASE    = 0x1c00u;
+const uint32_t  PIPE_EGRESS_PIO_WIDTH   = 3u;
+const uint32_t  PIPE_EGRESS_PIO_LIMIT   = 0x2000u;
+
 struct CtrlSig
 {
     Wire *wen;
@@ -19,6 +32,52 @@ struct CtrlSig
     Wire *ren;
     Wire *raddr;
     Wire *rdata;
+
+    void make_internal()
+    {
+        ::make_internal(wen);
+        ::make_internal(waddr);
+        ::make_internal(wdata);
+        ::make_internal(ren);
+        ::make_internal(raddr);
+        ::make_internal(rdata);
+    }
+
+    CtrlSig clone(Module *module, const std::string &prefix)
+    {
+        CtrlSig res;
+        res.wen = module->addWire("\\" + prefix + "_wen", wen);
+        res.waddr = module->addWire("\\" + prefix + "_waddr", waddr);
+        res.wdata = module->addWire("\\" + prefix + "_wdata", wdata);
+        res.ren = module->addWire("\\" + prefix + "_ren", ren);
+        res.raddr = module->addWire("\\" + prefix + "_raddr", raddr);
+        res.rdata = module->addWire("\\" + prefix + "_rdata", rdata);
+        return res;
+    }
+
+    static CtrlSig create(Module *module, const std::string &prefix, int addr_width, int data_width)
+    {
+        CtrlSig res;
+        res.wen = module->addWire("\\" + prefix + "_wen");
+        res.waddr = module->addWire("\\" + prefix + "_waddr", addr_width);
+        res.wdata = module->addWire("\\" + prefix + "_wdata", data_width);
+        res.ren = module->addWire("\\" + prefix + "_ren");
+        res.raddr = module->addWire("\\" + prefix + "_raddr", addr_width);
+        res.rdata = module->addWire("\\" + prefix + "_rdata", data_width);
+        return res;
+    }
+
+    static CtrlSig from(Module *module, const std::string &prefix)
+    {
+        CtrlSig res;
+        res.wen = module->wire("\\" + prefix + "_wen");
+        res.waddr = module->wire("\\" + prefix + "_waddr");
+        res.wdata = module->wire("\\" + prefix + "_wdata");
+        res.ren = module->wire("\\" + prefix + "_ren");
+        res.raddr = module->wire("\\" + prefix + "_raddr");
+        res.rdata = module->wire("\\" + prefix + "_rdata");
+        return res;
+    }
 };
 
 struct CtrlConnBuilder
@@ -95,44 +154,12 @@ struct CtrlConnBuilder
     }
 };
 
-const uint32_t  PIPE_INGRESS_PIO_BASE   = 0x00008000u;
-const uint32_t  PIPE_INGRESS_PIO_STEP   = 0x00000020u;
-const uint32_t  PIPE_INGRESS_PIO_LIMIT  = 0x0000c000u;
-
-const uint32_t  PIPE_EGRESS_PIO_BASE    = 0x0000c000u;
-const uint32_t  PIPE_EGRESS_PIO_STEP    = 0x00000020u; // TODO
-const uint32_t  PIPE_EGRESS_PIO_LIMIT   = 0x00010000u;
-
-PRIVATE_NAMESPACE_END
-
-void PlatformTransform::connect_main_sigs(Module *top, Cell *emu_ctrl)
-{
-    Wire *host_clk      = CommonPort::get(top, CommonPort::PORT_HOST_CLK);
-    Wire *host_rst      = CommonPort::get(top, CommonPort::PORT_HOST_RST);
-    Wire *run_mode      = CommonPort::get(top, CommonPort::PORT_RUN_MODE);
-    Wire *scan_mode     = CommonPort::get(top, CommonPort::PORT_SCAN_MODE);
-    Wire *idle          = CommonPort::get(top, CommonPort::PORT_IDLE);
-
-    Wire *tick = top->wire("\\EMU_TICK"); // created in FAMETransform
-
-    emu_ctrl->setPort("\\host_clk",     host_clk);
-    emu_ctrl->setPort("\\host_rst",     host_rst);
-    emu_ctrl->setPort("\\tick",         tick);
-    emu_ctrl->setPort("\\model_busy",   top->Not(NEW_ID, idle));
-    emu_ctrl->setPort("\\run_mode",     run_mode);
-    emu_ctrl->setPort("\\scan_mode",    scan_mode);
-
-    make_internal(run_mode);
-    make_internal(scan_mode);
-    make_internal(idle);
-}
-
-void PlatformTransform::connect_resets(Module *top, Cell *emu_ctrl)
+void connect_resets(EmulationDatabase &database, Module *top, Cell *sys_ctrl)
 {
     int reset_index = 0;
     SigSpec resets;
     for (auto &info : database.user_resets) {
-        Wire *reset = top->wire(info.port_name);
+        Wire *reset = top->wire("\\" + info.port_name);
         make_internal(reset);
         resets.append(reset);
         info.index = reset_index++;
@@ -140,16 +167,16 @@ void PlatformTransform::connect_resets(Module *top, Cell *emu_ctrl)
 
     log_assert(GetSize(resets) < 128);
 
-    emu_ctrl->setParam("\\RESET_COUNT", GetSize(resets));
-    emu_ctrl->setPort("\\rst", resets);
+    sys_ctrl->setParam("\\RESET_COUNT", GetSize(resets));
+    sys_ctrl->setPort("\\rst", resets);
 }
 
-void PlatformTransform::connect_triggers(Module *top, Cell *emu_ctrl)
+void connect_triggers(EmulationDatabase &database, Module *top, Cell *sys_ctrl)
 {
     int trig_index = 0;
     SigSpec trigs;
     for (auto &info : database.user_trigs) {
-        Wire *trig = top->wire(info.port_name);
+        Wire *trig = top->wire("\\" + info.port_name);
         make_internal(trig);
         trigs.append(trig);
         info.index = trig_index++;
@@ -157,68 +184,77 @@ void PlatformTransform::connect_triggers(Module *top, Cell *emu_ctrl)
 
     log_assert(GetSize(trigs) < 128);
 
-    emu_ctrl->setParam("\\TRIG_COUNT", GetSize(trigs));
-    emu_ctrl->setPort("\\trig", trigs);
+    sys_ctrl->setParam("\\TRIG_COUNT", GetSize(trigs));
+    sys_ctrl->setPort("\\trig", trigs);
 }
 
-void PlatformTransform::connect_pipe_ports(Module *top, Cell *emu_ctrl)
+void add_pipe_adapters(EmulationDatabase &database, Module *top, CtrlConnBuilder &builder)
 {
     Wire *host_clk      = CommonPort::get(top, CommonPort::PORT_HOST_CLK);
     Wire *host_rst      = CommonPort::get(top, CommonPort::PORT_HOST_RST);
 
-    int source_index = 0, sink_index = 0;
+    int i_pio_idx = 0;
+    int e_pio_idx = 0;
 
-    Wire *source_wen = top->addWire(NEW_ID);
-    Wire *source_waddr = top->addWire(NEW_ID, 8);
-    Wire *source_wdata = top->addWire(NEW_ID, 32);
-    Wire *source_ren = top->addWire(NEW_ID);
-    Wire *source_raddr = top->addWire(NEW_ID, 8);
-    SigSpec source_rdata = Const(0, 32);
-    Wire *sink_wen = top->addWire(NEW_ID);
-    Wire *sink_waddr = top->addWire(NEW_ID, 8);
-    Wire *sink_wdata = top->addWire(NEW_ID, 32);
-    Wire *sink_ren = top->addWire(NEW_ID);
-    Wire *sink_raddr = top->addWire(NEW_ID, 8);
-    SigSpec sink_rdata = Const(0, 32);
+    const unsigned int i_pio_step = 1 << PIPE_INGRESS_PIO_WIDTH;
+    const unsigned int e_pio_step = 1 << PIPE_EGRESS_PIO_WIDTH;
 
     for (auto &info : database.pipes) {
+        auto name = join_string(info.name, '_');
+        auto ctrl = CtrlSig::create(top, "emu_ctrl_" + name, CTRL_ADDR_WIDTH, 32);
         if (info.type == "pio") {
+            Cell *cell = top->addCell("\\emu_pipe_adapter_" + name,
+                info.output ? "\\EgressPipePIOAdapter" : "\\IngressPipePIOAdapter");
+
+            cell->setParam("\\CTRL_ADDR_WIDTH", CTRL_ADDR_WIDTH);
+            cell->setParam("\\DATA_WIDTH", info.width);
+            cell->setParam("\\FIFO_DEPTH", 16); // TODO: specified by user
+            cell->setPort("\\clk", host_clk);
+            cell->setPort("\\rst", host_rst);
+            cell->setPort("\\ctrl_wen", ctrl.wen);
+            cell->setPort("\\ctrl_waddr", ctrl.waddr);
+            cell->setPort("\\ctrl_wdata", ctrl.wdata);
+            cell->setPort("\\ctrl_ren", ctrl.ren);
+            cell->setPort("\\ctrl_raddr", ctrl.raddr);
+            cell->setPort("\\ctrl_rdata", ctrl.rdata);
+
             auto wire_valid = top->wire(info.port_valid);
             auto wire_ready = top->wire(info.port_ready);
             auto wire_data = top->wire(info.port_data);
-            if (info.output) {
-                log_error("TODO");
+            cell->setPort("\\stream_valid", wire_valid);
+            cell->setPort("\\stream_ready", wire_ready);
+            cell->setPort("\\stream_data", wire_data);
+
+            if (!info.output) {
+                auto wire_empty = top->wire(info.port_empty);
+                cell->setPort("\\stream_empty", wire_empty);
+                info.base_addr = PIPE_INGRESS_PIO_BASE + i_pio_step * i_pio_idx;
+                builder.add(ctrl, info.base_addr, PIPE_INGRESS_PIO_WIDTH);
+                i_pio_idx++;
             }
             else {
-                auto wire_empty = top->wire(info.port_empty);
-
+                info.base_addr = PIPE_EGRESS_PIO_BASE + e_pio_step * e_pio_idx;
+                builder.add(ctrl, info.base_addr, PIPE_EGRESS_PIO_WIDTH);
+                e_pio_idx++;
             }
         }
         else if (info.type == "dma") {
             log_error("TODO");
         }
     }
-
-    // max 256 regs
-    log_assert(source_index < 256);
-    log_assert(sink_index < 256);
-
-    emu_ctrl->setPort("\\source_wen",   source_wen);
-    emu_ctrl->setPort("\\source_waddr", source_waddr);
-    emu_ctrl->setPort("\\source_wdata", source_wdata);
-    emu_ctrl->setPort("\\source_ren",   source_ren);
-    emu_ctrl->setPort("\\source_raddr", source_raddr);
-    emu_ctrl->setPort("\\source_rdata", source_rdata);
-    emu_ctrl->setPort("\\sink_wen",     sink_wen);
-    emu_ctrl->setPort("\\sink_waddr",   sink_waddr);
-    emu_ctrl->setPort("\\sink_wdata",   sink_wdata);
-    emu_ctrl->setPort("\\sink_ren",     sink_ren);
-    emu_ctrl->setPort("\\sink_raddr",   sink_raddr);
-    emu_ctrl->setPort("\\sink_rdata",   sink_rdata);
 }
 
-void PlatformTransform::connect_scanchain(Module *top, Cell *emu_ctrl)
+PRIVATE_NAMESPACE_END
+
+void PlatformTransform::run()
 {
+    Module *top = design->top_module();
+
+    Wire *host_clk  = CommonPort::get(top, CommonPort::PORT_HOST_CLK);
+    Wire *host_rst  = CommonPort::get(top, CommonPort::PORT_HOST_RST);
+    Wire *run_mode  = CommonPort::get(top, CommonPort::PORT_RUN_MODE);
+    Wire *scan_mode = CommonPort::get(top, CommonPort::PORT_SCAN_MODE);
+    Wire *idle      = CommonPort::get(top, CommonPort::PORT_IDLE);
     Wire *ff_se     = CommonPort::get(top, CommonPort::PORT_FF_SE);
     Wire *ff_di     = CommonPort::get(top, CommonPort::PORT_FF_DI);
     Wire *ff_do     = CommonPort::get(top, CommonPort::PORT_FF_DO);
@@ -228,6 +264,9 @@ void PlatformTransform::connect_scanchain(Module *top, Cell *emu_ctrl)
     Wire *ram_di    = CommonPort::get(top, CommonPort::PORT_RAM_DI);
     Wire *ram_do    = CommonPort::get(top, CommonPort::PORT_RAM_DO);
 
+    make_internal(run_mode);
+    make_internal(scan_mode);
+    make_internal(idle);
     make_internal(ff_se);
     make_internal(ff_di);
     make_internal(ff_do);
@@ -237,40 +276,115 @@ void PlatformTransform::connect_scanchain(Module *top, Cell *emu_ctrl)
     make_internal(ram_di);
     make_internal(ram_do);
 
+    Wire *tick = top->wire("\\EMU_TICK"); // created in FAMETransform
+
+    // Create AXI lite adapter & interfaces
+
+    Cell *axil_adapter = top->addCell(top->uniquify("\\emu_axil_adapter"), "\\AXILiteToCtrl");
+    axil_adapter->setParam("\\ADDR_WIDTH", CTRL_ADDR_WIDTH);
+    axil_adapter->setParam("\\DATA_WIDTH", 32);
+    axil_adapter->setPort("\\clk", host_clk);
+    axil_adapter->setPort("\\rst", host_rst);
+
+    const std::string axil_name = "EMU_CTRL";
+    AXI::AXI4 axil(axil_name, AXI::Info(CTRL_ADDR_WIDTH, 32, false, false));
+    for (auto &sig : axil.signals()) {
+        if (!sig.present())
+            continue;
+        Wire *wire = top->addWire("\\" + sig.name, sig.width);
+        wire->port_input = !sig.output;
+        wire->port_output = sig.output;
+        std::string postfix = sig.name.substr(axil_name.size());
+        axil_adapter->setPort("\\s_axilite" + postfix, wire);
+    }
+
+    auto m_ctrl = CtrlSig::create(top, "emu_m_ctrl", CTRL_ADDR_WIDTH, 32);
+    axil_adapter->setPort("\\ctrl_wen", m_ctrl.wen);
+    axil_adapter->setPort("\\ctrl_waddr", m_ctrl.waddr);
+    axil_adapter->setPort("\\ctrl_wdata", m_ctrl.wdata);
+    axil_adapter->setPort("\\ctrl_ren", m_ctrl.ren);
+    axil_adapter->setPort("\\ctrl_raddr", m_ctrl.raddr);
+    axil_adapter->setPort("\\ctrl_rdata", m_ctrl.rdata);
+
+    CtrlConnBuilder builder(top, m_ctrl);
+
+    // Add EmuSysCtrl
+
+    Cell *sys_ctrl = top->addCell(top->uniquify("\\emu_sys_ctrl"), "\\EmuSysCtrl");
+    auto sys_ctrl_sig = CtrlSig::create(top, "emu_s_ctrl_sys", CTRL_ADDR_WIDTH, 32);
+    builder.add(sys_ctrl_sig, SYS_CTRL_BASE, SYS_CTRL_WIDTH);
+
+    sys_ctrl->setParam("\\CTRL_ADDR_WIDTH", CTRL_ADDR_WIDTH);
+
+    sys_ctrl->setPort("\\host_clk",     host_clk);
+    sys_ctrl->setPort("\\host_rst",     host_rst);
+    sys_ctrl->setPort("\\tick",         tick);
+    sys_ctrl->setPort("\\model_busy",   top->Not(NEW_ID, idle));
+    sys_ctrl->setPort("\\run_mode",     run_mode);
+    sys_ctrl->setPort("\\scan_mode",    scan_mode);
+
+    Wire *dma_start = top->addWire(NEW_ID);
+    Wire *dma_direction = top->addWire(NEW_ID);
+    Wire *dma_running = top->addWire(NEW_ID);
+
+    sys_ctrl->setPort("\\dma_start",        dma_start);
+    sys_ctrl->setPort("\\dma_direction",    dma_direction);
+    sys_ctrl->setPort("\\dma_running",      dma_running);
+
+    connect_resets(database, top, sys_ctrl);
+    connect_triggers(database, top, sys_ctrl);
+
+    // Add EmuScanCtrl
+
+    Cell *scan_ctrl = top->addCell(top->uniquify("\\emu_scan_ctrl"), "\\EmuScanCtrl");
+
     int ff_count = 0;
     for (auto &ff : database.ff_list)
         ff_count += ff.width;
-    emu_ctrl->setParam("\\FF_COUNT", Const(ff_count));
+    scan_ctrl->setParam("\\FF_COUNT", Const(ff_count));
 
     int mem_count = 0;
     for (auto &mem : database.ram_list)
         mem_count += mem.width * mem.depth;
-    emu_ctrl->setParam("\\MEM_COUNT", Const(mem_count));
+    scan_ctrl->setParam("\\MEM_COUNT", Const(mem_count));
 
-    emu_ctrl->setPort("\\ff_se",    ff_se);
-    emu_ctrl->setPort("\\ff_di",    ff_di);
-    emu_ctrl->setPort("\\ff_do",    ff_do);
-    emu_ctrl->setPort("\\ram_sr",   ram_sr);
-    emu_ctrl->setPort("\\ram_se",   ram_se);
-    emu_ctrl->setPort("\\ram_sd",   ram_sd);
-    emu_ctrl->setPort("\\ram_di",   ram_di);
-    emu_ctrl->setPort("\\ram_do",   ram_do);
-}
+    scan_ctrl->setPort("\\host_clk",        host_clk);
+    scan_ctrl->setPort("\\host_rst",        host_rst);
+    scan_ctrl->setPort("\\ff_se",           ff_se);
+    scan_ctrl->setPort("\\ff_di",           ff_di);
+    scan_ctrl->setPort("\\ff_do",           ff_do);
+    scan_ctrl->setPort("\\ram_sr",          ram_sr);
+    scan_ctrl->setPort("\\ram_se",          ram_se);
+    scan_ctrl->setPort("\\ram_sd",          ram_sd);
+    scan_ctrl->setPort("\\ram_di",          ram_di);
+    scan_ctrl->setPort("\\ram_do",          ram_do);
+    scan_ctrl->setPort("\\dma_start",       dma_start);
+    scan_ctrl->setPort("\\dma_direction",   dma_direction);
+    scan_ctrl->setPort("\\dma_running",     dma_running);
 
-void PlatformTransform::run()
-{
-    Module *top = design->top_module();
-    Cell *emu_ctrl = top->addCell(top->uniquify("\\ctrl"), "\\EmuCtrl");
+    const std::string dma_axi_name = "EMU_SCAN_DMA_AXI";
+    AXI::AXI4 dma_axi(dma_axi_name, AXI::Info(32, 64, true, true));
+    for (auto &sig : dma_axi.signals()) {
+        if (!sig.present())
+            continue;
+        Wire *wire = top->addWire("\\" + sig.name, sig.width);
+        wire->port_input = !sig.output;
+        wire->port_output = sig.output;
+        std::string postfix = sig.name.substr(dma_axi_name.size());
+        scan_ctrl->setPort("\\dma_axi" + postfix, wire);
+    }
 
-    connect_main_sigs(top, emu_ctrl);
-    connect_resets(top, emu_ctrl);
-    connect_triggers(top, emu_ctrl);
-    connect_pipe_ports(top, emu_ctrl);
-    connect_scanchain(top, emu_ctrl);
+    // Add pipe adapters
+
+    add_pipe_adapters(database, top, builder);
+
+    // Finalize
+
+    builder.emit(top->uniquify("\\emu_ctrl_bridge"));
 
     top->fixup_ports();
 
-    // Load & parameterize EmuCtrl module in a temporary design to not mess up the original design
+    // Load & parameterize EmuSysCtrl module in a temporary design to not mess up the original design
 
     Design *tmp = new Design;
 
@@ -279,11 +393,11 @@ void PlatformTransform::run()
 
     Pass::call(tmp, load_plat_cmd);
 
-    Module *orig_mod = tmp->module(emu_ctrl->type);
-    Module *derived_mod = tmp->module(orig_mod->derive(tmp, emu_ctrl->parameters));
+    Module *orig_mod = tmp->module(sys_ctrl->type);
+    Module *derived_mod = tmp->module(orig_mod->derive(tmp, sys_ctrl->parameters));
     derived_mod->makeblackbox();
 
-    Module *cloned_mod = design->addModule(emu_ctrl->type);
+    Module *cloned_mod = design->addModule(sys_ctrl->type);
     derived_mod->cloneInto(cloned_mod);
 
     delete tmp;

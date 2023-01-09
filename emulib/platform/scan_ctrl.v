@@ -2,10 +2,12 @@
 
 `include "axi.vh"
 
-module ScanchainCtrl #(
-    parameter       FF_COUNT        = 0,
-    parameter       MEM_COUNT       = 0,
-    parameter       __CKPT_CNT      = 0
+module EmuScanCtrl #(
+    parameter   FF_COUNT        = 0,
+    parameter   MEM_COUNT       = 0,
+    parameter   __CKPT_FF_CNT   = (FF_COUNT + 63) / 64,
+    parameter   __CKPT_MEM_CNT  = (MEM_COUNT + 63) / 64,
+    parameter   __CKPT_CNT      = __CKPT_FF_CNT + __CKPT_MEM_CNT
 )(
 
     input  wire         host_clk,

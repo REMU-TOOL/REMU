@@ -83,9 +83,12 @@ void InterfaceWorker::promote_axi_intfs(Module *module)
         if (type != "axi4")
             continue;
 
+        std::string name = wire->get_string_attribute(Attr::AxiName);
+
         AXIIntfInfo info;
-        info.port_name = info.orig_name = wire->get_string_attribute(Attr::AxiName);
-        info.axi = axi4_from_prefix(module, info.orig_name);
+        info.name = {name};
+        info.port_name = name;
+        info.axi = axi4_from_prefix(module, name);
         info.addr_space = wire->get_string_attribute(Attr::AxiAddrSpace);
         info.addr_pages = -1;
 
@@ -97,7 +100,7 @@ void InterfaceWorker::promote_axi_intfs(Module *module)
         log("Identified %s %s interface %s with addr_space = %s, addr_pages = %d\n",
             info.axi.isFull() ? "AXI4" : "AXI4-lite",
             info.axi.isMaster() ? "master" : "slave",
-            info.orig_name.c_str(),
+            name.c_str(),
             info.addr_space.c_str(),
             info.addr_pages);
 
@@ -113,8 +116,8 @@ void InterfaceWorker::promote_axi_intfs(Module *module)
 
         for (auto &info : all_axi_intfs.at(child.name)) {
             AXIIntfInfo newinfo = info;
-            newinfo.path.insert(newinfo.path.begin(), id2str(edge.name.second));
-            newinfo.port_name = "EMU_AXI_" + join_string(newinfo.path, '_') + "_" + info.orig_name;
+            newinfo.name.insert(newinfo.name.begin(), id2str(edge.name.second));
+            newinfo.port_name = "EMU_AXI_" + join_string(newinfo.name, '_');
             newinfo.axi.setPrefix("\\" + newinfo.port_name);
 
             auto sub_sigs = info.axi.signals();

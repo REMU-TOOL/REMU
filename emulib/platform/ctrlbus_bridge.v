@@ -7,19 +7,19 @@ module ctrlbus_bridge #(
     parameter   M_BASE_LIST = {32'h00000000},
     parameter   M_MASK_LIST = {32'h00000000}
 )(
-    output wire                             s_ctrl_wen,
-    output wire [ADDR_WIDTH-1:0]            s_ctrl_waddr,
-    output wire [DATA_WIDTH-1:0]            s_ctrl_wdata,
-    output wire                             s_ctrl_ren,
-    output wire [ADDR_WIDTH-1:0]            s_ctrl_raddr,
-    input  wire [DATA_WIDTH-1:0]            s_ctrl_rdata,
+    input  wire                             s_ctrl_wen,
+    input  wire [ADDR_WIDTH-1:0]            s_ctrl_waddr,
+    input  wire [DATA_WIDTH-1:0]            s_ctrl_wdata,
+    input  wire                             s_ctrl_ren,
+    input  wire [ADDR_WIDTH-1:0]            s_ctrl_raddr,
+    output reg  [DATA_WIDTH-1:0]            s_ctrl_rdata,
 
-    input  wire [M_COUNT-1:0]               m_ctrl_wen,
-    input  wire [M_COUNT*ADDR_WIDTH-1:0]    m_ctrl_waddr,
-    input  wire [M_COUNT*DATA_WIDTH-1:0]    m_ctrl_wdata,
-    input  wire [M_COUNT-1:0]               m_ctrl_ren,
-    input  wire [M_COUNT*ADDR_WIDTH-1:0]    m_ctrl_raddr,
-    output reg  [M_COUNT*DATA_WIDTH-1:0]    m_ctrl_rdata
+    output wire [M_COUNT-1:0]               m_ctrl_wen,
+    output wire [M_COUNT*ADDR_WIDTH-1:0]    m_ctrl_waddr,
+    output wire [M_COUNT*DATA_WIDTH-1:0]    m_ctrl_wdata,
+    output wire [M_COUNT-1:0]               m_ctrl_ren,
+    output wire [M_COUNT*ADDR_WIDTH-1:0]    m_ctrl_raddr,
+    input  wire [M_COUNT*DATA_WIDTH-1:0]    m_ctrl_rdata
 );
 
     function [ADDR_WIDTH-1:0] get_base(input integer i);
@@ -53,7 +53,7 @@ module ctrlbus_bridge #(
 
     always @* begin
         for (index=0; index<M_COUNT; index=index+1)
-            m_ctrl_rdata |= {DATA_WIDTH{r_sel[index]}} & m_ctrl_rdata[index*DATA_WIDTH+:DATA_WIDTH];
+            s_ctrl_rdata = s_ctrl_rdata | {DATA_WIDTH{r_sel[index]}} & m_ctrl_rdata[index*DATA_WIDTH+:DATA_WIDTH];
     end
 
 endmodule
