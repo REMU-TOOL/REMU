@@ -4,14 +4,13 @@
 
 - Support user-generated clock signals
 - Auto-assign address ranges for emulator AXI interfaces
-- Variable scan chain width
 - Handle "little-endian" wires in Verilog (MSB < LSB)
 
 ## RAM Model
 
 - Clean dont-care bits in AXI response for determinism
 - Optimize checkpointing of RAM model contents
-- Error signaling check
+- AXI signaling check
     - Address out of range (return DECERR)
     - Address cross 4KB boundary (signal a trigger)
     - Unsupported AxSIZE/AxBURST (return SLVERR)
@@ -24,5 +23,5 @@
 ## Miscellaneous
 
 - Load init data in emulation
-- Remove the cycle counter which can be implemented in DUT if needed
 - 4KB boundary check in simple DMA
+- Remove EmuLib stub files
