@@ -71,12 +71,12 @@ struct PortTransform
     Yosys::dict<Yosys::IdString, std::vector<ClockInfo>> all_clock_ports;
     Yosys::dict<Yosys::IdString, std::vector<ResetInfo>> all_reset_ports;
     Yosys::dict<Yosys::IdString, std::vector<TrigInfo>> all_trig_ports;
-    Yosys::dict<Yosys::IdString, std::vector<FifoPortInfo>> all_fifo_ports;
+    Yosys::dict<Yosys::IdString, std::vector<PipeInfo>> all_pipe_ports;
     Yosys::dict<Yosys::IdString, std::vector<ChannelInfo>> all_channel_ports;
 
     void promote_user_sigs(Yosys::Module *module);
     void promote_common_ports(Yosys::Module *module);
-    void promote_fifo_ports(Yosys::Module *module);
+    void promote_pipe_ports(Yosys::Module *module);
     void promote_channel_ports(Yosys::Module *module);
 
     void run();

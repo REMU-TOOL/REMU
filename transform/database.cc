@@ -43,7 +43,7 @@ void EmulationDatabase::write_yaml(std::string yaml_file) {
 
     log("Writing to file `%s'\n", yaml_file.c_str());
 
-    Config config;
+    Config::Config config;
 
     for (auto &x : ff_list)
         config.ff.push_back(x);
@@ -60,8 +60,8 @@ void EmulationDatabase::write_yaml(std::string yaml_file) {
     for (auto &x : user_trigs)
         config.trig.push_back(x);
 
-    for (auto &x : fifo_ports)
-        config.fifo_port.push_back(x);
+    for (auto &x : pipes)
+        config.pipe.push_back(x);
 
     for (auto &x : axi_intfs)
         config.axi.push_back(x);

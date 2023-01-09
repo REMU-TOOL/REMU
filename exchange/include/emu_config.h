@@ -5,8 +5,17 @@
 #include "yaml-cpp/yaml.h"
 
 namespace Emu {
+namespace Config {
 
-struct ConfigNode
+struct u32 {
+    uint32_t data;
+    u32() : data(0) {}
+    u32(uint32_t data) : data(data) {}
+    void operator=(uint32_t data) { data = data; }
+    operator uint32_t() const { return data; }
+};
+
+struct Node
 {
     void fromYAML(const YAML::Node &) {}
     void toYAML(YAML::Node &) const {}
@@ -31,86 +40,85 @@ struct ConfigNode
     };
 
 #define CONFIG_DEF_STRUCT(type, ...) \
-    using type##_field0 = ConfigNode; \
+    using type##_field0 = Node; \
     BOOST_PP_SEQ_FOR_EACH_I(CONFIG_DEF_STRUCT_EACH, type, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__)) \
     using type = BOOST_PP_SEQ_CAT((type##_field)(BOOST_PP_VARIADIC_SIZE(__VA_ARGS__))); \
 
-using ConfigPath = std::vector<std::string>;
-
-CONFIG_DEF_STRUCT(FFConfig,
-    (ConfigPath)    (name),
-    (int)           (width),
-    (int)           (offset),
-    (int)           (wire_width),
-    (int)           (wire_start_offset),
-    (bool)          (wire_upto),
-    (bool)          (is_src)
+CONFIG_DEF_STRUCT(FF,
+    (std::vector<std::string>)  (name),
+    (int)                       (width),
+    (int)                       (offset),
+    (int)                       (wire_width),
+    (int)                       (wire_start_offset),
+    (bool)                      (wire_upto),
+    (bool)                      (is_src)
 )
 
-CONFIG_DEF_STRUCT(RAMConfig,
-    (ConfigPath)    (name),
-    (int)           (width),
-    (int)           (depth),
-    (int)           (start_offset),
-    (bool)          (dissolved)
+CONFIG_DEF_STRUCT(RAM,
+    (std::vector<std::string>)  (name),
+    (int)                       (width),
+    (int)                       (depth),
+    (int)                       (start_offset),
+    (bool)                      (dissolved)
 )
 
-CONFIG_DEF_STRUCT(ClockConfig,
-    (ConfigPath)    (path),
-    (std::string)   (orig_name),
-    (std::string)   (port_name),
+CONFIG_DEF_STRUCT(Clock,
+    (std::vector<std::string>)  (name),
+    (std::string)               (orig_name),
+    (std::string)               (port_name),
     // TODO: frequency, phase, etc.
-    (int)           (index)
+    (int)                       (index)
 )
 
-CONFIG_DEF_STRUCT(ResetConfig,
-    (ConfigPath)    (path),
-    (std::string)   (orig_name),
-    (std::string)   (port_name),
+CONFIG_DEF_STRUCT(Reset,
+    (std::vector<std::string>)  (name),
+    (std::string)               (orig_name),
+    (std::string)               (port_name),
     // TODO: duration, etc.
-    (int)           (index)
+    (int)                       (index)
 )
 
-CONFIG_DEF_STRUCT(TrigConfig,
-    (ConfigPath)    (path),
-    (std::string)   (orig_name),
-    (std::string)   (port_name),
-    (std::string)   (desc),
-    (int)           (index)
+CONFIG_DEF_STRUCT(Trig,
+    (std::vector<std::string>)  (name),
+    (std::string)               (orig_name),
+    (std::string)               (port_name),
+    (std::string)               (desc),
+    (int)                       (index)
 )
 
-CONFIG_DEF_STRUCT(FifoPortConfig,
-    (ConfigPath)    (path),
-    (std::string)   (orig_name),
-    (std::string)   (port_name),
-    (int)           (type),
-    (int)           (width),
-    (int)           (index)
+CONFIG_DEF_STRUCT(Pipe,
+    (std::vector<std::string>)  (name),
+    (std::string)               (orig_name),
+    (std::string)               (port_name),
+    (std::string)               (type),
+    (bool)                      (output),
+    (int)                       (width),
+    (u32)                       (base_addr)
 )
 
-CONFIG_DEF_STRUCT(AXIConfig,
-    (ConfigPath)    (path),
-    (std::string)   (orig_name),
-    (std::string)   (port_name),
-    (std::string)   (addr_space),
-    (int)           (addr_pages)
+CONFIG_DEF_STRUCT(AXI,
+    (std::vector<std::string>)  (name),
+    (std::string)               (orig_name),
+    (std::string)               (port_name),
+    (std::string)               (addr_space),
+    (int)                       (addr_pages)
 )
 
-CONFIG_DEF_STRUCT(ModelConfig,
-    (ConfigPath)    (path),
-    (std::string)   (name),
-    (std::string)   (type)
+CONFIG_DEF_STRUCT(Model,
+    (std::vector<std::string>)  (name),
+    (std::string)               (name),
+    (std::string)               (type)
 )
 
 CONFIG_DEF_STRUCT(Config,
-    (std::vector<FFConfig>)         (ff),
-    (std::vector<RAMConfig>)        (ram),
-    (std::vector<ClockConfig>)      (clock),
-    (std::vector<ResetConfig>)      (reset),
-    (std::vector<TrigConfig>)       (trig),
-    (std::vector<FifoPortConfig>)   (fifo_port),
-    (std::vector<AXIConfig>)        (axi),
-    (std::vector<ModelConfig>)      (model)
+    (std::vector<FF>)           (ff),
+    (std::vector<RAM>)          (ram),
+    (std::vector<Clock>)        (clock),
+    (std::vector<Reset>)        (reset),
+    (std::vector<Trig>)         (trig),
+    (std::vector<Pipe>)         (pipe),
+    (std::vector<AXI>)          (axi),
+    (std::vector<Model>)        (model)
 )
 
 #undef CONFIG_FIELD_TYPE
@@ -118,38 +126,50 @@ CONFIG_DEF_STRUCT(Config,
 #undef CONFIG_DEF_STRUCT_EACH
 #undef CONFIG_DEF_STRUCT
 
+} // namespace Config
 } // namespace Emu
 
-namespace YAML {
+template<>
+struct YAML::convert<Emu::Config::u32>
+{
+    static YAML::Node encode(const Emu::Config::u32 &rhs)
+    {
+        std::ostringstream ss;
+        ss << std::hex << "0x" << rhs.data;
+        return Node(ss.str());
+    }
+    static bool decode(const YAML::Node& node, Emu::Config::u32& rhs)
+    {
+        return YAML::convert<decltype(rhs.data)>().decode(node, rhs.data);
+    }
+};
 
 #define CONFIG_CONV_DEF(type) \
     template<> \
-    struct convert<type> \
+    struct YAML::convert<type> \
     { \
-        static Node encode(const type &rhs) \
+        static YAML::Node encode(const type &rhs) \
         { \
             Node node; \
             rhs.toYAML(node); \
             return node; \
         } \
-        static bool decode(const Node& node, type& rhs) { \
+        static bool decode(const YAML::Node& node, type& rhs) { \
             rhs.fromYAML(node); \
             return true; \
         } \
     };
 
-CONFIG_CONV_DEF(Emu::FFConfig)
-CONFIG_CONV_DEF(Emu::RAMConfig)
-CONFIG_CONV_DEF(Emu::ClockConfig)
-CONFIG_CONV_DEF(Emu::ResetConfig)
-CONFIG_CONV_DEF(Emu::TrigConfig)
-CONFIG_CONV_DEF(Emu::FifoPortConfig)
-CONFIG_CONV_DEF(Emu::AXIConfig)
-CONFIG_CONV_DEF(Emu::ModelConfig)
-CONFIG_CONV_DEF(Emu::Config)
+CONFIG_CONV_DEF(Emu::Config::FF)
+CONFIG_CONV_DEF(Emu::Config::RAM)
+CONFIG_CONV_DEF(Emu::Config::Clock)
+CONFIG_CONV_DEF(Emu::Config::Reset)
+CONFIG_CONV_DEF(Emu::Config::Trig)
+CONFIG_CONV_DEF(Emu::Config::Pipe)
+CONFIG_CONV_DEF(Emu::Config::AXI)
+CONFIG_CONV_DEF(Emu::Config::Model)
+CONFIG_CONV_DEF(Emu::Config::Config)
 
 #undef CONFIG_CONV_DEF
-
-}; // namespace YAML
 
 #endif // #ifndef _CONFIG_H_

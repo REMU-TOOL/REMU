@@ -18,7 +18,7 @@ struct PlatformTransform
     void connect_main_sigs(Yosys::Module *top, Yosys::Cell *emu_ctrl);
     void connect_resets(Yosys::Module *top, Yosys::Cell *emu_ctrl);
     void connect_triggers(Yosys::Module *top, Yosys::Cell *emu_ctrl);
-    void connect_fifo_ports(Yosys::Module *top, Yosys::Cell *emu_ctrl);
+    void connect_pipe_ports(Yosys::Module *top, Yosys::Cell *emu_ctrl);
     void connect_scanchain(Yosys::Module *top, Yosys::Cell *emu_ctrl);
 
     void run();

@@ -8,43 +8,44 @@
 
 namespace Emu {
 
-struct FFInfo : public FFConfig
+struct FFInfo : public Config::FF
 {
     Yosys::Const init_data;
 };
 
-struct RAMInfo : public RAMConfig
+struct RAMInfo : public Config::RAM
 {
     Yosys::Const init_data;
 };
 
-struct ClockInfo : public ClockConfig
+struct ClockInfo : public Config::Clock
 {
     Yosys::IdString ff_clk;
     Yosys::IdString ram_clk;
 };
 
-struct ResetInfo : public ResetConfig
+struct ResetInfo : public Config::Reset
 {
 };
 
-struct TrigInfo : public TrigConfig
+struct TrigInfo : public Config::Trig
 {
 };
 
-struct FifoPortInfo : public FifoPortConfig
+struct PipeInfo : public Config::Pipe
 {
-    Yosys::IdString port_enable;
+    Yosys::IdString port_valid;
+    Yosys::IdString port_ready;
     Yosys::IdString port_data;
-    Yosys::IdString port_flag;
+    Yosys::IdString port_empty; // only for input direction
 };
 
-struct AXIIntfInfo : public AXIConfig
+struct AXIIntfInfo : public Config::AXI
 {
     AXI::AXI4 axi;
 };
 
-struct ModelInfo : public ModelConfig
+struct ModelInfo : public Config::Model
 {
 };
 
@@ -56,8 +57,9 @@ struct ChannelInfo
     enum {IN, OUT} dir;
     Yosys::IdString port_valid;
     Yosys::IdString port_ready;
+    Yosys::IdString port_payload_inner;
+    Yosys::IdString port_payload_outer;
     std::vector<std::string> deps; // relative to path
-    std::vector<Yosys::IdString> payloads; // relative to path
 };
 
 struct EmulationDatabase
@@ -67,7 +69,7 @@ struct EmulationDatabase
     std::vector<ClockInfo> user_clocks;
     std::vector<ResetInfo> user_resets;
     std::vector<TrigInfo> user_trigs;
-    std::vector<FifoPortInfo> fifo_ports;
+    std::vector<PipeInfo> pipes;
     std::vector<AXIIntfInfo> axi_intfs;
     std::vector<ModelInfo> models;
     std::vector<ChannelInfo> channels;

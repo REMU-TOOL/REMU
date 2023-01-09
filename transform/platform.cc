@@ -9,6 +9,102 @@ USING_YOSYS_NAMESPACE
 
 using namespace Emu;
 
+PRIVATE_NAMESPACE_BEGIN
+
+struct CtrlSig
+{
+    Wire *wen;
+    Wire *waddr;
+    Wire *wdata;
+    Wire *ren;
+    Wire *raddr;
+    Wire *rdata;
+};
+
+struct CtrlConnBuilder
+{
+    Module *module;
+    CtrlSig master;
+    int addr_width;
+    int data_width;
+
+    SigSpec wen_list;
+    SigSpec waddr_list;
+    SigSpec wdata_list;
+    SigSpec ren_list;
+    SigSpec raddr_list;
+    SigSpec rdata_list;
+    SigSpec base_list;
+    SigSpec mask_list;
+
+    void add(const CtrlSig &slave, uint32_t addr_base, int addr_bits)
+    {
+        log_assert(GetSize(slave.wen) == 1);
+        log_assert(GetSize(slave.waddr) == addr_width);
+        log_assert(GetSize(slave.wdata) == data_width);
+        log_assert(GetSize(slave.ren) == 1);
+        log_assert(GetSize(slave.raddr) == addr_width);
+        log_assert(GetSize(slave.rdata) == data_width);
+
+        wen_list.append(slave.wen);
+        waddr_list.append(slave.waddr);
+        wdata_list.append(slave.wdata);
+        ren_list.append(slave.ren);
+        raddr_list.append(slave.raddr);
+        rdata_list.append(slave.rdata);
+
+        base_list.append(Const(addr_base, addr_width));
+        mask_list.append(Const(0xffffffff << addr_bits, addr_width));
+    }
+
+    Cell* emit(IdString cell_name)
+    {
+        Cell *cell = module->addCell(cell_name, "\\ctrlbus_bridge");
+
+        cell->setParam("\\ADDR_WIDTH", addr_width);
+        cell->setParam("\\DATA_WIDTH", data_width);
+        cell->setParam("\\M_COUNT", GetSize(wen_list));
+        cell->setParam("\\M_BASE_LIST", base_list.as_const());
+        cell->setParam("\\M_MASK_LIST", mask_list.as_const());
+
+        cell->setPort("\\s_ctrl_wen", master.wen);
+        cell->setPort("\\s_ctrl_waddr", master.waddr);
+        cell->setPort("\\s_ctrl_wdata", master.wdata);
+        cell->setPort("\\s_ctrl_ren", master.ren);
+        cell->setPort("\\s_ctrl_raddr", master.raddr);
+        cell->setPort("\\s_ctrl_rdata", master.rdata);
+
+        cell->setPort("\\m_ctrl_wen", wen_list);
+        cell->setPort("\\m_ctrl_waddr", waddr_list);
+        cell->setPort("\\m_ctrl_wdata", wdata_list);
+        cell->setPort("\\m_ctrl_ren", ren_list);
+        cell->setPort("\\m_ctrl_raddr", raddr_list);
+        cell->setPort("\\m_ctrl_rdata", rdata_list);
+
+        return cell;
+    }
+
+    CtrlConnBuilder(Module *module, const CtrlSig &master) :
+        module(module),
+        master(master),
+        addr_width(GetSize(master.waddr)),
+        data_width(GetSize(master.wdata))
+    {
+        log_assert(GetSize(master.raddr) == addr_width);
+        log_assert(GetSize(master.rdata) == data_width);
+    }
+};
+
+const uint32_t  PIPE_INGRESS_PIO_BASE   = 0x00008000u;
+const uint32_t  PIPE_INGRESS_PIO_STEP   = 0x00000020u;
+const uint32_t  PIPE_INGRESS_PIO_LIMIT  = 0x0000c000u;
+
+const uint32_t  PIPE_EGRESS_PIO_BASE    = 0x0000c000u;
+const uint32_t  PIPE_EGRESS_PIO_STEP    = 0x00000020u; // TODO
+const uint32_t  PIPE_EGRESS_PIO_LIMIT   = 0x00010000u;
+
+PRIVATE_NAMESPACE_END
+
 void PlatformTransform::connect_main_sigs(Module *top, Cell *emu_ctrl)
 {
     Wire *host_clk      = CommonPort::get(top, CommonPort::PORT_HOST_CLK);
@@ -65,7 +161,7 @@ void PlatformTransform::connect_triggers(Module *top, Cell *emu_ctrl)
     emu_ctrl->setPort("\\trig", trigs);
 }
 
-void PlatformTransform::connect_fifo_ports(Module *top, Cell *emu_ctrl)
+void PlatformTransform::connect_pipe_ports(Module *top, Cell *emu_ctrl)
 {
     Wire *host_clk      = CommonPort::get(top, CommonPort::PORT_HOST_CLK);
     Wire *host_rst      = CommonPort::get(top, CommonPort::PORT_HOST_RST);
@@ -85,68 +181,21 @@ void PlatformTransform::connect_fifo_ports(Module *top, Cell *emu_ctrl)
     Wire *sink_raddr = top->addWire(NEW_ID, 8);
     SigSpec sink_rdata = Const(0, 32);
 
-    for (auto &info : database.fifo_ports) {
-        if (info.type == 0) {
-            info.index = source_index;
-            auto fifo_wen = top->wire(info.port_enable);
-            auto fifo_wdata = top->wire(info.port_data);
-            auto fifo_wfull = top->wire(info.port_flag);
-            make_internal(fifo_wen);
-            make_internal(fifo_wdata);
-            make_internal(fifo_wfull);
-
-            SigSpec wen, ren;
-            int reg_cnt = (info.width + 31) / 32 + 1;
-            for (int i=0; i<reg_cnt; i++) {
-                wen.append(top->And(NEW_ID, source_wen, top->Eq(NEW_ID, source_waddr, Const(source_index, 8))));
-                ren.append(top->And(NEW_ID, source_ren, top->Eq(NEW_ID, source_raddr, Const(source_index, 8))));
-                source_index++;
+    for (auto &info : database.pipes) {
+        if (info.type == "pio") {
+            auto wire_valid = top->wire(info.port_valid);
+            auto wire_ready = top->wire(info.port_ready);
+            auto wire_data = top->wire(info.port_data);
+            if (info.output) {
+                log_error("TODO");
             }
+            else {
+                auto wire_empty = top->wire(info.port_empty);
 
-            Wire *rdata = top->addWire(NEW_ID, 32);
-            Cell *adapter = top->addCell(NEW_ID, "\\FifoSourceAdapter");
-            adapter->setParam("\\DATA_WIDTH", info.width);
-            adapter->setPort("\\clk", host_clk);
-            adapter->setPort("\\rst", host_rst);
-            adapter->setPort("\\reg_wen", wen);
-            adapter->setPort("\\reg_wdata", source_wdata);
-            adapter->setPort("\\reg_ren", ren);
-            adapter->setPort("\\reg_rdata", rdata);
-            adapter->setPort("\\fifo_wen", fifo_wen);
-            adapter->setPort("\\fifo_wdata", fifo_wdata);
-            adapter->setPort("\\fifo_wfull", fifo_wfull);
-            source_rdata = top->Or(NEW_ID, source_rdata, rdata);
+            }
         }
-        else if (info.type == 1) {
-            info.index = sink_index;
-            auto fifo_ren = top->wire(info.port_enable);
-            auto fifo_rdata = top->wire(info.port_data);
-            auto fifo_rempty = top->wire(info.port_flag);
-            make_internal(fifo_ren);
-            make_internal(fifo_rdata);
-            make_internal(fifo_rempty);
-
-            SigSpec wen, ren;
-            int reg_cnt = (info.width + 31) / 32 + 1;
-            for (int i=0; i<reg_cnt; i++) {
-                wen.append(top->And(NEW_ID, sink_wen, top->Eq(NEW_ID, sink_waddr, Const(sink_index, 8))));
-                ren.append(top->And(NEW_ID, sink_ren, top->Eq(NEW_ID, sink_raddr, Const(sink_index, 8))));
-                sink_index++;
-            }
-
-            Wire *rdata = top->addWire(NEW_ID, 32);
-            Cell *adapter = top->addCell(NEW_ID, "\\FifoSinkAdapter");
-            adapter->setParam("\\DATA_WIDTH", info.width);
-            adapter->setPort("\\clk", host_clk);
-            adapter->setPort("\\rst", host_rst);
-            adapter->setPort("\\reg_wen", wen);
-            adapter->setPort("\\reg_wdata", sink_wdata);
-            adapter->setPort("\\reg_ren", ren);
-            adapter->setPort("\\reg_rdata", rdata);
-            adapter->setPort("\\fifo_ren", fifo_ren);
-            adapter->setPort("\\fifo_rdata", fifo_rdata);
-            adapter->setPort("\\fifo_rempty", fifo_rempty);
-            sink_rdata = top->Or(NEW_ID, sink_rdata, rdata);
+        else if (info.type == "dma") {
+            log_error("TODO");
         }
     }
 
@@ -216,7 +265,7 @@ void PlatformTransform::run()
     connect_main_sigs(top, emu_ctrl);
     connect_resets(top, emu_ctrl);
     connect_triggers(top, emu_ctrl);
-    connect_fifo_ports(top, emu_ctrl);
+    connect_pipe_ports(top, emu_ctrl);
     connect_scanchain(top, emu_ctrl);
 
     top->fixup_ports();

@@ -91,6 +91,19 @@ void CommonPort::put(Module *module, const Info &info, SigSpec sig)
     }
 }
 
+PRIVATE_NAMESPACE_BEGIN
+
+Wire* export_sub_port(Cell *sub, IdString sub_port, IdString port)
+{
+    Module *module = sub->module;
+    Wire *sub_wire = module->design->module(sub->type)->wire(sub_port);
+    Wire *wire = module->addWire(port, sub_wire);
+    sub->setPort(sub_port, wire);
+    return wire;
+}
+
+PRIVATE_NAMESPACE_END
+
 void PortTransform::promote_user_sigs(Module *module)
 {
     std::vector<Wire *> clocks, resets, trigs;
@@ -161,18 +174,12 @@ void PortTransform::promote_user_sigs(Module *module)
         for (auto &info : all_clock_ports.at(child.name)) {
             ClockInfo newinfo = info;
             newinfo.path.insert(newinfo.path.begin(), id2str(edge.name.second));
-            newinfo.port_name = "\\EMU_PORT_" + join_string(newinfo.path, '_') + "_" + info.orig_name;
+            newinfo.port_name = "EMU_PORT_" + join_string(newinfo.path, '_') + "_" + info.orig_name;
             newinfo.ff_clk = "\\" + newinfo.port_name + "_FF";
             newinfo.ram_clk = "\\" + newinfo.port_name + "_RAM";
-            Wire *newport = module->addWire(newinfo.port_name);
-            Wire *new_ff_clk = module->addWire(newinfo.ff_clk);
-            Wire *new_ram_clk = module->addWire(newinfo.ram_clk);
-            newport->port_input = true;
-            new_ff_clk->port_input = true;
-            new_ram_clk->port_input = true;
-            inst->setPort(info.port_name, newport);
-            inst->setPort(info.ff_clk, new_ff_clk);
-            inst->setPort(info.ram_clk, new_ram_clk);
+            Wire *newport = export_sub_port(inst, "\\" + info.port_name, "\\" + newinfo.port_name);
+            export_sub_port(inst, info.ff_clk, newinfo.ff_clk);
+            export_sub_port(inst, info.ram_clk, newinfo.ram_clk);
             newport->set_string_attribute("\\associated_ff_clk", newinfo.ff_clk.str());
             newport->set_string_attribute("\\associated_ram_clk", newinfo.ram_clk.str());
             clockinfo.push_back(newinfo);
@@ -181,20 +188,16 @@ void PortTransform::promote_user_sigs(Module *module)
         for (auto &info : all_reset_ports.at(child.name)) {
             ResetInfo newinfo = info;
             newinfo.path.insert(newinfo.path.begin(), id2str(edge.name.second));
-            newinfo.port_name = "\\EMU_PORT_" + join_string(newinfo.path, '_') + "_" + info.orig_name;
-            Wire *newport = module->addWire(newinfo.port_name);
-            newport->port_input = true;
-            inst->setPort(info.port_name, newport);
+            newinfo.port_name = "EMU_PORT_" + join_string(newinfo.path, '_') + "_" + info.orig_name;
+            export_sub_port(inst, "\\" + info.port_name, "\\" + newinfo.port_name);
             resetinfo.push_back(newinfo);
         }
 
         for (auto &info : all_trig_ports.at(child.name)) {
             TrigInfo newinfo = info;
             newinfo.path.insert(newinfo.path.begin(), id2str(edge.name.second));
-            newinfo.port_name = "\\EMU_PORT_" + join_string(newinfo.path, '_') + "_" + info.orig_name;
-            Wire *newport = module->addWire(newinfo.port_name);
-            newport->port_output = true;
-            inst->setPort(info.port_name, newport);
+            newinfo.port_name = "EMU_PORT_" + join_string(newinfo.path, '_') + "_" + info.orig_name;
+            export_sub_port(inst, "\\" + info.port_name, "\\" + newinfo.port_name);
             triginfo.push_back(newinfo);
         }
     }
@@ -256,66 +259,75 @@ void PortTransform::promote_common_ports(Module *module)
     module->fixup_ports();
 }
 
-void PortTransform::promote_fifo_ports(Module *module)
+void PortTransform::promote_pipe_ports(Module *module)
 {
-    std::vector<FifoPortInfo> fifoportinfo;
+    std::vector<PipeInfo> streams;
 
     // process this module
 
     for (auto portid : module->ports) {
         Wire *wire = module->wire(portid);
 
-        std::string name = wire->get_string_attribute(Attr::FifoPortName);
+        std::string name = wire->get_string_attribute(Attr::PipeName);
         if (name.empty())
             continue;
 
-        FifoPortInfo info;
+        PipeInfo info;
         info.orig_name = name;
         info.port_name = name;
 
-        std::string type = wire->get_string_attribute(Attr::FifoPortType);
+        std::string dir = wire->get_string_attribute(Attr::PipeDirection);
+        if (dir.empty())
+            log_error("missing direction for pipe port %s\n", name.c_str());
+
+        if (dir != "in" && dir != "out")
+            log_error("unrecognized dir for pipe port %s\n", name.c_str());
+
+        info.output = dir == "out";
+
+        std::string type = wire->get_string_attribute(Attr::PipeType);
         if (type.empty())
-            log_error("missing type in fifo port %s\n", name.c_str());
+            log_error("missing type for pipe port %s\n", name.c_str());
 
-        if (type != "sink" && type != "source")
-            log_error("wrong type in fifo port %s\n", name.c_str());
+        if (type != "pio" && type != "dma")
+            log_error("unrecognized type for pipe port %s\n", name.c_str());
 
-        info.type = type == "sink" ? 1 : 0;
+        info.type = type;
 
-        std::string enable_attr = wire->get_string_attribute(Attr::FifoPortEnable);
-        if (enable_attr.empty())
-            log_error("missing enable port in fifo port %s\n", name.c_str());
+        {
+            Wire *wire_valid = module->wire("\\" + name + "_valid");
+            log_assert(wire_valid && wire_valid->width == 1);
+            log_assert(wire_valid->port_output == info.output);
+            log_assert(wire_valid->port_input == !info.output);
+            info.port_valid = wire_valid->name;
+        }
 
-        std::string data_attr = wire->get_string_attribute(Attr::FifoPortData);
-        if (data_attr.empty())
-            log_error("missing data port in fifo port %s\n", name.c_str());
+        {
+            Wire *wire_data = module->wire("\\" + name + "_data");
+            log_assert(wire_data);
+            log_assert(wire_data->port_output == info.output);
+            log_assert(wire_data->port_input == !info.output);
+            info.port_data = wire_data->name;
+            info.width = GetSize(wire_data);
+        }
 
-        std::string flag_attr = wire->get_string_attribute(Attr::FifoPortFlag);
-        if (flag_attr.empty())
-            log_error("missing flag port in fifo port %s\n", name.c_str());
+        {
+            Wire *wire_ready = module->wire("\\" + name + "_ready");
+            log_assert(wire_ready && wire_ready->width == 1);
+            log_assert(wire_ready->port_output == !info.output);
+            log_assert(wire_ready->port_input == info.output);
+            info.port_ready = wire_ready->name;
+        }
 
-        Wire *wire_enable = module->wire("\\" + enable_attr);
-        Wire *wire_data = module->wire("\\" + data_attr);
-        Wire *wire_flag = module->wire("\\" + flag_attr);
+        if (!info.output) {
+            Wire *wire_empty = module->wire("\\" + name + "_empty");
+            log_assert(wire_empty->port_output == info.output);
+            log_assert(wire_empty->port_input == !info.output);
+            log_assert(wire_empty && wire_empty->width == 1);
+            info.port_empty = wire_empty->name;
+        }
 
-        log_assert(wire_enable && wire_enable->width == 1);
-        log_assert(wire_data);
-        log_assert(wire_flag && wire_flag->width == 1);
-
-        info.port_enable = wire_enable->name;
-        info.port_data = wire_data->name;
-        info.port_flag = wire_flag->name;
-
-        wire_enable->port_input = true;
-        wire_enable->port_output = false;
-        wire_data->port_input = info.type == 0;
-        wire_data->port_output = !wire_data->port_input;
-        wire_flag->port_input = false;
-        wire_flag->port_output = true;
-
-        info.width = GetSize(wire_data);
-
-        fifoportinfo.push_back(info);
+        streams.push_back(info);
     }
 
     // export submodule ports
@@ -325,34 +337,21 @@ void PortTransform::promote_fifo_ports(Module *module)
         auto &child = edge.toNode();
         Cell *inst = module->cell(edge.name.second);
 
-        for (auto &info : all_fifo_ports.at(child.name)) {
-            FifoPortInfo newinfo = info;
+        for (auto &info : all_pipe_ports.at(child.name)) {
+            PipeInfo newinfo = info;
             newinfo.path.insert(newinfo.path.begin(), id2str(edge.name.second));
-            newinfo.port_name = "\\EMU_PORT_" + join_string(newinfo.path, '_') + "_" + info.orig_name;
-            newinfo.port_enable = "\\" + newinfo.port_name + "_enable";
+            newinfo.port_name = "EMU_PORT_" + join_string(newinfo.path, '_') + "_" + info.orig_name;
+            newinfo.port_valid = "\\" + newinfo.port_name + "_valid";
             newinfo.port_data = "\\" + newinfo.port_name + "_data";
-            newinfo.port_flag = "\\" + newinfo.port_name + "_flag";
-
-            Wire *wire_enable = module->addWire(newinfo.port_enable);
-            wire_enable->port_input = true;
-            wire_enable->port_output = false;
-            inst->setPort(info.port_enable, wire_enable);
-            Wire *wire_data = module->addWire(newinfo.port_data, newinfo.width);
-            wire_data->port_input = newinfo.type == 0;
-            wire_data->port_output = !wire_data->port_input;
-            inst->setPort(info.port_data, wire_data);
-            Wire *wire_flag = module->addWire(newinfo.port_flag);
-            wire_flag->port_input = false;
-            wire_flag->port_output = true;
-            inst->setPort(info.port_flag, wire_flag);
-
-            fifoportinfo.push_back(newinfo);
+            export_sub_port(inst, info.port_valid, newinfo.port_valid);
+            export_sub_port(inst, info.port_data, newinfo.port_data);
+            streams.push_back(newinfo);
         }
     }
 
     module->fixup_ports();
 
-    all_fifo_ports[module->name] = fifoportinfo;
+    all_pipe_ports[module->name] = streams;
 }
 
 void PortTransform::promote_channel_ports(Module *module)
@@ -405,25 +404,6 @@ void PortTransform::promote_channel_ports(Module *module)
                     info.deps.push_back(dep);
         }
 
-        // Process channel payload
-
-        std::string payload = wire->get_string_attribute(Attr::ChannelPayload);
-        if (!payload.empty()) {
-            std::vector<std::string> port_list = split_string(payload, ' ');
-            for (auto &port : port_list) {
-                size_t prefix_len = port.size();
-
-                // wildcard match
-                if (port.back() == '*')
-                    prefix_len--;
-
-                std::string prefix = port.substr(0, prefix_len);
-                for (auto &id : module->ports)
-                    if (id[0] == '\\' && id.substr(1, prefix_len) == prefix)
-                        info.payloads.push_back(id);
-            }
-        }
-
         // Process channel valid/ready port
 
         std::string valid = wire->get_string_attribute(Attr::ChannelValid);
@@ -455,6 +435,56 @@ void PortTransform::promote_channel_ports(Module *module)
         wire_ready->port_input = !wire_valid->port_input;
         wire_ready->port_output = !wire_ready->port_input;
 
+        // Process channel payload
+
+        SigSpec new_payload, old_payload;
+
+        std::string payload = wire->get_string_attribute(Attr::ChannelPayload);
+        if (!payload.empty()) {
+            std::vector<std::string> port_list = split_string(payload, ' ');
+            for (auto &port : port_list) {
+                size_t prefix_len = port.size();
+
+                // wildcard match
+                if (port.back() == '*')
+                    prefix_len--;
+
+                std::string prefix = port.substr(0, prefix_len);
+                for (auto &id : module->ports) {
+                    if (id[0] != '\\' || id.substr(1, prefix_len) != prefix)
+                        continue;
+
+                    Wire *op = module->wire(id);
+                    module->rename(op, NEW_ID);
+                    Wire *np = module->addWire(id, op);
+                    op->port_input = false;
+                    op->port_output = false;
+                    new_payload.append(np);
+                    old_payload.append(op);
+                }
+            }
+        }
+
+        int payload_width = GetSize(new_payload);
+        Wire *payload_inner = module->addWire("\\" + name + "_payload_inner", payload_width);
+        Wire *payload_outer = module->addWire("\\" + name + "_payload_outer", payload_width);
+        payload_inner->port_input = info.dir == ChannelInfo::IN;
+        payload_inner->port_output = !payload_inner->port_input;
+        payload_outer->port_input = info.dir == ChannelInfo::OUT;
+        payload_outer->port_output = !payload_outer->port_input;
+
+        if (info.dir == ChannelInfo::IN) {
+            module->connect(payload_outer, new_payload);
+            module->connect(old_payload, payload_inner);
+        }
+        else {
+            module->connect(payload_inner, old_payload);
+            module->connect(new_payload, payload_outer);
+        }
+
+        info.port_payload_inner = payload_inner->name;
+        info.port_payload_outer = payload_outer->name;
+
         channels.push_back(info);
     }
 
@@ -468,19 +498,15 @@ void PortTransform::promote_channel_ports(Module *module)
         for (auto &info : all_channel_ports.at(child.name)) {
             ChannelInfo newinfo = info;
             newinfo.path.insert(newinfo.path.begin(), id2str(edge.name.second));
-            newinfo.port_name = "\\EMU_PORT_" + join_string(newinfo.path, '_') + "_" + info.orig_name;
+            newinfo.port_name = "EMU_PORT_" + join_string(newinfo.path, '_') + "_" + info.orig_name;
             newinfo.port_valid = "\\" + newinfo.port_name + "_valid";
             newinfo.port_ready = "\\" + newinfo.port_name + "_ready";
-
-            Wire *wire_valid = module->addWire(newinfo.port_valid);
-            wire_valid->port_input = info.dir == ChannelInfo::IN;
-            wire_valid->port_output = !wire_valid->port_input;
-            inst->setPort(info.port_valid, wire_valid);
-            Wire *wire_ready = module->addWire(newinfo.port_ready);
-            wire_ready->port_input = !wire_valid->port_input;
-            wire_ready->port_output = !wire_ready->port_input;
-            inst->setPort(info.port_ready, wire_ready);
-
+            newinfo.port_payload_inner = "\\" + newinfo.port_name + "_payload_inner";
+            newinfo.port_payload_outer = "\\" + newinfo.port_name + "_payload_outer";
+            export_sub_port(inst, info.port_valid, newinfo.port_valid);
+            export_sub_port(inst, info.port_ready, newinfo.port_ready);
+            export_sub_port(inst, info.port_payload_inner, newinfo.port_payload_inner);
+            export_sub_port(inst, info.port_payload_outer, newinfo.port_payload_outer);
             channels.push_back(newinfo);
         }
     }
@@ -502,7 +528,7 @@ void PortTransform::run()
         log("Processing module %s...\n", log_id(module));
         promote_user_sigs(module);
         promote_common_ports(module);
-        promote_fifo_ports(module);
+        promote_pipe_ports(module);
         promote_channel_ports(module);
     }
 
@@ -510,7 +536,7 @@ void PortTransform::run()
     database.user_clocks = all_clock_ports.at(top);
     database.user_resets = all_reset_ports.at(top);
     database.user_trigs = all_trig_ports.at(top);
-    database.fifo_ports = all_fifo_ports.at(top);
+    database.pipes = all_pipe_ports.at(top);
     database.channels = all_channel_ports.at(top);
 
     Module *top_module = hier.design->module(top);

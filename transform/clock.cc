@@ -91,7 +91,7 @@ void ClockTreeRewriter::run()
 
     Module *top = hier.design->top_module();
     for (auto &info : database.user_clocks)
-        work_queue.push(top->wire(info.port_name));
+        work_queue.push(top->wire("\\" + info.port_name));
     work_queue.push(CommonPort::get(top, CommonPort::PORT_MDL_CLK));
 
     while (!work_queue.empty()) {
