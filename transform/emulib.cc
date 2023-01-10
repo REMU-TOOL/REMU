@@ -26,8 +26,8 @@ EmuLibInfo::EmuLibInfo()
         log_error("EmuLibInfo: cannot locate emulib include path\n");
 
     add_source_folder(model_sources, emulib_dirname + "common/");
+    add_source_folder(model_sources, emulib_dirname + "model/");
     add_source_folder(model_sources, emulib_dirname + "fpga/");
-    add_source_folder(model_stub_sources, emulib_dirname + "stub/");
     add_source_folder(platform_sources, emulib_dirname + "common/");
     add_source_folder(platform_sources, emulib_dirname + "platform/");
 }

@@ -31,7 +31,7 @@ endif
 
 $(OUTPUT_V): $(VSRC)
 	mkdir -p $(BUILD_DIR)
-	yosys -m transform -p "emu_transform -top $(VTOP) -elab $(ELAB_V) -yaml $(SC_YML)" -o $@ $^
+	yosys -m transform -p "read_verilog $^; emu_transform -top $(VTOP) -elab $(ELAB_V) -yaml $(SC_YML); write_verilog $@"
 
 $(ELAB_V): $(OUTPUT_V)
 

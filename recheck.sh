@@ -24,7 +24,7 @@ if [[ ! -d $RECHECK_DIR || ! -d $EMULIB_DIR ]]; then
     exit 1
 fi
 
-IV_SRCS=$(find $EMULIB_DIR/common $EMULIB_DIR/sim -name "*.v")
+IV_SRCS=$(find $EMULIB_DIR/sim -name "*.v")
 IV_FLAGS="-I$EMULIB_DIR/include -s reconstruct"
 VVP_FLAGS="-M $RECHECK_DIR -m replay"
 

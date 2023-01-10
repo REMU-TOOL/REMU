@@ -7,7 +7,6 @@
 #include "scanchain.h"
 #include "fame.h"
 #include "platform.h"
-#include "package.h"
 #include "interface.h"
 #include "emulib.h"
 
@@ -47,14 +46,14 @@ struct EmuTransformPass : public Pass {
 
     EmuLibInfo emulib;
 
-    void elaborate(Design *design) {
-        log_header(design, "Executing design elaboration.\n");
+    void integrate(Design *design) {
+        log_header(design, "Executing design integration.\n");
         log_push();
 
-        std::vector<std::string> load_stub_cmd({"read_verilog", "-noautowire"});
-        load_stub_cmd.insert(load_stub_cmd.end(), emulib.model_stub_sources.begin(), emulib.model_stub_sources.end());
+        std::vector<std::string> load_model_cmd({"read_verilog", "-noautowire", "-I", emulib.verilog_include_path});
+        load_model_cmd.insert(load_model_cmd.end(), emulib.model_sources.begin(), emulib.model_sources.end());
 
-        Pass::call(design, load_stub_cmd);
+        Pass::call(design, load_model_cmd);
 
         if (top.empty())
             Pass::call(design, "hierarchy -auto-top");
@@ -64,32 +63,6 @@ struct EmuTransformPass : public Pass {
         Pass::call(design, "emu_preserve_top");
         Pass::call(design, "proc");
         Pass::call(design, "emu_fast_opt");
-        Pass::call(design, "check");
-
-        if (!elab_file.empty())
-            Pass::call(design, "write_verilog " + elab_file);
-
-        log_pop();
-    }
-
-    void integrate(Design *design) {
-        log_header(design, "Executing model integration.\n");
-        log_push();
-
-        Pass::call(design, "setattr -mod -set _EMU_EXISTING 1");
-
-        std::vector<std::string> load_imp_cmd({"read_verilog", "-noautowire", "-I", emulib.verilog_include_path});
-        load_imp_cmd.insert(load_imp_cmd.end(), emulib.model_sources.begin(), emulib.model_sources.end());
-
-        Pass::call(design, load_imp_cmd);
-
-        Pass::call(design, "hierarchy -purge_lib");
-        Pass::call(design, "select A:_EMU_EXISTING %n");
-        Pass::call(design, "proc");
-        Pass::call(design, "opt -fast");
-        Pass::call(design, "select -clear");
-
-        Pass::call(design, "setattr -mod -unset _EMU_EXISTING");
 
         Pass::call(design, "memory_collect");
         Pass::call(design, "memory_share -nosat -nowiden");
@@ -97,6 +70,18 @@ struct EmuTransformPass : public Pass {
         Pass::call(design, "opt_clean");
 
         Pass::call(design, "emu_check");
+
+        if (!elab_file.empty()) {
+            // Produce an elaborated design without FPGA model implementations for replay use
+            Pass::call(design, "design -push-copy");
+            Pass::call(design, "emu_restore_param_cells -mod-attr __emu_model_imp");
+            Pass::call(design, "delete A:__emu_model_imp");
+            Pass::call(design, "hierarchy");
+            Pass::call(design, "check");
+            Pass::call(design, "emu_package -top EMU_ELAB");
+            Pass::call(design, "write_verilog " + elab_file);
+            Pass::call(design, "design -pop");
+        }
 
         log_pop();
     }
@@ -150,8 +135,6 @@ struct EmuTransformPass : public Pass {
         }
         extra_args(args, argidx, design);
 
-        elaborate(design);
-
         integrate(design);
 
         EmulationDatabase database;
@@ -196,13 +179,7 @@ struct EmuTransformPass : public Pass {
             log_pop();
         }
 
-        {
-            log_header(design, "Executing packaging transformation.\n");
-            log_push();
-            PackageWorker worker(design);
-            worker.run();
-            log_pop();
-        }
+        Pass::call(design, "emu_package -top EMU_SYSTEM");
 
         if (!raw_plat) {
             log_header(design, "Executing platform transformation.\n");

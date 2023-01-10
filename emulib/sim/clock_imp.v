@@ -1,7 +1,7 @@
 `timescale 1 ns / 1 ps
 
 (* keep *)
-module EmuClock (
+module EmuClockImp (
     output reg clock
 );
 

@@ -20,6 +20,7 @@ RESULTS_XML := $(BUILD_DIR)/results.xml
 SIMCTRL_V   := $(BUILD_DIR)/simctrl.v
 
 SIM_SRCS += $(wildcard $(EMULIB_DIR)/common/*.v)
+SIM_SRCS += $(wildcard $(EMULIB_DIR)/model/*.v)
 SIM_SRCS += $(wildcard $(EMULIB_DIR)/fpga/*.v)
 SIM_SRCS += $(wildcard $(EMULIB_DIR)/platform/*.v)
 SIM_SRCS += $(wildcard $(TEST_DIR)/../platform/sim/common/sources/*.v)
@@ -76,7 +77,7 @@ $(SIMCTRL_V):
 
 $(OUTPUT_FILE): $(EMU_SRCS)
 	@mkdir -p $(BUILD_DIR)
-	$(YOSYS) -m transform -p "emu_transform $(TRANSFORM_ARGS)" -o $@ $^
+	$(YOSYS) -m transform -p "read_verilog $^; emu_transform $(TRANSFORM_ARGS); write_verilog $@"
 
 $(ELAB_FILE): $(OUTPUT_FILE)
 

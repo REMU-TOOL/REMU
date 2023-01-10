@@ -14,7 +14,7 @@ module EgressPipePIOAdapter #(
     input  wire [31:0]                  ctrl_wdata,
     input  wire                         ctrl_ren,
     input  wire [CTRL_ADDR_WIDTH-1:0]   ctrl_raddr,
-    output wire [31:0]                  ctrl_rdata,
+    output reg  [31:0]                  ctrl_rdata,
 
     input  wire                     stream_valid,
     input  wire [DATA_WIDTH-1:0]    stream_data,

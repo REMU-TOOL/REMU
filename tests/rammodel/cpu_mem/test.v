@@ -63,7 +63,7 @@ module test(
         .EMU_RAM_SD         (ram_dir),
         .EMU_RAM_DI         (ram_sdi),
         .EMU_RAM_DO         (ram_sdo),
-        .EMU_PORT_reset_user_rst    (target_rst),
+        .EMU_PORT_reset_imp_user_rst    (target_rst),
         .EMU_RUN_MODE       (run_mode),
         .EMU_SCAN_MODE      (scan_mode),
         .EMU_IDLE           (idle),

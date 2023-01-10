@@ -10,7 +10,6 @@ struct EmuLibInfo
 {
     std::string verilog_include_path;
     std::vector<std::string> model_sources;
-    std::vector<std::string> model_stub_sources;
     std::vector<std::string> platform_sources;
 
     EmuLibInfo();

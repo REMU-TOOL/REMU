@@ -380,7 +380,7 @@ struct BChannel : public ChannelBase
     BChannel() = default;
 
     BChannel(const std::string &prefix, const Info &info) :
-        ChannelBase(prefix, info.is_master),
+        ChannelBase(prefix, !info.is_master),
         resp(prefix + "resp", !info.is_master),
         id  (prefix + "id", info.id_width, !info.is_master) {}
 
@@ -424,8 +424,9 @@ struct RChannel : public ChannelBase
     RChannel() = default;
 
     RChannel(const std::string &prefix, const Info &info) :
-        ChannelBase(prefix, info.is_master),
+        ChannelBase(prefix, !info.is_master),
         data(prefix + "data", info.data_width, !info.is_master),
+        resp(prefix + "resp", !info.is_master),
         id  (prefix + "id", info.id_width, !info.is_master),
         last(prefix + "last", !info.is_master, info.is_full) {}
 

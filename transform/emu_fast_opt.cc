@@ -5,8 +5,8 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct EmuFastOpt : public Pass {
-    EmuFastOpt() : Pass("emu_fast_opt", "run opt pass on each module") { }
+struct EmuRestoreParamCells : public Pass {
+    EmuRestoreParamCells() : Pass("emu_fast_opt", "run opt pass on each module") { }
 
     void execute(vector<string> args, Design* design) override {
         log_header(design, "Executing EMU_FAST_OPT pass.\n");
@@ -41,6 +41,6 @@ struct EmuFastOpt : public Pass {
         log_pop();
     }
 
-} EmuFastOpt;
+} EmuRestoreParamCells;
 
 PRIVATE_NAMESPACE_END

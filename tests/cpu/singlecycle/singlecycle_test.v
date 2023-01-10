@@ -29,7 +29,7 @@ module sim_top();
         .EMU_RAM_SD         (ram_dir),
         .EMU_RAM_DI         (ram_sdi),
         .EMU_RAM_DO         (ram_sdo),
-        .EMU_PORT_reset_user_rst    (rst)
+        .EMU_PORT_reset_imp_user_rst    (rst)
     );
 
     wire ref_clk;
