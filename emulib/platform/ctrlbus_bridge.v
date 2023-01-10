@@ -39,12 +39,12 @@ module ctrlbus_bridge #(
     genvar i;
 
     for (i=0; i<M_COUNT; i=i+1) begin
-        assign w_sel[i] = (s_ctrl_waddr & get_mask(i) == get_base(i) & get_mask(i));
+        assign w_sel[i] = ((s_ctrl_waddr & get_mask(i)) == (get_base(i) & get_mask(i)));
         assign m_ctrl_wen[i] = s_ctrl_wen && w_sel[i];
         assign m_ctrl_waddr[i*ADDR_WIDTH+:ADDR_WIDTH] = s_ctrl_waddr;
         assign m_ctrl_wdata[i*DATA_WIDTH+:DATA_WIDTH] = s_ctrl_wdata;
 
-        assign r_sel[i] = (s_ctrl_raddr & get_mask(i) == get_base(i) & get_mask(i));
+        assign r_sel[i] = ((s_ctrl_raddr & get_mask(i)) == (get_base(i) & get_mask(i)));
         assign m_ctrl_ren[i] = s_ctrl_ren && r_sel[i];
         assign m_ctrl_raddr[i*ADDR_WIDTH+:ADDR_WIDTH] = s_ctrl_raddr;
     end
@@ -52,6 +52,7 @@ module ctrlbus_bridge #(
     integer index;
 
     always @* begin
+        s_ctrl_rdata = {DATA_WIDTH{1'b0}};
         for (index=0; index<M_COUNT; index=index+1)
             s_ctrl_rdata = s_ctrl_rdata | {DATA_WIDTH{r_sel[index]}} & m_ctrl_rdata[index*DATA_WIDTH+:DATA_WIDTH];
     end

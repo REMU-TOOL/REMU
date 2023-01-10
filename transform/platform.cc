@@ -323,6 +323,13 @@ void PlatformTransform::run()
     sys_ctrl->setPort("\\run_mode",     run_mode);
     sys_ctrl->setPort("\\scan_mode",    scan_mode);
 
+    sys_ctrl->setPort("\\ctrl_wen",     sys_ctrl_sig.wen);
+    sys_ctrl->setPort("\\ctrl_waddr",   sys_ctrl_sig.waddr);
+    sys_ctrl->setPort("\\ctrl_wdata",   sys_ctrl_sig.wdata);
+    sys_ctrl->setPort("\\ctrl_ren",     sys_ctrl_sig.ren);
+    sys_ctrl->setPort("\\ctrl_raddr",   sys_ctrl_sig.raddr);
+    sys_ctrl->setPort("\\ctrl_rdata",   sys_ctrl_sig.rdata);
+
     Wire *dma_start = top->addWire(NEW_ID);
     Wire *dma_direction = top->addWire(NEW_ID);
     Wire *dma_running = top->addWire(NEW_ID);
