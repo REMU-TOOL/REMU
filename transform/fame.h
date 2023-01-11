@@ -1,5 +1,5 @@
-#ifndef _EMU_FAME_H_
-#define _EMU_FAME_H_
+#ifndef _EMU_TRANSFORM_FAME_H_
+#define _EMU_TRANSFORM_FAME_H_
 
 #include "kernel/yosys.h"
 
@@ -21,4 +21,4 @@ struct FAMETransform
 
 };
 
-#endif // #ifndef _EMU_FAME_H_
+#endif // #ifndef _EMU_TRANSFORM_FAME_H_

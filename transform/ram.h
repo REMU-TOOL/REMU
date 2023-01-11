@@ -1,5 +1,5 @@
-#ifndef _EMU_RAM_H_
-#define _EMU_RAM_H_
+#ifndef _EMU_TRANSFORM_RAM_H_
+#define _EMU_TRANSFORM_RAM_H_
 
 #include "kernel/yosys.h"
 
@@ -21,4 +21,4 @@ struct RAMTransform
 
 };
 
-#endif // #ifndef _EMU_RAM_H_
+#endif // #ifndef _EMU_TRANSFORM_RAM_H_

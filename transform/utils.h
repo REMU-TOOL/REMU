@@ -1,5 +1,5 @@
-#ifndef _EMU_H_
-#define _EMU_H_
+#ifndef _EMU_TRANSFORM_H_
+#define _EMU_TRANSFORM_H_
 
 #include "kernel/yosys.h"
 #include "kernel/mem.h"
@@ -158,4 +158,4 @@ inline std::string id2str(Yosys::IdString id)
 
 } // namespace Emu
 
-#endif // #ifndef _EMU_H_
+#endif // #ifndef _EMU_TRANSFORM_H_

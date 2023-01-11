@@ -11,7 +11,7 @@ struct u32 {
     uint32_t data;
     u32() : data(0) {}
     u32(uint32_t data) : data(data) {}
-    void operator=(uint32_t data) { data = data; }
+    void operator=(uint32_t data) { this->data = data; }
     operator uint32_t() const { return data; }
 };
 
@@ -21,21 +21,25 @@ struct Node
     void toYAML(YAML::Node &) const {}
 };
 
-#define CONFIG_FIELD_TYPE(field) BOOST_PP_SEQ_ELEM(0, field)
-#define CONFIG_FIELD_NAME(field) BOOST_PP_SEQ_ELEM(1, field)
+#define CONFIG_PAIR_FIRST(x) CONFIG_PAIR_FIRST_1 x
+#define CONFIG_PAIR_FIRST_1(...) __VA_ARGS__ CONFIG_PAIR_FIRST_2
+#define CONFIG_PAIR_FIRST_2(...)
+#define CONFIG_PAIR_SECOND(x) CONFIG_PAIR_SECOND_1 x
+#define CONFIG_PAIR_SECOND_1(...) CONFIG_PAIR_SECOND_2
+#define CONFIG_PAIR_SECOND_2(...) __VA_ARGS__
 
 #define CONFIG_DEF_STRUCT_EACH(r, type, i, field) \
     struct BOOST_PP_SEQ_CAT((type##_field)(BOOST_PP_ADD(i, 1))) \
         : public type##_field##i { \
-        CONFIG_FIELD_TYPE(field) CONFIG_FIELD_NAME(field); \
+        CONFIG_PAIR_FIRST(field) CONFIG_PAIR_SECOND(field); \
         void fromYAML(const YAML::Node &node) { \
             type##_field##i::fromYAML(node); \
-            CONFIG_FIELD_NAME(field) = node[BOOST_PP_STRINGIZE(CONFIG_FIELD_NAME(field))] \
-                .as<CONFIG_FIELD_TYPE(field)>();\
+            CONFIG_PAIR_SECOND(field) = node[BOOST_PP_STRINGIZE(CONFIG_PAIR_SECOND(field))] \
+                .as<CONFIG_PAIR_FIRST(field)>();\
         } \
         void toYAML(YAML::Node &node) const { \
             type##_field##i::toYAML(node); \
-            node[BOOST_PP_STRINGIZE(CONFIG_FIELD_NAME(field))] = CONFIG_FIELD_NAME(field); \
+            node[BOOST_PP_STRINGIZE(CONFIG_PAIR_SECOND(field))] = CONFIG_PAIR_SECOND(field); \
         } \
     };
 
@@ -101,7 +105,9 @@ CONFIG_DEF_STRUCT(AXI,
 
 CONFIG_DEF_STRUCT(Model,
     (std::vector<std::string>)  (name),
-    (std::string)               (type)
+    (std::string)               (type),
+    (std::map<std::string, std::string>)    (str_params),
+    (std::map<std::string, int>)            (int_params)
 )
 
 CONFIG_DEF_STRUCT(Config,
@@ -119,6 +125,12 @@ CONFIG_DEF_STRUCT(Config,
 #undef CONFIG_FIELD_NAME
 #undef CONFIG_DEF_STRUCT_EACH
 #undef CONFIG_DEF_STRUCT
+#undef CONFIG_PAIR_FIRST
+#undef CONFIG_PAIR_FIRST_1
+#undef CONFIG_PAIR_FIRST_2
+#undef CONFIG_PAIR_SECOND
+#undef CONFIG_PAIR_SECOND_1
+#undef CONFIG_PAIR_SECOND_2
 
 } // namespace Config
 } // namespace Emu

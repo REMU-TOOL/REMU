@@ -341,10 +341,21 @@ void PortTransform::promote_pipe_ports(Module *module)
             PipeInfo newinfo = info;
             newinfo.name.insert(newinfo.name.begin(), id2str(edge.name.second));
             newinfo.port_name = "EMU_PORT_" + join_string(newinfo.name, '_');
+
             newinfo.port_valid = "\\" + newinfo.port_name + "_valid";
-            newinfo.port_data = "\\" + newinfo.port_name + "_data";
             export_sub_port(inst, info.port_valid, newinfo.port_valid);
+
+            newinfo.port_data = "\\" + newinfo.port_name + "_data";
             export_sub_port(inst, info.port_data, newinfo.port_data);
+
+            newinfo.port_ready = "\\" + newinfo.port_name + "_ready";
+            export_sub_port(inst, info.port_ready, newinfo.port_ready);
+
+            if (!newinfo.output) {
+                newinfo.port_empty = "\\" + newinfo.port_name + "_empty";
+                export_sub_port(inst, info.port_empty, newinfo.port_empty);
+            }
+
             streams.push_back(newinfo);
         }
     }

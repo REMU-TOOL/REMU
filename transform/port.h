@@ -1,5 +1,5 @@
-#ifndef _EMU_PORT_H_
-#define _EMU_PORT_H_
+#ifndef _EMU_TRANSFORM_PORT_H_
+#define _EMU_TRANSFORM_PORT_H_
 
 #include "kernel/yosys.h"
 
@@ -87,4 +87,4 @@ struct PortTransform
 
 };
 
-#endif // #ifndef _EMU_PORT_H_
+#endif // #ifndef _EMU_TRANSFORM_PORT_H_

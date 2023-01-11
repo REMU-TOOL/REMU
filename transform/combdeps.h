@@ -1,5 +1,5 @@
-#ifndef _EMU_COMBDEPS_H_
-#define _EMU_COMBDEPS_H_
+#ifndef _EMU_TRANSFORM_COMBDEPS_H_
+#define _EMU_TRANSFORM_COMBDEPS_H_
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
@@ -157,4 +157,4 @@ public:
 
 };
 
-#endif // #ifndef _EMU_COMBDEPS_H_
+#endif // #ifndef _EMU_TRANSFORM_COMBDEPS_H_

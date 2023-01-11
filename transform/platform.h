@@ -1,5 +1,5 @@
-#ifndef _EMU_PLATFORM_H_
-#define _EMU_PLATFORM_H_
+#ifndef _EMU_TRANSFORM_PLATFORM_H_
+#define _EMU_TRANSFORM_PLATFORM_H_
 
 #include "kernel/yosys.h"
 
@@ -23,4 +23,4 @@ struct PlatformTransform
 
 };
 
-#endif // #ifndef _EMU_PLATFORM_H_
+#endif // #ifndef _EMU_TRANSFORM_PLATFORM_H_

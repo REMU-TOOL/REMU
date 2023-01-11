@@ -1,5 +1,5 @@
-#ifndef _EMU_WALKER_CACHE_H_
-#define _EMU_WALKER_CACHE_H_
+#ifndef _EMU_TRANSFORM_WALKER_CACHE_H_
+#define _EMU_TRANSFORM_WALKER_CACHE_H_
 
 #include "kernel/sigtools.h"
 #include "kernel/modtools.h"
@@ -42,4 +42,4 @@ public:
 
 };
 
-#endif // #ifndef _EMU_WALKER_CACHE_H_
+#endif // #ifndef _EMU_TRANSFORM_WALKER_CACHE_H_

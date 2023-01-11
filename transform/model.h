@@ -1,5 +1,5 @@
-#ifndef _EMU_TRANSFORM_CLOCK_H_
-#define _EMU_TRANSFORM_CLOCK_H_
+#ifndef _EMU_TRANSFORM_MODEL_H_
+#define _EMU_TRANSFORM_MODEL_H_
 
 #include "kernel/yosys.h"
 
@@ -8,17 +8,17 @@
 
 namespace Emu {
 
-struct ClockTreeRewriter
+struct ModelAnalyzer
 {
     Hierarchy hier;
     EmulationDatabase &database;
 
     void run();
 
-    ClockTreeRewriter(Yosys::Design *design, EmulationDatabase &database)
+    ModelAnalyzer(Yosys::Design *design, EmulationDatabase &database)
         : hier(design), database(database) {}
 };
 
 };
 
-#endif // #ifndef _EMU_TRANSFORM_CLOCK_H_
+#endif // #ifndef _EMU_TRANSFORM_MODEL_H_

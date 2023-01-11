@@ -1,5 +1,5 @@
-#ifndef _EMU_SCANCHAIN_H_
-#define _EMU_SCANCHAIN_H_
+#ifndef _EMU_TRANSFORM_SCANCHAIN_H_
+#define _EMU_TRANSFORM_SCANCHAIN_H_
 
 #include "kernel/yosys.h"
 
@@ -33,4 +33,4 @@ struct ScanchainWorker
 
 };
 
-#endif // #ifndef _EMU_SCANCHAIN_H_
+#endif // #ifndef _EMU_TRANSFORM_SCANCHAIN_H_

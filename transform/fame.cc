@@ -65,6 +65,8 @@ void FAMETransform::run()
         top->connect(clk, State::S0);
         ClockGate(top, NEW_ID, host_clk, top->Or(NEW_ID, run_and_tick, ff_se), clk_ff);
         ClockGate(top, NEW_ID, host_clk, top->Or(NEW_ID, run_and_tick, ram_se), clk_ram);
+
+        info.index = 0; // TODO
     }
 
     for (auto &info : database.channels) {

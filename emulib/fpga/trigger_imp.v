@@ -1,6 +1,6 @@
 `timescale 1 ns / 1 ps
 
-(* keep, __emu_model_imp = "trigger" *)
+(* keep, __emu_model_imp *)
 module EmuTriggerImp #(
     parameter DESC = "<empty>"
 )(

@@ -1,5 +1,5 @@
-#ifndef _EMU_INTERFACE_H_
-#define _EMU_INTERFACE_H_
+#ifndef _EMU_TRANSFORM_INTERFACE_H_
+#define _EMU_TRANSFORM_INTERFACE_H_
 
 #include "kernel/yosys.h"
 
@@ -25,4 +25,4 @@ struct InterfaceWorker
 
 };
 
-#endif // #ifndef _EMU_INTERFACE_H_
+#endif // #ifndef _EMU_TRANSFORM_INTERFACE_H_

@@ -1,6 +1,6 @@
 `timescale 1ns / 1ps
 
-(* keep, __emu_model_imp = "pipe_egress" *)
+(* keep, __emu_model_imp *)
 module emulib_egress_pipe_imp #(
     parameter DATA_WIDTH = 1
 )(

@@ -1,5 +1,5 @@
-#ifndef _EMU_HIER_H_
-#define _EMU_HIER_H_
+#ifndef _EMU_TRANSFORM_HIER_H_
+#define _EMU_TRANSFORM_HIER_H_
 
 #include "kernel/yosys.h"
 #include "kernel/celltypes.h"
@@ -118,4 +118,4 @@ struct Hierarchy
 
 }
 
-#endif //#ifndef _EMU_HIER_H_
+#endif //#ifndef _EMU_TRANSFORM_HIER_H_

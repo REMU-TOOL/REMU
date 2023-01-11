@@ -390,22 +390,4 @@ void PlatformTransform::run()
     builder.emit(top->uniquify("\\emu_ctrl_bridge"));
 
     top->fixup_ports();
-
-    // Load & parameterize EmuSysCtrl module in a temporary design to not mess up the original design
-
-    Design *tmp = new Design;
-
-    std::vector<std::string> load_plat_cmd({"read_verilog", "-noautowire", "-lib", "-I", emulib.verilog_include_path});
-    load_plat_cmd.insert(load_plat_cmd.end(), emulib.platform_sources.begin(), emulib.platform_sources.end());
-
-    Pass::call(tmp, load_plat_cmd);
-
-    Module *orig_mod = tmp->module(sys_ctrl->type);
-    Module *derived_mod = tmp->module(orig_mod->derive(tmp, sys_ctrl->parameters));
-    derived_mod->makeblackbox();
-
-    Module *cloned_mod = design->addModule(sys_ctrl->type);
-    derived_mod->cloneInto(cloned_mod);
-
-    delete tmp;
 }
