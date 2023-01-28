@@ -1,10 +1,10 @@
-# Recheck: Replay checkpointed hardware emulation in simulation
+# REMU: Replayable EMUlator
 
-Recheck is a open-source framework which speeds up debugging and verification of hardware designs via FPGA emulation.
+REMU is an open-source framework which speeds up debugging and verification of hardware designs via FPGA emulation.
 
 It can transform an RTL design written in Verilog into an FPGA emulator design, and provides support for checkpointing & waveform reconstruction in a RTL simulator. The execution of the emulated hardware design on an FPGA can be paused and checkpointed at any time, and after an error is detected, a previous checkpoint can be restored and replayed in a simulator, generating a waveform of all signals within any desired time period.
 
-Recheck transforms the RTL design with `yosys` synthesis tool, by packaging the transformation passes inth a `yosys` plugin. The waveform reconstruction function is provided by a VPI module compatible with  `iverilog`. Recheck also provides a series of emulation models, including clock, reset, and a memory model, which eases the setup of an emulated system from a design under test (DUT).
+REMU transforms the RTL design with `yosys` synthesis tool, by packaging the transformation passes inth a `yosys` plugin. The waveform reconstruction function is provided by a VPI module compatible with  `iverilog`. REMU also provides a series of emulation models, including clock, reset, and a memory model, which eases the setup of an emulated system from a design under test (DUT).
 
 # Installation
 
@@ -78,22 +78,22 @@ export PATH=$PATH:/new/instalation/prefix/bin
 Build this project into a Docker image by the following command:
 
 ```sh
-docker build -t recheck .
+docker build -t remu .
 ```
 
 Run the image in a Docker container:
 
 ```sh
-docker run -it recheck
+docker run -it remu
 ```
 
 # Usage
 
-The steps described below should be followed to use Recheck for hardware emulation.
+The steps described below should be followed to use REMU for hardware emulation.
 
 ## Integrate with emulation models
 
-The design under test (DUT) must be integrated with emulation models before the transformation process. [design/picorv32/emu_top.v](design/picorv32/emu_top.v) is an example which integrate a PicoRV32 core with clock, reset, memory and peripheral models in Recheck.
+The design under test (DUT) must be integrated with emulation models before the transformation process. [design/picorv32/emu_top.v](design/picorv32/emu_top.v) is an example which integrate a PicoRV32 core with clock, reset, memory and peripheral models in REMU.
 
 For a full list of emulation models, please refer to [Emulation Models](models.md).
 
@@ -102,7 +102,7 @@ For a full list of emulation models, please refer to [Emulation Models](models.m
 After integration, run the following command to execute the transformation process. This assumes that you have integrated the DUT (`dut.v`) into a module named `emu_top` (`emu_top.v`), with the output design file named `emu_system.v` and the configuration file named `config.yml`.
 
 ```sh
-yosys -m transform -p "tcl $(shell recheck --tcl) -top emu_top -sc config.yml" -o emu_system.v emu_top.v dut.v
+yosys -m transform -p "read_verilog emu_top.v dut.v; emu_transform -top emu_top -elab emu_elab.v -yaml config.yml; write_verilog emu_system.v"
 ```
 
 ## Generate FPGA bitstream
@@ -132,13 +132,13 @@ The checkpoint can be saved by using `--dump` option.
 Compile simulation executable:
 
 ```sh
-iverilog $(recheck --ivl-flags) -s emu_top -o sim.vvp emu_top.v dut.v
+iverilog $(remu-config --ivl-flags) -s emu_top -o sim.vvp emu_elab.v
 ```
 
 Run simulation to replay a checkpoint for a specified period of time:
 
 ```sh
-vvp $(recheck --vvp-flags) sim.vvp -fst -replay-scanchain config.yml -replay-checkpoint checkpoint +dumpfile=dump.fst +runcycle=1000
+vvp $(remu-config --vvp-flags) sim.vvp -fst -replay-scanchain config.yml -replay-checkpoint checkpoint +dumpfile=dump.fst +runcycle=1000
 ```
 
 # Limitations

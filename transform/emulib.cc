@@ -16,7 +16,7 @@ static void add_source_folder(std::vector<std::string> &sources, const std::stri
 
 EmuLibInfo::EmuLibInfo()
 {
-    std::string emulib_dirname = proc_self_dirname() + "../share/recheck/emulib/";
+    std::string emulib_dirname = proc_self_dirname() + "../share/remu/emulib/";
 
     if (!check_file_exists(emulib_dirname, true))
         log_error("EmuLibInfo: cannot locate emulib path\n");

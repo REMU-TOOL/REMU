@@ -2,7 +2,7 @@ cmake_minimum_required (VERSION 3.5)
 
 include(ExternalProject)
 
-project(recheck)
+project(remu)
 
 enable_testing()
 
@@ -38,12 +38,12 @@ install(DIRECTORY ${YOSYS_TMP_DESTDIR}/${CMAKE_INSTALL_PREFIX}/
 
 # Install individual files
 
-install(PROGRAMS ${CMAKE_SOURCE_DIR}/recheck.sh DESTINATION bin RENAME recheck)
+install(PROGRAMS ${CMAKE_SOURCE_DIR}/remu-config.sh DESTINATION bin RENAME remu-config)
 
 # Add emulation libraries
 
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/emulib/
-    DESTINATION share/recheck/emulib
+    DESTINATION share/remu/emulib
 )
 
 # Add exchange project

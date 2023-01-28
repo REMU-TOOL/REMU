@@ -35,6 +35,6 @@ $(OUTPUT_V): $(VSRC)
 
 $(ELAB_V): $(OUTPUT_V)
 
-$(SIM_VVP): $(ELAB_V) $(shell recheck --ivl-srcs)
+$(SIM_VVP): $(ELAB_V) $(shell remu-config --ivl-srcs)
 	mkdir -p $(BUILD_DIR)
-	iverilog $(shell recheck --ivl-flags) -s $(VTOP) -o $@ $^
+	iverilog $(shell remu-config --ivl-flags) -s $(VTOP) -o $@ $^

@@ -31,7 +31,7 @@ target_link_options(replay-vpi PRIVATE
 )
 
 install(TARGETS replay-vpi
-    LIBRARY DESTINATION share/recheck
+    LIBRARY DESTINATION share/remu
 )
 
 # scdump

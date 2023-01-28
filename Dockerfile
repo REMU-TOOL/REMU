@@ -40,12 +40,12 @@ RUN cd /tmp && \
     make install && \
     rm -rf /tmp/iverilog.tar.gz /tmp/iverilog
 
-# Build recheck
+# Build REMU
 
-COPY . /tmp/recheck
+COPY . /tmp/remu
 
-RUN cd /tmp/recheck && \
+RUN cd /tmp/remu && \
     cmake -DCMAKE_BUILD_TYPE=Release . && \
     make -j`nproc` && \
     make install && \
-    rm -rf /tmp/recheck
+    rm -rf /tmp/remu
