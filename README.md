@@ -132,7 +132,7 @@ The checkpoint can be saved by using `--dump` option.
 Compile simulation executable:
 
 ```sh
-iverilog $(recheck --iv-flags) -s emu_top -o sim.vvp emu_top.v dut.v
+iverilog $(recheck --ivl-flags) -s emu_top -o sim.vvp emu_top.v dut.v
 ```
 
 Run simulation to replay a checkpoint for a specified period of time:

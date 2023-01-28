@@ -3,12 +3,12 @@
 help() {
 { cat <<EOF
 
-Usage: $0 { --iv-srcs | --iv-flags | --vvp-flags | --tcl }
+Usage: $0 <option>
 
 Options:
-    --iv-srcs       simulation sources for iverilog
-    --iv-flags      iverilog flags
-    --vvp-flags     vvp flags
+    --ivl-srcs          simulation sources for iverilog
+    --ivl-flags         iverilog flags
+    --vvp-flags         vvp flags
 
 EOF
 } >&2
@@ -24,8 +24,8 @@ if [[ ! -d $RECHECK_DIR || ! -d $EMULIB_DIR ]]; then
     exit 1
 fi
 
-IV_SRCS=$(find $EMULIB_DIR/sim -name "*.v")
-IV_FLAGS="-I$EMULIB_DIR/include -s reconstruct"
+IVL_SRCS=$(find $EMULIB_DIR/sim -name "*.v")
+IVL_FLAGS="-I $EMULIB_DIR/include -s reconstruct"
 VVP_FLAGS="-M $RECHECK_DIR -m replay"
 
 if [ $# -eq 0 ]; then
@@ -34,12 +34,12 @@ fi
 
 for opt; do
     case "$opt" in
-        --iv-srcs)
-            echo $IV_SRCS
+        --ivl-srcs)
+            echo $IVL_SRCS
             exit
         ;;
-        --iv-flags)
-            echo $IV_FLAGS
+        --ivl-flags)
+            echo $IVL_FLAGS
             exit
         ;;
         --vvp-flags)
