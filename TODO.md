@@ -24,4 +24,3 @@
 
 - Load init data in emulation
 - 4KB boundary check in simple DMA
-- Remove EmuLib stub files
