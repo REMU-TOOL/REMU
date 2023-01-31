@@ -6,11 +6,12 @@ help() {
 Usage: $0 <option>
 
 Options:
-    --ivl-srcs          simulation sources for iverilog
+    --ivl-srcs          iverilog simulation sources
     --ivl-flags         iverilog flags
     --vvp-flags         vvp flags
-    --cosim-ivl-flags   iverilog flags for co-simulation
-    --cosim-vvp-flags   vvp flags for co-simulation
+    --cosim-ivl-srcs    iverilog co-simulation sources
+    --cosim-ivl-flags   iverilog co-simulation flags
+    --cosim-vvp-flags   vvp co-simulation flags
 
 EOF
 } >&2
@@ -26,10 +27,11 @@ if [[ ! -d $REMU_DIR || ! -d $EMULIB_DIR ]]; then
     exit 1
 fi
 
-IVL_SRCS=$(find $EMULIB_DIR/sim -name "*.v")
+IVL_SRCS="$(find $EMULIB_DIR/sim -name '*.v')"
 IVL_FLAGS="-I $EMULIB_DIR/include -s reconstruct"
 VVP_FLAGS="-M $REMU_DIR -m replay"
-COSIM_IVL_FLAGS="-I $REMU_DIR/cosim"
+COSIM_IVL_SRCS="$(find $REMU_DIR/cosim -name '*.v')"
+COSIM_IVL_FLAGS="-I $REMU_DIR/cosim/include"
 COSIM_VVP_FLAGS="-M $REMU_DIR -m cosim_ivl"
 
 if [ $# -eq 0 ]; then
@@ -48,6 +50,10 @@ for opt; do
         ;;
         --vvp-flags)
             echo $VVP_FLAGS
+            exit
+        ;;
+        --cosim-ivl-srcs)
+            echo $COSIM_IVL_SRCS
             exit
         ;;
         --cosim-ivl-flags)
