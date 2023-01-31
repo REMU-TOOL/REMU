@@ -11,7 +11,7 @@
 #include "interface.h"
 #include "emulib.h"
 
-using namespace Emu;
+using namespace REMU;
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -195,18 +195,18 @@ struct EmuTransformPass : public Pass {
 
         Pass::call(design, "emu_package -top EMU_SYSTEM");
 
-        if (!raw_plat) {
-            log_header(design, "Executing platform transformation.\n");
-            log_push();
-            PlatformTransform worker(design, database, emulib);
-            worker.run();
-            log_pop();
-        }
-
         {
             log_header(design, "Executing interface transformation.\n");
             log_push();
             InterfaceWorker worker(design, database);
+            worker.run();
+            log_pop();
+        }
+
+        if (!raw_plat) {
+            log_header(design, "Executing platform transformation.\n");
+            log_push();
+            PlatformTransform worker(design, database, emulib);
             worker.run();
             log_pop();
         }

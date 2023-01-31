@@ -7,7 +7,7 @@
 
 USING_YOSYS_NAMESPACE
 
-using namespace Emu;
+using namespace REMU;
 
 inline Cell* ClockGate(Module *module, IdString name, SigSpec clk, SigSpec en, SigSpec oclk)
 {

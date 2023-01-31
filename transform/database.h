@@ -6,7 +6,7 @@
 #include "emu_config.h"
 #include "axi.h"
 
-namespace Emu {
+namespace REMU {
 
 struct FFInfo : public Config::FF
 {
@@ -40,7 +40,7 @@ struct PipeInfo : public Config::Pipe
     Yosys::IdString port_empty; // only for input direction
 };
 
-struct AXIIntfInfo : public Config::AXI
+struct AXIIntfInfo : public Config::AXIPort
 {
     AXI::AXI4 axi;
 };
@@ -81,6 +81,6 @@ struct EmulationDatabase
     EmulationDatabase() {}
 };
 
-} // namespace Emu
+} // namespace REMU
 
 #endif // #ifndef _DATABASE_H_

@@ -3,7 +3,7 @@
 
 #include "kernel/yosys.h"
 
-namespace Emu {
+namespace REMU {
 namespace Attr {
 #define DEF(k, v) extern const Yosys::IdString k;
 #include "attr.inc"

@@ -9,7 +9,7 @@
 
 #include "escape.h"
 
-using namespace Emu;
+using namespace REMU;
 
 namespace {
 
@@ -49,7 +49,7 @@ T get_value_as(vpiHandle obj) {
     return res;
 }
 
-Emu::BitVector get_value_as_bitvector(vpiHandle obj) {
+REMU::BitVector get_value_as_bitvector(vpiHandle obj) {
     int size = vpi_get(vpiSize, obj);
     int count = (size + 31) / 32;
 
@@ -58,7 +58,7 @@ Emu::BitVector get_value_as_bitvector(vpiHandle obj) {
 
     vpi_get_value(obj, &value);
 
-    Emu::BitVector res(size);
+    REMU::BitVector res(size);
     for (int i = 0; i < count; i++) {
         int chunk = value.value.vector[i].aval & ~value.value.vector[i].bval;
         res.setValue(i * 32, size < 32 ? size : 32, chunk);
@@ -94,7 +94,7 @@ void set_value(vpiHandle obj, T val) {
     vpi_put_value(obj, &value, 0, vpiNoDelay);
 }
 
-void set_value(vpiHandle obj, const Emu::BitVector &val) {
+void set_value(vpiHandle obj, const REMU::BitVector &val) {
     int size = vpi_get(vpiSize, obj);
     int count = (size + 31) / 32;
 
@@ -223,14 +223,15 @@ int rammodel_new_tf(char* user_data) {
         return 0;
     }
 
-    uint32_t addr_width, data_width, id_width, pf_count;
+    uint32_t addr_width, data_width, id_width;
+    uint64_t mem_size;
     addr_width  = get_value_as<uint32_t>(args[0]);
     data_width  = get_value_as<uint32_t>(args[1]);
     id_width    = get_value_as<uint32_t>(args[2]);
-    pf_count    = get_value_as<uint32_t>(args[3]);
+    mem_size    = get_value_as<uint64_t>(args[3]);
 
     size_t index = rammodel_list.size();
-    rammodel_list.emplace_back(addr_width, data_width, id_width, pf_count);
+    rammodel_list.emplace_back(addr_width, data_width, id_width, mem_size);
 
     vpiHandle scope = vpi_handle(vpiScope, callh);
     std::string name = vpi_get_str(vpiFullName, scope);
@@ -530,7 +531,7 @@ PLI_INT32 load_callback(p_cb_data cb_data) {
 
 }; // namespace
 
-void Emu::register_tfs(Emu::VPILoader *loader) {
+void REMU::register_tfs(REMU::VPILoader *loader) {
     s_vpi_systf_data tf_data;
     PLI_BYTE8 *user_data = reinterpret_cast<PLI_BYTE8 *>(loader);
 
@@ -624,7 +625,7 @@ void Emu::register_tfs(Emu::VPILoader *loader) {
     vpi_register_systf(&tf_data);
 }
 
-void Emu::register_load_callback(VPILoader *loader) {
+void REMU::register_load_callback(VPILoader *loader) {
     s_vpi_time cb_time;
     cb_time.type = vpiSimTime;
     vpi_get_time(0, &cb_time);

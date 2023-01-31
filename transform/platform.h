@@ -7,7 +7,7 @@
 #include "database.h"
 #include "emulib.h"
 
-namespace Emu {
+namespace REMU {
 
 struct PlatformTransform
 {

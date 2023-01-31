@@ -7,7 +7,7 @@
 
 USING_YOSYS_NAMESPACE
 
-using namespace Emu;
+using namespace REMU;
 
 Hierarchy::Hierarchy(Design *design) : design(design)
 {

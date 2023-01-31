@@ -8,7 +8,7 @@
 #include <map>
 #include <stdexcept>
 
-namespace Emu {
+namespace REMU {
 
 struct CircuitInfo
 {

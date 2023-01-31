@@ -10,7 +10,7 @@
 
 #include <queue>
 
-namespace Emu {
+namespace REMU {
 
 class CombDeps
 {

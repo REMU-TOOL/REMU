@@ -10,7 +10,7 @@
 
 namespace fs = boost::filesystem;
 
-using namespace Emu;
+using namespace REMU;
 
 struct Checkpoint::ReadStream::ImplData
 {

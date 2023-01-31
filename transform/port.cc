@@ -6,7 +6,7 @@
 
 #include <sstream>
 
-using namespace Emu;
+using namespace REMU;
 
 USING_YOSYS_NAMESPACE
 

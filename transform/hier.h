@@ -6,7 +6,7 @@
 
 #include "dag.h"
 
-namespace Emu {
+namespace REMU {
 
 struct Hierarchy
 {

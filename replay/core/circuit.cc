@@ -4,7 +4,7 @@
 
 #include <cstdio>
 
-using namespace Emu;
+using namespace REMU;
 
 namespace {
 
@@ -52,12 +52,12 @@ void CircuitLoader::load(Checkpoint &checkpoint)
     }
 
     const YAML::Node &ram_list = config["ram"];
-    size_t ram_size = 0, ram_offset = 0;
+    size_t mem_size = 0, ram_offset = 0;
     for (auto &ram : ram_list)
-        ram_size += ram["width"].as<int>() * ram["depth"].as<int>();
+        mem_size += ram["width"].as<int>() * ram["depth"].as<int>();
 
-    BitVector ram_data(ram_size);
-    data_stream.read(reinterpret_cast<char *>(ram_data.to_ptr()), (ram_size + 63) / 64 * 8);
+    BitVector ram_data(mem_size);
+    data_stream.read(reinterpret_cast<char *>(ram_data.to_ptr()), (mem_size + 63) / 64 * 8);
 
     for (auto &ram : ram_list) {
         auto name = name_from_yaml(ram["name"]);

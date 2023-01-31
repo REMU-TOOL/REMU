@@ -6,7 +6,7 @@
 
 USING_YOSYS_NAMESPACE
 
-using namespace Emu;
+using namespace REMU;
 
 PRIVATE_NAMESPACE_BEGIN
 
@@ -16,7 +16,7 @@ void sig_from_wire(AXI::Sig &sig, Wire *wire)
         sig.width = 0;
         return;
     }
-    sig.name = wire->name.str();
+    sig.name = id2str(wire->name);
     sig.width = wire->width;
     sig.output = wire->port_output;
 }
@@ -85,24 +85,23 @@ void InterfaceWorker::promote_axi_intfs(Module *module)
 
         std::string name = wire->get_string_attribute(Attr::AxiName);
 
+        if (!wire->has_attribute(Attr::AxiSize))
+            log_error("AXI interface %s does not have size specified\n",
+                name.c_str());
+
         AXIIntfInfo info;
         info.name = {name};
         info.port_name = name;
         info.axi = axi4_from_prefix(module, name);
-        info.addr_space = wire->get_string_attribute(Attr::AxiAddrSpace);
-        info.addr_pages = -1;
+        info.size = const_as_u64(wire->attributes.at(Attr::AxiSize));
 
         info.axi.check();
 
-        if (wire->has_attribute(Attr::AxiAddrPages))
-            info.addr_pages = wire->attributes.at(Attr::AxiAddrPages).as_int();
-
-        log("Identified %s %s interface %s with addr_space = %s, addr_pages = %d\n",
+        log("Identified %s %s interface %s with size = 0x%lx\n",
             info.axi.isFull() ? "AXI4" : "AXI4-lite",
             info.axi.isMaster() ? "master" : "slave",
             name.c_str(),
-            info.addr_space.c_str(),
-            info.addr_pages);
+            info.size.data);
 
         axi_intfs.push_back(info);
     }
@@ -118,7 +117,7 @@ void InterfaceWorker::promote_axi_intfs(Module *module)
             AXIIntfInfo newinfo = info;
             newinfo.name.insert(newinfo.name.begin(), id2str(edge.name.second));
             newinfo.port_name = "EMU_AXI_" + join_string(newinfo.name, '_');
-            newinfo.axi.setPrefix("\\" + newinfo.port_name);
+            newinfo.axi.setPrefix(newinfo.port_name);
 
             auto sub_sigs = info.axi.signals();
             auto new_sigs = newinfo.axi.signals();
@@ -131,10 +130,10 @@ void InterfaceWorker::promote_axi_intfs(Module *module)
                 if (!sub_it->present())
                     continue;
 
-                Wire *wire = module->addWire(new_it->name, new_it->width);
+                Wire *wire = module->addWire("\\" + new_it->name, new_it->width);
                 wire->port_input = !new_it->output;
                 wire->port_output = new_it->output;
-                inst->setPort(sub_it->name, wire);
+                inst->setPort("\\" + sub_it->name, wire);
             }
 
             axi_intfs.push_back(newinfo);

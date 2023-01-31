@@ -2,7 +2,7 @@
 
 #include <vpi_user.h>
 
-using namespace Emu;
+using namespace REMU;
 
 void replay_startup_routine() {
     s_vpi_vlog_info vlog_info;

@@ -3,7 +3,7 @@
 
 USING_YOSYS_NAMESPACE
 
-using namespace Emu;
+using namespace REMU;
 
 static void add_source_folder(std::vector<std::string> &sources, const std::string &path)
 {

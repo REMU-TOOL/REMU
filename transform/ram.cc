@@ -32,7 +32,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-using namespace Emu;
+using namespace REMU;
 
 void remove_ff_bits(const pool<std::pair<Cell *, int>> &bits, FfInitVals &initvals) {
     dict<Cell *, pool<int>> ff_bits;

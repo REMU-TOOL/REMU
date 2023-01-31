@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-using namespace Emu;
+using namespace REMU;
 
 #define EXPECT(x, res) \
     do { \

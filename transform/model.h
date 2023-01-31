@@ -6,7 +6,7 @@
 #include "hier.h"
 #include "database.h"
 
-namespace Emu {
+namespace REMU {
 
 struct ModelAnalyzer
 {

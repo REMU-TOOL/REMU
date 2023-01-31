@@ -6,14 +6,14 @@
 #include "escape.h"
 #include <sstream>
 
-namespace Emu {
+namespace Yosys {
 
-inline bool is_public_id(Yosys::IdString id)
+inline bool is_public_id(IdString id)
 {
     return id[0] == '\\';
 }
 
-inline std::string str_id(Yosys::IdString id)
+inline std::string str_id(IdString id)
 {
     if (is_public_id(id))
         return id.str().substr(1);
@@ -38,7 +38,7 @@ inline std::string simple_hier_name(const std::vector<std::string> &hier)
     return os.str();
 }
 
-inline std::string pretty_name(Yosys::IdString id, bool escape = true)
+inline std::string pretty_name(IdString id, bool escape = true)
 {
     std::string res = id[0] == '\\' ? id.substr(1) : id.str();
     if (escape)
@@ -47,7 +47,7 @@ inline std::string pretty_name(Yosys::IdString id, bool escape = true)
         return res;
 }
 
-inline std::string pretty_name(std::vector<Yosys::IdString> path, bool escape = true)
+inline std::string pretty_name(std::vector<IdString> path, bool escape = true)
 {
     std::ostringstream ss;
     bool first = true;
@@ -66,41 +66,41 @@ template <typename T> inline std::string pretty_name(T* obj, bool escape = true)
     return pretty_name(obj->name, escape);
 }
 
-inline std::string pretty_name(Yosys::SigBit bit, bool escape = true)
+inline std::string pretty_name(SigBit bit, bool escape = true)
 {
     if (bit.is_wire()) {
         std::ostringstream ss;
         ss << pretty_name(bit.wire, escape);
         if (bit.wire->width != 1)
-            ss << Yosys::stringf("[%d]", bit.wire->start_offset + bit.offset);
+            ss << stringf("[%d]", bit.wire->start_offset + bit.offset);
         return ss.str();
     }
     else
-        return Yosys::Const(bit.data).as_string();
+        return Const(bit.data).as_string();
 }
 
-inline std::string pretty_name(Yosys::SigChunk chunk, bool escape = true)
+inline std::string pretty_name(SigChunk chunk, bool escape = true)
 {
     if (chunk.is_wire()) {
         std::ostringstream ss;
         ss << pretty_name(chunk.wire, escape);
         if (chunk.size() != chunk.wire->width) {
             if (chunk.size() == 1)
-                ss << Yosys::stringf("[%d]", chunk.wire->start_offset + chunk.offset);
+                ss << stringf("[%d]", chunk.wire->start_offset + chunk.offset);
             else if (chunk.wire->upto)
-                ss << Yosys::stringf("[%d:%d]", (chunk.wire->width - (chunk.offset + chunk.width - 1) - 1) + chunk.wire->start_offset,
+                ss << stringf("[%d:%d]", (chunk.wire->width - (chunk.offset + chunk.width - 1) - 1) + chunk.wire->start_offset,
                         (chunk.wire->width - chunk.offset - 1) + chunk.wire->start_offset);
             else
-                ss << Yosys::stringf("[%d:%d]", chunk.wire->start_offset + chunk.offset + chunk.width - 1,
+                ss << stringf("[%d:%d]", chunk.wire->start_offset + chunk.offset + chunk.width - 1,
                         chunk.wire->start_offset + chunk.offset);
         }
         return ss.str();
     }
     else
-        return Yosys::Const(chunk.data).as_string();
+        return Const(chunk.data).as_string();
 }
 
-inline std::string pretty_name(Yosys::SigSpec spec, bool escape = true)
+inline std::string pretty_name(SigSpec spec, bool escape = true)
 {
     auto &chunks = spec.chunks();
     if (chunks.size() == 1)
@@ -118,6 +118,30 @@ inline std::string pretty_name(Yosys::SigSpec spec, bool escape = true)
     ss << "}";
     return ss.str();
 }
+
+inline void make_internal(Wire *wire)
+{
+    wire->port_input = false;
+    wire->port_output = false;
+}
+
+inline std::string id2str(IdString id)
+{
+    return id[0] == '\\' ? id.substr(1) : id.str();
+}
+
+inline uint64_t const_as_u64(const Const &c)
+{
+	uint64_t ret = 0;
+	for (size_t i = 0; i < c.bits.size() && i < 64; i++)
+		if (c.bits[i] == State::S1)
+			ret |= 1 << i;
+	return ret;
+}
+
+} // namespace Yosys
+
+namespace REMU {
 
 inline std::vector<std::string> split_string(std::string s, char delim)
 {
@@ -145,17 +169,6 @@ inline std::string join_string(const std::vector<std::string> &vec, char delim)
     return ss.str();
 }
 
-inline void make_internal(Yosys::Wire *wire)
-{
-    wire->port_input = false;
-    wire->port_output = false;
-}
-
-inline std::string id2str(Yosys::IdString id)
-{
-    return id[0] == '\\' ? id.substr(1) : id.str();
-}
-
-} // namespace Emu
+} // namespace REMU
 
 #endif // #ifndef _EMU_TRANSFORM_H_

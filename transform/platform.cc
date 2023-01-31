@@ -7,7 +7,7 @@
 
 USING_YOSYS_NAMESPACE
 
-using namespace Emu;
+using namespace REMU;
 
 PRIVATE_NAMESPACE_BEGIN
 
@@ -15,6 +15,10 @@ const uint32_t  CTRL_ADDR_WIDTH         = 16u;
 
 const uint32_t  SYS_CTRL_BASE           = 0x0000u;
 const uint32_t  SYS_CTRL_WIDTH          = 12u;
+
+const uint32_t  AXI_REMAP_CFG_BASE      = 0x1600u;
+const uint32_t  AXI_REMAP_CFG_WIDTH     = 4u;
+const uint32_t  AXI_REMAP_CFG_LIMIT     = 0x1800u;
 
 const uint32_t  PIPE_INGRESS_PIO_BASE   = 0x1800u;
 const uint32_t  PIPE_INGRESS_PIO_WIDTH  = 5u;
@@ -188,6 +192,52 @@ void connect_triggers(EmulationDatabase &database, Module *top, Cell *sys_ctrl)
     sys_ctrl->setPort("\\trig", trigs);
 }
 
+void add_axi_remap(EmulationDatabase &database, Module *top, CtrlConnBuilder &builder)
+{
+    Wire *host_clk      = CommonPort::get(top, CommonPort::PORT_HOST_CLK);
+    Wire *host_rst      = CommonPort::get(top, CommonPort::PORT_HOST_RST);
+
+    int i = 0;
+    const unsigned int step = 1 << AXI_REMAP_CFG_WIDTH;
+
+    for (auto &info : database.axi_intfs) {
+        IdString araddr_name = "\\" + info.axi.ar.addr.name;
+        IdString awaddr_name = "\\" + info.axi.aw.addr.name;
+        Wire *araddr = top->wire(araddr_name);
+        Wire *awaddr = top->wire(awaddr_name);
+        top->rename(araddr, NEW_ID);
+        top->rename(awaddr, NEW_ID);
+        Wire *new_araddr = top->addWire(araddr_name, araddr);
+        Wire *new_awaddr = top->addWire(awaddr_name, awaddr);
+        make_internal(araddr);
+        make_internal(awaddr);
+
+        auto ctrl = CtrlSig::create(top, stringf("emu_axi_remap_ctrl_%d", i), CTRL_ADDR_WIDTH, 32);
+        Cell *cell = top->addCell(stringf("\\emu_remap_%d", i), "\\EmuAXIRemapCtrl");
+        cell->setParam("\\CTRL_ADDR_WIDTH", CTRL_ADDR_WIDTH);
+        cell->setParam("\\ADDR_WIDTH", info.axi.addrWidth());
+        cell->setPort("\\clk", host_clk);
+        cell->setPort("\\rst", host_rst);
+        cell->setPort("\\ctrl_wen", ctrl.wen);
+        cell->setPort("\\ctrl_waddr", ctrl.waddr);
+        cell->setPort("\\ctrl_wdata", ctrl.wdata);
+        cell->setPort("\\ctrl_ren", ctrl.ren);
+        cell->setPort("\\ctrl_raddr", ctrl.raddr);
+        cell->setPort("\\ctrl_rdata", ctrl.rdata);
+        cell->setPort("\\araddr_i", araddr);
+        cell->setPort("\\araddr_o", new_araddr);
+        cell->setPort("\\awaddr_i", awaddr);
+        cell->setPort("\\awaddr_o", new_awaddr);
+
+        info.reg_offset = AXI_REMAP_CFG_BASE + step * i;
+        if (info.reg_offset >= AXI_REMAP_CFG_LIMIT)
+            log_error("too many AXI interfaces\n");
+
+        builder.add(ctrl, info.reg_offset, AXI_REMAP_CFG_WIDTH);
+        i++;
+    }
+}
+
 void add_pipe_adapters(EmulationDatabase &database, Module *top, CtrlConnBuilder &builder)
 {
     Wire *host_clk      = CommonPort::get(top, CommonPort::PORT_HOST_CLK);
@@ -228,13 +278,17 @@ void add_pipe_adapters(EmulationDatabase &database, Module *top, CtrlConnBuilder
             if (!info.output) {
                 auto wire_empty = top->wire(info.port_empty);
                 cell->setPort("\\stream_empty", wire_empty);
-                info.base_addr = PIPE_INGRESS_PIO_BASE + i_pio_step * i_pio_idx;
-                builder.add(ctrl, info.base_addr, PIPE_INGRESS_PIO_WIDTH);
+                info.reg_offset = PIPE_INGRESS_PIO_BASE + i_pio_step * i_pio_idx;
+                if (info.reg_offset >= PIPE_INGRESS_PIO_LIMIT)
+                    log_error("too many ingress pipes\n");
+                builder.add(ctrl, info.reg_offset, PIPE_INGRESS_PIO_WIDTH);
                 i_pio_idx++;
             }
             else {
-                info.base_addr = PIPE_EGRESS_PIO_BASE + e_pio_step * e_pio_idx;
-                builder.add(ctrl, info.base_addr, PIPE_EGRESS_PIO_WIDTH);
+                info.reg_offset = PIPE_EGRESS_PIO_BASE + e_pio_step * e_pio_idx;
+                if (info.reg_offset >= PIPE_EGRESS_PIO_LIMIT)
+                    log_error("too many egress pipes\n");
+                builder.add(ctrl, info.reg_offset, PIPE_EGRESS_PIO_WIDTH);
                 e_pio_idx++;
             }
         }
@@ -330,10 +384,12 @@ void PlatformTransform::run()
     sys_ctrl->setPort("\\ctrl_raddr",   sys_ctrl_sig.raddr);
     sys_ctrl->setPort("\\ctrl_rdata",   sys_ctrl_sig.rdata);
 
+    Wire *dma_base = top->addWire(NEW_ID, 32);
     Wire *dma_start = top->addWire(NEW_ID);
     Wire *dma_direction = top->addWire(NEW_ID);
     Wire *dma_running = top->addWire(NEW_ID);
 
+    sys_ctrl->setPort("\\dma_base",         dma_base);
     sys_ctrl->setPort("\\dma_start",        dma_start);
     sys_ctrl->setPort("\\dma_direction",    dma_direction);
     sys_ctrl->setPort("\\dma_running",      dma_running);
@@ -365,6 +421,7 @@ void PlatformTransform::run()
     scan_ctrl->setPort("\\ram_sd",          ram_sd);
     scan_ctrl->setPort("\\ram_di",          ram_di);
     scan_ctrl->setPort("\\ram_do",          ram_do);
+    scan_ctrl->setPort("\\dma_base",        dma_base);
     scan_ctrl->setPort("\\dma_start",       dma_start);
     scan_ctrl->setPort("\\dma_direction",   dma_direction);
     scan_ctrl->setPort("\\dma_running",     dma_running);
@@ -380,6 +437,10 @@ void PlatformTransform::run()
         std::string postfix = sig.name.substr(dma_axi_name.size());
         scan_ctrl->setPort("\\dma_axi" + postfix, wire);
     }
+
+    // Add AXI remap
+
+    add_axi_remap(database, top, builder);
 
     // Add pipe adapters
 

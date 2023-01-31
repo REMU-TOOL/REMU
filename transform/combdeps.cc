@@ -5,7 +5,7 @@
 
 USING_YOSYS_NAMESPACE
 
-using namespace Emu;
+using namespace REMU;
 
 void CombDeps::setup()
 {

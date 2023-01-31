@@ -4,16 +4,20 @@
 #include <boost/preprocessor.hpp>
 #include "yaml-cpp/yaml.h"
 
-namespace Emu {
+namespace REMU {
 namespace Config {
 
-struct u32 {
-    uint32_t data;
-    u32() : data(0) {}
-    u32(uint32_t data) : data(data) {}
-    void operator=(uint32_t data) { this->data = data; }
-    operator uint32_t() const { return data; }
+template <typename T>
+struct _int_type {
+    T data;
+    _int_type() : data(0) {}
+    _int_type(T data) : data(data) {}
+    void operator=(T data) { this->data = data; }
+    operator T() const { return data; }
 };
+
+using u32 = _int_type<uint32_t>;
+using u64 = _int_type<uint64_t>;
 
 struct Node
 {
@@ -28,25 +32,25 @@ struct Node
 #define CONFIG_PAIR_SECOND_1(...) CONFIG_PAIR_SECOND_2
 #define CONFIG_PAIR_SECOND_2(...) __VA_ARGS__
 
-#define CONFIG_DEF_STRUCT_EACH(r, type, i, field) \
-    struct BOOST_PP_SEQ_CAT((type##_field)(BOOST_PP_ADD(i, 1))) \
-        : public type##_field##i { \
-        CONFIG_PAIR_FIRST(field) CONFIG_PAIR_SECOND(field); \
-        void fromYAML(const YAML::Node &node) { \
-            type##_field##i::fromYAML(node); \
-            CONFIG_PAIR_SECOND(field) = node[BOOST_PP_STRINGIZE(CONFIG_PAIR_SECOND(field))] \
-                .as<CONFIG_PAIR_FIRST(field)>();\
-        } \
-        void toYAML(YAML::Node &node) const { \
-            type##_field##i::toYAML(node); \
-            node[BOOST_PP_STRINGIZE(CONFIG_PAIR_SECOND(field))] = CONFIG_PAIR_SECOND(field); \
-        } \
-    };
+#define CONFIG_DEF_STRUCT_DECL_EACH(r, type, i, field) \
+    CONFIG_PAIR_FIRST(field) CONFIG_PAIR_SECOND(field);
+
+#define CONFIG_DEF_STRUCT_FROM_YAML_EACH(r, type, i, field) \
+    CONFIG_PAIR_SECOND(field) = node[BOOST_PP_STRINGIZE(CONFIG_PAIR_SECOND(field))].as<CONFIG_PAIR_FIRST(field)>();
+
+#define CONFIG_DEF_STRUCT_TO_YAML_EACH(r, type, i, field) \
+    node[BOOST_PP_STRINGIZE(CONFIG_PAIR_SECOND(field))] = CONFIG_PAIR_SECOND(field);
 
 #define CONFIG_DEF_STRUCT(type, ...) \
-    using type##_field0 = Node; \
-    BOOST_PP_SEQ_FOR_EACH_I(CONFIG_DEF_STRUCT_EACH, type, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__)) \
-    using type = BOOST_PP_SEQ_CAT((type##_field)(BOOST_PP_VARIADIC_SIZE(__VA_ARGS__))); \
+    struct type { \
+        BOOST_PP_SEQ_FOR_EACH_I(CONFIG_DEF_STRUCT_DECL_EACH, type, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__)) \
+        void fromYAML(const YAML::Node &node) { \
+            BOOST_PP_SEQ_FOR_EACH_I(CONFIG_DEF_STRUCT_FROM_YAML_EACH, type, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__)) \
+        } \
+        void toYAML(YAML::Node &node) const { \
+            BOOST_PP_SEQ_FOR_EACH_I(CONFIG_DEF_STRUCT_TO_YAML_EACH, type, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__)) \
+        } \
+    };
 
 CONFIG_DEF_STRUCT(FF,
     (std::vector<std::string>)  (name),
@@ -93,14 +97,14 @@ CONFIG_DEF_STRUCT(Pipe,
     (std::string)               (type),
     (bool)                      (output),
     (int)                       (width),
-    (u32)                       (base_addr)
+    (u32)                       (reg_offset)
 )
 
-CONFIG_DEF_STRUCT(AXI,
+CONFIG_DEF_STRUCT(AXIPort,
     (std::vector<std::string>)  (name),
     (std::string)               (port_name),
-    (std::string)               (addr_space),
-    (int)                       (addr_pages)
+    (u64)                       (size),
+    (u32)                       (reg_offset)
 )
 
 CONFIG_DEF_STRUCT(Model,
@@ -117,13 +121,15 @@ CONFIG_DEF_STRUCT(Config,
     (std::vector<Reset>)        (reset),
     (std::vector<Trig>)         (trig),
     (std::vector<Pipe>)         (pipe),
-    (std::vector<AXI>)          (axi),
+    (std::vector<AXIPort>)      (axi),
     (std::vector<Model>)        (model)
 )
 
 #undef CONFIG_FIELD_TYPE
 #undef CONFIG_FIELD_NAME
-#undef CONFIG_DEF_STRUCT_EACH
+#undef CONFIG_DEF_STRUCT_DECL_EACH
+#undef CONFIG_DEF_STRUCT_FROM_YAML_EACH
+#undef CONFIG_DEF_STRUCT_TO_YAML_EACH
 #undef CONFIG_DEF_STRUCT
 #undef CONFIG_PAIR_FIRST
 #undef CONFIG_PAIR_FIRST_1
@@ -132,50 +138,62 @@ CONFIG_DEF_STRUCT(Config,
 #undef CONFIG_PAIR_SECOND_1
 #undef CONFIG_PAIR_SECOND_2
 
-} // namespace Config
-} // namespace Emu
-
-template<>
-struct YAML::convert<Emu::Config::u32>
+template <typename T>
+struct _int_type_convert
 {
-    static YAML::Node encode(const Emu::Config::u32 &rhs)
+    static YAML::Node encode(const T &rhs)
     {
         std::ostringstream ss;
         ss << std::hex << "0x" << rhs.data;
-        return Node(ss.str());
+        auto s = ss.str();
+        return YAML::Node(s);
     }
-    static bool decode(const YAML::Node& node, Emu::Config::u32& rhs)
+    static bool decode(const YAML::Node& node, T& rhs)
     {
         return YAML::convert<decltype(rhs.data)>().decode(node, rhs.data);
     }
 };
 
-#define CONFIG_CONV_DEF(type) \
-    template<> \
-    struct YAML::convert<type> \
-    { \
-        static YAML::Node encode(const type &rhs) \
-        { \
-            Node node; \
-            rhs.toYAML(node); \
-            return node; \
-        } \
-        static bool decode(const YAML::Node& node, type& rhs) { \
-            rhs.fromYAML(node); \
-            return true; \
-        } \
-    };
+template <typename T>
+struct _config_type_convert
+{
+    static YAML::Node encode(const T &rhs)
+    {
+        YAML::Node node;
+        rhs.toYAML(node);
+        return node;
+    }
+    static bool decode(const YAML::Node& node, T& rhs) {
+        rhs.fromYAML(node);
+        return true;
+    }
+};
 
-CONFIG_CONV_DEF(Emu::Config::FF)
-CONFIG_CONV_DEF(Emu::Config::RAM)
-CONFIG_CONV_DEF(Emu::Config::Clock)
-CONFIG_CONV_DEF(Emu::Config::Reset)
-CONFIG_CONV_DEF(Emu::Config::Trig)
-CONFIG_CONV_DEF(Emu::Config::Pipe)
-CONFIG_CONV_DEF(Emu::Config::AXI)
-CONFIG_CONV_DEF(Emu::Config::Model)
-CONFIG_CONV_DEF(Emu::Config::Config)
+} // namespace Config
+} // namespace REMU
 
-#undef CONFIG_CONV_DEF
+template<> struct YAML::convert<REMU::Config::u32>
+    : public REMU::Config::_int_type_convert<REMU::Config::u32> {};
+template<> struct YAML::convert<REMU::Config::u64>
+    : public REMU::Config::_int_type_convert<REMU::Config::u64> {};
+
+template<> struct YAML::convert<REMU::Config::FF>
+    : public REMU::Config::_config_type_convert<REMU::Config::FF> {};
+template<> struct YAML::convert<REMU::Config::RAM>
+    : public REMU::Config::_config_type_convert<REMU::Config::RAM> {};
+template<> struct YAML::convert<REMU::Config::Clock>
+    : public REMU::Config::_config_type_convert<REMU::Config::Clock> {};
+template<> struct YAML::convert<REMU::Config::Reset>
+    : public REMU::Config::_config_type_convert<REMU::Config::Reset> {};
+template<> struct YAML::convert<REMU::Config::Trig>
+    : public REMU::Config::_config_type_convert<REMU::Config::Trig> {};
+template<> struct YAML::convert<REMU::Config::Pipe>
+    : public REMU::Config::_config_type_convert<REMU::Config::Pipe> {};
+template<> struct YAML::convert<REMU::Config::AXIPort>
+    : public REMU::Config::_config_type_convert<REMU::Config::AXIPort> {};
+template<> struct YAML::convert<REMU::Config::Model>
+    : public REMU::Config::_config_type_convert<REMU::Config::Model> {};
+template<> struct YAML::convert<REMU::Config::Config>
+    : public REMU::Config::_config_type_convert<REMU::Config::Config> {};
 
 #endif // #ifndef _CONFIG_H_

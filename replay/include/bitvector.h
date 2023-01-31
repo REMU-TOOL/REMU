@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <utility>
 
-namespace Emu {
+namespace REMU {
 
 class BitVector
 {

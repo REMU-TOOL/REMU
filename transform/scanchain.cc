@@ -9,7 +9,7 @@
 
 USING_YOSYS_NAMESPACE
 
-using namespace Emu;
+using namespace REMU;
 
 void ScanchainWorker::instrument_module_ff(Module *module, SigSpec ff_di, SigSpec ff_do, std::vector<FFInfo> &info_list)
 {

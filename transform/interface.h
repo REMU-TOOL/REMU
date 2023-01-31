@@ -7,7 +7,7 @@
 #include "axi.h"
 #include "database.h"
 
-namespace Emu {
+namespace REMU {
 
 struct InterfaceWorker
 {

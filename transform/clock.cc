@@ -12,7 +12,7 @@
 
 USING_YOSYS_NAMESPACE
 
-using namespace Emu;
+using namespace REMU;
 
 inline IdString to_ff_clk(SigBit clk) { return "\\" + pretty_name(clk, false) + "_FF"; }
 inline IdString to_ram_clk(SigBit clk) { return "\\" + pretty_name(clk, false) + "_RAM"; }

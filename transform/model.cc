@@ -4,7 +4,7 @@
 #include "model.h"
 #include "utils.h"
 
-using namespace Emu;
+using namespace REMU;
 
 USING_YOSYS_NAMESPACE
 

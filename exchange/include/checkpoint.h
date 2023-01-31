@@ -3,7 +3,7 @@
 
 #include <iostream>
 
-namespace Emu {
+namespace REMU {
 
 class Checkpoint
 {

@@ -1,6 +1,6 @@
 #include "bitvector.h"
 
-using namespace Emu;
+using namespace REMU;
 
 namespace {
 

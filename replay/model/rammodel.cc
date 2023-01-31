@@ -3,7 +3,7 @@
 #include <stdexcept>
 #include <sstream>
 
-using namespace Emu;
+using namespace REMU;
 
 void RamModel::schedule() {
     if (a_queue.empty())
@@ -44,7 +44,7 @@ void RamModel::schedule() {
     uint64_t address = aligned_address;
 
     for (uint64_t i = 0; i < burst_length; i++) {
-        if (address >= (uint64_t(pf_count) << 12)) {
+        if (address >= mem_size) {
             std::ostringstream ss;
             ss << "address 0x" << std::hex << address << " out of boundary";
             throw std::invalid_argument(ss.str());
