@@ -4,10 +4,10 @@
 
 - Support user-generated clock signals
 - Auto-assign address ranges for emulator AXI interfaces
-- Handle "little-endian" wires in Verilog (MSB < LSB)
 
 ## RAM Model
 
+- Data must be held until target clock fires in output channel (host -> target)
 - Clean dont-care bits in AXI response for determinism
 - Optimize checkpointing of RAM model contents
 - AXI signaling check

@@ -99,10 +99,10 @@ For a full list of emulation models, please refer to [Emulation Models](models.m
 
 ## Transform DUT into an emulator design
 
-After integration, run the following command to execute the transformation process. This assumes that you have integrated the DUT (`dut.v`) into a module named `emu_top` (`emu_top.v`), with the output design file named `emu_system.v` and the configuration file named `config.yml`.
+After integration, run the following command to execute the transformation process. This assumes that you have integrated the DUT (`dut.v`) into a module named `emu_top` (`emu_top.v`), with the output design file named `emu_system.v` and the configuration file named `sysinfo.yml`.
 
 ```sh
-yosys -m transform -p "read_verilog emu_top.v dut.v; emu_transform -top emu_top -elab emu_elab.v -yaml config.yml; write_verilog emu_system.v"
+yosys -m transform -p "read_verilog emu_top.v dut.v; emu_transform -top emu_top -elab emu_elab.v -yaml sysinfo.yml; write_verilog emu_system.v"
 ```
 
 ## Generate FPGA bitstream
@@ -138,7 +138,7 @@ iverilog $(remu-config --ivl-flags) -s emu_top -o sim.vvp emu_elab.v
 Run simulation to replay a checkpoint for a specified period of time:
 
 ```sh
-vvp $(remu-config --vvp-flags) sim.vvp -fst -replay-scanchain config.yml -replay-checkpoint checkpoint +dumpfile=dump.fst +runcycle=1000
+vvp $(remu-config --vvp-flags) sim.vvp -fst -replay-scanchain sysinfo.yml -replay-checkpoint checkpoint +dumpfile=dump.fst +runcycle=1000
 ```
 
 # Limitations
