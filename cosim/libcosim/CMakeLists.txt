@@ -7,6 +7,7 @@ project(libcosim C)
 add_library(cosim_api STATIC lib/ipc/cosim_ipc.c lib/cosim_bfm_api.c)
 add_library(cosim_ivl SHARED lib/ipc/cosim_ipc.c lib/cosim_bfm_vpi.c)
 
+target_compile_definitions(cosim_api PRIVATE DEBUG)
 target_compile_definitions(cosim_ivl PRIVATE iverilog)
 
 set_target_properties(cosim_ivl PROPERTIES PREFIX "")

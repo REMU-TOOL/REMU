@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #if defined(WIN32)  // cygwin use this
 #       include <windows.h>
 #       include <io.h>
@@ -786,8 +787,9 @@ PLI_INT32 cosim_ipc_get_Calltf(PLI_BYTE8 *user_data) {
   vpi_get_value(cidH, &value);
   cid = (int)value.value.integer;
 
+  memset(&pkt, 0, sizeof(pkt));
   int len = (int)sizeof(pkt);
-  if (chn_recv(cid, len, (void*)&pkt)<0) {
+  if (chn_recv_nb(cid, len, (void*)&pkt)<0) {
       s_vpi_time time;
       time.type = vpiScaledRealTime;
       vpi_get_time(NULL, &time);
