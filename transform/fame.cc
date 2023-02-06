@@ -2,6 +2,7 @@
 
 #include "attr.h"
 #include "port.h"
+#include "clock.h"
 #include "fame.h"
 #include "utils.h"
 
@@ -53,10 +54,10 @@ void FAMETransform::run()
     ClockGate(top, NEW_ID, host_clk, top->Or(NEW_ID, not_scan_mode, ff_se), mdl_clk_ff);
     ClockGate(top, NEW_ID, host_clk, top->Or(NEW_ID, not_scan_mode, ram_se), mdl_clk_ram);
 
-    for (auto &info : database.user_clocks) {
+    for (auto &info : database.clock_ports) {
         Wire *clk = top->wire("\\" + info.port_name);
-        Wire *clk_ff = top->wire(info.ff_clk);
-        Wire *clk_ram = top->wire(info.ram_clk);
+        Wire *clk_ff = top->wire(ClockTreeRewriter::to_ff_clk(clk));
+        Wire *clk_ram = top->wire(ClockTreeRewriter::to_ram_clk(clk));
 
         make_internal(clk);
         make_internal(clk_ff);
@@ -69,18 +70,14 @@ void FAMETransform::run()
         info.index = 0; // TODO
     }
 
-    for (auto &info : database.channels) {
-        log("Emitting channel %s.%s\n", join_string(info.path, '.').c_str(), info.orig_name.c_str());
+    for (auto &info : database.channel_ports) {
+        log("Emitting channel %s\n", join_string(info.name, '.').c_str());
 
         Wire *valid = top->wire(info.port_valid);
         Wire *ready = top->wire(info.port_ready);
-        Wire *payload_inner = top->wire(info.port_payload_inner);
-        Wire *payload_outer = top->wire(info.port_payload_outer);
 
         make_internal(valid);
         make_internal(ready);
-        make_internal(payload_inner);
-        make_internal(payload_outer);
 
         SigSpec fire = top->And(NEW_ID, valid, ready);
         SigSpec done = top->addWire(NEW_ID);
@@ -98,30 +95,6 @@ void FAMETransform::run()
             done,
             State::S0
         );
-
-        // Note: direction is in model module's view
-        if (info.dir == ChannelInfo::IN) {
-            // assign valid = !done && run_mode;
-            top->connect(valid, top->And(NEW_ID, top->Not(NEW_ID, done), run_mode));
-            // connect payload signals
-            top->connect(payload_inner, payload_outer);
-        }
-        else {
-            // assign ready = !done && run_mode;
-            top->connect(ready, top->And(NEW_ID, top->Not(NEW_ID, done), run_mode));
-            // insert skid buffers for payload signals
-            // always @(posedge clk)
-            //   if (fire)
-            //     payload_r <= payload_inner;
-            // assign payload_outer = done ? payload_r : payload_inner;
-            Wire *payload_r = top->addWire(NEW_ID, GetSize(payload_outer));
-            top->addDffe(NEW_ID,
-                mdl_clk,
-                fire,
-                payload_inner,
-                payload_r);
-            top->addMux(NEW_ID, payload_inner, payload_r, done, payload_outer);
-        }
 
         Wire *channel_finishing = top->addWire(NEW_ID);
         top->connect(channel_finishing, top->Or(NEW_ID, fire, done));

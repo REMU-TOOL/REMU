@@ -122,57 +122,56 @@ std::vector<std::string> get_full_path(vpiHandle obj)
     return res;
 }
 
-void load_scope(const CircuitInfo &circuit, vpiHandle parent)
-{
-    for (auto &it : circuit.regs) {
-        auto name = Escape::escape_verilog_id(it.first);
-        vpiHandle obj = vpi_handle_by_name(name.c_str(), parent);
-        if (obj == 0) {
-            vpi_printf("WARNING: %s cannot be referenced (in scope %s)\n",
-                name.c_str(), vpi_get_str(vpiFullName, parent));
-            continue;
-        }
-        set_value(obj, it.second.data);
-    }
-    for (auto &it : circuit.regarrays) {
-        auto name = Escape::escape_verilog_id(it.first);
-        vpiHandle obj = vpi_handle_by_name(name.c_str(), parent);
-        if (obj == 0) {
-            vpi_printf("WARNING: %s cannot be referenced (in scope %s)\n",
-                name.c_str(), vpi_get_str(vpiFullName, parent));
-            continue;
-        }
-        auto &data = it.second.data;
-        int depth = data.depth();
-        int start_offset = it.second.start_offset;
-        for (int i = 0; i < depth; i++) {
-            int index = i + start_offset;
-            vpiHandle word_obj = vpi_handle_by_index(obj, index);
-            if (word_obj == 0) {
-                vpi_printf("WARNING: %s[%d] cannot be referenced (in scope %s)\n",
-                    name.c_str(), index, vpi_get_str(vpiFullName, parent));
-                continue;
-            }
-            set_value(word_obj, data.get(i));
-        }
-    }
-    for (auto it : circuit.cells) {
-        auto name = Escape::escape_verilog_id(it.first);
-        vpiHandle obj = vpi_handle_by_name(name.c_str(), parent);
-        if (obj == 0) {
-            vpi_printf("WARNING: %s cannot be referenced (in scope %s)\n",
-                name.c_str(), vpi_get_str(vpiFullName, parent));
-            continue;
-        }
-        load_scope(*it.second, obj);
-    }
-}
-
 };
 
 void VPILoader::load()
 {
-    load_scope(*circuit, 0);
+    circuit.load(checkpoint);
+
+    for (auto &it : circuit.wire) {
+        vpiHandle obj = 0;
+        for (auto &name : it.first) {
+            auto esc_name = Escape::escape_verilog_id(name);
+            vpiHandle parent = obj;
+            obj = vpi_handle_by_name(name.c_str(), obj);
+            if (obj == 0) {
+                vpi_printf("WARNING: %s cannot be referenced (in scope %s)\n",
+                    name.c_str(), vpi_get_str(vpiFullName, parent));
+                break;
+            }
+        }
+        if (obj == 0)
+            continue;
+        set_value(obj, it.second);
+    }
+
+    for (auto &it : circuit.ram) {
+        vpiHandle obj = 0;
+        for (auto &name : it.first) {
+            auto esc_name = Escape::escape_verilog_id(name);
+            vpiHandle parent = obj;
+            obj = vpi_handle_by_name(name.c_str(), obj);
+            if (obj == 0) {
+                vpi_printf("WARNING: %s cannot be referenced (in scope %s)\n",
+                    name.c_str(), vpi_get_str(vpiFullName, parent));
+                break;
+            }
+        }
+        if (obj == 0)
+            continue;
+        int depth = it.second.depth();
+        int start_offset = it.second.start_offset();
+        for (int i = 0; i < depth; i++) {
+            int index = i + start_offset;
+            vpiHandle word_obj = vpi_handle_by_index(obj, index);
+            if (word_obj == 0) {
+                vpi_printf("WARNING: %s[%d] cannot be referenced\n",
+                    vpi_get_str(vpiFullName, obj), index);
+                continue;
+            }
+            set_value(word_obj, it.second.get(i));
+        }
+    }
 }
 
 namespace {
@@ -245,7 +244,7 @@ int rammodel_new_tf(char* user_data) {
     }
 
     auto path = get_full_path(scope);
-    rammodel_list[index].load_state(loader->circuit->cell(path));
+    rammodel_list[index].load_state(loader->circuit, path);
 
     set_value(callh, index);
     return 0;

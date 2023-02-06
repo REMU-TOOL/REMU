@@ -11,25 +11,15 @@ namespace REMU {
 
 struct VPILoader
 {
-    YAML::Node config;
-    CircuitInfo *circuit;
+    SysInfo sysinfo;
+    CircuitState circuit;
     Checkpoint checkpoint;
 
-    VPILoader(std::string config_path, std::string ckpt_path) : checkpoint(ckpt_path)
+    VPILoader(const SysInfo &sysinfo, std::string ckpt_path) :
+        sysinfo(sysinfo), circuit(sysinfo), checkpoint(ckpt_path)
     {
-        config = YAML::LoadFile(config_path);
-        circuit = new CircuitInfo(config);
-        CircuitLoader loader(config, *circuit);
-        loader.load(checkpoint);
+        circuit.load(checkpoint);
     }
-
-    ~VPILoader()
-    {
-        delete circuit;
-    }
-
-    VPILoader(const VPILoader &) = delete;
-    VPILoader& operator=(const VPILoader &) = delete;
 
     void load();
 };

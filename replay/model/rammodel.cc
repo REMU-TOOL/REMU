@@ -144,7 +144,7 @@ bool RamModel::load_data(std::istream &stream) {
     return !stream.fail();
 }
 
-void RamModel::load_state(CircuitInfo *circuit)
+void RamModel::load_state(CircuitState &circuit, const CircuitPath &path)
 {
     FifoModel fifo_model;
 
@@ -158,7 +158,7 @@ void RamModel::load_state(CircuitInfo *circuit)
         prefix``_aburst }
     */
 
-    fifo_model.load(circuit->cell({"a_fifo"}));
+    fifo_model.load(circuit, path / "a_fifo");
     a_queue = decltype(a_queue)();
     while (!fifo_model.fifo.empty()) {
         auto &elem = fifo_model.fifo.front();
@@ -180,7 +180,7 @@ void RamModel::load_state(CircuitInfo *circuit)
         prefix``_wlast }
     */
 
-    fifo_model.load(circuit->cell({"w_fifo"}));
+    fifo_model.load(circuit, path / "w_fifo");
     w_queue = decltype(w_queue)();
     while (!fifo_model.fifo.empty()) {
         auto &elem = fifo_model.fifo.front();
@@ -197,7 +197,7 @@ void RamModel::load_state(CircuitInfo *circuit)
         prefix``_bid }
     */
 
-    fifo_model.load(circuit->cell({"b_fifo"}));
+    fifo_model.load(circuit, path / "b_fifo");
     b_queue = decltype(b_queue)();
     while (!fifo_model.fifo.empty()) {
         auto &elem = fifo_model.fifo.front();
@@ -214,7 +214,7 @@ void RamModel::load_state(CircuitInfo *circuit)
         prefix``_rlast }
     */
 
-    fifo_model.load(circuit->cell({"r_fifo"}));
+    fifo_model.load(circuit, path / "r_fifo");
     r_queue = decltype(r_queue)();
     while (!fifo_model.fifo.empty()) {
         auto &elem = fifo_model.fifo.front();

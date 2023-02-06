@@ -1,5 +1,6 @@
 #include "replay_vpi.h"
 
+#include <cstring>
 #include <vpi_user.h>
 
 using namespace REMU;
@@ -14,27 +15,35 @@ void replay_startup_routine() {
         args.push_back(*p++);
     }
 
-    std::string scanchain_file, checkpoint_path;
+    std::string sysinfo_file, checkpoint_path;
     for (size_t i = 0; i < args.size(); i++) {
-        if (args[i] == "-replay-scanchain" && i+1 < args.size()) {
-            scanchain_file = args[++i];
+        if (args[i] == "-sysinfo" && i+1 < args.size()) {
+            sysinfo_file = args[++i];
         }
-        if (args[i] == "-replay-checkpoint" && i+1 < args.size()) {
+        if (args[i] == "-checkpoint" && i+1 < args.size()) {
             checkpoint_path = args[++i];
         }
     }
 
     if (checkpoint_path.empty()) {
-        vpi_printf("ERROR: -replay-checkpoint not specified\n");
+        vpi_printf("ERROR: checkpoint path not specified\n");
         return;
     }
 
-    if (scanchain_file.empty()) {
-        vpi_printf("ERROR: -replay-scanchain not specified\n");
+    if (sysinfo_file.empty()) {
+        vpi_printf("ERROR: sysinfo file not specified\n");
         return;
     }
 
-    auto loader = new VPILoader(scanchain_file, checkpoint_path);
+    SysInfo sysinfo;
+    std::ifstream f(sysinfo_file);
+    if (f.fail()) {
+        fprintf(stderr, "Can't open file `%s': %s\n", sysinfo_file.c_str(), strerror(errno));
+        return;
+    }
+    f >> sysinfo;
+
+    auto loader = new VPILoader(sysinfo, checkpoint_path);
 
     register_tfs(loader);
     register_load_callback(loader);

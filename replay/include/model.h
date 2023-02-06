@@ -13,7 +13,7 @@ namespace REMU {
 
 struct FifoModel {
     std::queue<BitVector> fifo;
-    void load(CircuitInfo *circuit);
+    void load(CircuitState &circuit, const CircuitPath &path);
 };
 
 class RamModel {
@@ -78,7 +78,7 @@ public:
     bool reset();
 
     bool load_data(std::istream &stream);
-    void load_state(CircuitInfo *circuit);
+    void load_state(CircuitState &circuit, const CircuitPath &path);
 
     RamModel(unsigned int addr_w, unsigned int data_w, unsigned int id_w, uint64_t ram_sz) :
         addr_width(addr_w), data_width(data_w), id_width(id_w), mem_size(ram_sz),

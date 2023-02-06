@@ -14,16 +14,8 @@ USING_YOSYS_NAMESPACE
 
 using namespace REMU;
 
-inline IdString to_ff_clk(SigBit clk) { return "\\" + pretty_name(clk, false) + "_FF"; }
-inline IdString to_ram_clk(SigBit clk) { return "\\" + pretty_name(clk, false) + "_RAM"; }
-
 void ClockTreeRewriter::run()
 {
-    if (hier.design->scratchpad_get_bool("emu.clock.rewritten")) {
-        log("Design is already processed.\n");
-        return;
-    }
-
     log("Rewriting clock tree ...\n");
 
     // build sigmaps containing submodule wire propagations
@@ -90,7 +82,7 @@ void ClockTreeRewriter::run()
     dict<SigBit, std::pair<SigBit, SigBit>> primary_to_ff_ram_clk;
 
     Module *top = hier.design->top_module();
-    for (auto &info : database.user_clocks)
+    for (auto &info : database.clock_ports)
         work_queue.push(top->wire("\\" + info.port_name));
     work_queue.push(CommonPort::get(top, CommonPort::PORT_MDL_CLK));
 
@@ -110,10 +102,6 @@ void ClockTreeRewriter::run()
         if (clk.wire->name == CommonPort::PORT_MDL_CLK.id) {
             ff_clk = CommonPort::get(module, CommonPort::PORT_MDL_CLK_FF);
             ram_clk = CommonPort::get(module, CommonPort::PORT_MDL_CLK_RAM);
-        }
-        else if (clk.wire->has_attribute("\\associated_ff_clk")) {
-            ff_clk = module->wire(clk.wire->get_string_attribute("\\associated_ff_clk"));
-            ram_clk = module->wire(clk.wire->get_string_attribute("\\associated_ram_clk"));
         }
         else {
             ff_clk = module->addWire(to_ff_clk(clk));
@@ -309,8 +297,6 @@ void ClockTreeRewriter::run()
             }
         }
     }
-
-    hier.design->scratchpad_set_bool("emu.clock.rewritten", true);
 }
 
 PRIVATE_NAMESPACE_BEGIN

@@ -12,111 +12,94 @@ using namespace REMU;
 
 USING_YOSYS_NAMESPACE
 
-void EmulationDatabase::write_init(std::string init_file) {
+void EmulationDatabase::write_sysinfo(std::string file_name) {
     std::ofstream f;
 
-    f.open(init_file.c_str(), std::ios::binary);
+    f.open(file_name, std::ios::trunc);
     if (f.fail()) {
-        log_error("Can't open file `%s' for writing: %s\n", init_file.c_str(), strerror(errno));
+        log_error("Can't open file `%s' for writing: %s\n", file_name.c_str(), strerror(errno));
     }
 
-    log("Writing to file `%s'\n", init_file.c_str());
+    log("Writing to file `%s'\n", file_name.c_str());
 
-    for (auto &ff : ff_list) {
-        f << ff.init_data.as_string() << "\n";
+    for (auto &x : clock_ports) {
+        sysinfo.clock[x.name] = {
+            .index      = x.index
+        };
     }
 
-    for (auto &mem : ram_list) {
-        f << mem.init_data.as_string() << "\n";
+    for (auto &x : signal_ports) {
+        sysinfo.signal[x.name] = {
+            .width      = x.width,
+            .output     = x.output,
+            .reg_offset = x.reg_offset
+        };
     }
 
+    for (auto &x : trigger_ports) {
+        sysinfo.trigger[x.name] = {
+            .index      = x.index
+        };
+    }
+
+    for (auto &x : axi_ports) {
+        sysinfo.axi[x.name] = {
+            .size       = x.size,
+            .reg_offset = x.reg_offset
+        };
+    }
+
+    f << sysinfo;
     f.close();
 }
 
-void EmulationDatabase::write_yaml(std::string yaml_file) {
-    std::ofstream f;
-
-    f.open(yaml_file.c_str(), std::ios::trunc);
-    if (f.fail()) {
-        log_error("Can't open file `%s' for writing: %s\n", yaml_file.c_str(), strerror(errno));
-    }
-
-    log("Writing to file `%s'\n", yaml_file.c_str());
-
-    Config::Config config;
-
-    for (auto &x : ff_list)
-        config.ff.push_back(x);
-
-    for (auto &x : ram_list)
-        config.ram.push_back(x);
-
-    for (auto &x : user_clocks)
-        config.clock.push_back(x);
-
-    for (auto &x : user_resets)
-        config.reset.push_back(x);
-
-    for (auto &x : user_trigs)
-        config.trig.push_back(x);
-
-    for (auto &x : pipes)
-        config.pipe.push_back(x);
-
-    for (auto &x : axi_intfs)
-        config.axi.push_back(x);
-
-    for (auto &x : models)
-        config.model.push_back(x);
-
-    YAML::Node yaml(config);
-    f << yaml;
-    f.close();
-}
-
-void EmulationDatabase::write_loader(std::string loader_file) {
+void EmulationDatabase::write_loader(std::string file_name) {
     std::ofstream os;
 
-    os.open(loader_file.c_str(), std::ios::trunc);
+    os.open(file_name, std::ios::trunc);
     if (os.fail()) {
-        log_error("Can't open file `%s' for writing: %s\n", loader_file.c_str(), strerror(errno));
+        log_error("Can't open file `%s' for writing: %s\n", file_name.c_str(), strerror(errno));
     }
 
-    log("Writing to file `%s'\n", loader_file.c_str());
+    log("Writing to file `%s'\n", file_name.c_str());
 
     int addr;
 
     os << "`define LOAD_FF(__LOAD_DATA, __LOAD_DUT) \\\n";
     addr = 0;
-    for (auto &ff : ff_list) {
+    for (auto &info : sysinfo.scan_ff) {
+        if (info.name.empty())
+            continue;
+        auto &wire = sysinfo.wire.at(info.name);
         os << "    __LOAD_DUT";
-        for (auto &name : ff.name)
+        for (auto &name : info.name)
             os << "." << Escape::escape_verilog_id(name);
-        if (ff.width != ff.wire_width) {
-            if (ff.width == 1)
-                os << stringf("[%d]", ff.wire_start_offset + ff.offset);
-            else if (ff.wire_upto)
-                os << stringf("[%d:%d]", (ff.wire_width - (ff.offset + ff.width - 1) - 1) + ff.wire_start_offset,
-                        (ff.wire_width - ff.offset - 1) + ff.wire_start_offset);
+        if (info.width != wire.width) {
+            if (info.width == 1)
+                os << stringf("[%d]", wire.start_offset + info.offset);
+            else if (wire.upto)
+                os << stringf("[%d:%d]", (wire.width - (info.offset + info.width - 1) - 1) + wire.start_offset,
+                        (wire.width - info.offset - 1) + wire.start_offset);
             else
-                os << stringf("[%d:%d]", ff.wire_start_offset + ff.offset + ff.width - 1,
-                        ff.wire_start_offset + ff.offset);
+                os << stringf("[%d:%d]", wire.start_offset + info.offset + info.width - 1,
+                        wire.start_offset + info.offset);
         }
-        os << " = __LOAD_DATA[" << addr << "+:" << ff.width << "]; \\\n";
-        addr += ff.width;
+        os << " = __LOAD_DATA[" << addr << "+:" << info.width << "]; \\\n";
+        addr += info.width;
     }
     os << "\n";
     os << "`define FF_BIT_COUNT " << addr << "\n";
 
     os << "`define LOAD_MEM(__LOOP_VAR, __LOAD_DATA, __LOAD_DUT) \\\n";
     addr = 0;
-    for (auto &mem : ram_list) {
-        os << "    for (__LOOP_VAR=0; __LOOP_VAR<" << mem.depth << "; __LOOP_VAR=__LOOP_VAR+1) __LOAD_DUT";
-        for (auto &name : mem.name)
+    for (auto &info : sysinfo.scan_ram) {
+        auto &ram = sysinfo.ram.at(info.name);
+        os << "    for (__LOOP_VAR=0; __LOOP_VAR<" << ram.depth << "; __LOOP_VAR=__LOOP_VAR+1) __LOAD_DUT";
+        for (auto &name : info.name)
             os << "." << Escape::escape_verilog_id(name);
-        os << "[__LOOP_VAR+" << mem.start_offset << "] = __LOAD_DATA[";
-        os << addr << "+__LOOP_VAR*" << mem.width << "+:" << mem.width << "]; \\\n";
-        addr += mem.width * mem.depth;
+        os << "[__LOOP_VAR+" << ram.start_offset << "] = __LOAD_DATA[";
+        os << addr << "+__LOOP_VAR*" << ram.width << "+:" << ram.width << "]; \\\n";
+        addr += ram.width * ram.depth;
     }
     os << "\n";
     os << "`define RAM_BIT_COUNT " << addr << "\n";

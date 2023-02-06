@@ -2,81 +2,66 @@
 #define _DATABASE_H_
 
 #include "kernel/yosys.h"
-#include "yaml-cpp/yaml.h"
-#include "emu_config.h"
+#include "emu_info.h"
 #include "axi.h"
 
 namespace REMU {
 
-struct FFInfo : public Config::FF
+struct ClockPort
 {
-    Yosys::Const init_data;
+    std::vector<std::string> name;
+    std::string port_name;
+    int index = -1;
 };
 
-struct RAMInfo : public Config::RAM
+struct SignalPort
 {
-    Yosys::Const init_data;
+    std::vector<std::string> name;
+    std::string port_name;
+    int width = 0;
+    bool output = false;
+    uint32_t reg_offset = 0;
 };
 
-struct ClockInfo : public Config::Clock
+struct TriggerPort
 {
-    Yosys::IdString ff_clk;
-    Yosys::IdString ram_clk;
+    std::vector<std::string> name;
+    std::string port_name;
+    int index = -1;
 };
 
-struct ResetInfo : public Config::Reset
+struct AXIPort
 {
-};
-
-struct TrigInfo : public Config::Trig
-{
-};
-
-struct PipeInfo : public Config::Pipe
-{
-    Yosys::IdString port_valid;
-    Yosys::IdString port_ready;
-    Yosys::IdString port_data;
-    Yosys::IdString port_empty; // only for input direction
-};
-
-struct AXIIntfInfo : public Config::AXIPort
-{
+    std::vector<std::string> name;
+    std::string port_name;
     AXI::AXI4 axi;
+    uint64_t size = 0;
+    uint32_t reg_offset = 0;
 };
 
-struct ModelInfo : public Config::Model
+struct ChannelPort
 {
-};
-
-struct ChannelInfo
-{
-    std::vector<std::string> path;
-    std::string orig_name;
+    std::vector<std::string> name;
     std::string port_name;
     enum {IN, OUT} dir;
     Yosys::IdString port_valid;
     Yosys::IdString port_ready;
-    Yosys::IdString port_payload_inner;
-    Yosys::IdString port_payload_outer;
     std::vector<std::string> deps; // relative to path
 };
 
 struct EmulationDatabase
 {
-    std::vector<FFInfo> ff_list;
-    std::vector<RAMInfo> ram_list;
-    std::vector<ClockInfo> user_clocks;
-    std::vector<ResetInfo> user_resets;
-    std::vector<TrigInfo> user_trigs;
-    std::vector<PipeInfo> pipes;
-    std::vector<AXIIntfInfo> axi_intfs;
-    std::vector<ModelInfo> models;
-    std::vector<ChannelInfo> channels;
+    // Note: sysinfo.{clock, signal, trigger, axi} are copied from clock_ports, signal_ports, trigger_ports, axi_ports
+    SysInfo sysinfo;
 
-    void write_init(std::string init_file);
-    void write_yaml(std::string yaml_file);
-    void write_loader(std::string loader_file);
+    std::vector<ClockPort> clock_ports;
+    std::vector<SignalPort> signal_ports;
+    std::vector<TriggerPort> trigger_ports;
+    std::vector<AXIPort> axi_ports;
+    std::vector<ChannelPort> channel_ports;
+
+    void write_sysinfo(std::string file_name);
+    void write_loader(std::string file_name);
 
     EmulationDatabase() {}
 };

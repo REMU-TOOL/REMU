@@ -5,9 +5,8 @@ set(iverilog-include-dir ${iverilog-bin-dir}/../include/iverilog)
 project(replay)
 
 include_directories(${PROJECT_SOURCE_DIR}/include)
-include_directories(${Boost_INCLUDE_DIRS})
 
-link_libraries(yaml-cpp exchange)
+link_libraries(common)
 
 file(GLOB replay-common-sources "core/*.cc" "model/*.cc")
 
@@ -41,9 +40,3 @@ add_executable(scdump ${replay-common-sources} tools/scdump.cc)
 install(TARGETS scdump
     DESTINATION bin
 )
-
-# BitVectorTest
-
-add_executable(BitVectorTest ${replay-common-sources} tests/bitvector_test.cc)
-
-add_test(NAME BitVectorTest COMMAND BitVectorTest)

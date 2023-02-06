@@ -1,60 +1,65 @@
 #include "circuit.h"
+
+#include <cstring>
 #include <iostream>
 
 #include "escape.h"
 
 using namespace REMU;
 
-void print_circuit(CircuitInfo *circuit, std::string prefix = "")
+void print_path(const std::vector<std::string> &path)
 {
-    for (auto &it : circuit->regs) {
-        auto name = Escape::escape_verilog_id(it.first);
-        std::cout << prefix << name
-            << " = " << it.second.data.width() << "'h" << it.second.data.hex() << std::endl;
+    bool first = true;
+    for (auto &name : path) {
+        if (first)
+            first = false;
+        else
+            std::cout << ".";
+        std::cout << Escape::escape_verilog_id(name);
     }
-    for (auto &it : circuit->regarrays) {
-        auto name = Escape::escape_verilog_id(it.first);
-        int width = it.second.data.width();
-        int depth = it.second.data.depth();
-        int start_offset = it.second.start_offset;
+}
+
+void print_circuit(const CircuitState &circuit)
+{
+    for (auto &it : circuit.wire) {
+        print_path(it.first);
+        std::cout << " = " << it.second.width() << "'h" << it.second.hex() << std::endl;
+    }
+    for (auto &it : circuit.ram) {
+        int width = it.second.width();
+        int depth = it.second.depth();
+        int start_offset = it.second.start_offset();
         for (int i = 0; i < depth; i++) {
-            auto word = it.second.data.get(i);
-            std::cout << prefix << name
-                << "[" << i + start_offset << "] = " << word.width() << "'h" << word.hex() << std::endl;
+            auto word = it.second.get(i);
+            print_path(it.first);
+            std::cout << "[" << i + start_offset << "] = " << word.width() << "'h" << word.hex() << std::endl;
         }
-    }
-    for (auto it : circuit->cells) {
-        auto name = Escape::escape_verilog_id(it.first);
-        print_circuit(it.second, prefix + name + ".");
     }
 }
 
 int main(int argc, const char *argv[]) {
     if (argc != 3) {
-        std::cerr << "Usage: " << argv[0] << " <cfg_file> <ckpt_path>" << std::endl;
+        std::cerr << "Usage: " << argv[0] << " <sysinfo_file> <ckpt_path>" << std::endl;
         return 1;
     }
 
-    std::string cfg_file = argv[1];
+    std::string sysinfo_file = argv[1];
     std::string ckpt_path = argv[2];
 
-    YAML::Node config;
-    try {
-        config = YAML::LoadFile(cfg_file);
+    SysInfo sysinfo;
+    std::ifstream f(sysinfo_file);
+    if (f.fail()) {
+        fprintf(stderr, "Can't open file `%s': %s\n", sysinfo_file.c_str(), strerror(errno));
+        return 1;
     }
-    catch (YAML::BadFile &e) {
-        std::cerr << "ERROR: Cannot load yaml file " << cfg_file << std::endl;
-        return false;
-    }
-
+    f >> sysinfo;
 
     Checkpoint ckpt(ckpt_path);
 
-    CircuitInfo circuit(config);
-    CircuitLoader loader(config, circuit);
-    loader.load(ckpt);
+    CircuitState circuit(sysinfo);
+    circuit.load(ckpt);
 
-    print_circuit(&circuit);
+    print_circuit(circuit);
 
     return 0;
 }

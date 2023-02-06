@@ -65,7 +65,6 @@ public:
     // This sets all bits to 0
     void clear()
     {
-        // Note: the width == 0 case must be handled explicitly
         if (use_ptr())
             std::fill_n(u.data, blks(), 0);
         else
@@ -154,7 +153,7 @@ public:
     // This constructs a BitVector and initializes its lowest bits with value
     BitVector(width_t width, uint64_t value) : BitVector(width, &value, 1) {}
 
-    // This constructs a BitVector and initializes it with data array
+    // This constructs a BitVector and initializes it with a data array
     BitVector(width_t width, const uint64_t *data) : BitVector(width)
     {
         copy(width, to_ptr(), 0, data, 0);
@@ -169,6 +168,13 @@ public:
     // This constructs a BitVector and initializes its lowest bits with a initializer list
     BitVector(width_t width, const std::initializer_list<uint64_t> &list)
         : BitVector(width, list.begin(), list.size()) {}
+
+    // This constructs a BitVector with a bit string which consists of 0 and 1
+    BitVector(const std::string &bits) : BitVector(bits.size())
+    {
+        for (size_t i = 0 ; i < width_; i++)
+            setBit(i, bits.at(width_ - i - 1) == '1');
+    }
 
     BitVector(const BitVector &other) : BitVector(other.width_, other.to_ptr()) {}
 
@@ -222,6 +228,7 @@ public:
 
     using width_t = BitVector::width_t;
     using depth_t = uint64_t;
+    using index_t = int64_t;
 
 private:
 
@@ -230,6 +237,9 @@ private:
 
     // number of elements
     depth_t depth_;
+
+    // the first index
+    index_t start_offset_;
 
     // flattened data
     BitVector data;
@@ -241,6 +251,7 @@ public:
 
     width_t width() const { return width_; }
     depth_t depth() const { return depth_; }
+    index_t start_offset() const { return start_offset_; }
 
     // set all bits to 0
     void clear()
@@ -250,26 +261,37 @@ public:
 
     BitVector get(width_t index) const
     {
-        if (index >= depth_)
+        if (index < start_offset_ || index - start_offset_ >= depth_)
             throw std::out_of_range("index out of range");
 
         return data.getValue(index * width_, width_);
     }
 
-    void set(width_t index, const BitVector &value)
+    void set(index_t index, const BitVector &value)
     {
         if (value.width() != width_)
             throw std::invalid_argument("value width mismatch");
 
-        if (index >= depth_)
+        if (index < start_offset_ || index - start_offset_ >= depth_)
             throw std::out_of_range("index out of range");
 
         data.setValue(index * width_, value);
     }
 
+    BitVector get_flattened_data() const { return data; }
+
+    void set_flattened_data(const BitVector &value)
+    {
+        if (value.width() != width_ * depth_)
+            throw std::invalid_argument("value width mismatch");
+
+        data = value;
+    }
+
     BitVectorArray() : BitVectorArray(0, 0) {}
 
-    BitVectorArray(width_t width, depth_t depth) : width_(width), depth_(depth), data(width * depth) {}
+    BitVectorArray(width_t width, depth_t depth, index_t start_offset = 0) :
+        width_(width), depth_(depth), start_offset_(start_offset), data(width * depth) {}
 
 };
 

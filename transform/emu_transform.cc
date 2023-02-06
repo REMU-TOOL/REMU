@@ -8,7 +8,6 @@
 #include "scanchain.h"
 #include "fame.h"
 #include "platform.h"
-#include "interface.h"
 #include "emulib.h"
 
 using namespace REMU;
@@ -31,10 +30,8 @@ struct EmuTransformPass : public Pass {
         log("        specify top module name\n");
         log("    -elab <file>\n");
         log("        write elaborated verilog design to the specified file\n");
-        log("    -init <file>\n");
-        log("        write initial scan chain data to the specified file\n");
-        log("    -yaml <file>\n");
-        log("        write generated yaml configuration to the specified file\n");
+        log("    -sysinfo <file>\n");
+        log("        write system info to the specified file\n");
         log("    -loader <file>\n");
         log("        write verilog loader definition to the specified file\n");
         log("    -no_plat\n");
@@ -42,7 +39,7 @@ struct EmuTransformPass : public Pass {
         log("\n");
     }
 
-    std::string top, elab_file, init_file, yaml_file, loader_file;
+    std::string top, elab_file, sysinfo_file, loader_file;
     bool raw_plat = false;
 
     EmuLibInfo emulib;
@@ -118,12 +115,8 @@ struct EmuTransformPass : public Pass {
                 elab_file = args[++argidx];
                 continue;
             }
-            if (args[argidx] == "-init" && argidx+1 < args.size()) {
-                init_file = args[++argidx];
-                continue;
-            }
-            if (args[argidx] == "-yaml" && argidx+1 < args.size()) {
-                yaml_file = args[++argidx];
+            if (args[argidx] == "-sysinfo" && argidx+1 < args.size()) {
+                sysinfo_file = args[++argidx];
                 continue;
             }
             if (args[argidx] == "-loader" && argidx+1 < args.size()) {
@@ -195,14 +188,6 @@ struct EmuTransformPass : public Pass {
 
         Pass::call(design, "emu_package -top EMU_SYSTEM");
 
-        {
-            log_header(design, "Executing interface transformation.\n");
-            log_push();
-            InterfaceWorker worker(design, database);
-            worker.run();
-            log_pop();
-        }
-
         if (!raw_plat) {
             log_header(design, "Executing platform transformation.\n");
             log_push();
@@ -215,11 +200,8 @@ struct EmuTransformPass : public Pass {
 
         log_header(design, "Writing output files.\n");
 
-        if (!init_file.empty())
-            database.write_init(init_file);
-
-        if (!yaml_file.empty())
-            database.write_yaml(yaml_file);
+        if (!sysinfo_file.empty())
+            database.write_sysinfo(sysinfo_file);
 
         if (!loader_file.empty())
             database.write_loader(loader_file);

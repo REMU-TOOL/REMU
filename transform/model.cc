@@ -6,17 +6,22 @@
 
 using namespace REMU;
 
+struct ModelInfoWithName : public SysInfo::ModelInfo
+{
+    std::vector<std::string> name;
+};
+
 USING_YOSYS_NAMESPACE
 
 void ModelAnalyzer::run()
 {
-    dict<IdString, std::vector<ModelInfo>> all_model_infos;
+    dict<IdString, std::vector<ModelInfoWithName>> all_model_infos;
 
     for (auto &node : hier.dag.topoSort(true)) {
         Module *module = hier.design->module(node.name);
         log("Processing module %s...\n", log_id(module));
 
-        std::vector<ModelInfo> model_infos;
+        std::vector<ModelInfoWithName> model_infos;
 
         for (auto cell : module->cells()) {
             Module *tpl = hier.design->module(cell->type);
@@ -27,7 +32,7 @@ void ModelAnalyzer::run()
             if (type.empty())
                 log_error("Module %s: model type must not be empty\n", log_id(tpl));
 
-            ModelInfo info;
+            ModelInfoWithName info;
             info.name = {id2str(cell->name)};
             info.type = type;
 
@@ -47,7 +52,7 @@ void ModelAnalyzer::run()
             for (auto &edge : node.outEdges()) {
                 auto &child = edge.toNode();
                 for (auto &info : all_model_infos.at(child.name)) {
-                    ModelInfo newinfo = info;
+                    ModelInfoWithName newinfo = info;
                     newinfo.name.insert(newinfo.name.begin(), id2str(edge.name.second));
                 }
             }
@@ -57,5 +62,6 @@ void ModelAnalyzer::run()
     }
 
     IdString top = hier.dag.rootNode().name;
-    database.models = all_model_infos.at(top);
+    for (auto &info : all_model_infos.at(top))
+        database.sysinfo.model[info.name] = info;
 }

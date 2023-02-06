@@ -9,9 +9,10 @@ enable_testing()
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-# Add yaml-cpp project
+# Add cereal project
 
-add_subdirectory(yaml-cpp)
+set(JUST_INSTALL_CEREAL ON)
+add_subdirectory(cereal)
 
 # Add yosys project
 
@@ -46,9 +47,17 @@ install(DIRECTORY ${CMAKE_SOURCE_DIR}/emulib/
     DESTINATION share/remu/emulib
 )
 
-# Add exchange project
+# Add common project
 
-add_subdirectory(exchange)
+add_subdirectory(common)
+
+# Add cosim project
+
+add_subdirectory(cosim)
+
+# Add driver project
+
+add_subdirectory(driver)
 
 # Add transform project
 

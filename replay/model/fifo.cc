@@ -2,7 +2,7 @@
 
 using namespace REMU;
 
-void FifoModel::load(CircuitInfo *circuit)
+void FifoModel::load(CircuitState &circuit, const CircuitPath &path)
 {
     fifo = decltype(fifo)();
 
@@ -10,27 +10,27 @@ void FifoModel::load(CircuitInfo *circuit)
 
     // process output reg in emulib_ready_valid_fifo
 
-    auto &ovalid = circuit->reg({"ovalid"}).data;
+    auto &ovalid = circuit.wire.at(path / "ovalid");
     if (ovalid != 0)
-        fifo.push(circuit->reg({"odata"}).data);
+        fifo.push(circuit.wire.at(path / "odata"));
 
     // process emulib_fifo instance
 
-    auto &rempty = circuit->reg({"fifo", "rempty"}).data;
+    auto &rempty = circuit.wire.at(path / "fifo" / "rempty");
     if (rempty != 0)
         return;
 
-    int rp = circuit->reg({"fifo", "rp"}).data;
-    int wp = circuit->reg({"fifo", "wp"}).data;
+    int rp = circuit.wire.at(path / "fifo" / "rp");
+    int wp = circuit.wire.at(path / "fifo" / "wp");
 
     // TODO: dissolved RAM
-    auto &regarray = circuit->regarray({"fifo", "data"});
+    auto &data = circuit.ram.at(path / "fifo" / "data");
 
-    int depth = regarray.data.depth();
-    int start_offset = regarray.start_offset;
+    int depth = data.depth();
+    int start_offset = data.start_offset();
 
     while (rp != wp) {
-        fifo.push(regarray.data.get(rp++ - start_offset));
+        fifo.push(data.get(rp++ - start_offset));
         if (rp == depth) rp = 0;
     }
 }

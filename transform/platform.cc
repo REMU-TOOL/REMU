@@ -11,22 +11,20 @@ using namespace REMU;
 
 PRIVATE_NAMESPACE_BEGIN
 
-const uint32_t  CTRL_ADDR_WIDTH         = 16u;
+const uint32_t  CTRL_ADDR_WIDTH         = 16;
 
-const uint32_t  SYS_CTRL_BASE           = 0x0000u;
-const uint32_t  SYS_CTRL_WIDTH          = 12u;
+const uint32_t  SYS_CTRL_BASE           = 0x0000;
+const uint32_t  SYS_CTRL_WIDTH          = 12;
 
-const uint32_t  AXI_REMAP_CFG_BASE      = 0x1600u;
-const uint32_t  AXI_REMAP_CFG_WIDTH     = 4u;
-const uint32_t  AXI_REMAP_CFG_LIMIT     = 0x1800u;
+const uint32_t  AXI_REMAP_CFG_BASE      = 0x1000;
+const uint32_t  AXI_REMAP_CFG_WIDTH     = 4;
+const uint32_t  AXI_REMAP_CFG_LIMIT     = 0x1400;
 
-const uint32_t  PIPE_INGRESS_PIO_BASE   = 0x1800u;
-const uint32_t  PIPE_INGRESS_PIO_WIDTH  = 5u;
-const uint32_t  PIPE_INGRESS_PIO_LIMIT  = 0x1c00u;
+const uint32_t  SIGNAL_IN_BASE          = 0x2000;
+const uint32_t  SIGNAL_IN_WIDTH         = 12;
 
-const uint32_t  PIPE_EGRESS_PIO_BASE    = 0x1c00u;
-const uint32_t  PIPE_EGRESS_PIO_WIDTH   = 3u;
-const uint32_t  PIPE_EGRESS_PIO_LIMIT   = 0x2000u;
+const uint32_t  SIGNAL_OUT_BASE         = 0x3000;
+const uint32_t  SIGNAL_OUT_WIDTH        = 12;
 
 struct CtrlSig
 {
@@ -158,28 +156,86 @@ struct CtrlConnBuilder
     }
 };
 
-void connect_resets(EmulationDatabase &database, Module *top, Cell *sys_ctrl)
+void connect_signals(EmulationDatabase &database, Module *top, CtrlConnBuilder &builder)
 {
-    int reset_index = 0;
-    SigSpec resets;
-    for (auto &info : database.user_resets) {
-        Wire *reset = top->wire("\\" + info.port_name);
-        make_internal(reset);
-        resets.append(reset);
-        info.index = reset_index++;
+    Wire *host_clk      = CommonPort::get(top, CommonPort::PORT_HOST_CLK);
+    Wire *host_rst      = CommonPort::get(top, CommonPort::PORT_HOST_RST);
+
+    SigSpec i_sigs, o_sigs;
+    SigSpec i_sig_widths, o_sig_widths;
+    int i_idx = 0, o_idx = 0;
+
+    for (auto &info : database.signal_ports) {
+        Wire *wire = top->wire("\\" + info.port_name);
+        make_internal(wire);
+
+        // pad to multiple of 32
+        int nslices = (info.width + 31) / 32;
+        int pad_width = nslices * 32 - info.width;
+        Wire *pad = top->addWire(NEW_ID, pad_width);
+        SigSpec sig({pad, wire});
+
+        if (info.output) {
+            o_sigs.append(sig);
+            o_sig_widths.append(Const(info.width));
+            info.reg_offset = SIGNAL_IN_BASE + o_idx * 4;
+            o_idx += nslices;
+        }
+        else {
+            i_sigs.append(sig);
+            i_sig_widths.append(Const(info.width));
+            info.reg_offset = SIGNAL_IN_BASE + i_idx * 4;
+            i_idx += nslices;
+        }
     }
 
-    log_assert(GetSize(resets) < 128);
+    log_assert(i_idx * 4 < (1<<SIGNAL_IN_WIDTH));
+    log_assert(o_idx * 4 < (1<<SIGNAL_OUT_WIDTH));
 
-    sys_ctrl->setParam("\\RESET_COUNT", GetSize(resets));
-    sys_ctrl->setPort("\\rst", resets);
+    if (i_idx > 0) {
+        Cell *gpio_o = top->addCell("\\emu_gpio_o", "\\ctrlbus_gpio_out");
+        auto ctrl = CtrlSig::create(top, "emu_ctrl_gpio_o", CTRL_ADDR_WIDTH, 32);
+        gpio_o->setParam("\\ADDR_WIDTH", Const(CTRL_ADDR_WIDTH));
+        gpio_o->setParam("\\DATA_WIDTH", Const(32));
+        gpio_o->setParam("\\NREGS", Const(i_idx));
+        gpio_o->setParam("\\REG_WIDTH_LIST", i_sig_widths.as_const());
+        gpio_o->setPort("\\clk", host_clk);
+        gpio_o->setPort("\\rst", host_rst);
+        gpio_o->setPort("\\ctrl_wen", ctrl.wen);
+        gpio_o->setPort("\\ctrl_waddr", ctrl.waddr);
+        gpio_o->setPort("\\ctrl_wdata", ctrl.wdata);
+        gpio_o->setPort("\\ctrl_ren", ctrl.ren);
+        gpio_o->setPort("\\ctrl_raddr", ctrl.raddr);
+        gpio_o->setPort("\\ctrl_rdata", ctrl.rdata);
+        gpio_o->setPort("\\gpio_out", i_sigs);
+        builder.add(ctrl, SIGNAL_IN_BASE, SIGNAL_IN_WIDTH);
+    }
+
+    if (o_idx > 0) {
+        Cell *gpio_i = top->addCell("\\emu_gpio_i", "\\ctrlbus_gpio_in");
+        auto ctrl = CtrlSig::create(top, "emu_ctrl_gpio_i", CTRL_ADDR_WIDTH, 32);
+        gpio_i->setParam("\\ADDR_WIDTH", Const(CTRL_ADDR_WIDTH));
+        gpio_i->setParam("\\DATA_WIDTH", Const(32));
+        gpio_i->setParam("\\NREGS", Const(o_idx));
+        gpio_i->setParam("\\REG_WIDTH_LIST", o_sig_widths.as_const());
+        gpio_i->setPort("\\clk", host_clk);
+        gpio_i->setPort("\\rst", host_rst);
+        gpio_i->setPort("\\ctrl_wen", ctrl.wen);
+        gpio_i->setPort("\\ctrl_waddr", ctrl.waddr);
+        gpio_i->setPort("\\ctrl_wdata", ctrl.wdata);
+        gpio_i->setPort("\\ctrl_ren", ctrl.ren);
+        gpio_i->setPort("\\ctrl_raddr", ctrl.raddr);
+        gpio_i->setPort("\\ctrl_rdata", ctrl.rdata);
+        gpio_i->setPort("\\gpio_in", o_sigs);
+        builder.add(ctrl, SIGNAL_OUT_BASE, SIGNAL_OUT_WIDTH);
+    }
 }
 
 void connect_triggers(EmulationDatabase &database, Module *top, Cell *sys_ctrl)
 {
     int trig_index = 0;
     SigSpec trigs;
-    for (auto &info : database.user_trigs) {
+    for (auto &info : database.trigger_ports) {
         Wire *trig = top->wire("\\" + info.port_name);
         make_internal(trig);
         trigs.append(trig);
@@ -198,9 +254,9 @@ void add_axi_remap(EmulationDatabase &database, Module *top, CtrlConnBuilder &bu
     Wire *host_rst      = CommonPort::get(top, CommonPort::PORT_HOST_RST);
 
     int i = 0;
-    const unsigned int step = 1 << AXI_REMAP_CFG_WIDTH;
+    constexpr int step = 1 << AXI_REMAP_CFG_WIDTH;
 
-    for (auto &info : database.axi_intfs) {
+    for (auto &info : database.axi_ports) {
         IdString araddr_name = "\\" + info.axi.ar.addr.name;
         IdString awaddr_name = "\\" + info.axi.aw.addr.name;
         Wire *araddr = top->wire(araddr_name);
@@ -236,66 +292,8 @@ void add_axi_remap(EmulationDatabase &database, Module *top, CtrlConnBuilder &bu
         builder.add(ctrl, info.reg_offset, AXI_REMAP_CFG_WIDTH);
         i++;
     }
-}
 
-void add_pipe_adapters(EmulationDatabase &database, Module *top, CtrlConnBuilder &builder)
-{
-    Wire *host_clk      = CommonPort::get(top, CommonPort::PORT_HOST_CLK);
-    Wire *host_rst      = CommonPort::get(top, CommonPort::PORT_HOST_RST);
-
-    int i_pio_idx = 0;
-    int e_pio_idx = 0;
-
-    const unsigned int i_pio_step = 1 << PIPE_INGRESS_PIO_WIDTH;
-    const unsigned int e_pio_step = 1 << PIPE_EGRESS_PIO_WIDTH;
-
-    for (auto &info : database.pipes) {
-        auto name = join_string(info.name, '_');
-        auto ctrl = CtrlSig::create(top, "emu_ctrl_" + name, CTRL_ADDR_WIDTH, 32);
-        if (info.type == "pio") {
-            Cell *cell = top->addCell("\\emu_pipe_adapter_" + name,
-                info.output ? "\\EgressPipePIOAdapter" : "\\IngressPipePIOAdapter");
-
-            cell->setParam("\\CTRL_ADDR_WIDTH", CTRL_ADDR_WIDTH);
-            cell->setParam("\\DATA_WIDTH", info.width);
-            cell->setParam("\\FIFO_DEPTH", 16); // TODO: specified by user
-            cell->setPort("\\clk", host_clk);
-            cell->setPort("\\rst", host_rst);
-            cell->setPort("\\ctrl_wen", ctrl.wen);
-            cell->setPort("\\ctrl_waddr", ctrl.waddr);
-            cell->setPort("\\ctrl_wdata", ctrl.wdata);
-            cell->setPort("\\ctrl_ren", ctrl.ren);
-            cell->setPort("\\ctrl_raddr", ctrl.raddr);
-            cell->setPort("\\ctrl_rdata", ctrl.rdata);
-
-            auto wire_valid = top->wire(info.port_valid);
-            auto wire_ready = top->wire(info.port_ready);
-            auto wire_data = top->wire(info.port_data);
-            cell->setPort("\\stream_valid", wire_valid);
-            cell->setPort("\\stream_ready", wire_ready);
-            cell->setPort("\\stream_data", wire_data);
-
-            if (!info.output) {
-                auto wire_empty = top->wire(info.port_empty);
-                cell->setPort("\\stream_empty", wire_empty);
-                info.reg_offset = PIPE_INGRESS_PIO_BASE + i_pio_step * i_pio_idx;
-                if (info.reg_offset >= PIPE_INGRESS_PIO_LIMIT)
-                    log_error("too many ingress pipes\n");
-                builder.add(ctrl, info.reg_offset, PIPE_INGRESS_PIO_WIDTH);
-                i_pio_idx++;
-            }
-            else {
-                info.reg_offset = PIPE_EGRESS_PIO_BASE + e_pio_step * e_pio_idx;
-                if (info.reg_offset >= PIPE_EGRESS_PIO_LIMIT)
-                    log_error("too many egress pipes\n");
-                builder.add(ctrl, info.reg_offset, PIPE_EGRESS_PIO_WIDTH);
-                e_pio_idx++;
-            }
-        }
-        else if (info.type == "dma") {
-            log_error("TODO");
-        }
-    }
+    log_assert(AXI_REMAP_CFG_BASE + step * i < AXI_REMAP_CFG_LIMIT);
 }
 
 PRIVATE_NAMESPACE_END
@@ -394,7 +392,7 @@ void PlatformTransform::run()
     sys_ctrl->setPort("\\dma_direction",    dma_direction);
     sys_ctrl->setPort("\\dma_running",      dma_running);
 
-    connect_resets(database, top, sys_ctrl);
+    connect_signals(database, top, builder);
     connect_triggers(database, top, sys_ctrl);
 
     // Add EmuScanCtrl
@@ -402,12 +400,12 @@ void PlatformTransform::run()
     Cell *scan_ctrl = top->addCell(top->uniquify("\\emu_scan_ctrl"), "\\EmuScanCtrl");
 
     int ff_count = 0;
-    for (auto &ff : database.ff_list)
+    for (auto &ff : database.sysinfo.scan_ff)
         ff_count += ff.width;
     scan_ctrl->setParam("\\FF_COUNT", Const(ff_count));
 
     int mem_count = 0;
-    for (auto &mem : database.ram_list)
+    for (auto &mem : database.sysinfo.scan_ram)
         mem_count += mem.width * mem.depth;
     scan_ctrl->setParam("\\MEM_COUNT", Const(mem_count));
 
@@ -441,10 +439,6 @@ void PlatformTransform::run()
     // Add AXI remap
 
     add_axi_remap(database, top, builder);
-
-    // Add pipe adapters
-
-    add_pipe_adapters(database, top, builder);
 
     // Finalize
 

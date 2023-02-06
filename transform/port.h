@@ -68,16 +68,18 @@ struct PortTransform
     Hierarchy hier;
     EmulationDatabase &database;
 
-    Yosys::dict<Yosys::IdString, std::vector<ClockInfo>> all_clock_ports;
-    Yosys::dict<Yosys::IdString, std::vector<ResetInfo>> all_reset_ports;
-    Yosys::dict<Yosys::IdString, std::vector<TrigInfo>> all_trig_ports;
-    Yosys::dict<Yosys::IdString, std::vector<PipeInfo>> all_pipe_ports;
-    Yosys::dict<Yosys::IdString, std::vector<ChannelInfo>> all_channel_ports;
+    Yosys::dict<Yosys::IdString, std::vector<ClockPort>> all_clock_ports;
+    Yosys::dict<Yosys::IdString, std::vector<SignalPort>> all_signal_ports;
+    Yosys::dict<Yosys::IdString, std::vector<TriggerPort>> all_trigger_ports;
+    Yosys::dict<Yosys::IdString, std::vector<AXIPort>> all_axi_ports;
+    Yosys::dict<Yosys::IdString, std::vector<ChannelPort>> all_channel_ports;
 
-    void promote_user_sigs(Yosys::Module *module);
-    void promote_common_ports(Yosys::Module *module);
-    void promote_pipe_ports(Yosys::Module *module);
-    void promote_channel_ports(Yosys::Module *module);
+    void process_common_ports(Yosys::Module *module);
+    void process_clocks(Yosys::Module *module);
+    void process_signals(Yosys::Module *module);
+    void process_triggers(Yosys::Module *module);
+    void process_axi_ports(Yosys::Module *module);
+    void process_channel_ports(Yosys::Module *module);
 
     void run();
 

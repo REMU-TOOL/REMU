@@ -11,31 +11,8 @@ USING_YOSYS_NAMESPACE
 
 using namespace REMU;
 
-void ScanchainWorker::instrument_module_ff(Module *module, SigSpec ff_di, SigSpec ff_do, std::vector<FFInfo> &info_list)
+void ScanchainWorker::handle_ignored_ff(Module *module, FfInitVals &initvals)
 {
-    Wire *scan_mode = CommonPort::get(module, CommonPort::PORT_SCAN_MODE);
-
-    // process clock, reset, enable signals and insert sdi
-    // Original:
-    // always @(posedge clk)
-    //   if (srst)
-    //     q <= SRST_VAL;
-    //   else if (ce)
-    //     q <= d;
-    // Instrumented:
-    // always @(posedge gated_clk)
-    //   if (srst && !scan_mode)
-    //     q <= SRST_VAL;
-    //   else if (ce || scan_mode)
-    //     q <= scan_mode ? sdi : d;
-
-    SigMap sigmap;
-    FfInitVals initvals;
-    sigmap.set(module);
-    initvals.set(&sigmap, module);
-
-    SigSpec sdi_list, q_list;
-
     for (auto cell : module->cells().to_vector()) {
         if (RTLIL::builtin_ff_cell_types().count(cell->type) == 0)
             continue;
@@ -56,10 +33,11 @@ void ScanchainWorker::instrument_module_ff(Module *module, SigSpec ff_di, SigSpe
                         removed_bits.insert(i);
                     }
                     FfData ignored_ff = ff.slice(bits);
+                    ignored_ff.attributes[Attr::NoScanchain] = Const(1);
                     ignored_ff.emit();
                 }
                 else {
-                    log("Rewriting FF %s\n",
+                    log("Selecting FF %s\n",
                         pretty_name(chunk).c_str());
                 }
             }
@@ -72,6 +50,48 @@ void ScanchainWorker::instrument_module_ff(Module *module, SigSpec ff_di, SigSpe
                 bits.push_back(i);
         ff = ff.slice(bits);
         ff.cell = cell;
+    }
+}
+
+void ScanchainWorker::instrument_module_ff
+(
+    Module *module,
+    SigSpec ff_di,
+    SigSpec ff_do,
+    SigSpec &ff_sigs,
+    std::vector<SysInfo::ScanFFInfo> &info_list
+)
+{
+    Wire *scan_mode = CommonPort::get(module, CommonPort::PORT_SCAN_MODE);
+
+    // process clock, reset, enable signals and insert sdi
+    // Original:
+    // always @(posedge clk)
+    //   if (srst)
+    //     q <= SRST_VAL;
+    //   else if (ce)
+    //     q <= d;
+    // Instrumented:
+    // always @(posedge gated_clk)
+    //   if (srst && !scan_mode)
+    //     q <= SRST_VAL;
+    //   else if (ce || scan_mode)
+    //     q <= scan_mode ? sdi : d;
+
+    SigSpec sdi_list, q_list;
+
+    for (auto cell : module->cells().to_vector()) {
+        if (RTLIL::builtin_ff_cell_types().count(cell->type) == 0)
+            continue;
+
+        if (cell->get_bool_attribute(Attr::NoScanchain))
+            continue;
+
+        FfData ff(nullptr, cell);
+        pool<int> removed_bits;
+
+        log("Rewriting FF %s\n",
+            pretty_name(ff.sig_q).c_str());
 
         if (!ff.pol_srst) {
             ff.sig_srst = module->Not(NEW_ID, ff.sig_srst);
@@ -100,20 +120,32 @@ void ScanchainWorker::instrument_module_ff(Module *module, SigSpec ff_di, SigSpe
 
     for (auto &chunk : q_list.chunks()) {
         log_assert(chunk.is_wire());
-        FFInfo info;
-        info.name = {id2str(chunk.wire->name)};
-        info.width = chunk.width;
-        info.offset = chunk.offset;
-        info.wire_width = chunk.wire->width;
-        info.wire_start_offset = chunk.wire->start_offset;
-        info.wire_upto = chunk.wire->upto;
-        info.is_src = true;
-        info.init_data = initvals(SigSpec(chunk));
-        info_list.push_back(std::move(info));
+        if (chunk.wire->get_bool_attribute(Attr::AnonymousFF)) {
+            info_list.push_back({
+                .name = {},
+                .width = chunk.width,
+                .offset = 0,
+            });
+        }
+        else {
+            info_list.push_back({
+                .name = {id2str(chunk.wire->name)},
+                .width = chunk.width,
+                .offset = chunk.offset,
+            });
+            ff_sigs.append(chunk);
+        }
     }
 }
 
-void ScanchainWorker::restore_sync_read_port_ff(Module *module, SigSpec ff_di, SigSpec ff_do, std::vector<FFInfo> &info_list)
+void ScanchainWorker::restore_sync_read_port_ff
+(
+    Module *module,
+    SigSpec ff_di,
+    SigSpec ff_do,
+    SigSpec &ff_sigs,
+    std::vector<SysInfo::ScanFFInfo> &info_list
+)
 {
     Wire *host_clk  = CommonPort::get(module, CommonPort::PORT_HOST_CLK);
     Wire *ff_se     = CommonPort::get(module, CommonPort::PORT_FF_SE);
@@ -206,28 +238,39 @@ void ScanchainWorker::restore_sync_read_port_ff(Module *module, SigSpec ff_di, S
         mem.emit();
 
         // if the original reg is raddr, we don't care rdata's name but only save its data
-        info_q.append(work.is_addr ? shadow_rdata : rd.data);
-        info_init.append(rd.init_value);
+        if (work.is_addr) {
+            info_list.push_back({
+                .name = {},
+                .width = shadow_rdata->width,
+                .offset = 0,
+            });
+        }
+        else {
+            for (auto &chunk : rd.data.chunks()) {
+                log_assert(chunk.is_wire());
+                info_list.push_back({
+                    .name = {id2str(chunk.wire->name)},
+                    .width = chunk.width,
+                    .offset = chunk.offset,
+                });
+            }
+            ff_sigs.append(rd.data);
+        }
     }
 
     module->connect({sdi_list, ff_do}, {ff_di, q_list});
-
-    for (auto &chunk : info_q.chunks()) {
-        log_assert(chunk.is_wire());
-        FFInfo info;
-        info.name = {id2str(chunk.wire->name)};
-        info.width = chunk.width;
-        info.offset = chunk.offset;
-        info.wire_width = chunk.wire->width;
-        info.wire_start_offset = chunk.wire->start_offset;
-        info.wire_upto = chunk.wire->upto;
-        info.is_src = false;
-        info.init_data = info_init.as_const();
-        info_list.push_back(std::move(info));
-    }
 }
 
-void ScanchainWorker::instrument_module_ram(Module *module, SigSpec ram_di, SigSpec ram_do, SigSpec ram_li, SigSpec ram_lo, std::vector<RAMInfo> &info_list)
+void ScanchainWorker::instrument_module_ram
+(
+    Module *module,
+    SigSpec ram_di,
+    SigSpec ram_do,
+    SigSpec ram_li,
+    SigSpec ram_lo,
+    dict<std::vector<std::string>, SysInfo::RAMInfo> &ram_infos,
+    std::vector<SysInfo::ScanRAMInfo> &info_list
+)
 {
     Wire *host_clk  = CommonPort::get(module, CommonPort::PORT_HOST_CLK);
     Wire *scan_mode = CommonPort::get(module, CommonPort::PORT_SCAN_MODE);
@@ -394,14 +437,32 @@ void ScanchainWorker::instrument_module_ram(Module *module, SigSpec ram_di, SigS
         mem.packed = true;
         mem.emit();
 
-        RAMInfo info;
-        info.name = {id2str(mem.memid)};
-        info.width = mem.width;
-        info.depth = mem.size;
-        info.start_offset = mem.start_offset;
-        info.dissolved = false; // TODO
-        info.init_data = mem.get_init_data();
-        info_list.push_back(std::move(info));
+        Const init_data;
+        bool init_zero;
+        if (mem.inits.empty()) {
+            init_zero = true;
+        }
+        else {
+            init_data = mem.get_init_data();
+            init_zero = init_data.is_fully_undef() || init_data.is_fully_zero();
+            if (!init_zero)
+                for (auto &b : init_data)
+                    b = b == State::S1 ? State::S1 : State::S0;
+        }
+
+        info_list.push_back({
+            .name = {id2str(mem.memid)},
+            .width = mem.width,
+            .depth = mem.size,
+        });
+        ram_infos[{id2str(mem.memid)}] = {
+            .width = mem.width,
+            .depth = mem.size,
+            .start_offset = mem.start_offset,
+            .init_zero = init_zero,
+            .init_data = init_zero ? "" : init_data.as_string(),
+            .dissolved = false, // TODO
+        };
     }
 
     module->connect({ram_di_list, ram_do}, {ram_di, ram_do_list});
@@ -409,11 +470,26 @@ void ScanchainWorker::instrument_module_ram(Module *module, SigSpec ram_di, SigS
 }
 
 template<typename T>
-inline void copy_info_from_child(std::vector<T> &to, const std::vector<T> &from, IdString scope)
+inline void copy_list_from_child(std::vector<T> &to, const std::vector<T> &from, IdString scope)
 {
     for (auto info : from) {
-        info.name.insert(info.name.begin(), id2str(scope));
+        if (!info.name.empty())
+            info.name.insert(info.name.begin(), id2str(scope));
         to.push_back(std::move(info));
+    }
+}
+
+template<typename T>
+inline void copy_dict_from_child
+(
+    dict<std::vector<std::string>, T> &to,
+    const dict<std::vector<std::string>, T> &from,
+    IdString scope
+)
+{
+    for (auto x : from) {
+        x.first.insert(x.first.begin(), id2str(scope));
+        to.insert(std::move(x));
     }
 }
 
@@ -430,9 +506,6 @@ void ScanchainWorker::instrument_module(Module *module)
     Wire *ram_li    = CommonPort::get(module, CommonPort::PORT_RAM_LI);
     Wire *ram_lo    = CommonPort::get(module, CommonPort::PORT_RAM_LO);
 
-    std::vector<FFInfo> ff_list;
-    std::vector<RAMInfo> ram_list;
-
     SigSpec sig_ff_di = ff_do;
     SigSpec sig_ff_do;
     SigSpec sig_ram_di = ram_do;
@@ -442,19 +515,50 @@ void ScanchainWorker::instrument_module(Module *module)
 
     // Process FFs & RAMs in this module
 
-    sig_ff_do = sig_ff_di;
-    sig_ff_di = module->addWire(NEW_ID);
-    instrument_module_ff(module, sig_ff_di, sig_ff_do, ff_list);
+    SigMap sigmap;
+    FfInitVals initvals;
+    sigmap.set(module);
+    initvals.set(&sigmap, module);
+
+    for (auto &mem : Mem::get_all_memories(module))
+        for (auto &rd : mem.rd_ports)
+            initvals.set_init(rd.data, rd.init_value);
+
+    handle_ignored_ff(module, initvals);
+
+    SigSpec ff_sigs;
 
     sig_ff_do = sig_ff_di;
     sig_ff_di = module->addWire(NEW_ID);
-    restore_sync_read_port_ff(module, sig_ff_di, sig_ff_do, ff_list);
+    instrument_module_ff(module, sig_ff_di, sig_ff_do, ff_sigs, ff_lists[module->name]);
+
+    sig_ff_do = sig_ff_di;
+    sig_ff_di = module->addWire(NEW_ID);
+    restore_sync_read_port_ff(module, sig_ff_di, sig_ff_do, ff_sigs, ff_lists[module->name]);
+
+    ff_sigs.sort_and_unify();
+    auto &wire_infos = all_wire_infos[module->name];
+    for (auto &chunk : ff_sigs.chunks()) {
+        Const init_data = initvals(SigSpec(chunk.wire));
+        bool init_zero = init_data.is_fully_undef() || init_data.is_fully_zero();
+        if (!init_zero)
+            for (auto &b : init_data)
+                b = b == State::S1 ? State::S1 : State::S0;
+        wire_infos[{id2str(chunk.wire->name)}] = {
+            .width = chunk.wire->width,
+            .start_offset = chunk.wire->start_offset,
+            .upto = chunk.wire->upto,
+            .init_zero = init_zero,
+            .init_data = init_zero ? "" : init_data.as_string(),
+        };
+    }
 
     sig_ram_do = sig_ram_di;
     sig_ram_di = module->addWire(NEW_ID);
     sig_ram_li = sig_ram_lo;
     sig_ram_lo = module->addWire(NEW_ID);
-    instrument_module_ram(module, sig_ram_di, sig_ram_do, sig_ram_li, sig_ram_lo, ram_list);
+    instrument_module_ram(module, sig_ram_di, sig_ram_do, sig_ram_li, sig_ram_lo,
+        all_ram_infos[module->name], ram_lists[module->name]);
 
     // Append FFs & RAMs in submodules
 
@@ -485,8 +589,10 @@ void ScanchainWorker::instrument_module(Module *module)
         cell->setPort(CommonPort::PORT_RAM_LI.id,   sig_ram_li);
         cell->setPort(CommonPort::PORT_RAM_LO.id,   sig_ram_lo);
 
-        copy_info_from_child(ff_list, ff_lists.at(cell->type), cell->name);
-        copy_info_from_child(ram_list, ram_lists.at(cell->type), cell->name);
+        copy_list_from_child(ff_lists[module->name], ff_lists.at(cell->type), cell->name);
+        copy_list_from_child(ram_lists[module->name], ram_lists.at(cell->type), cell->name);
+        copy_dict_from_child(all_wire_infos[module->name], all_wire_infos.at(cell->type), cell->name);
+        copy_dict_from_child(all_ram_infos[module->name], all_ram_infos.at(cell->type), cell->name);
 
         cell->type = derived_name(cell->type);
     }
@@ -494,10 +600,6 @@ void ScanchainWorker::instrument_module(Module *module)
     module->connect(sig_ff_di, ff_di);
     module->connect(sig_ram_di, ram_di);
     module->connect(ram_lo, sig_ram_lo);
-
-    // Note: module->name here is its original name
-    ff_lists[module->name] = ff_list;
-    ram_lists[module->name] = ram_list;
 }
 
 void ScanchainWorker::tieoff_ram_last(Module *module)
@@ -595,8 +697,14 @@ void ScanchainWorker::run()
         hier.design->add(newmod);
     }
 
-    database.ff_list = ff_lists.at(hier.top);
-    database.ram_list = ram_lists.at(hier.top);
+    auto &wire_infos = all_wire_infos.at(hier.top);
+    database.sysinfo.wire.insert(wire_infos.begin(), wire_infos.end());
+
+    auto &ram_infos = all_ram_infos.at(hier.top);
+    database.sysinfo.ram.insert(ram_infos.begin(), ram_infos.end());
+
+    database.sysinfo.scan_ff = ff_lists.at(hier.top);
+    database.sysinfo.scan_ram = ram_lists.at(hier.top);
 }
 
 PRIVATE_NAMESPACE_BEGIN
@@ -613,7 +721,7 @@ struct EmuTestScanchain : public Pass {
         port.run();
         ScanchainWorker worker(design, database);
         worker.run();
-        database.write_yaml("output.yml");
+        database.write_sysinfo("output.json");
     }
 } EmuTestScanchain;
 
