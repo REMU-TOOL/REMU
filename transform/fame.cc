@@ -23,6 +23,7 @@ inline Cell* ClockGate(Module *module, IdString name, SigSpec clk, SigSpec en, S
 
 void FAMETransform::run()
 {
+
     Module *top = design->top_module();
 
     SigSpec finishing = State::S1;
@@ -95,6 +96,17 @@ void FAMETransform::run()
             done,
             State::S0
         );
+
+
+        // Note: direction is in model module's view
+        if (info.dir == ChannelPort::IN) {
+            // assign valid = !done && run_mode;
+            top->connect(valid, top->And(NEW_ID, top->Not(NEW_ID, done), run_mode));
+        }
+        else {
+            // assign ready = !done && run_mode;
+            top->connect(ready, top->And(NEW_ID, top->Not(NEW_ID, done), run_mode));
+        }
 
         Wire *channel_finishing = top->addWire(NEW_ID);
         top->connect(channel_finishing, top->Or(NEW_ID, fire, done));
