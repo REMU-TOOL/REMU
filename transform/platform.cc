@@ -101,17 +101,27 @@ struct CtrlConnBuilder
     void add(const CtrlSig &slave, uint32_t addr_base, int addr_bits)
     {
         log_assert(GetSize(slave.wen) == 1);
-        log_assert(GetSize(slave.waddr) == addr_width);
         log_assert(GetSize(slave.wdata) == data_width);
         log_assert(GetSize(slave.ren) == 1);
-        log_assert(GetSize(slave.raddr) == addr_width);
         log_assert(GetSize(slave.rdata) == data_width);
+        log_assert(GetSize(slave.waddr) <= addr_width);
+        log_assert(GetSize(slave.waddr) >= addr_bits);
+        log_assert(GetSize(slave.raddr) == GetSize(slave.waddr));
+
+        int aw = GetSize(slave.waddr);
+
+        SigSpec waddr = slave.waddr;
+        SigSpec raddr = slave.raddr;
+        if (aw < addr_width) {
+            waddr.append(module->addWire(NEW_ID, addr_width - aw));
+            raddr.append(module->addWire(NEW_ID, addr_width - aw));
+        }
 
         wen_list.append(slave.wen);
-        waddr_list.append(slave.waddr);
+        waddr_list.append(waddr);
         wdata_list.append(slave.wdata);
         ren_list.append(slave.ren);
-        raddr_list.append(slave.raddr);
+        raddr_list.append(raddr);
         rdata_list.append(slave.rdata);
 
         base_list.append(Const(addr_base, addr_width));
@@ -194,8 +204,8 @@ void connect_signals(EmulationDatabase &database, Module *top, CtrlConnBuilder &
 
     if (i_idx > 0) {
         Cell *gpio_o = top->addCell("\\emu_gpio_o", "\\ctrlbus_gpio_out");
-        auto ctrl = CtrlSig::create(top, "emu_ctrl_gpio_o", CTRL_ADDR_WIDTH, 32);
-        gpio_o->setParam("\\ADDR_WIDTH", Const(CTRL_ADDR_WIDTH));
+        auto ctrl = CtrlSig::create(top, "emu_ctrl_gpio_o", SIGNAL_IN_WIDTH, 32);
+        gpio_o->setParam("\\ADDR_WIDTH", Const(SIGNAL_IN_WIDTH));
         gpio_o->setParam("\\DATA_WIDTH", Const(32));
         gpio_o->setParam("\\NREGS", Const(i_idx));
         gpio_o->setParam("\\REG_WIDTH_LIST", i_sig_widths.as_const());
@@ -213,8 +223,8 @@ void connect_signals(EmulationDatabase &database, Module *top, CtrlConnBuilder &
 
     if (o_idx > 0) {
         Cell *gpio_i = top->addCell("\\emu_gpio_i", "\\ctrlbus_gpio_in");
-        auto ctrl = CtrlSig::create(top, "emu_ctrl_gpio_i", CTRL_ADDR_WIDTH, 32);
-        gpio_i->setParam("\\ADDR_WIDTH", Const(CTRL_ADDR_WIDTH));
+        auto ctrl = CtrlSig::create(top, "emu_ctrl_gpio_i", SIGNAL_OUT_WIDTH, 32);
+        gpio_i->setParam("\\ADDR_WIDTH", Const(SIGNAL_OUT_WIDTH));
         gpio_i->setParam("\\DATA_WIDTH", Const(32));
         gpio_i->setParam("\\NREGS", Const(o_idx));
         gpio_i->setParam("\\REG_WIDTH_LIST", o_sig_widths.as_const());
@@ -268,10 +278,10 @@ void add_axi_remap(EmulationDatabase &database, Module *top, CtrlConnBuilder &bu
         make_internal(araddr);
         make_internal(awaddr);
 
-        auto ctrl = CtrlSig::create(top, stringf("emu_axi_remap_ctrl_%d", i), CTRL_ADDR_WIDTH, 32);
+        auto ctrl = CtrlSig::create(top, stringf("emu_axi_remap_ctrl_%d", i), AXI_REMAP_CFG_WIDTH, 32);
         Cell *cell = top->addCell(stringf("\\emu_remap_%d", i), "\\EmuAXIRemapCtrl");
-        cell->setParam("\\CTRL_ADDR_WIDTH", CTRL_ADDR_WIDTH);
-        cell->setParam("\\ADDR_WIDTH", info.axi.addrWidth());
+        cell->setParam("\\CTRL_ADDR_WIDTH", AXI_REMAP_CFG_WIDTH);
+        cell->setParam("\\AXI_ADDR_WIDTH", info.axi.addrWidth());
         cell->setPort("\\clk", host_clk);
         cell->setPort("\\rst", host_rst);
         cell->setPort("\\ctrl_wen", ctrl.wen);
@@ -363,10 +373,8 @@ void PlatformTransform::run()
     // Add EmuSysCtrl
 
     Cell *sys_ctrl = top->addCell(top->uniquify("\\emu_sys_ctrl"), "\\EmuSysCtrl");
-    auto sys_ctrl_sig = CtrlSig::create(top, "emu_s_ctrl_sys", CTRL_ADDR_WIDTH, 32);
+    auto sys_ctrl_sig = CtrlSig::create(top, "emu_s_ctrl_sys", 12, 32);
     builder.add(sys_ctrl_sig, SYS_CTRL_BASE, SYS_CTRL_WIDTH);
-
-    sys_ctrl->setParam("\\CTRL_ADDR_WIDTH", CTRL_ADDR_WIDTH);
 
     sys_ctrl->setPort("\\host_clk",     host_clk);
     sys_ctrl->setPort("\\host_rst",     host_rst);

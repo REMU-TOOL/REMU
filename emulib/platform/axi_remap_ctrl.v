@@ -2,7 +2,7 @@
 
 module EmuAXIRemapCtrl #(
     parameter   CTRL_ADDR_WIDTH = 32,
-    parameter   ADDR_WIDTH  = 32
+    parameter   AXI_ADDR_WIDTH  = 32
 )(
     input  wire                     clk,
     input  wire                     rst,
@@ -14,10 +14,10 @@ module EmuAXIRemapCtrl #(
     input  wire [CTRL_ADDR_WIDTH-1:0]   ctrl_raddr,
     output reg  [31:0]                  ctrl_rdata,
 
-    input  wire [ADDR_WIDTH-1:0]    araddr_i,
-    output wire [ADDR_WIDTH-1:0]    araddr_o,
-    input  wire [ADDR_WIDTH-1:0]    awaddr_i,
-    output wire [ADDR_WIDTH-1:0]    awaddr_o
+    input  wire [AXI_ADDR_WIDTH-1:0]    araddr_i,
+    output wire [AXI_ADDR_WIDTH-1:0]    araddr_o,
+    input  wire [AXI_ADDR_WIDTH-1:0]    awaddr_i,
+    output wire [AXI_ADDR_WIDTH-1:0]    awaddr_o
 );
 
     // Registers
@@ -55,8 +55,8 @@ module EmuAXIRemapCtrl #(
         endcase
     end
 
-    wire [ADDR_WIDTH-1:0] real_base = full_base[ADDR_WIDTH-1:0];
-    wire [ADDR_WIDTH-1:0] real_mask = full_mask[ADDR_WIDTH-1:0];
+    wire [AXI_ADDR_WIDTH-1:0] real_base = full_base[AXI_ADDR_WIDTH-1:0];
+    wire [AXI_ADDR_WIDTH-1:0] real_mask = full_mask[AXI_ADDR_WIDTH-1:0];
 
     assign araddr_o = (real_mask & araddr_i) | (~real_mask & real_base);
     assign awaddr_o = (real_mask & awaddr_i) | (~real_mask & real_base);

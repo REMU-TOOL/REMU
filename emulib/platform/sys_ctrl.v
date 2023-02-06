@@ -3,7 +3,6 @@
 `include "axi.vh"
 
 module EmuSysCtrl #(
-    parameter   CTRL_ADDR_WIDTH = 32,
     parameter   TRIG_COUNT      = 1, // max = 128
     parameter   __TRIG_COUNT    = TRIG_COUNT > 0 ? TRIG_COUNT : 1
 )(
@@ -18,12 +17,12 @@ module EmuSysCtrl #(
 
     input  wire [__TRIG_COUNT-1:0]    trig,
 
-    input  wire                         ctrl_wen,
-    input  wire [CTRL_ADDR_WIDTH-1:0]   ctrl_waddr,
-    input  wire [31:0]                  ctrl_wdata,
-    input  wire                         ctrl_ren,
-    input  wire [CTRL_ADDR_WIDTH-1:0]   ctrl_raddr,
-    output reg  [31:0]                  ctrl_rdata,
+    input  wire         ctrl_wen,
+    input  wire [11:0]  ctrl_waddr,
+    input  wire [31:0]  ctrl_wdata,
+    input  wire         ctrl_ren,
+    input  wire [11:0]  ctrl_raddr,
+    output reg  [31:0]  ctrl_rdata,
 
     output wire [31:0]  dma_base,
     output wire         dma_start,

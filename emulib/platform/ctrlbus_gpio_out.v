@@ -24,11 +24,12 @@ module ctrlbus_gpio_out #(
     for (i=0; i<NREGS; i=i+1) begin
         localparam WIDTH = REG_WIDTH_LIST[i*32+:32];
         reg [WIDTH-1:0] r;
+        wire test = ctrl_waddr[ADDR_WIDTH-1:2] == i;
 
         always @(posedge clk) begin
             if (rst)
                 r <= {WIDTH{1'b0}};
-            else if (ctrl_wen && ctrl_waddr[ADDR_WIDTH-1:2] == i)
+            else if (ctrl_wen && (ctrl_waddr[ADDR_WIDTH-1:2] == i))
                 r <= ctrl_wdata[WIDTH-1:0];
         end
 
