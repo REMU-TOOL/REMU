@@ -4,12 +4,8 @@
 
 module EmuSysCtrl #(
     parameter   CTRL_ADDR_WIDTH = 32,
-
     parameter   TRIG_COUNT      = 1, // max = 128
-    parameter   RESET_COUNT     = 1, // max = 128
-
-    parameter   __TRIG_COUNT    = TRIG_COUNT > 0 ? TRIG_COUNT : 1,
-    parameter   __RESET_COUNT   = RESET_COUNT > 0 ? RESET_COUNT : 1
+    parameter   __TRIG_COUNT    = TRIG_COUNT > 0 ? TRIG_COUNT : 1
 )(
     input  wire         host_clk,
     input  wire         host_rst,
@@ -21,7 +17,6 @@ module EmuSysCtrl #(
     output reg          scan_mode,
 
     input  wire [__TRIG_COUNT-1:0]    trig,
-    output reg  [__RESET_COUNT-1:0]   rst,
 
     input  wire                         ctrl_wen,
     input  wire [CTRL_ADDR_WIDTH-1:0]   ctrl_waddr,
@@ -30,6 +25,7 @@ module EmuSysCtrl #(
     input  wire [CTRL_ADDR_WIDTH-1:0]   ctrl_raddr,
     output reg  [31:0]                  ctrl_rdata,
 
+    output wire [31:0]  dma_base,
     output wire         dma_start,
     output reg          dma_direction,
     input  wire         dma_running
@@ -42,18 +38,18 @@ module EmuSysCtrl #(
     localparam  TICK_CNT_LO = 10'b0000_0000_10; // 0x008
     localparam  TICK_CNT_HI = 10'b0000_0000_11; // 0x00c
     localparam  SCAN_CTRL   = 10'b0000_0001_00; // 0x010
+    localparam  DMA_BASE    = 10'b0000_0001_01; // 0x014
     localparam  TRIG_STAT   = 10'b0001_0000_??; // 0x100 - 0x10c
     localparam  TRIG_EN     = 10'b0001_0001_??; // 0x110 - 0x11c
-    localparam  RESET_CTRL  = 10'b0001_0010_??; // 0x120 - 0x12c
 
     reg w_mode_ctrl;
     reg w_step_cnt;
     reg w_tick_cnt_lo;
     reg w_tick_cnt_hi;
     reg w_scan_ctrl;
+    reg w_dma_base;
     reg w_trig_stat;
     reg w_trig_en;
-    reg w_reset_ctrl;
 
     always @* begin
         w_mode_ctrl     = 1'b0;
@@ -61,18 +57,18 @@ module EmuSysCtrl #(
         w_tick_cnt_lo   = 1'b0;
         w_tick_cnt_hi   = 1'b0;
         w_scan_ctrl     = 1'b0;
+        w_dma_base     = 1'b0;
         w_trig_stat     = 1'b0;
         w_trig_en       = 1'b0;
-        w_reset_ctrl    = 1'b0;
         casez (ctrl_waddr[11:2])
             MODE_CTRL   :   w_mode_ctrl     = 1'b1;
             STEP_CNT    :   w_step_cnt      = 1'b1;
             TICK_CNT_LO :   w_tick_cnt_lo   = 1'b1;
             TICK_CNT_HI :   w_tick_cnt_hi   = 1'b1;
             SCAN_CTRL   :   w_scan_ctrl     = 1'b1;
+            DMA_BASE    :   w_dma_base      = 1'b1;
             TRIG_STAT   :   w_trig_stat     = 1'b1;
             TRIG_EN     :   w_trig_en       = 1'b1;
-            RESET_CTRL  :   w_reset_ctrl    = 1'b1;
         endcase
     end
 
@@ -181,6 +177,23 @@ module EmuSysCtrl #(
 
     wire [31:0] scan_ctrl = {30'd0, dma_direction, dma_running};
 
+    // DMA_BASE
+    //      [11:0]  -> 0
+    //      [31:12] -> DMA_BASE_HI
+
+    reg [19:0] dma_base_hi;
+
+    always @(posedge host_clk) begin
+        if (host_rst) begin
+            dma_base_hi <= 20'd0;
+        end
+        else if (ctrl_wen && w_dma_base) begin
+            dma_base_hi <= ctrl_wdata[31:12];
+        end
+    end
+
+    assign dma_base = {dma_base_hi, 12'd0};
+
     // TRIG_STAT [RO]
 
     // Register space:
@@ -229,28 +242,6 @@ module EmuSysCtrl #(
 
     assign trig_active = |{trig_en & trig};
 
-    // RESET_CTRL [RW]
-
-    // Register space:
-    //      MSB            LSB
-    // 0x0: rst[31]   ...  rst[0]
-    // 0x4: rst[63]   ...  rst[32]
-    // 0x8: rst[95]   ...  rst[64]
-    // 0xc: rst[127]  ...  rst[96]
-
-    for (i=0; i<__RESET_COUNT; i=i+1) begin
-        always @(posedge host_clk) begin
-            if (host_rst) begin
-                rst[i] <= 1'b0;
-            end
-            else if (ctrl_wen && w_reset_ctrl && ctrl_waddr[1:0] == i/32) begin
-                rst[i] <= ctrl_wdata[i%32];
-            end
-        end
-    end
-
-    wire reset_ctrl_rdata = rst[ctrl_raddr[1:0]*32+:32];
-
     //////////////////// Register Definitions End ////////////////////
 
     always @* begin
@@ -261,9 +252,9 @@ module EmuSysCtrl #(
             TICK_CNT_LO :   ctrl_rdata = tick_cnt[31:0];
             TICK_CNT_HI :   ctrl_rdata = tick_cnt[63:32];
             SCAN_CTRL   :   ctrl_rdata = scan_ctrl;
+            DMA_BASE    :   ctrl_rdata = dma_base;
             TRIG_STAT   :   ctrl_rdata = trig_stat_rdata;
             TRIG_EN     :   ctrl_rdata = trig_en_rdata;
-            RESET_CTRL  :   ctrl_rdata = reset_ctrl_rdata;
         endcase
     end
 

@@ -2,7 +2,6 @@
 
 module EgressPipePIOAdapter #(
     parameter   CTRL_ADDR_WIDTH = 32,
-
     parameter   DATA_WIDTH  = 1,
     parameter   FIFO_DEPTH  = 16
 )(

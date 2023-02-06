@@ -3,12 +3,11 @@
 `include "axi.vh"
 `include "axi_custom.vh"
 
-(* keep *)
 module emulib_rammodel_backend #(
     parameter   ADDR_WIDTH      = 32,
     parameter   DATA_WIDTH      = 64,
     parameter   ID_WIDTH        = 4,
-    parameter   PAGE_COUNT      = 'h10000,
+    parameter   MEM_SIZE        = 64'h10000000,
     parameter   MAX_INFLIGHT    = 8
 )(
 
@@ -42,7 +41,7 @@ module emulib_rammodel_backend #(
     integer handle, result;
 
     initial begin
-        handle = $rammodel_new(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH, PAGE_COUNT);
+        handle = $rammodel_new(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH, MEM_SIZE);
         if (handle == -1) begin
             $display("ERROR: rammodel internal error");
             $fatal;

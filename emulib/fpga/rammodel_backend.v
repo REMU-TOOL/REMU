@@ -3,29 +3,28 @@
 `include "axi.vh"
 `include "axi_custom.vh"
 
-(* keep, __emu_model_imp, __emu_model_type = "rammodel" *)
 module emulib_rammodel_backend #(
     parameter   ADDR_WIDTH      = 32,
     parameter   DATA_WIDTH      = 64,
     parameter   ID_WIDTH        = 4,
-    parameter   PAGE_COUNT      = 'h10000,
+    parameter   MEM_SIZE        = 64'h10000000,
     parameter   MAX_INFLIGHT    = 8
 )(
 
-    (* __emu_model_common_port = "mdl_clk" *)
+    (* __emu_common_port = "mdl_clk" *)
     input  wire                     mdl_clk,
-    (* __emu_model_common_port = "mdl_rst" *)
+    (* __emu_common_port = "mdl_rst" *)
     input  wire                     mdl_rst,
 
     input  wire                     clk,
 
     // Reset Channel
 
-    (* __emu_model_channel_name = "rst"*)
-    (* __emu_model_channel_direction = "in" *)
-    (* __emu_model_channel_payload = "rst" *)
-    (* __emu_model_channel_valid = "tk_rst_valid" *)
-    (* __emu_model_channel_ready = "tk_rst_ready" *)
+    (* __emu_channel_name = "rst"*)
+    (* __emu_channel_direction = "in" *)
+    (* __emu_channel_payload = "rst" *)
+    (* __emu_channel_valid = "tk_rst_valid" *)
+    (* __emu_channel_ready = "tk_rst_ready" *)
 
     input  wire                     tk_rst_valid,
     output wire                     tk_rst_ready,
@@ -34,11 +33,11 @@ module emulib_rammodel_backend #(
 
     // AReq Channel
 
-    (* __emu_model_channel_name = "areq" *)
-    (* __emu_model_channel_direction = "in" *)
-    (* __emu_model_channel_payload = "areq_*" *)
-    (* __emu_model_channel_valid = "tk_areq_valid" *)
-    (* __emu_model_channel_ready = "tk_areq_ready" *)
+    (* __emu_channel_name = "areq" *)
+    (* __emu_channel_direction = "in" *)
+    (* __emu_channel_payload = "areq_*" *)
+    (* __emu_channel_valid = "tk_areq_valid" *)
+    (* __emu_channel_ready = "tk_areq_ready" *)
 
     input  wire                     tk_areq_valid,
     output wire                     tk_areq_ready,
@@ -53,11 +52,11 @@ module emulib_rammodel_backend #(
 
     // WReq Channel
 
-    (* __emu_model_channel_name = "wreq" *)
-    (* __emu_model_channel_direction = "in" *)
-    (* __emu_model_channel_payload = "areq_*" *)
-    (* __emu_model_channel_valid = "tk_wreq_valid" *)
-    (* __emu_model_channel_ready = "tk_wreq_ready" *)
+    (* __emu_channel_name = "wreq" *)
+    (* __emu_channel_direction = "in" *)
+    (* __emu_channel_payload = "areq_*" *)
+    (* __emu_channel_valid = "tk_wreq_valid" *)
+    (* __emu_channel_ready = "tk_wreq_ready" *)
 
     input  wire                     tk_wreq_valid,
     output wire                     tk_wreq_ready,
@@ -69,11 +68,11 @@ module emulib_rammodel_backend #(
 
     // BReq Channel
 
-    (* __emu_model_channel_name = "breq" *)
-    (* __emu_model_channel_direction = "in" *)
-    (* __emu_model_channel_payload = "breq_*" *)
-    (* __emu_model_channel_valid = "tk_breq_valid" *)
-    (* __emu_model_channel_ready = "tk_breq_ready" *)
+    (* __emu_channel_name = "breq" *)
+    (* __emu_channel_direction = "in" *)
+    (* __emu_channel_payload = "breq_*" *)
+    (* __emu_channel_valid = "tk_breq_valid" *)
+    (* __emu_channel_ready = "tk_breq_ready" *)
 
     input  wire                     tk_breq_valid,
     output wire                     tk_breq_ready,
@@ -83,11 +82,11 @@ module emulib_rammodel_backend #(
 
     // RReq Channel
 
-    (* __emu_model_channel_name = "rreq" *)
-    (* __emu_model_channel_direction = "in" *)
-    (* __emu_model_channel_payload = "rreq_*" *)
-    (* __emu_model_channel_valid = "tk_rreq_valid" *)
-    (* __emu_model_channel_ready = "tk_rreq_ready" *)
+    (* __emu_channel_name = "rreq" *)
+    (* __emu_channel_direction = "in" *)
+    (* __emu_channel_payload = "rreq_*" *)
+    (* __emu_channel_valid = "tk_rreq_valid" *)
+    (* __emu_channel_ready = "tk_rreq_ready" *)
 
     input  wire                     tk_rreq_valid,
     output wire                     tk_rreq_ready,
@@ -97,24 +96,24 @@ module emulib_rammodel_backend #(
 
     // BResp Channel
 
-    (* __emu_model_channel_name = "bresp" *)
-    (* __emu_model_channel_direction = "out" *)
-    (* __emu_model_channel_depends_on = "breq" *)
-    (* __emu_model_channel_payload = "bresp_*" *)
-    (* __emu_model_channel_valid = "tk_bresp_valid" *)
-    (* __emu_model_channel_ready = "tk_bresp_ready" *)
+    (* __emu_channel_name = "bresp" *)
+    (* __emu_channel_direction = "out" *)
+    (* __emu_channel_depends_on = "breq" *)
+    (* __emu_channel_payload = "bresp_*" *)
+    (* __emu_channel_valid = "tk_bresp_valid" *)
+    (* __emu_channel_ready = "tk_bresp_ready" *)
 
     output wire                     tk_bresp_valid,
     input  wire                     tk_bresp_ready,
 
     // RResp Channel
 
-    (* __emu_model_channel_name = "rresp" *)
-    (* __emu_model_channel_direction = "out" *)
-    (* __emu_model_channel_depends_on = "rreq" *)
-    (* __emu_model_channel_payload = "rresp_*" *)
-    (* __emu_model_channel_valid = "tk_rresp_valid" *)
-    (* __emu_model_channel_ready = "tk_rresp_ready" *)
+    (* __emu_channel_name = "rresp" *)
+    (* __emu_channel_direction = "out" *)
+    (* __emu_channel_depends_on = "rreq" *)
+    (* __emu_channel_payload = "rresp_*" *)
+    (* __emu_channel_valid = "tk_rresp_valid" *)
+    (* __emu_channel_ready = "tk_rresp_ready" *)
 
     output wire                     tk_rresp_valid,
     input  wire                     tk_rresp_ready,
@@ -124,15 +123,14 @@ module emulib_rammodel_backend #(
 
     (* __emu_axi_name = "host_axi" *)
     (* __emu_axi_type = "axi4" *)
-    (* __emu_axi_addr_space = "mem" *)
-    (* __emu_axi_addr_pages = PAGE_COUNT *)
+    (* __emu_axi_size = MEM_SIZE *)
     `AXI4_MASTER_IF                 (host_axi,      ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
 
-    (* __emu_model_common_port = "run_mode" *)
+    (* __emu_common_port = "run_mode" *)
     input  wire                     run_mode,
-    (* __emu_model_common_port = "scan_mode" *)
+    (* __emu_common_port = "scan_mode" *)
     input  wire                     scan_mode,
-    (* __emu_model_common_port = "idle" *)
+    (* __emu_common_port = "idle" *)
     output wire                     idle
 
 );

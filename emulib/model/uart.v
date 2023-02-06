@@ -2,42 +2,32 @@
 
 `include "axi.vh"
 
-(* __emu_model_type = "uart" *)
 module EmuUART #(
-    parameter   RX_TX_PERIOD    = 100,
     parameter   RX_FIFO_DEPTH   = 16,
     parameter   TX_FIFO_DEPTH   = 16
 )(
-    input  wire     clk,
-    input  wire     rst,
+    input  wire         clk,
+    input  wire         rst,
 
     `AXI4LITE_SLAVE_IF  (s_axilite, 4, 32)
 );
 
     // TODO: interrupt
 
-    reg [$clog2(RX_TX_PERIOD)-1:0] rx_tx_timer;
+    wire         tx_valid;
+    wire [7:0]   tx_ch;
+    wire         rx_valid;
+    wire [7:0]   rx_ch;
 
-    always @(posedge clk) begin
-        if (rst)
-            rx_tx_timer <= 0;
-        else
-            rx_tx_timer <= rx_tx_timer + 1;
-    end
-
-    wire rx_tx_en = rx_tx_timer == RX_TX_PERIOD - 1;
+    EmuUARTRxTxImp rx_tx_imp (
+        .clk        (clk),
+        .tx_valid   (tx_valid),
+        .tx_ch      (tx_ch),
+        .rx_valid   (rx_valid),
+        .rx_ch      (rx_ch)
+    );
 
     // Rx logic
-
-    wire rx_pipe_valid;
-    wire [7:0] rx_pipe_data;
-
-    EmuIngressPipe #(.DATA_WIDTH(8)) rx_pipe (
-        .clk    (clk),
-        .enable (rx_tx_en),
-        .valid  (rx_pipe_valid),
-        .data   (rx_pipe_data)
-    );
 
     wire rx_fifo_clear;
     wire rx_fifo_valid;
@@ -51,24 +41,15 @@ module EmuUART #(
     ) rx_fifo (
         .clk    (clk),
         .rst    (rst || rx_fifo_clear),
-        .ivalid (rx_pipe_valid),
+        .ivalid (rx_valid),
         .iready (rx_fifo_not_full),
-        .idata  (rx_pipe_data),
+        .idata  (rx_ch),
         .ovalid (rx_fifo_valid),
         .oready (rx_fifo_ready),
         .odata  (rx_fifo_data)
     );
 
     // Tx logic
-
-    wire tx_pipe_valid;
-    wire [7:0] tx_pipe_data;
-
-    EmuEgressPipe #(.DATA_WIDTH(8)) tx_pipe (
-        .clk    (clk),
-        .valid  (tx_pipe_valid && rx_tx_en),
-        .data   (tx_pipe_data)
-    );
 
     wire tx_fifo_clear;
     wire tx_fifo_valid;
@@ -84,9 +65,9 @@ module EmuUART #(
         .ivalid (tx_fifo_valid),
         .iready (tx_fifo_ready),
         .idata  (tx_fifo_data),
-        .ovalid (tx_pipe_valid),
-        .oready (rx_tx_en),
-        .odata  (tx_pipe_data)
+        .ovalid (tx_valid),
+        .oready (1'b1),
+        .odata  (tx_ch)
     );
 
     // Status bits
@@ -98,7 +79,7 @@ module EmuUART #(
     always @(posedge clk) begin
         if (rst)
             overrun_err <= 1'b0;
-        else if (rx_pipe_valid && !rx_fifo_not_full)
+        else if (rx_valid && !rx_fifo_not_full)
             overrun_err <= 1'b1;
         else if (stat_clear)
             overrun_err <= 1'b0;

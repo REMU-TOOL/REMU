@@ -7,37 +7,32 @@ module EmuRam #(
     parameter   ADDR_WIDTH      = 32,
     parameter   DATA_WIDTH      = 64,
     parameter   ID_WIDTH        = 4,
-    parameter   PAGE_COUNT      = 'h10000,
+    parameter   MEM_SIZE        = 64'h10000000,
     parameter   MAX_INFLIGHT    = 8,
     parameter   R_DELAY         = 25,
     parameter   W_DELAY         = 3
 )(
-
     input  wire                 clk,
     input  wire                 rst,
 
     `AXI4_SLAVE_IF              (s_axi,    ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)
-
 );
-
-    // TODO: calculate size required by LSU using FIFO parameters
-    parameter LSU_PF_COUNT = 16;
 
     initial begin
         if (ADDR_WIDTH < 1 || ADDR_WIDTH > 64) begin
-            $display("%m: ADDR_WIDTH is required to be in [1,64]");
+            $display("%m: ADDR_WIDTH must be in [1,64]");
             $finish;
         end
         if (DATA_WIDTH != 8 && DATA_WIDTH != 16 && DATA_WIDTH != 32 && DATA_WIDTH != 64) begin
-            $display("%m: DATA_WIDTH is required to be 8, 16, 32 or 64");
+            $display("%m: DATA_WIDTH must be 8, 16, 32 or 64");
             $finish;
         end
-        if (ID_WIDTH < 1 || ID_WIDTH > 16) begin
-            $display("%m: ID_WIDTH is required to be in [1,16]");
+        if (ID_WIDTH < 1) begin
+            $display("%m: ID_WIDTH must be greater than 0");
             $finish;
         end
-        if (PAGE_COUNT <= 0) begin
-            $display("%m: PAGE_COUNT is required to be > 0");
+        if (MEM_SIZE % 'h1000 != 0) begin
+            $display("%m: MEM_SIZE must be aligned to 4KB");
             $finish;
         end
     end
@@ -107,7 +102,7 @@ module EmuRam #(
         .ADDR_WIDTH     (ADDR_WIDTH),
         .DATA_WIDTH     (DATA_WIDTH),
         .ID_WIDTH       (ID_WIDTH),
-        .PAGE_COUNT     (PAGE_COUNT),
+        .MEM_SIZE       (MEM_SIZE),
         .MAX_INFLIGHT   (MAX_INFLIGHT)
     )
     backend (
