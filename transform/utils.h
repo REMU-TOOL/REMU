@@ -6,6 +6,8 @@
 #include "escape.h"
 #include <sstream>
 
+#include "emu_utils.h"
+
 namespace Yosys {
 
 inline bool is_public_id(IdString id)
@@ -140,35 +142,5 @@ inline uint64_t const_as_u64(const Const &c)
 }
 
 } // namespace Yosys
-
-namespace REMU {
-
-inline std::vector<std::string> split_string(std::string s, char delim)
-{
-    std::vector<std::string> result;
-    size_t start = 0, end = 0;
-    while ((end = s.find(delim, start)) != std::string::npos) {
-        result.push_back(s.substr(start, end));
-        start = end + 1;
-    }
-    result.push_back(s.substr(start));
-    return result;
-}
-
-inline std::string join_string(const std::vector<std::string> &vec, char delim)
-{
-    std::ostringstream ss;
-    bool first = true;
-    for (auto &s : vec) {
-        if (first)
-            first = false;
-        else
-            ss << delim;
-        ss << s;
-    }
-    return ss.str();
-}
-
-} // namespace REMU
 
 #endif // #ifndef _EMU_TRANSFORM_H_
