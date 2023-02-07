@@ -390,12 +390,10 @@ void PlatformTransform::run()
     sys_ctrl->setPort("\\ctrl_raddr",   sys_ctrl_sig.raddr);
     sys_ctrl->setPort("\\ctrl_rdata",   sys_ctrl_sig.rdata);
 
-    Wire *dma_base = top->addWire(NEW_ID, 32);
     Wire *dma_start = top->addWire(NEW_ID);
     Wire *dma_direction = top->addWire(NEW_ID);
     Wire *dma_running = top->addWire(NEW_ID);
 
-    sys_ctrl->setPort("\\dma_base",         dma_base);
     sys_ctrl->setPort("\\dma_start",        dma_start);
     sys_ctrl->setPort("\\dma_direction",    dma_direction);
     sys_ctrl->setPort("\\dma_running",      dma_running);
@@ -407,15 +405,15 @@ void PlatformTransform::run()
 
     Cell *scan_ctrl = top->addCell(top->uniquify("\\emu_scan_ctrl"), "\\EmuScanCtrl");
 
-    int ff_count = 0;
+    uint64_t ff_count = 0;
     for (auto &ff : database.sysinfo.scan_ff)
         ff_count += ff.width;
-    scan_ctrl->setParam("\\FF_COUNT", Const(ff_count));
+    scan_ctrl->setParam("\\FF_COUNT", Const(ff_count, 64));
 
-    int mem_count = 0;
+    uint64_t mem_count = 0;
     for (auto &mem : database.sysinfo.scan_ram)
         mem_count += mem.width * mem.depth;
-    scan_ctrl->setParam("\\MEM_COUNT", Const(mem_count));
+    scan_ctrl->setParam("\\MEM_COUNT", Const(mem_count, 64));
 
     scan_ctrl->setPort("\\host_clk",        host_clk);
     scan_ctrl->setPort("\\host_rst",        host_rst);
@@ -427,21 +425,29 @@ void PlatformTransform::run()
     scan_ctrl->setPort("\\ram_sd",          ram_sd);
     scan_ctrl->setPort("\\ram_di",          ram_di);
     scan_ctrl->setPort("\\ram_do",          ram_do);
-    scan_ctrl->setPort("\\dma_base",        dma_base);
     scan_ctrl->setPort("\\dma_start",       dma_start);
     scan_ctrl->setPort("\\dma_direction",   dma_direction);
     scan_ctrl->setPort("\\dma_running",     dma_running);
 
-    const std::string dma_axi_name = "EMU_SCAN_DMA_AXI";
-    AXI::AXI4 dma_axi(dma_axi_name, AXI::Info(32, 64, true, true));
-    for (auto &sig : dma_axi.signals()) {
-        if (!sig.present())
-            continue;
-        Wire *wire = top->addWire("\\" + sig.name, sig.width);
-        wire->port_input = !sig.output;
-        wire->port_output = sig.output;
-        std::string postfix = sig.name.substr(dma_axi_name.size());
-        scan_ctrl->setPort("\\dma_axi" + postfix, wire);
+    uint64_t scan_words = (ff_count + 63) / 64 + (mem_count + 63) / 64;
+    uint64_t scan_pages = (scan_words * 8 + 0xfff) / 0x1000;
+
+    {
+        AXIPort info;
+        info.name = {"scanchain"};
+        info.port_name = "EMU_SCAN_DMA_AXI";
+        info.axi = AXI::AXI4(info.port_name, AXI::Info(40, 64, true, true));
+        info.size = scan_pages * 0x1000;
+        for (auto &sig : info.axi.signals()) {
+            if (!sig.present())
+                continue;
+            Wire *wire = top->addWire("\\" + sig.name, sig.width);
+            wire->port_input = !sig.output;
+            wire->port_output = sig.output;
+            std::string postfix = sig.name.substr(info.port_name.size());
+            scan_ctrl->setPort("\\dma_axi" + postfix, wire);
+        }
+        database.axi_ports.push_back(std::move(info));
     }
 
     // Add AXI remap

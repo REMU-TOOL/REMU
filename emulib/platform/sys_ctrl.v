@@ -24,7 +24,6 @@ module EmuSysCtrl #(
     input  wire [11:0]  ctrl_raddr,
     output reg  [31:0]  ctrl_rdata,
 
-    output wire [31:0]  dma_base,
     output wire         dma_start,
     output reg          dma_direction,
     input  wire         dma_running
@@ -37,7 +36,6 @@ module EmuSysCtrl #(
     localparam  TICK_CNT_LO = 10'b0000_0000_10; // 0x008
     localparam  TICK_CNT_HI = 10'b0000_0000_11; // 0x00c
     localparam  SCAN_CTRL   = 10'b0000_0001_00; // 0x010
-    localparam  DMA_BASE    = 10'b0000_0001_01; // 0x014
     localparam  TRIG_STAT   = 10'b0001_0000_??; // 0x100 - 0x10c
     localparam  TRIG_EN     = 10'b0001_0001_??; // 0x110 - 0x11c
 
@@ -46,7 +44,6 @@ module EmuSysCtrl #(
     reg w_tick_cnt_lo;
     reg w_tick_cnt_hi;
     reg w_scan_ctrl;
-    reg w_dma_base;
     reg w_trig_stat;
     reg w_trig_en;
 
@@ -56,7 +53,6 @@ module EmuSysCtrl #(
         w_tick_cnt_lo   = 1'b0;
         w_tick_cnt_hi   = 1'b0;
         w_scan_ctrl     = 1'b0;
-        w_dma_base     = 1'b0;
         w_trig_stat     = 1'b0;
         w_trig_en       = 1'b0;
         casez (ctrl_waddr[11:2])
@@ -65,7 +61,6 @@ module EmuSysCtrl #(
             TICK_CNT_LO :   w_tick_cnt_lo   = 1'b1;
             TICK_CNT_HI :   w_tick_cnt_hi   = 1'b1;
             SCAN_CTRL   :   w_scan_ctrl     = 1'b1;
-            DMA_BASE    :   w_dma_base      = 1'b1;
             TRIG_STAT   :   w_trig_stat     = 1'b1;
             TRIG_EN     :   w_trig_en       = 1'b1;
         endcase
@@ -176,23 +171,6 @@ module EmuSysCtrl #(
 
     wire [31:0] scan_ctrl = {30'd0, dma_direction, dma_running};
 
-    // DMA_BASE
-    //      [11:0]  -> 0
-    //      [31:12] -> DMA_BASE_HI
-
-    reg [19:0] dma_base_hi;
-
-    always @(posedge host_clk) begin
-        if (host_rst) begin
-            dma_base_hi <= 20'd0;
-        end
-        else if (ctrl_wen && w_dma_base) begin
-            dma_base_hi <= ctrl_wdata[31:12];
-        end
-    end
-
-    assign dma_base = {dma_base_hi, 12'd0};
-
     // TRIG_STAT [RO]
 
     // Register space:
@@ -251,7 +229,6 @@ module EmuSysCtrl #(
             TICK_CNT_LO :   ctrl_rdata = tick_cnt[31:0];
             TICK_CNT_HI :   ctrl_rdata = tick_cnt[63:32];
             SCAN_CTRL   :   ctrl_rdata = scan_ctrl;
-            DMA_BASE    :   ctrl_rdata = dma_base;
             TRIG_STAT   :   ctrl_rdata = trig_stat_rdata;
             TRIG_EN     :   ctrl_rdata = trig_en_rdata;
         endcase

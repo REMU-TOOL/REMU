@@ -22,12 +22,11 @@ module EmuScanCtrl #(
     output wire         ram_di,
     input  wire         ram_do,
 
-    input  wire [31:0]  dma_base,
     input  wire         dma_start,
     input  wire         dma_direction,
     output wire         dma_running,
 
-    `AXI4_MASTER_IF_NO_ID           (dma_axi, 32, 64)
+    `AXI4_MASTER_IF_NO_ID           (dma_axi, 40, 64)
 
 );
 
@@ -54,7 +53,7 @@ module EmuScanCtrl #(
     localparam __COUNT_WIDTH = COUNT_WIDTH > 0 ? COUNT_WIDTH : 1;
 
     emulib_simple_dma #(
-        .ADDR_WIDTH     (32),
+        .ADDR_WIDTH     (40),
         .DATA_WIDTH     (64),
         .COUNT_WIDTH    (__COUNT_WIDTH)
     )
@@ -65,7 +64,7 @@ module EmuScanCtrl #(
 
         .s_read_addr_valid      (s_read_addr_valid),
         .s_read_addr_ready      (s_read_addr_ready),
-        .s_read_addr            (dma_base),
+        .s_read_addr            (40'd0),
 
         .s_read_count_valid     (s_read_count_valid),
         .s_read_count_ready     (s_read_count_ready),
@@ -77,7 +76,7 @@ module EmuScanCtrl #(
 
         .s_write_addr_valid     (s_write_addr_valid),
         .s_write_addr_ready     (s_write_addr_ready),
-        .s_write_addr           (dma_base),
+        .s_write_addr           (40'd0),
 
         .s_write_count_valid    (s_write_count_valid),
         .s_write_count_ready    (s_write_count_ready),
