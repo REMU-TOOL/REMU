@@ -554,9 +554,7 @@ void PortTransform::run()
 
     Module *top_module = hier.design->module(top);
     Wire *host_rst  = CommonPort::get(top_module, CommonPort::PORT_HOST_RST);
-    Wire *mdl_clk  =  CommonPort::get(top_module, CommonPort::PORT_MDL_CLK);
     Wire *mdl_rst   = CommonPort::get(top_module, CommonPort::PORT_MDL_RST);
-    Wire *run_mode  = CommonPort::get(top_module, CommonPort::PORT_RUN_MODE);
 
     make_internal(mdl_rst);
     top_module->connect(mdl_rst, host_rst);
