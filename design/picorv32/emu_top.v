@@ -1,21 +1,14 @@
 `timescale 1 ns / 1 ps
 
-module emu_top();
+module emu_top(
+    (* remu_clock *)
+    input   clk,
+    (* remu_signal *)
+    input   rst
+);
 
-    wire clk;
-    EmuClock clock(
-        .clock(clk)
-    );
-
-    wire rst;
-    EmuReset reset(
-        .reset(rst)
-    );
-
+    (* remu_trigger *)
     wire trap;
-    EmuTrigger trap_trig(
-        .trigger(trap)
-    );
 
 	wire          core_axi_awvalid;
 	wire          core_axi_awready;

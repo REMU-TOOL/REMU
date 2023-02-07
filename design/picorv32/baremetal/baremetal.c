@@ -1,7 +1,14 @@
 void main();
 
+#define UART_TX_FIFO    0x04
+#define UART_STATUS     0x08
+#define UART_TX_FIFO_FULL   (1 << 3)
+
+volatile unsigned int *uart = (void *)0x10000000;
+
 void printc(char c) {
-    *((volatile char *)0x10000000) = c;
+    while (uart[UART_STATUS/4] & UART_TX_FIFO_FULL);
+    uart[UART_TX_FIFO/4] = c;
 }
 
 void print(const char *s) {
