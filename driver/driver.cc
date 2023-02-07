@@ -2,20 +2,37 @@
 
 #include <unistd.h>
 #include <cstdio>
+#include <cstring>
 #include <stdexcept>
 #include <algorithm>
+#include <fstream>
 
 #include "emu_utils.h"
+#include "escape.h"
 #include "regdef.h"
 
 using namespace REMU;
 
-void Driver::init_signal(const SysInfo &sysinfo)
+inline std::string flatten_name(const std::vector<std::string> &name)
+{
+    bool first = true;
+    std::stringstream ss;
+    for (auto &s : name) {
+        if (first)
+            first = false;
+        else
+            ss << ".";
+        ss << Escape::escape_verilog_id(s);
+    }
+    return ss.str();
+}
+
+void Driver::init_signal()
 {
     for (auto &kv : sysinfo.signal) {
         auto &info = kv.second;
         signal_list.push_back({
-            .name           = kv.first,
+            .name           = flatten_name(kv.first),
             .width          = info.width,
             .output         = info.output,
             .reg_offset     = info.reg_offset,
@@ -23,12 +40,12 @@ void Driver::init_signal(const SysInfo &sysinfo)
     }
 }
 
-void Driver::init_trigger(const SysInfo &sysinfo)
+void Driver::init_trigger()
 {
     for (auto &kv : sysinfo.trigger) {
         auto &info = kv.second;
         trigger_list.push_back({
-            .name           = kv.first,
+            .name           = flatten_name(kv.first),
             .index          = info.index,
         });
     }
@@ -36,15 +53,15 @@ void Driver::init_trigger(const SysInfo &sysinfo)
         set_trigger_enable(i, true);
 }
 
-void Driver::init_axi(const SysInfo &sysinfo)
+void Driver::init_axi()
 {
     for (auto &kv : sysinfo.axi) {
         auto &info = kv.second;
         axi_list.push_back({
-            .name           = kv.first,
+            .name           = flatten_name(kv.first),
             .size           = info.size,
             .reg_offset     = info.reg_offset,
-            .assigned_base  = 0,
+            .assigned_offset  = 0,
             .assigned_size  = 0,
         });
     }
@@ -58,17 +75,16 @@ void Driver::init_axi(const SysInfo &sysinfo)
     std::sort(sort_list.begin(), sort_list.end(),
         [](AXIObject *a, AXIObject *b) { return a->size > b->size; });
 
-    uint64_t alloc_base = mem->dmabase();
+    uint64_t dmabase = mem->dmabase();
     uint64_t alloc_size = 0;
     for (auto p : sort_list) {
         p->assigned_size = 1 << clog2(p->size); // power of 2
-        p->assigned_base = alloc_base + alloc_size;
+        p->assigned_offset = alloc_size;
         alloc_size += p->assigned_size;
-        auto name = join_string(p->name, '.');
-        fprintf(stderr, "INFO: allocated memory (0x%08lx - 0x%08lx) for AXI port %s\n",
-            p->assigned_base,
-            p->assigned_base + p->assigned_size,
-            name.c_str());
+        fprintf(stderr, "INFO: allocated memory (0x%08lx - 0x%08lx) for AXI port \"%s\"\n",
+            dmabase + p->assigned_offset,
+            dmabase + p->assigned_offset + p->assigned_size,
+            p->name.c_str());
     }
 
     if (alloc_size > mem->size()) {
@@ -80,20 +96,40 @@ void Driver::init_axi(const SysInfo &sysinfo)
     // Configure AXI remap
 
     for (auto &axi : axi_list) {
-        uint64_t base = axi.assigned_base;
+        uint64_t base = dmabase + axi.assigned_offset;
         uint64_t mask = axi.assigned_size - 1;
         reg->write(axi.reg_offset + 0x0, base >>  0);
         reg->write(axi.reg_offset + 0x4, base >> 32);
         reg->write(axi.reg_offset + 0x8, mask >>  0);
         reg->write(axi.reg_offset + 0xc, mask >> 32);
     }
+
+    // Process memory initialization
+
+    for (auto &kv : options.init_axi_mem) {
+        int handle = lookup_axi(kv.first);
+        if (handle < 0) {
+            fprintf(stderr, "WARNING: AXI port \"%s\" specified by --init-axi-mem is not found\n",
+                kv.first.c_str());
+            continue;
+        }
+        auto &axi = axi_list.at(handle);
+        fprintf(stderr, "INFO: Initializing memory for AXI port \"%s\" with file \"%s\"\n",
+            kv.first.c_str(), kv.second.c_str());
+        std::ifstream f(kv.second, std::ios::binary);
+        if (f.fail()) {
+            fprintf(stderr, "ERROR: Can't open file `%s': %s\n", kv.second.c_str(), strerror(errno));
+            continue;
+        }
+        mem->copy_from_stream(axi.assigned_offset, axi.assigned_size, f);
+    }
 }
 
-void Driver::init_system(const SysInfo &sysinfo)
+void Driver::init_system()
 {
-    init_signal(sysinfo);
-    init_trigger(sysinfo);
-    init_axi(sysinfo);
+    init_signal();
+    init_trigger();
+    init_axi();
 }
 
 void Driver::enter_run_mode()
@@ -181,7 +217,7 @@ void Driver::set_step_count(uint32_t count)
 BitVector Driver::get_signal(int handle)
 {
     auto &sig = signal_list.at(handle);
-    int nblks = sig.width / 32;
+    int nblks = (sig.width + 31) / 32;
     BitVector res(sig.width);
     for (int i = 0; i < nblks; i++) {
         int offset = i * 32;
@@ -198,7 +234,7 @@ void Driver::set_signal(int handle, const BitVector &value)
         return;
     if (value.width() != sig.width)
         throw std::invalid_argument("value width mismatch");
-    int nblks = sig.width / 32;
+    int nblks = (sig.width + 31) / 32;
     for (int i = 0; i < nblks; i++) {
         int offset = i * 32;
         int width = std::min(sig.width - offset, 32);
@@ -255,11 +291,8 @@ std::vector<int> Driver::get_active_triggers(bool enabled)
     return res;
 }
 
-void Driver::do_scan(uint32_t dma_addr, bool scan_in)
+void Driver::do_scan(bool scan_in)
 {
-    if (dma_addr & 0xfff)
-        throw std::invalid_argument("unaligned dma_addr");
-
     if (get_mode() != Mode::PAUSE)
         throw std::runtime_error("bad do_scan call");
 

@@ -20,8 +20,13 @@ public:
 
     int main();
 
-    Scheduler(const SysInfo &sysinfo, std::unique_ptr<UserMem> &&mem, std::unique_ptr<UserIO> &&reg) :
-        sysinfo(sysinfo), drv(sysinfo, std::move(mem), std::move(reg)) {}
+    Scheduler(
+        const SysInfo &sysinfo,
+        const DriverOptions &options,
+        std::unique_ptr<UserMem> &&mem,
+        std::unique_ptr<UserIO> &&reg
+    )
+    : sysinfo(sysinfo), drv(sysinfo, options, std::move(mem), std::move(reg)) {}
 };
 
 };

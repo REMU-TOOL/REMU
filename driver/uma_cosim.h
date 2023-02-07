@@ -11,9 +11,9 @@ class CosimBFM
 
 public:
 
-    void read(char *buf, size_t offset, size_t len);
-    void write(const char *buf, size_t offset, size_t len);
-    void fill(char c, size_t offset, size_t len);
+    void read(char *buf, uint64_t offset, uint64_t len);
+    void write(const char *buf, uint64_t offset, uint64_t len);
+    void fill(char c, uint64_t offset, uint64_t len);
 
     CosimBFM(int cid);
     ~CosimBFM();
@@ -22,21 +22,21 @@ public:
 class CosimUserMem : public UserMem
 {
     CosimBFM bfm;
-    size_t m_size;
+    uint64_t m_size;
 
 public:
 
-    virtual void read(char *buf, size_t offset, size_t len) override
+    virtual void read(char *buf, uint64_t offset, uint64_t len) override
     {
         bfm.read(buf, offset, len);
     }
 
-    virtual void write(const char *buf, size_t offset, size_t len) override
+    virtual void write(const char *buf, uint64_t offset, uint64_t len) override
     {
         bfm.write(buf, offset, len);
     }
 
-    virtual void fill(char c, size_t offset, size_t len) override
+    virtual void fill(char c, uint64_t offset, uint64_t len) override
     {
         bfm.fill(c, offset, len);
     }
@@ -53,14 +53,14 @@ class CosimUserIO : public UserIO
 
 public:
 
-    virtual uint32_t read(size_t offset) override
+    virtual uint32_t read(uint64_t offset) override
     {
         uint32_t val;
         bfm.read(reinterpret_cast<char*>(&val), offset, 4);
         return val;
     }
 
-    virtual void write(size_t offset, uint32_t value) override
+    virtual void write(uint64_t offset, uint32_t value) override
     {
         bfm.write(reinterpret_cast<char*>(&value), offset, 4);
     }

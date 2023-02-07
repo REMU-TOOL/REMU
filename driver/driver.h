@@ -11,11 +11,19 @@
 
 namespace REMU {
 
+struct DriverOptions
+{
+    std::map<std::string, std::string> init_axi_mem;
+};
+
 class Driver
 {
+    SysInfo sysinfo;
+    DriverOptions options;
+
     struct SignalObject
     {
-        std::vector<std::string> name;
+        std::string name;
         int width;
         bool output;
         uint32_t reg_offset;
@@ -23,16 +31,16 @@ class Driver
 
     struct TriggerObject
     {
-        std::vector<std::string> name;
+        std::string name;
         int index;
     };
 
     struct AXIObject
     {
-        std::vector<std::string> name;
+        std::string name;
         uint64_t size;
         uint32_t reg_offset;
-        uint64_t assigned_base;
+        uint64_t assigned_offset;
         uint64_t assigned_size;
     };
 
@@ -41,7 +49,7 @@ class Driver
     std::vector<AXIObject> axi_list;
 
     template<typename T>
-    int list_lookup(const std::vector<std::string> &name, const std::vector<T> &list)
+    int list_lookup(const std::string &name, const std::vector<T> &list)
     {
         for (size_t i = 0; i < list.size(); i++)
             if (list.at(i).name == name)
@@ -50,15 +58,15 @@ class Driver
     }
 
     template<typename T>
-    std::vector<std::string> list_get_name(int handle, const std::vector<T> &list)
+    std::string list_get_name(int handle, const std::vector<T> &list)
     {
         return list.at(handle).name;
     }
 
-    void init_signal(const SysInfo &sysinfo);
-    void init_trigger(const SysInfo &sysinfo);
-    void init_axi(const SysInfo &sysinfo);
-    void init_system(const SysInfo &sysinfo);
+    void init_signal();
+    void init_trigger();
+    void init_axi();
+    void init_system();
 
     std::unique_ptr<UserMem> mem;
     std::unique_ptr<UserIO> reg;
@@ -86,16 +94,16 @@ public:
 
     // Signal
 
-    int lookup_signal(const std::vector<std::string> &name) { return list_lookup(name, signal_list); }
-    std::vector<std::string> get_signal_name(int handle) { return list_get_name(handle, signal_list); }
+    int lookup_signal(const std::string &name) { return list_lookup(name, signal_list); }
+    std::string get_signal_name(int handle) { return list_get_name(handle, signal_list); }
 
     BitVector get_signal(int handle);
     void set_signal(int handle, const BitVector &value);
 
     // Trigger
 
-    int lookup_trigger(const std::vector<std::string> &name) { return list_lookup(name, trigger_list); }
-    std::vector<std::string> get_trigger_name(int handle) { return list_get_name(handle, trigger_list); }
+    int lookup_trigger(const std::string &name) { return list_lookup(name, trigger_list); }
+    std::string get_trigger_name(int handle) { return list_get_name(handle, trigger_list); }
 
     bool is_trigger_active(int handle);
     bool get_trigger_enable(int handle);
@@ -104,17 +112,22 @@ public:
 
     // AXI
 
-    int lookup_axi(const std::vector<std::string> &name) { return list_lookup(name, axi_list); }
-    std::vector<std::string> get_axi_name(int handle) { return list_get_name(handle, axi_list); }
+    int lookup_axi(const std::string &name) { return list_lookup(name, axi_list); }
+    std::string get_axi_name(int handle) { return list_get_name(handle, axi_list); }
 
-    void do_scan(uint32_t dma_addr, bool scan_in);
+    void do_scan(bool scan_in);
 
     static void sleep(unsigned int milliseconds);
 
-    Driver(const SysInfo &sysinfo, std::unique_ptr<UserMem> &&mem, std::unique_ptr<UserIO> &&reg) :
-        mem(std::move(mem)), reg(std::move(reg))
+    Driver(
+        const SysInfo &sysinfo,
+        const DriverOptions &options,
+        std::unique_ptr<UserMem> &&mem,
+        std::unique_ptr<UserIO> &&reg
+    )
+    : sysinfo(sysinfo), options(options), mem(std::move(mem)), reg(std::move(reg))
     {
-        init_system(sysinfo);
+        init_system();
     }
 };
 

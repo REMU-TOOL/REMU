@@ -9,7 +9,7 @@ int Scheduler::main()
 {
     // test
     printf("driver main\n");
-    int rst_handle = drv.lookup_signal({"rst"});
+    int rst_handle = drv.lookup_signal("rst");
 
     printf("tick count: %ld\n", drv.get_tick_count());
 
@@ -28,6 +28,10 @@ int Scheduler::main()
         Driver::sleep(100);
 
     printf("tick count: %ld\n", drv.get_tick_count());
+
+    printf("before scan out\n");
+    drv.do_scan(false);
+    printf("after scan out\n");
 
     return 0;
 }

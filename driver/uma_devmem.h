@@ -34,17 +34,17 @@ class DMUserMem : public UserMem
 
 public:
 
-    virtual void read(char *buf, size_t offset, size_t len) override
+    virtual void read(char *buf, uint64_t offset, uint64_t len) override
     {
         dm.read(buf, offset, len);
     }
 
-    virtual void write(const char *buf, size_t offset, size_t len) override
+    virtual void write(const char *buf, uint64_t offset, uint64_t len) override
     {
         dm.write(buf, offset, len);
     }
 
-    virtual void fill(char c, size_t offset, size_t len) override
+    virtual void fill(char c, uint64_t offset, uint64_t len) override
     {
         dm.fill(c, offset, len);
     }
@@ -61,17 +61,17 @@ class DMUserIO : public UserIO
 
 public:
 
-    virtual uint32_t read(size_t offset) override
+    virtual uint32_t read(uint64_t offset) override
     {
         return dm.read_u32(offset);
     }
 
-    virtual void write(size_t offset, uint32_t value) override
+    virtual void write(uint64_t offset, uint32_t value) override
     {
         dm.write_u32(offset, value);
     }
 
-    DMUserIO(size_t base, size_t size) : dm(base, size) {}
+    DMUserIO(uint64_t base, uint64_t size) : dm(base, size) {}
 };
 
 };
