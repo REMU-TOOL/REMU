@@ -51,9 +51,13 @@ void FAMETransform::run()
     make_internal(mdl_clk_ff);
     make_internal(mdl_clk_ram);
 
+    // Generate model clocks
+
     ClockGate(top, NEW_ID, host_clk, not_scan_mode, mdl_clk);
     ClockGate(top, NEW_ID, host_clk, top->Or(NEW_ID, not_scan_mode, ff_se), mdl_clk_ff);
     ClockGate(top, NEW_ID, host_clk, top->Or(NEW_ID, not_scan_mode, ram_se), mdl_clk_ram);
+
+    // Generate user clocks
 
     for (auto &info : database.clock_ports) {
         Wire *clk = top->wire("\\" + info.port_name);
@@ -70,6 +74,8 @@ void FAMETransform::run()
 
         info.index = 0; // TODO
     }
+
+    // Drive channel valid/ready signals
 
     for (auto &info : database.channel_ports) {
         log("Emitting channel %s\n", join_string(info.name, '.').c_str());
@@ -97,7 +103,6 @@ void FAMETransform::run()
             State::S0
         );
 
-
         // Note: direction is in model module's view
         if (info.dir == ChannelPort::IN) {
             // assign valid = !done && run_mode;
@@ -115,6 +120,22 @@ void FAMETransform::run()
     }
 
     top->connect(tick, top->ReduceAnd(NEW_ID, finishing));
+
+    // Add FFs to output user signals to save their values in the previous cycle
+
+    for (auto &info : database.signal_ports) {
+        if (info.output) {
+            // For output signals, delay 1 target cycle to capture
+            // the value before the clock edge when a trigger is active
+            Wire *sig_wire = top->wire("\\" + info.port_name);
+            info.port_name += "_REG";
+            Wire *reg_wire = top->addWire("\\" + info.port_name, info.width);
+            reg_wire->port_output = true;
+            reg_wire->set_bool_attribute(Attr::AnonymousFF);
+            top->addSdffe(NEW_ID,
+                mdl_clk, run_and_tick, mdl_rst, sig_wire, reg_wire, Const(0, info.width));
+        }
+    }
 
     top->fixup_ports();
 }

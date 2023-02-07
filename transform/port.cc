@@ -561,20 +561,6 @@ void PortTransform::run()
     make_internal(mdl_rst);
     top_module->connect(mdl_rst, host_rst);
 
-    for (auto &info : database.signal_ports) {
-        if (info.output) {
-            // For output signals, delay 1 target cycle to capture
-            // the value before the clock edge when a trigger is active
-            Wire *sig_wire = top_module->wire("\\" + info.port_name);
-            info.port_name += "_REG";
-            Wire *reg_wire = top_module->addWire("\\" + info.port_name, info.width);
-            reg_wire->port_output = true;
-            reg_wire->set_bool_attribute(Attr::AnonymousFF);
-            top_module->addSdffe(NEW_ID,
-                mdl_clk, run_mode, mdl_rst, sig_wire, reg_wire, Const(0, info.width));
-        }
-    }
-
     top_module->fixup_ports();
 }
 
