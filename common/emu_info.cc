@@ -117,6 +117,7 @@ void serialize(Archive &archive, PlatInfo &node)
         NVP(mem_type),
         NVP(mem_base),
         NVP(mem_size),
+        NVP(mem_dmabase),
         NVP(reg_type),
         NVP(reg_base),
         NVP(reg_size)

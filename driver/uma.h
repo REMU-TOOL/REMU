@@ -14,7 +14,8 @@ public:
     virtual void read(char *buf, size_t offset, size_t len) = 0;
     virtual void write(const char *buf, size_t offset, size_t len) = 0;
     virtual void fill(char c, size_t offset, size_t len) = 0;
-    virtual size_t size() const = 0;
+    virtual uint64_t size() const = 0;
+    virtual uint64_t dmabase() const = 0;
     virtual ~UserMem() {}
 };
 

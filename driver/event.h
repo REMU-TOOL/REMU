@@ -3,7 +3,7 @@
 
 #include <cstdint>
 
-#include "hal.h"
+#include "driver.h"
 
 namespace REMU {
 
@@ -20,7 +20,7 @@ public:
         return m_tick > other.m_tick;
     }
 
-    virtual void execute(HAL &hal) const = 0;
+    virtual void execute(Driver &drv) const = 0;
 
     Event(uint64_t tick) : m_tick(tick) {}
     virtual ~Event() {}
@@ -45,7 +45,7 @@ class SignalEvent : public Event
 
 public:
 
-    virtual void execute(HAL &hal) const override
+    virtual void execute(Driver &drv) const override
     {
 
     }

@@ -30,6 +30,7 @@ public:
 class DMUserMem : public UserMem
 {
     DevMem dm;
+    uint64_t m_dmabase;
 
 public:
 
@@ -48,12 +49,10 @@ public:
         dm.fill(c, offset, len);
     }
 
-    virtual size_t size() const override
-    {
-        return dm.size();
-    }
+    virtual uint64_t size() const override { return dm.size(); }
+    virtual uint64_t dmabase() const override { return m_dmabase; }
 
-    DMUserMem(size_t base, size_t size) : dm(base, size) {}
+    DMUserMem(uint64_t base, uint64_t size, uint64_t dmabase) : dm(base, size), m_dmabase(dmabase) {}
 };
 
 class DMUserIO : public UserIO

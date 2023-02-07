@@ -4,7 +4,7 @@
 #include <fstream>
 
 #include "emu_info.h"
-#include "driver.h"
+#include "scheduler.h"
 #include "uma_cosim.h"
 #include "uma_devmem.h"
 
@@ -58,7 +58,7 @@ int main(int argc, const char *argv[])
     if (platinfo.mem_type == "cosim")
         mem = std::unique_ptr<UserMem>(new CosimUserMem(platinfo.mem_base, platinfo.mem_size));
     else if (platinfo.mem_type == "devmem")
-        mem = std::unique_ptr<UserMem>(new DMUserMem(platinfo.mem_base, platinfo.mem_size));
+        mem = std::unique_ptr<UserMem>(new DMUserMem(platinfo.mem_base, platinfo.mem_size, platinfo.mem_dmabase));
     else {
         fprintf(stderr, "PlatInfo error: mem_type %s is not supported\n", platinfo.mem_type.c_str());
         return 1;
@@ -74,7 +74,7 @@ int main(int argc, const char *argv[])
         return 1;
     }
 
-    Driver driver(sysinfo, std::move(mem), std::move(reg));
+    Scheduler driver(sysinfo, std::move(mem), std::move(reg));
 
     return driver.main();
 }

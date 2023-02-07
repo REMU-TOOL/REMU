@@ -41,12 +41,10 @@ public:
         bfm.fill(c, offset, len);
     }
 
-    virtual size_t size() const override
-    {
-        return m_size;
-    }
+    virtual uint64_t size() const override { return m_size; }
+    virtual uint64_t dmabase() const override { return 0; }
 
-    CosimUserMem(int cid, size_t size) : bfm(cid), m_size(size) {}
+    CosimUserMem(int cid, uint64_t size) : bfm(cid), m_size(size) {}
 };
 
 class CosimUserIO : public UserIO

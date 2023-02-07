@@ -93,6 +93,7 @@ struct PlatInfo
     std::string mem_type;
     uint64_t mem_base;
     uint64_t mem_size;
+    uint64_t mem_dmabase;
     std::string reg_type;
     uint64_t reg_base;
     uint64_t reg_size;
