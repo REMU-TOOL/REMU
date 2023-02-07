@@ -43,7 +43,7 @@ bool test_bitvector_construct()
     EXPECT(d, 0);
 
     uint64_t arr1[] = {0x2222222211111111, 0x4444444433333333, 0xffffffff};
-    BitVector e1(128, arr1);
+    BitVector e1(128, arr1, 3);
     BitVector e2(128, arr1, 5);
     BitVector e3(128, {0x2222222211111111, 0x4444444433333333, 0xffffffff});
     EXPECT(e1.width(), 128);
@@ -54,13 +54,13 @@ bool test_bitvector_construct()
     EXPECT(e1 != e3, false);
     BitVector e4(e1);
     EXPECT(e1 == e4, true);
-    BitVector e5(BitVector(128, arr1));
+    BitVector e5(BitVector(128, arr1, 3));
     EXPECT(e1 == e5, true);
     BitVector e6(0);
     e6 = e1;
     EXPECT(e1 == e6, true);
     BitVector e7(0);
-    e7 = BitVector(128, arr1);
+    e7 = BitVector(128, arr1, 3);
     EXPECT(e1 == e7, true);
 
     EXPECT(a == b, false);

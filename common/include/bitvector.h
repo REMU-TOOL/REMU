@@ -153,13 +153,7 @@ public:
     // This constructs a BitVector and initializes its lowest bits with value
     BitVector(width_t width, uint64_t value) : BitVector(width, &value, 1) {}
 
-    // This constructs a BitVector and initializes it with a data array
-    BitVector(width_t width, const uint64_t *data) : BitVector(width)
-    {
-        copy(width, to_ptr(), 0, data, 0);
-    }
-
-    // This constructs a BitVector and initializes its lowest bits with a sized data array
+    // This constructs a BitVector and initializes its lowest bits with a data array
     BitVector(width_t width, const uint64_t *data, size_t len) : BitVector(width)
     {
         copy(std::min(width, len * 64), to_ptr(), 0, data, 0);
@@ -176,7 +170,7 @@ public:
             setBit(i, bits.at(width_ - i - 1) == '1');
     }
 
-    BitVector(const BitVector &other) : BitVector(other.width_, other.to_ptr()) {}
+    BitVector(const BitVector &other) : BitVector(other.width_, other.to_ptr(), other.blks()) {}
 
     BitVector(BitVector &&other) noexcept : BitVector()
     {
