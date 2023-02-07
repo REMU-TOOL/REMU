@@ -2,120 +2,124 @@
 
 module sim_top;
 
-    reg clk = 0, rst = 0;
+    reg clk = 0, rst = 1;
 
     always #5 clk = ~clk;
 
-    wire          mem_awready;
-    wire          mem_awvalid;
-    wire   [31:0] mem_awaddr;
-    wire   [2:0]  mem_awprot;
-    wire          mem_awid;
-    wire          mem_awuser;
-    wire   [7:0]  mem_awlen;
-    wire   [2:0]  mem_awsize;
-    wire   [1:0]  mem_awburst;
-    wire          mem_awlock;
-    wire   [3:0]  mem_awcache;
-    wire   [3:0]  mem_awqos;
-    wire          mem_wready;
-    wire          mem_wvalid;
-    wire   [63:0] mem_wdata;
-    wire   [7:0]  mem_wstrb;
-    wire          mem_wlast;
-    wire          mem_bready;
-    wire          mem_bvalid;
-    wire   [1:0]  mem_bresp;
-    wire          mem_bid;
-    wire          mem_buser;
-    wire          mem_arready;
-    wire          mem_arvalid;
-    wire   [31:0] mem_araddr;
-    wire   [2:0]  mem_arprot;
-    wire          mem_arid;
-    wire          mem_aruser;
-    wire   [7:0]  mem_arlen;
-    wire   [2:0]  mem_arsize;
-    wire   [1:0]  mem_arburst;
-    wire          mem_arlock;
-    wire   [3:0]  mem_arcache;
-    wire   [3:0]  mem_arqos;
-    wire          mem_rready;
-    wire          mem_rvalid;
-    wire   [1:0]  mem_rresp;
-    wire   [63:0] mem_rdata;
-    wire          mem_rlast;
-    wire          mem_rid;
-    wire          mem_ruser;
+    initial begin
+        #30 rst = 0;
+    end
 
-    wire          mmio_awready;
-    wire          mmio_awvalid;
-    wire   [31:0] mmio_awaddr;
-    wire   [2:0]  mmio_awprot;
-    wire          mmio_wready;
-    wire          mmio_wvalid;
-    wire   [31:0] mmio_wdata;
-    wire   [3:0]  mmio_wstrb;
-    wire          mmio_bready;
-    wire          mmio_bvalid;
-    wire   [1:0]  mmio_bresp;
-    wire          mmio_arready;
-    wire          mmio_arvalid;
-    wire   [31:0] mmio_araddr;
-    wire   [2:0]  mmio_arprot;
-    wire          mmio_rready;
-    wire          mmio_rvalid;
-    wire   [1:0]  mmio_rresp;
-    wire   [31:0] mmio_rdata;
+    wire          bfm_mem_awready;
+    wire          bfm_mem_awvalid;
+    wire   [31:0] bfm_mem_awaddr;
+    wire   [2:0]  bfm_mem_awprot;
+    wire          bfm_mem_awid;
+    wire          bfm_mem_awuser;
+    wire   [7:0]  bfm_mem_awlen;
+    wire   [2:0]  bfm_mem_awsize;
+    wire   [1:0]  bfm_mem_awburst;
+    wire          bfm_mem_awlock;
+    wire   [3:0]  bfm_mem_awcache;
+    wire   [3:0]  bfm_mem_awqos;
+    wire          bfm_mem_wready;
+    wire          bfm_mem_wvalid;
+    wire   [31:0] bfm_mem_wdata;
+    wire   [3:0]  bfm_mem_wstrb;
+    wire          bfm_mem_wlast;
+    wire          bfm_mem_bready;
+    wire          bfm_mem_bvalid;
+    wire   [1:0]  bfm_mem_bresp;
+    wire          bfm_mem_bid;
+    wire          bfm_mem_buser;
+    wire          bfm_mem_arready;
+    wire          bfm_mem_arvalid;
+    wire   [31:0] bfm_mem_araddr;
+    wire   [2:0]  bfm_mem_arprot;
+    wire          bfm_mem_arid;
+    wire          bfm_mem_aruser;
+    wire   [7:0]  bfm_mem_arlen;
+    wire   [2:0]  bfm_mem_arsize;
+    wire   [1:0]  bfm_mem_arburst;
+    wire          bfm_mem_arlock;
+    wire   [3:0]  bfm_mem_arcache;
+    wire   [3:0]  bfm_mem_arqos;
+    wire          bfm_mem_rready;
+    wire          bfm_mem_rvalid;
+    wire   [1:0]  bfm_mem_rresp;
+    wire   [31:0] bfm_mem_rdata;
+    wire          bfm_mem_rlast;
+    wire          bfm_mem_rid;
+    wire          bfm_mem_ruser;
+
+    wire          bfm_mmio_awready;
+    wire          bfm_mmio_awvalid;
+    wire   [31:0] bfm_mmio_awaddr;
+    wire   [2:0]  bfm_mmio_awprot;
+    wire          bfm_mmio_wready;
+    wire          bfm_mmio_wvalid;
+    wire   [31:0] bfm_mmio_wdata;
+    wire   [3:0]  bfm_mmio_wstrb;
+    wire          bfm_mmio_bready;
+    wire          bfm_mmio_bvalid;
+    wire   [1:0]  bfm_mmio_bresp;
+    wire          bfm_mmio_arready;
+    wire          bfm_mmio_arvalid;
+    wire   [31:0] bfm_mmio_araddr;
+    wire   [2:0]  bfm_mmio_arprot;
+    wire          bfm_mmio_rready;
+    wire          bfm_mmio_rvalid;
+    wire   [1:0]  bfm_mmio_rresp;
+    wire   [31:0] bfm_mmio_rdata;
 
     cosim_bfm_axi #(
         .AXI_WIDTH_ID   (1),
         .AXI_WIDTH_AD   (32),
-        .AXI_WIDTH_DA   (64),
+        .AXI_WIDTH_DA   (32),
         .COSIM_CHAN_ID  (0),
-        .COSIM_VERBOSE  (0)
+        .COSIM_VERBOSE  (1)
     ) bfm_mem (
         .ARESETn    (!rst),
         .ACLK       (clk),
-        .M_AWID     (mem_awid),
-        .M_AWADDR   (mem_awaddr),
-        .M_AWLEN    (mem_awlen),
-        .M_AWLOCK   (mem_awlock),
-        .M_AWSIZE   (mem_awsize),
-        .M_AWBURST  (mem_awburst),
-        .M_AWCACHE  (mem_awcache),
-        .M_AWPROT   (mem_awprot),
-        .M_AWVALID  (mem_awvalid),
-        .M_AWREADY  (mem_awready),
-        .M_AWQOS    (mem_awqos),
+        .M_AWID     (bfm_mem_awid),
+        .M_AWADDR   (bfm_mem_awaddr),
+        .M_AWLEN    (bfm_mem_awlen),
+        .M_AWLOCK   (bfm_mem_awlock),
+        .M_AWSIZE   (bfm_mem_awsize),
+        .M_AWBURST  (bfm_mem_awburst),
+        .M_AWCACHE  (bfm_mem_awcache),
+        .M_AWPROT   (bfm_mem_awprot),
+        .M_AWVALID  (bfm_mem_awvalid),
+        .M_AWREADY  (bfm_mem_awready),
+        .M_AWQOS    (bfm_mem_awqos),
         .M_AWREGION (),
-        .M_WDATA    (mem_wdata),
-        .M_WSTRB    (mem_wstrb),
-        .M_WLAST    (mem_wlast),
-        .M_WVALID   (mem_wvalid),
-        .M_WREADY   (mem_wready),
-        .M_BID      (mem_bid),
-        .M_BRESP    (mem_bresp),
-        .M_BVALID   (mem_bvalid),
-        .M_BREADY   (mem_bready),
-        .M_ARID     (mem_arid),
-        .M_ARADDR   (mem_araddr),
-        .M_ARLEN    (mem_arlen),
-        .M_ARLOCK   (mem_arlock),
-        .M_ARSIZE   (mem_arsize),
-        .M_ARBURST  (mem_arburst),
-        .M_ARCACHE  (mem_arcache),
-        .M_ARPROT   (mem_arprot),
-        .M_ARVALID  (mem_arvalid),
-        .M_ARREADY  (mem_arready),
-        .M_ARQOS    (mem_arqos),
+        .M_WDATA    (bfm_mem_wdata),
+        .M_WSTRB    (bfm_mem_wstrb),
+        .M_WLAST    (bfm_mem_wlast),
+        .M_WVALID   (bfm_mem_wvalid),
+        .M_WREADY   (bfm_mem_wready),
+        .M_BID      (bfm_mem_bid),
+        .M_BRESP    (bfm_mem_bresp),
+        .M_BVALID   (bfm_mem_bvalid),
+        .M_BREADY   (bfm_mem_bready),
+        .M_ARID     (bfm_mem_arid),
+        .M_ARADDR   (bfm_mem_araddr),
+        .M_ARLEN    (bfm_mem_arlen),
+        .M_ARLOCK   (bfm_mem_arlock),
+        .M_ARSIZE   (bfm_mem_arsize),
+        .M_ARBURST  (bfm_mem_arburst),
+        .M_ARCACHE  (bfm_mem_arcache),
+        .M_ARPROT   (bfm_mem_arprot),
+        .M_ARVALID  (bfm_mem_arvalid),
+        .M_ARREADY  (bfm_mem_arready),
+        .M_ARQOS    (bfm_mem_arqos),
         .M_ARREGION (),
-        .M_RID      (mem_rid),
-        .M_RDATA    (mem_rdata),
-        .M_RRESP    (mem_rresp),
-        .M_RLAST    (mem_rlast),
-        .M_RVALID   (mem_rvalid),
-        .M_RREADY   (mem_rready)
+        .M_RID      (bfm_mem_rid),
+        .M_RDATA    (bfm_mem_rdata),
+        .M_RRESP    (bfm_mem_rresp),
+        .M_RLAST    (bfm_mem_rlast),
+        .M_RVALID   (bfm_mem_rvalid),
+        .M_RREADY   (bfm_mem_rready)
     );
 
     cosim_bfm_axi #(
@@ -123,49 +127,49 @@ module sim_top;
         .AXI_WIDTH_AD   (32),
         .AXI_WIDTH_DA   (32),
         .COSIM_CHAN_ID  (1),
-        .COSIM_VERBOSE  (0)
+        .COSIM_VERBOSE  (1)
     ) bfm_mmio (
         .ARESETn    (!rst),
         .ACLK       (clk),
         .M_AWID     (),
-        .M_AWADDR   (mmio_awaddr),
+        .M_AWADDR   (bfm_mmio_awaddr),
         .M_AWLEN    (),
         .M_AWLOCK   (),
         .M_AWSIZE   (),
         .M_AWBURST  (),
         .M_AWCACHE  (),
-        .M_AWPROT   (mmio_awprot),
-        .M_AWVALID  (mmio_awvalid),
-        .M_AWREADY  (mmio_awready),
+        .M_AWPROT   (bfm_mmio_awprot),
+        .M_AWVALID  (bfm_mmio_awvalid),
+        .M_AWREADY  (bfm_mmio_awready),
         .M_AWQOS    (),
         .M_AWREGION (),
-        .M_WDATA    (mmio_wdata),
-        .M_WSTRB    (mmio_wstrb),
+        .M_WDATA    (bfm_mmio_wdata),
+        .M_WSTRB    (bfm_mmio_wstrb),
         .M_WLAST    (),
-        .M_WVALID   (mmio_wvalid),
-        .M_WREADY   (mmio_wready),
+        .M_WVALID   (bfm_mmio_wvalid),
+        .M_WREADY   (bfm_mmio_wready),
         .M_BID      (1'b0),
-        .M_BRESP    (mmio_bresp),
-        .M_BVALID   (mmio_bvalid),
-        .M_BREADY   (mmio_bready),
+        .M_BRESP    (bfm_mmio_bresp),
+        .M_BVALID   (bfm_mmio_bvalid),
+        .M_BREADY   (bfm_mmio_bready),
         .M_ARID     (),
-        .M_ARADDR   (mmio_araddr),
+        .M_ARADDR   (bfm_mmio_araddr),
         .M_ARLEN    (),
         .M_ARLOCK   (),
         .M_ARSIZE   (),
         .M_ARBURST  (),
         .M_ARCACHE  (),
-        .M_ARPROT   (mmio_arprot),
-        .M_ARVALID  (mmio_arvalid),
-        .M_ARREADY  (mmio_arready),
+        .M_ARPROT   (bfm_mmio_arprot),
+        .M_ARVALID  (bfm_mmio_arvalid),
+        .M_ARREADY  (bfm_mmio_arready),
         .M_ARQOS    (),
         .M_ARREGION (),
         .M_RID      (1'b0),
-        .M_RDATA    (mmio_rdata),
-        .M_RRESP    (mmio_rresp),
+        .M_RDATA    (bfm_mmio_rdata),
+        .M_RRESP    (bfm_mmio_rresp),
         .M_RLAST    (1'b1),
-        .M_RVALID   (mmio_rvalid),
-        .M_RREADY   (mmio_rready)
+        .M_RVALID   (bfm_mmio_rvalid),
+        .M_RREADY   (bfm_mmio_rready)
     );
 
     wire          emu_sys_mem_awready;
@@ -182,8 +186,8 @@ module sim_top;
     wire   [3:0]  emu_sys_mem_awqos;
     wire          emu_sys_mem_wready;
     wire          emu_sys_mem_wvalid;
-    wire   [63:0] emu_sys_mem_wdata;
-    wire   [7:0]  emu_sys_mem_wstrb;
+    wire   [31:0] emu_sys_mem_wdata;
+    wire   [3:0]  emu_sys_mem_wstrb;
     wire          emu_sys_mem_wlast;
     wire          emu_sys_mem_bready;
     wire          emu_sys_mem_bvalid;
@@ -205,7 +209,7 @@ module sim_top;
     wire          emu_sys_mem_rready;
     wire          emu_sys_mem_rvalid;
     wire   [1:0]  emu_sys_mem_rresp;
-    wire   [63:0] emu_sys_mem_rdata;
+    wire   [31:0] emu_sys_mem_rdata;
     wire          emu_sys_mem_rlast;
     wire          emu_sys_mem_rid;
     wire          emu_sys_mem_ruser;
@@ -213,25 +217,25 @@ module sim_top;
     emu_system_wrap sys_inst (
         .host_clk       (clk),
         .host_rst       (rst),
-        .mmio_arvalid   (mmio_arvalid),
-        .mmio_arready   (mmio_arready),
-        .mmio_araddr    (mmio_araddr),
-        .mmio_arprot    (mmio_arprot),
-        .mmio_rvalid    (mmio_rvalid),
-        .mmio_rready    (mmio_rready),
-        .mmio_rresp     (mmio_rresp),
-        .mmio_rdata     (mmio_rdata),
-        .mmio_awvalid   (mmio_awvalid),
-        .mmio_awready   (mmio_awready),
-        .mmio_awaddr    (mmio_awaddr),
-        .mmio_awprot    (mmio_awprot),
-        .mmio_wvalid    (mmio_wvalid),
-        .mmio_wready    (mmio_wready),
-        .mmio_wdata     (mmio_wdata),
-        .mmio_wstrb     (mmio_wstrb),
-        .mmio_bvalid    (mmio_bvalid),
-        .mmio_bready    (mmio_bready),
-        .mmio_bresp     (mmio_bresp),
+        .mmio_arvalid   (bfm_mmio_arvalid),
+        .mmio_arready   (bfm_mmio_arready),
+        .mmio_araddr    (bfm_mmio_araddr),
+        .mmio_arprot    (bfm_mmio_arprot),
+        .mmio_rvalid    (bfm_mmio_rvalid),
+        .mmio_rready    (bfm_mmio_rready),
+        .mmio_rresp     (bfm_mmio_rresp),
+        .mmio_rdata     (bfm_mmio_rdata),
+        .mmio_awvalid   (bfm_mmio_awvalid),
+        .mmio_awready   (bfm_mmio_awready),
+        .mmio_awaddr    (bfm_mmio_awaddr),
+        .mmio_awprot    (bfm_mmio_awprot),
+        .mmio_wvalid    (bfm_mmio_wvalid),
+        .mmio_wready    (bfm_mmio_wready),
+        .mmio_wdata     (bfm_mmio_wdata),
+        .mmio_wstrb     (bfm_mmio_wstrb),
+        .mmio_bvalid    (bfm_mmio_bvalid),
+        .mmio_bready    (bfm_mmio_bready),
+        .mmio_bresp     (bfm_mmio_bresp),
         .mem_awvalid    (emu_sys_mem_awvalid),
         .mem_awready    (emu_sys_mem_awready),
         .mem_awaddr     (emu_sys_mem_awaddr),
@@ -285,8 +289,8 @@ module sim_top;
     wire   [3:0]  sim_mem_awqos;
     wire          sim_mem_wready;
     wire          sim_mem_wvalid;
-    wire   [63:0] sim_mem_wdata;
-    wire   [7:0]  sim_mem_wstrb;
+    wire   [31:0] sim_mem_wdata;
+    wire   [3:0]  sim_mem_wstrb;
     wire          sim_mem_wlast;
     wire          sim_mem_bready;
     wire          sim_mem_bvalid;
@@ -308,13 +312,13 @@ module sim_top;
     wire          sim_mem_rready;
     wire          sim_mem_rvalid;
     wire   [1:0]  sim_mem_rresp;
-    wire   [63:0] sim_mem_rdata;
+    wire   [31:0] sim_mem_rdata;
     wire          sim_mem_rlast;
     wire          sim_mem_rid;
     wire          sim_mem_ruser;
 
     axi_interconnect_wrap_2x1 #(
-        .DATA_WIDTH     (64),
+        .DATA_WIDTH     (32),
         .ADDR_WIDTH     (32),
         .ID_WIDTH       (1),
         .M00_BASE_ADDR  ('h00000000),
@@ -323,48 +327,48 @@ module sim_top;
         .clk            (clk),
         .rst            (rst),
 
-        .s00_axi_awid   (mem_awid),
-        .s00_axi_awaddr (mem_awaddr),
-        .s00_axi_awlen  (mem_awlen),
-        .s00_axi_awsize (mem_awsize),
-        .s00_axi_awburst(mem_awburst),
-        .s00_axi_awlock (mem_awlock),
-        .s00_axi_awcache(mem_awcache),
-        .s00_axi_awprot (mem_awprot),
-        .s00_axi_awqos  (mem_awqos),
-        .s00_axi_awuser (mem_awuser),
-        .s00_axi_awvalid(mem_awvalid),
-        .s00_axi_awready(mem_awready),
-        .s00_axi_wdata  (mem_wdata),
-        .s00_axi_wstrb  (mem_wstrb),
-        .s00_axi_wlast  (mem_wlast),
-        .s00_axi_wuser  (mem_wuser),
-        .s00_axi_wvalid (mem_wvalid),
-        .s00_axi_wready (mem_wready),
-        .s00_axi_bid    (mem_bid),
-        .s00_axi_bresp  (mem_bresp),
-        .s00_axi_buser  (mem_buser),
-        .s00_axi_bvalid (mem_bvalid),
-        .s00_axi_bready (mem_bready),
-        .s00_axi_arid   (mem_arid),
-        .s00_axi_araddr (mem_araddr),
-        .s00_axi_arlen  (mem_arlen),
-        .s00_axi_arsize (mem_arsize),
-        .s00_axi_arburst(mem_arburst),
-        .s00_axi_arlock (mem_arlock),
-        .s00_axi_arcache(mem_arcache),
-        .s00_axi_arprot (mem_arprot),
-        .s00_axi_arqos  (mem_arqos),
-        .s00_axi_aruser (mem_aruser),
-        .s00_axi_arvalid(mem_arvalid),
-        .s00_axi_arready(mem_arready),
-        .s00_axi_rid    (mem_rid),
-        .s00_axi_rdata  (mem_rdata),
-        .s00_axi_rresp  (mem_rresp),
-        .s00_axi_rlast  (mem_rlast),
-        .s00_axi_ruser  (mem_ruser),
-        .s00_axi_rvalid (mem_rvalid),
-        .s00_axi_rready (mem_rready),
+        .s00_axi_awid   (bfm_mem_awid),
+        .s00_axi_awaddr (bfm_mem_awaddr),
+        .s00_axi_awlen  (bfm_mem_awlen),
+        .s00_axi_awsize (bfm_mem_awsize),
+        .s00_axi_awburst(bfm_mem_awburst),
+        .s00_axi_awlock (bfm_mem_awlock),
+        .s00_axi_awcache(bfm_mem_awcache),
+        .s00_axi_awprot (bfm_mem_awprot),
+        .s00_axi_awqos  (bfm_mem_awqos),
+        .s00_axi_awuser (bfm_mem_awuser),
+        .s00_axi_awvalid(bfm_mem_awvalid),
+        .s00_axi_awready(bfm_mem_awready),
+        .s00_axi_wdata  (bfm_mem_wdata),
+        .s00_axi_wstrb  (bfm_mem_wstrb),
+        .s00_axi_wlast  (bfm_mem_wlast),
+        .s00_axi_wuser  (bfm_mem_wuser),
+        .s00_axi_wvalid (bfm_mem_wvalid),
+        .s00_axi_wready (bfm_mem_wready),
+        .s00_axi_bid    (bfm_mem_bid),
+        .s00_axi_bresp  (bfm_mem_bresp),
+        .s00_axi_buser  (bfm_mem_buser),
+        .s00_axi_bvalid (bfm_mem_bvalid),
+        .s00_axi_bready (bfm_mem_bready),
+        .s00_axi_arid   (bfm_mem_arid),
+        .s00_axi_araddr (bfm_mem_araddr),
+        .s00_axi_arlen  (bfm_mem_arlen),
+        .s00_axi_arsize (bfm_mem_arsize),
+        .s00_axi_arburst(bfm_mem_arburst),
+        .s00_axi_arlock (bfm_mem_arlock),
+        .s00_axi_arcache(bfm_mem_arcache),
+        .s00_axi_arprot (bfm_mem_arprot),
+        .s00_axi_arqos  (bfm_mem_arqos),
+        .s00_axi_aruser (bfm_mem_aruser),
+        .s00_axi_arvalid(bfm_mem_arvalid),
+        .s00_axi_arready(bfm_mem_arready),
+        .s00_axi_rid    (bfm_mem_rid),
+        .s00_axi_rdata  (bfm_mem_rdata),
+        .s00_axi_rresp  (bfm_mem_rresp),
+        .s00_axi_rlast  (bfm_mem_rlast),
+        .s00_axi_ruser  (bfm_mem_ruser),
+        .s00_axi_rvalid (bfm_mem_rvalid),
+        .s00_axi_rready (bfm_mem_rready),
 
         .s01_axi_awid   (emu_sys_mem_awid),
         .s01_axi_awaddr (emu_sys_mem_awaddr),
@@ -455,7 +459,7 @@ module sim_top;
 
     axi_sim_mem #(
         .ADDR_WIDTH     (32),
-        .DATA_WIDTH     (64),
+        .DATA_WIDTH     (32),
         .ID_WIDTH       (1),
         .MEM_SIZE       ('h20000000),
         .MEM_INIT       (0)

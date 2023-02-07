@@ -1,0 +1,11 @@
+{
+    "platinfo": {
+        "mem_type": "cosim",
+        "mem_base": 0,
+        "mem_size": 536870912,
+        "mem_dmabase": 0,
+        "reg_type": "cosim",
+        "reg_base": 1,
+        "reg_size": 65536
+    }
+}
