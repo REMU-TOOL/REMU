@@ -4,7 +4,7 @@ using namespace REMU;
 
 void BreakEvent::execute(Driver &drv) const
 {
-    drv.stop();
+    drv.running = false;
 }
 
 void SignalEvent::execute(Driver &drv) const

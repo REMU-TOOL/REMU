@@ -5,7 +5,7 @@
 
 namespace REMU {
 
-class UartCallback : public Callback
+class UartTxCallback : public Callback
 {
     int tx_ch_index;
 
@@ -13,7 +13,25 @@ public:
 
     virtual void execute(Driver &drv) const override;
 
-    UartCallback(int tx_ch_index) : tx_ch_index(tx_ch_index) {}
+    UartTxCallback(int tx_ch_index) : tx_ch_index(tx_ch_index) {}
+};
+
+class UartRxWorker
+{
+    Driver &drv;
+    int rx_valid_index;
+    int rx_ch_index;
+
+public:
+
+    void init();
+    void handle_input();
+
+    UartRxWorker(Driver &drv, int rx_valid_index, int rx_ch_index) :
+        drv(drv), rx_valid_index(rx_valid_index), rx_ch_index(rx_ch_index)
+    {
+        init();
+    }
 };
 
 }

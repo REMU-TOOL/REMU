@@ -15,26 +15,25 @@ class Driver;
 
 class Event
 {
-    uint64_t m_tick;
-
 public:
 
-    uint64_t tick() const { return m_tick; }
-    bool operator<(const Event &other) const { return m_tick > other.m_tick; }
+    uint64_t tick;
+
+    bool operator<(const Event &other) const { return tick > other.tick; }
     virtual void execute(Driver &drv) const = 0;
 
-    Event(uint64_t tick) : m_tick(tick) {}
+    Event(uint64_t tick) : tick(tick) {}
     virtual ~Event() {}
 };
 
 class EventHolder
 {
-    std::unique_ptr<Event> event;
+    Event *event;
 
 public:
 
     Event& operator*() const { return *event; }
-    Event* operator->() const { return event.get(); }
+    Event* operator->() const { return event; }
     bool operator<(const EventHolder &other) const { return *event < *other.event; }
 
     EventHolder(Event *event) : event(event) {}
@@ -132,7 +131,6 @@ class Driver
 
     std::priority_queue<EventHolder> event_queue;
     std::map<int, std::unique_ptr<Callback>> trigger_callbacks;
-    bool run_flag = false;
 
 public:
 
@@ -177,10 +175,10 @@ public:
 
     // Scheduling
 
-    void schedule_event(Event* event)
+    void schedule_event(EventHolder event)
     {
-        if (event->tick() < get_tick_count())
-            throw std::runtime_error("scheduling event behind current tick");
+        if (event->tick < get_tick_count())
+            throw std::invalid_argument("scheduling event behind current tick");
 
         event_queue.push(event);
     }
@@ -190,9 +188,9 @@ public:
         trigger_callbacks[index] = std::unique_ptr<Callback>(callback);
     }
 
-    void stop();
+    bool running = false;
 
-    void main_loop();
+    bool handle_events();
 
     Driver(
         const SysInfo &sysinfo,

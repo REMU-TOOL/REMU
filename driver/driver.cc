@@ -259,9 +259,11 @@ void Driver::set_signal(int index, const BitVector &value)
         int width = std::min(sig.width - offset, 32);
         reg->write(sig.reg_offset + i * 4, value.getValue(offset, width));
     }
+#if 0
     auto name = get_signal_name(index);
     fprintf(stderr, "[REMU] INFO: Tick %ld: set signal \"%s\" to %s\n",
         get_tick_count(), name.c_str(), value.bin().c_str());
+#endif
 }
 
 bool Driver::is_trigger_active(int index)
@@ -316,62 +318,43 @@ std::vector<int> Driver::get_active_triggers(bool enabled)
     return res;
 }
 
-void Driver::stop()
+bool Driver::handle_events()
 {
-    if (is_scan_mode())
-        throw std::runtime_error("stop called in scan mode");
+    uint64_t tick = get_tick_count();
+    uint64_t step = UINT32_MAX;
 
-    run_flag = false;
-    exit_run_mode();
-
-    fprintf(stderr, "[REMU] INFO: Tick %ld: stopping execution\n",
-        get_tick_count());
-}
-
-void Driver::main_loop()
-{
-    if (is_run_mode() || is_scan_mode())
-        throw std::runtime_error("main_loop called in run mode or scan mode");
-
-    run_flag = true;
-
-    while (true) {
-        uint64_t tick = get_tick_count();
-        uint64_t step = UINT32_MAX;
-
-        for (int index : get_active_triggers(true)) {
-            if (trigger_callbacks.count(index) > 0) {
-                trigger_callbacks.at(index)->execute(*this);
-            }
-            else {
-                auto name = get_trigger_name(index);
-                fprintf(stderr, "[REMU] INFO: Tick %ld: trigger \"%s\" is activated\n",
-                    tick, name.c_str());
-                run_flag = false;
-            }
+    for (int index : get_active_triggers(true)) {
+        if (trigger_callbacks.count(index) > 0) {
+            trigger_callbacks.at(index)->execute(*this);
         }
-
-        while (!event_queue.empty()) {
-            auto &event = event_queue.top();
-
-            if (event->tick() < tick)
-                throw std::runtime_error("executing event behind current tick");
-
-            if (event->tick() > tick) {
-                step = std::min(step, event->tick() - tick);
-                break;
-            }
-
-            event->execute(*this);
-            event_queue.pop();
+        else {
+            auto name = get_trigger_name(index);
+            fprintf(stderr, "[REMU] INFO: Tick %ld: trigger \"%s\" is activated\n",
+                tick, name.c_str());
+            running = false;
         }
-
-        if (!run_flag)
-            break;
-
-        set_step_count(step);
-        enter_run_mode();
-        while (is_run_mode())
-            sleep(10);
     }
+
+    while (!event_queue.empty()) {
+        auto &event = event_queue.top();
+
+        if (event->tick < tick)
+            throw std::runtime_error("executing event behind current tick");
+
+        if (event->tick > tick) {
+            step = std::min(step, event->tick - tick);
+            break;
+        }
+
+        event->execute(*this);
+        event_queue.pop();
+    }
+
+    if (!running)
+        return false;
+
+    set_step_count(step);
+    enter_run_mode();
+
+    return true;
 }
