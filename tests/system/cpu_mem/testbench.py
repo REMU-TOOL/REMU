@@ -3,7 +3,7 @@ sys.path.append('..')
 from system_tb import *
 
 WORKLOAD_FILE = '../../../design/picorv32/baremetal.bin'
-CONFIG_FILE = '.build/scanchain.yml'
+CONFIG_FILE = '.build/sysinfo.yml'
 
 class TB(SystemTB):
     def __init__(self, dut):
