@@ -191,7 +191,8 @@ module EmuSysCtrl #(
         end
     end
 
-    wire trig_stat_rdata = trig_stat[ctrl_raddr[1:0]*32+:32];
+    wire [127:0] trig_stat_padded = {{128-__TRIG_COUNT{1'b0}}, trig_stat};
+    wire [31:0] trig_stat_rdata = trig_stat_padded[ctrl_raddr[3:2]*32+:32];
 
     // TRIG_EN [RW]
 
@@ -209,13 +210,14 @@ module EmuSysCtrl #(
             if (host_rst) begin
                 trig_en[i] <= 1'b0;
             end
-            else if (ctrl_wen && w_trig_en && ctrl_waddr[1:0] == i/32) begin
+            else if (ctrl_wen && w_trig_en && ctrl_waddr[3:2] == i/32) begin
                 trig_en[i] <= ctrl_wdata[i%32];
             end
         end
     end
 
-    wire trig_en_rdata = trig_en[ctrl_raddr[1:0]*32+:32];
+    wire [127:0] trig_en_padded = {{128-__TRIG_COUNT{1'b0}}, trig_en};
+    wire [31:0] trig_en_rdata = trig_en_padded[ctrl_raddr[3:2]*32+:32];
 
     assign trig_active = |{trig_en & trig};
 

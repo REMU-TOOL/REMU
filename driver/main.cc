@@ -4,9 +4,7 @@
 #include <fstream>
 
 #include "emu_info.h"
-#include "scheduler.h"
-#include "uma_cosim.h"
-#include "uma_devmem.h"
+#include "driver.h"
 
 using namespace REMU;
 
@@ -68,27 +66,7 @@ int main(int argc, const char *argv[])
         f >> platinfo;
     }
 
-    std::unique_ptr<UserMem> mem;
-    if (platinfo.mem_type == "cosim")
-        mem = std::unique_ptr<UserMem>(new CosimUserMem(platinfo.mem_base, platinfo.mem_size));
-    else if (platinfo.mem_type == "devmem")
-        mem = std::unique_ptr<UserMem>(new DMUserMem(platinfo.mem_base, platinfo.mem_size, platinfo.mem_dmabase));
-    else {
-        fprintf(stderr, "PlatInfo error: mem_type %s is not supported\n", platinfo.mem_type.c_str());
-        return 1;
-    }
-
-    std::unique_ptr<UserIO> reg;
-    if (platinfo.reg_type == "cosim")
-        reg = std::unique_ptr<UserIO>(new CosimUserIO(platinfo.reg_base));
-    else if (platinfo.reg_type == "devmem")
-        reg = std::unique_ptr<UserIO>(new DMUserIO(platinfo.reg_base, platinfo.reg_size));
-    else {
-        fprintf(stderr, "PlatInfo error: reg_type %s is not supported\n", platinfo.reg_type.c_str());
-        return 1;
-    }
-
-    Scheduler driver(sysinfo, options, std::move(mem), std::move(reg));
+    Driver driver(sysinfo, platinfo, options);
 
     return driver.main();
 }

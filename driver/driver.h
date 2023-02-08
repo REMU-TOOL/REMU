@@ -1,15 +1,66 @@
-#ifndef _REMU_DRIVER_H_
-#define _REMU_DRIVER_H_
+#ifndef _REMU_Driver_H_
+#define _REMU_Driver_H_
 
-#include <vector>
-#include <map>
 #include <memory>
+#include <queue>
 
 #include "emu_info.h"
 #include "bitvector.h"
 #include "uma.h"
 
 namespace REMU {
+
+class Driver;
+
+class Event
+{
+    uint64_t m_tick;
+
+public:
+
+    uint64_t tick() const { return m_tick; }
+
+    bool operator<(const Event &other) const
+    {
+        return m_tick > other.m_tick;
+    }
+
+    virtual void execute(Driver &drv) const = 0;
+
+    Event(uint64_t tick) : m_tick(tick) {}
+    virtual ~Event() {}
+};
+
+class EventHandle
+{
+    Event *event;
+
+public:
+
+    Event& operator*() const { return *event; }
+    Event* operator->() const { return event; }
+    bool operator<(EventHandle other) { return *event < *other.event; }
+
+    EventHandle(Event *event) : event(event) {}
+};
+
+class BreakEvent : public Event
+{
+    virtual void execute(Driver &) const override {}
+};
+
+class SignalEvent : public Event
+{
+    int handle;
+    BitVector value;
+
+public:
+
+    virtual void execute(Driver &drv) const override;
+
+    SignalEvent(uint64_t tick, int handle, const BitVector &value) :
+        Event(tick), handle(handle), value(value) {}
+};
 
 struct DriverOptions
 {
@@ -19,7 +70,11 @@ struct DriverOptions
 class Driver
 {
     SysInfo sysinfo;
+    PlatInfo platinfo;
     DriverOptions options;
+
+    std::unique_ptr<UserMem> mem;
+    std::unique_ptr<UserIO> reg;
 
     struct SignalObject
     {
@@ -63,34 +118,28 @@ class Driver
         return list.at(handle).name;
     }
 
+    void init_uma();
     void init_signal();
     void init_trigger();
     void init_axi();
-    void init_system();
 
-    std::unique_ptr<UserMem> mem;
-    std::unique_ptr<UserIO> reg;
-
-    void enter_run_mode();
-    void exit_run_mode();
-    void enter_scan_mode();
-    void exit_scan_mode();
+    std::priority_queue<EventHandle> event_queue;
 
 public:
 
-    enum Mode
-    {
-        PAUSE,
-        RUN,
-        SCAN,
-    };
+    bool is_run_mode();
+    void enter_run_mode();
+    void exit_run_mode();
 
-    Mode get_mode();
-    void set_mode(Mode mode);
+    bool is_scan_mode();
+    void enter_scan_mode();
+    void exit_scan_mode();
 
     uint64_t get_tick_count();
     void set_tick_count(uint64_t count);
     void set_step_count(uint32_t count);
+
+    void do_scan(bool scan_in);
 
     // Signal
 
@@ -115,19 +164,21 @@ public:
     int lookup_axi(const std::string &name) { return list_lookup(name, axi_list); }
     std::string get_axi_name(int handle) { return list_get_name(handle, axi_list); }
 
-    void do_scan(bool scan_in);
-
     static void sleep(unsigned int milliseconds);
+
+    int main();
 
     Driver(
         const SysInfo &sysinfo,
-        const DriverOptions &options,
-        std::unique_ptr<UserMem> &&mem,
-        std::unique_ptr<UserIO> &&reg
+        const PlatInfo &platinfo,
+        const DriverOptions &options
     )
-    : sysinfo(sysinfo), options(options), mem(std::move(mem)), reg(std::move(reg))
+        : sysinfo(sysinfo), platinfo(platinfo), options(options)
     {
-        init_system();
+        init_uma();
+        init_signal();
+        init_trigger();
+        init_axi();
     }
 };
 

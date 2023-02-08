@@ -10,6 +10,8 @@
 #include "emu_utils.h"
 #include "escape.h"
 #include "regdef.h"
+#include "uma_cosim.h"
+#include "uma_devmem.h"
 
 using namespace REMU;
 
@@ -25,6 +27,27 @@ inline std::string flatten_name(const std::vector<std::string> &name)
         ss << Escape::escape_verilog_id(s);
     }
     return ss.str();
+}
+
+void Driver::init_uma()
+{
+    if (platinfo.mem_type == "cosim")
+        mem = std::unique_ptr<UserMem>(new CosimUserMem(platinfo.mem_base, platinfo.mem_size));
+    else if (platinfo.mem_type == "devmem")
+        mem = std::unique_ptr<UserMem>(new DMUserMem(platinfo.mem_base, platinfo.mem_size, platinfo.mem_dmabase));
+    else {
+        fprintf(stderr, "PlatInfo error: mem_type %s is not supported\n", platinfo.mem_type.c_str());
+        throw std::runtime_error("bad platinfo");
+    }
+
+    if (platinfo.reg_type == "cosim")
+        reg = std::unique_ptr<UserIO>(new CosimUserIO(platinfo.reg_base));
+    else if (platinfo.reg_type == "devmem")
+        reg = std::unique_ptr<UserIO>(new DMUserIO(platinfo.reg_base, platinfo.reg_size));
+    else {
+        fprintf(stderr, "PlatInfo error: reg_type %s is not supported\n", platinfo.reg_type.c_str());
+        throw std::runtime_error("bad platinfo");
+    }
 }
 
 void Driver::init_signal()
@@ -81,14 +104,14 @@ void Driver::init_axi()
         p->assigned_size = 1 << clog2(p->size); // power of 2
         p->assigned_offset = alloc_size;
         alloc_size += p->assigned_size;
-        fprintf(stderr, "INFO: allocated memory (0x%08lx - 0x%08lx) for AXI port \"%s\"\n",
+        fprintf(stderr, "[REMU] INFO: Allocated memory (offset 0x%08lx - 0x%08lx) for AXI port \"%s\"\n",
             dmabase + p->assigned_offset,
             dmabase + p->assigned_offset + p->assigned_size,
             p->name.c_str());
     }
 
     if (alloc_size > mem->size()) {
-        fprintf(stderr, "ERROR: this platform does not have enough device memory (0x%lx actual, 0x%lx required)\n",
+        fprintf(stderr, "[REMU] ERROR: this platform does not have enough device memory (0x%lx actual, 0x%lx required)\n",
             mem->size(), alloc_size);
         throw std::runtime_error("insufficient device memory");
     }
@@ -109,27 +132,25 @@ void Driver::init_axi()
     for (auto &kv : options.init_axi_mem) {
         int handle = lookup_axi(kv.first);
         if (handle < 0) {
-            fprintf(stderr, "WARNING: AXI port \"%s\" specified by --init-axi-mem is not found\n",
+            fprintf(stderr, "[REMU] WARNING: AXI port \"%s\" specified by --init-axi-mem is not found\n",
                 kv.first.c_str());
             continue;
         }
         auto &axi = axi_list.at(handle);
-        fprintf(stderr, "INFO: Initializing memory for AXI port \"%s\" with file \"%s\"\n",
+        fprintf(stderr, "[REMU] INFO: Initializing memory for AXI port \"%s\" with file \"%s\"\n",
             kv.first.c_str(), kv.second.c_str());
         std::ifstream f(kv.second, std::ios::binary);
         if (f.fail()) {
-            fprintf(stderr, "ERROR: Can't open file `%s': %s\n", kv.second.c_str(), strerror(errno));
+            fprintf(stderr, "[REMU] ERROR: Can't open file `%s': %s\n", kv.second.c_str(), strerror(errno));
             continue;
         }
         mem->copy_from_stream(axi.assigned_offset, axi.assigned_size, f);
     }
 }
 
-void Driver::init_system()
+bool Driver::is_run_mode()
 {
-    init_signal();
-    init_trigger();
-    init_axi();
+    return reg->read(RegDef::MODE_CTRL) & RegDef::MODE_CTRL_RUN_MODE;
 }
 
 void Driver::enter_run_mode()
@@ -149,6 +170,11 @@ void Driver::exit_run_mode()
     // FIXME: 1 host cycle must be waited to correctly save RAM internal registers
 }
 
+bool Driver::is_scan_mode()
+{
+    return reg->read(RegDef::MODE_CTRL) & RegDef::MODE_CTRL_SCAN_MODE;
+}
+
 void Driver::enter_scan_mode()
 {
     while (reg->read(RegDef::MODE_CTRL) & RegDef::MODE_CTRL_MODEL_BUSY)
@@ -163,37 +189,6 @@ void Driver::exit_scan_mode()
     uint32_t mode_ctrl = reg->read(RegDef::MODE_CTRL);
     mode_ctrl &= ~RegDef::MODE_CTRL_SCAN_MODE;
     reg->write(RegDef::MODE_CTRL, mode_ctrl);
-}
-
-Driver::Mode Driver::get_mode()
-{
-    uint32_t mode_ctrl = reg->read(RegDef::MODE_CTRL);
-    bool run_bit = mode_ctrl & RegDef::MODE_CTRL_RUN_MODE;
-    bool scan_bit = mode_ctrl & RegDef::MODE_CTRL_SCAN_MODE;
-    if (!run_bit && !scan_bit)
-        return Mode::PAUSE;
-    if (run_bit && !scan_bit)
-        return Mode::RUN;
-    if (!run_bit && scan_bit)
-        return Mode::SCAN;
-    throw std::runtime_error("unknown state");
-}
-
-void Driver::set_mode(Mode mode)
-{
-    Mode prev_mode = get_mode();
-    if (prev_mode == mode)
-        return;
-
-    switch (prev_mode) {
-        case RUN:   exit_run_mode();    break;
-        case SCAN:  exit_scan_mode();   break;
-    }
-
-    switch (mode) {
-        case RUN:   enter_run_mode();   break;
-        case SCAN:  enter_scan_mode();  break;
-    }
 }
 
 uint64_t Driver::get_tick_count()
@@ -212,6 +207,28 @@ void Driver::set_tick_count(uint64_t count)
 void Driver::set_step_count(uint32_t count)
 {
     reg->write(RegDef::STEP_CNT, count);
+}
+
+void Driver::do_scan(bool scan_in)
+{
+    if (is_run_mode() || is_scan_mode())
+        throw std::runtime_error("do_scan called in run mode or scan mode");
+
+    // Wait for all models to be in idle state
+    while (reg->read(RegDef::MODE_CTRL) & RegDef::MODE_CTRL_MODEL_BUSY)
+        sleep(10);
+
+    enter_scan_mode();
+
+    uint32_t scan_ctrl = RegDef::SCAN_CTRL_START;
+    if (scan_in)
+        scan_ctrl |= RegDef::SCAN_CTRL_DIRECTION;
+    reg->write(RegDef::SCAN_CTRL, scan_ctrl);
+
+    while (reg->read(RegDef::SCAN_CTRL) & RegDef::SCAN_CTRL_RUNNING)
+        sleep(10);
+
+    exit_scan_mode();
 }
 
 BitVector Driver::get_signal(int handle)
@@ -262,7 +279,8 @@ bool Driver::get_trigger_enable(int handle)
 
 void Driver::set_trigger_enable(int handle, bool enable)
 {
-    int id = trigger_list.at(handle).index;
+    auto &trig = trigger_list.at(handle);
+    int id = trig.index;
     int addr = RegDef::TRIG_EN_START + (id / 32) * 4;
     int offset = id % 32;
     uint32_t value = reg->read(addr);
@@ -271,6 +289,8 @@ void Driver::set_trigger_enable(int handle, bool enable)
     else
         value &= ~(1 << offset);
     reg->write(addr, value);
+    fprintf(stderr, "[REMU] INFO: Trigger \"%s\" is %s\n",
+        trig.name.c_str(), enable ? "enabled" : "disabled");
 }
 
 std::vector<int> Driver::get_active_triggers(bool enabled)
@@ -291,29 +311,38 @@ std::vector<int> Driver::get_active_triggers(bool enabled)
     return res;
 }
 
-void Driver::do_scan(bool scan_in)
-{
-    if (get_mode() != Mode::PAUSE)
-        throw std::runtime_error("bad do_scan call");
-
-    // Wait for all models to be in idle state
-    while (reg->read(RegDef::MODE_CTRL) & RegDef::MODE_CTRL_MODEL_BUSY)
-        sleep(10);
-
-    set_mode(Mode::SCAN);
-
-    uint32_t scan_ctrl = RegDef::SCAN_CTRL_START;
-    if (scan_in)
-        scan_ctrl |= RegDef::SCAN_CTRL_DIRECTION;
-    reg->write(RegDef::SCAN_CTRL, scan_ctrl);
-
-    while (reg->read(RegDef::SCAN_CTRL) & RegDef::SCAN_CTRL_RUNNING)
-        sleep(10);
-
-    set_mode(Mode::PAUSE);
-}
-
 void Driver::sleep(unsigned int milliseconds)
 {
     usleep(1000 * milliseconds);
+}
+
+int Driver::main()
+{
+    // test
+    printf("driver main\n");
+    int rst_handle = lookup_signal("rst");
+
+    printf("tick count: %ld\n", get_tick_count());
+
+    set_signal(rst_handle, BitVector(1, 1));
+    set_step_count(10);
+    enter_run_mode();
+    while (is_run_mode())
+        Driver::sleep(100);
+
+    printf("tick count: %ld\n", get_tick_count());
+
+    set_signal(rst_handle, BitVector(1, 0));
+    set_step_count(5000);
+    enter_run_mode();
+    while (is_run_mode())
+        Driver::sleep(100);
+
+    printf("tick count: %ld\n", get_tick_count());
+
+    printf("before scan out\n");
+    do_scan(false);
+    printf("after scan out\n");
+
+    return 0;
 }
