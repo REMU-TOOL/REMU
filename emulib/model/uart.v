@@ -2,6 +2,7 @@
 
 `include "axi.vh"
 
+(* __emu_model_type = "uart" *)
 module EmuUART #(
     parameter   RX_FIFO_DEPTH   = 16,
     parameter   TX_FIFO_DEPTH   = 16
@@ -11,6 +12,12 @@ module EmuUART #(
 
     `AXI4LITE_SLAVE_IF  (s_axilite, 4, 32)
 );
+
+    // Register Space
+    // 0x00 Rx FIFO
+    // 0x04 Tx FIFO
+    // 0x08 STAT_REG
+    // 0x0C CTRL_REG
 
     // TODO: interrupt
 
@@ -24,7 +31,12 @@ module EmuUART #(
         .tx_valid   (tx_valid),
         .tx_ch      (tx_ch),
         .rx_valid   (rx_valid),
-        .rx_ch      (rx_ch)
+        .rx_ch      (rx_ch),
+        // the following connections will be rewritten by transformation process
+        ._tx_valid  (),
+        ._tx_ch     (),
+        ._rx_valid  (1'b0),
+        ._rx_ch     (8'd0)
     );
 
     // Rx logic

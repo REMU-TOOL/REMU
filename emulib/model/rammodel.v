@@ -3,6 +3,7 @@
 `include "axi.vh"
 `include "axi_custom.vh"
 
+(* __emu_model_type = "rammodel" *)
 module EmuRam #(
     parameter   ADDR_WIDTH      = 32,
     parameter   DATA_WIDTH      = 64,

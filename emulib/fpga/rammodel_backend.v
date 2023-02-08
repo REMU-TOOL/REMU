@@ -3,6 +3,7 @@
 `include "axi.vh"
 `include "axi_custom.vh"
 
+(* __emu_model_imp *)
 module emulib_rammodel_backend #(
     parameter   ADDR_WIDTH      = 32,
     parameter   DATA_WIDTH      = 64,
