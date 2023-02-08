@@ -31,11 +31,13 @@ struct SysInfo
 
     struct ClockInfo
     {
+        std::vector<std::string> name;
         int index;
     };
 
     struct SignalInfo
     {
+        std::vector<std::string> name;
         int width;
         bool output;
         uint32_t reg_offset;
@@ -43,17 +45,20 @@ struct SysInfo
 
     struct TriggerInfo
     {
+        std::vector<std::string> name;
         int index;
     };
 
     struct AXIInfo
     {
+        std::vector<std::string> name;
         uint64_t size;
         uint32_t reg_offset;
     };
 
     struct ModelInfo
     {
+        std::vector<std::string> name;
         std::string type;
         std::map<std::string, std::string> str_params;
         std::map<std::string, int> int_params;
@@ -75,12 +80,11 @@ struct SysInfo
 
     std::map<std::vector<std::string>, WireInfo> wire;
     std::map<std::vector<std::string>, RAMInfo> ram;
-    std::map<std::vector<std::string>, ClockInfo> clock;
-    std::map<std::vector<std::string>, SignalInfo> signal;
-    std::map<std::vector<std::string>, TriggerInfo> trigger;
-    std::map<std::vector<std::string>, AXIInfo> axi;
-    std::map<std::vector<std::string>, ModelInfo> model;
-
+    std::vector<ClockInfo> clock;
+    std::vector<SignalInfo> signal;
+    std::vector<TriggerInfo> trigger;
+    std::vector<AXIInfo> axi;
+    std::vector<ModelInfo> model;
     std::vector<ScanFFInfo> scan_ff;
     std::vector<ScanRAMInfo> scan_ram;
 };

@@ -35,6 +35,7 @@ template<class Archive>
 void serialize(Archive &archive, SysInfo::ClockInfo &node)
 {
     archive(
+        NVP(name),
         NVP(index)
     );
 }
@@ -43,6 +44,7 @@ template<class Archive>
 void serialize(Archive &archive, SysInfo::SignalInfo &node)
 {
     archive(
+        NVP(name),
         NVP(width),
         NVP(output),
         NVP(reg_offset)
@@ -53,6 +55,7 @@ template<class Archive>
 void serialize(Archive &archive, SysInfo::TriggerInfo &node)
 {
     archive(
+        NVP(name),
         NVP(index)
     );
 }
@@ -61,6 +64,7 @@ template<class Archive>
 void serialize(Archive &archive, SysInfo::AXIInfo &node)
 {
     archive(
+        NVP(name),
         NVP(size),
         NVP(reg_offset)
     );
@@ -70,6 +74,7 @@ template<class Archive>
 void serialize(Archive &archive, SysInfo::ModelInfo &node)
 {
     archive(
+        NVP(name),
         NVP(type),
         NVP(str_params),
         NVP(int_params)

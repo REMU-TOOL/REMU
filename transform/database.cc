@@ -23,30 +23,34 @@ void EmulationDatabase::write_sysinfo(std::string file_name) {
     log("Writing to file `%s'\n", file_name.c_str());
 
     for (auto &x : clock_ports) {
-        sysinfo.clock[x.name] = {
-            .index      = x.index
-        };
+        sysinfo.clock.push_back({
+            .name       = x.name,
+            .index      = x.index,
+        });
     }
 
     for (auto &x : signal_ports) {
-        sysinfo.signal[x.name] = {
+        sysinfo.signal.push_back({
+            .name       = x.name,
             .width      = x.width,
             .output     = x.output,
-            .reg_offset = x.reg_offset
-        };
+            .reg_offset = x.reg_offset,
+        });
     }
 
     for (auto &x : trigger_ports) {
-        sysinfo.trigger[x.name] = {
-            .index      = x.index
-        };
+        sysinfo.trigger.push_back({
+            .name       = x.name,
+            .index      = x.index,
+        });
     }
 
     for (auto &x : axi_ports) {
-        sysinfo.axi[x.name] = {
+        sysinfo.axi.push_back({
+            .name       = x.name,
             .size       = x.size,
-            .reg_offset = x.reg_offset
-        };
+            .reg_offset = x.reg_offset,
+        });
     }
 
     f << sysinfo;
