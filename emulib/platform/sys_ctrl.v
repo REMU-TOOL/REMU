@@ -94,7 +94,7 @@ module EmuSysCtrl #(
                 run_mode <= 1'b1;
                 pause_busy <= 1'b0;
             end
-            else begin
+            else if (run_mode) begin
                 pause_busy <= 1'b1;
             end
         end
