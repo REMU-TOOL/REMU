@@ -68,5 +68,12 @@ int main(int argc, const char *argv[])
 
     Driver driver(sysinfo, platinfo, options);
 
-    return driver.main();
+    int rst_index = driver.lookup_signal("rst");
+    driver.schedule_event(new SignalEvent(0, rst_index, BitVector(1, 1)));
+    driver.schedule_event(new SignalEvent(10, rst_index, BitVector(1, 0)));
+    driver.schedule_event(new BreakEvent(10000));
+
+    driver.main_loop();
+
+    return 0;
 }

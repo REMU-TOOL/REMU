@@ -2,6 +2,7 @@
 #define _REMU_Driver_H_
 
 #include <memory>
+#include <map>
 #include <queue>
 
 #include "emu_info.h"
@@ -19,47 +20,53 @@ class Event
 public:
 
     uint64_t tick() const { return m_tick; }
-
-    bool operator<(const Event &other) const
-    {
-        return m_tick > other.m_tick;
-    }
-
+    bool operator<(const Event &other) const { return m_tick > other.m_tick; }
     virtual void execute(Driver &drv) const = 0;
 
     Event(uint64_t tick) : m_tick(tick) {}
     virtual ~Event() {}
 };
 
-class EventHandle
+class EventHolder
 {
-    Event *event;
+    std::unique_ptr<Event> event;
 
 public:
 
     Event& operator*() const { return *event; }
-    Event* operator->() const { return event; }
-    bool operator<(EventHandle other) { return *event < *other.event; }
+    Event* operator->() const { return event.get(); }
+    bool operator<(const EventHolder &other) const { return *event < *other.event; }
 
-    EventHandle(Event *event) : event(event) {}
+    EventHolder(Event *event) : event(event) {}
 };
 
 class BreakEvent : public Event
 {
-    virtual void execute(Driver &) const override {}
+public:
+
+    virtual void execute(Driver &drv) const override;
+
+    BreakEvent(uint64_t tick) : Event(tick) {}
 };
 
 class SignalEvent : public Event
 {
-    int handle;
+    int index;
     BitVector value;
 
 public:
 
     virtual void execute(Driver &drv) const override;
 
-    SignalEvent(uint64_t tick, int handle, const BitVector &value) :
-        Event(tick), handle(handle), value(value) {}
+    SignalEvent(uint64_t tick, int index, const BitVector &value) :
+        Event(tick), index(index), value(value) {}
+};
+
+class Callback
+{
+public:
+
+    virtual void execute(Driver &drv) const = 0;
 };
 
 struct DriverOptions
@@ -87,7 +94,7 @@ class Driver
     struct TriggerObject
     {
         std::string name;
-        int index;
+        int reg_index;
     };
 
     struct AXIObject
@@ -113,9 +120,9 @@ class Driver
     }
 
     template<typename T>
-    std::string list_get_name(int handle, const std::vector<T> &list)
+    std::string list_get_name(int index, const std::vector<T> &list)
     {
-        return list.at(handle).name;
+        return list.at(index).name;
     }
 
     void init_uma();
@@ -123,9 +130,13 @@ class Driver
     void init_trigger();
     void init_axi();
 
-    std::priority_queue<EventHandle> event_queue;
+    std::priority_queue<EventHolder> event_queue;
+    std::map<int, std::unique_ptr<Callback>> trigger_callbacks;
+    bool run_flag = false;
 
 public:
+
+    static void sleep(unsigned int milliseconds);
 
     bool is_run_mode();
     void enter_run_mode();
@@ -144,29 +155,44 @@ public:
     // Signal
 
     int lookup_signal(const std::string &name) { return list_lookup(name, signal_list); }
-    std::string get_signal_name(int handle) { return list_get_name(handle, signal_list); }
+    std::string get_signal_name(int index) { return list_get_name(index, signal_list); }
 
-    BitVector get_signal(int handle);
-    void set_signal(int handle, const BitVector &value);
+    BitVector get_signal(int index);
+    void set_signal(int index, const BitVector &value);
 
     // Trigger
 
     int lookup_trigger(const std::string &name) { return list_lookup(name, trigger_list); }
-    std::string get_trigger_name(int handle) { return list_get_name(handle, trigger_list); }
+    std::string get_trigger_name(int index) { return list_get_name(index, trigger_list); }
 
-    bool is_trigger_active(int handle);
-    bool get_trigger_enable(int handle);
-    void set_trigger_enable(int handle, bool enable);
+    bool is_trigger_active(int index);
+    bool get_trigger_enable(int index);
+    void set_trigger_enable(int index, bool enable);
     std::vector<int> get_active_triggers(bool enabled);
 
     // AXI
 
     int lookup_axi(const std::string &name) { return list_lookup(name, axi_list); }
-    std::string get_axi_name(int handle) { return list_get_name(handle, axi_list); }
+    std::string get_axi_name(int index) { return list_get_name(index, axi_list); }
 
-    static void sleep(unsigned int milliseconds);
+    // Scheduling
 
-    int main();
+    void schedule_event(Event* event)
+    {
+        if (event->tick() < get_tick_count())
+            throw std::runtime_error("scheduling event behind current tick");
+
+        event_queue.push(event);
+    }
+
+    void register_trigger_callback(int index, Callback *callback)
+    {
+        trigger_callbacks[index] = std::unique_ptr<Callback>(callback);
+    }
+
+    void stop();
+
+    void main_loop();
 
     Driver(
         const SysInfo &sysinfo,

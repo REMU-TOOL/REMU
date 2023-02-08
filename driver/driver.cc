@@ -52,10 +52,9 @@ void Driver::init_uma()
 
 void Driver::init_signal()
 {
-    for (auto &kv : sysinfo.signal) {
-        auto &info = kv.second;
+    for (auto &info : sysinfo.signal) {
         signal_list.push_back({
-            .name           = flatten_name(kv.first),
+            .name           = flatten_name(info.name),
             .width          = info.width,
             .output         = info.output,
             .reg_offset     = info.reg_offset,
@@ -65,11 +64,10 @@ void Driver::init_signal()
 
 void Driver::init_trigger()
 {
-    for (auto &kv : sysinfo.trigger) {
-        auto &info = kv.second;
+    for (auto &info : sysinfo.trigger) {
         trigger_list.push_back({
-            .name           = flatten_name(kv.first),
-            .index          = info.index,
+            .name           = flatten_name(info.name),
+            .reg_index      = info.index,
         });
     }
     for (size_t i = 0; i < trigger_list.size(); i++)
@@ -78,10 +76,9 @@ void Driver::init_trigger()
 
 void Driver::init_axi()
 {
-    for (auto &kv : sysinfo.axi) {
-        auto &info = kv.second;
+    for (auto &info : sysinfo.axi) {
         axi_list.push_back({
-            .name           = flatten_name(kv.first),
+            .name           = flatten_name(info.name),
             .size           = info.size,
             .reg_offset     = info.reg_offset,
             .assigned_offset  = 0,
@@ -130,13 +127,13 @@ void Driver::init_axi()
     // Process memory initialization
 
     for (auto &kv : options.init_axi_mem) {
-        int handle = lookup_axi(kv.first);
-        if (handle < 0) {
+        int index = lookup_axi(kv.first);
+        if (index < 0) {
             fprintf(stderr, "[REMU] WARNING: AXI port \"%s\" specified by --init-axi-mem is not found\n",
                 kv.first.c_str());
             continue;
         }
-        auto &axi = axi_list.at(handle);
+        auto &axi = axi_list.at(index);
         fprintf(stderr, "[REMU] INFO: Initializing memory for AXI port \"%s\" with file \"%s\"\n",
             kv.first.c_str(), kv.second.c_str());
         std::ifstream f(kv.second, std::ios::binary);
@@ -146,6 +143,11 @@ void Driver::init_axi()
         }
         mem->copy_from_stream(axi.assigned_offset, axi.assigned_size, f);
     }
+}
+
+void Driver::sleep(unsigned int milliseconds)
+{
+    usleep(1000 * milliseconds);
 }
 
 bool Driver::is_run_mode()
@@ -231,9 +233,9 @@ void Driver::do_scan(bool scan_in)
     exit_scan_mode();
 }
 
-BitVector Driver::get_signal(int handle)
+BitVector Driver::get_signal(int index)
 {
-    auto &sig = signal_list.at(handle);
+    auto &sig = signal_list.at(index);
     int nblks = (sig.width + 31) / 32;
     BitVector res(sig.width);
     for (int i = 0; i < nblks; i++) {
@@ -244,9 +246,9 @@ BitVector Driver::get_signal(int handle)
     return res;
 }
 
-void Driver::set_signal(int handle, const BitVector &value)
+void Driver::set_signal(int index, const BitVector &value)
 {
-    auto &sig = signal_list.at(handle);
+    auto &sig = signal_list.at(index);
     if (sig.output)
         return;
     if (value.width() != sig.width)
@@ -257,30 +259,33 @@ void Driver::set_signal(int handle, const BitVector &value)
         int width = std::min(sig.width - offset, 32);
         reg->write(sig.reg_offset + i * 4, value.getValue(offset, width));
     }
+    auto name = get_signal_name(index);
+    fprintf(stderr, "[REMU] INFO: Tick %ld: set signal \"%s\" to %s\n",
+        get_tick_count(), name.c_str(), value.bin().c_str());
 }
 
-bool Driver::is_trigger_active(int handle)
+bool Driver::is_trigger_active(int index)
 {
-    int id = trigger_list.at(handle).index;
+    int id = trigger_list.at(index).reg_index;
     int addr = RegDef::TRIG_STAT_START + (id / 32) * 4;
     int offset = id % 32;
     uint32_t value = reg->read(addr);
     return value & (1 << offset);
 }
 
-bool Driver::get_trigger_enable(int handle)
+bool Driver::get_trigger_enable(int index)
 {
-    int id = trigger_list.at(handle).index;
+    int id = trigger_list.at(index).reg_index;
     int addr = RegDef::TRIG_EN_START + (id / 32) * 4;
     int offset = id % 32;
     uint32_t value = reg->read(addr);
     return value & (1 << offset);
 }
 
-void Driver::set_trigger_enable(int handle, bool enable)
+void Driver::set_trigger_enable(int index, bool enable)
 {
-    auto &trig = trigger_list.at(handle);
-    int id = trig.index;
+    auto &trig = trigger_list.at(index);
+    int id = trig.reg_index;
     int addr = RegDef::TRIG_EN_START + (id / 32) * 4;
     int offset = id % 32;
     uint32_t value = reg->read(addr);
@@ -304,45 +309,64 @@ std::vector<int> Driver::get_active_triggers(bool enabled)
             values[i] &= reg->read(RegDef::TRIG_EN_START + 4*i);
     }
     for (size_t i = 0; i < trigger_list.size(); i++) {
-        int id = trigger_list.at(i).index;
+        int id = trigger_list.at(i).reg_index;
         if (values[id / 32] & (1 << (id % 32)))
             res.push_back(i);
     }
     return res;
 }
 
-void Driver::sleep(unsigned int milliseconds)
+void Driver::stop()
 {
-    usleep(1000 * milliseconds);
+    run_flag = false;
+    fprintf(stderr, "[REMU] INFO: Tick %ld: stopping execution\n",
+        get_tick_count());
 }
 
-int Driver::main()
+void Driver::main_loop()
 {
-    // test
-    printf("driver main\n");
-    int rst_handle = lookup_signal("rst");
+    if (is_run_mode() || is_scan_mode())
+        throw std::runtime_error("main_loop called in run mode or scan mode");
 
-    printf("tick count: %ld\n", get_tick_count());
+    run_flag = true;
 
-    set_signal(rst_handle, BitVector(1, 1));
-    set_step_count(10);
-    enter_run_mode();
-    while (is_run_mode())
-        Driver::sleep(100);
+    while (true) {
+        uint64_t tick = get_tick_count();
+        uint64_t step = UINT32_MAX;
 
-    printf("tick count: %ld\n", get_tick_count());
+        for (int index : get_active_triggers(true)) {
+            if (trigger_callbacks.count(index) > 0) {
+                trigger_callbacks.at(index)->execute(*this);
+            }
+            else {
+                auto name = get_trigger_name(index);
+                fprintf(stderr, "[REMU] INFO: Tick %ld: trigger \"%s\" is activated\n",
+                    tick, name.c_str());
+                run_flag = false;
+            }
+        }
 
-    set_signal(rst_handle, BitVector(1, 0));
-    set_step_count(5000);
-    enter_run_mode();
-    while (is_run_mode())
-        Driver::sleep(100);
+        while (!event_queue.empty()) {
+            auto &event = event_queue.top();
 
-    printf("tick count: %ld\n", get_tick_count());
+            if (event->tick() < tick)
+                throw std::runtime_error("executing event behind current tick");
 
-    printf("before scan out\n");
-    do_scan(false);
-    printf("after scan out\n");
+            if (event->tick() > tick) {
+                step = std::min(step, event->tick() - tick);
+                break;
+            }
 
-    return 0;
+            event->execute(*this);
+            event_queue.pop();
+        }
+
+        if (!run_flag)
+            break;
+
+        set_step_count(step);
+        enter_run_mode();
+        while (is_run_mode())
+            sleep(10);
+    }
 }
