@@ -8,6 +8,7 @@
 #include "emu_info.h"
 #include "bitvector.h"
 #include "uma.h"
+#include "object.h"
 
 namespace REMU {
 
@@ -15,14 +16,15 @@ class Driver;
 
 class Event
 {
+    uint64_t m_tick;
+
 public:
 
-    uint64_t tick;
-
-    bool operator<(const Event &other) const { return tick > other.tick; }
+    uint64_t tick() const { return m_tick; }
+    bool operator<(const Event &other) const { return m_tick > other.m_tick; }
     virtual void execute(Driver &drv) const = 0;
 
-    Event(uint64_t tick) : tick(tick) {}
+    Event(uint64_t tick) : m_tick(tick) {}
     virtual ~Event() {}
 };
 
@@ -32,6 +34,7 @@ class EventHolder
 
 public:
 
+    Event* get() const { return event; }
     Event& operator*() const { return *event; }
     Event* operator->() const { return event; }
     bool operator<(const EventHolder &other) const { return *event < *other.event; }
@@ -39,13 +42,24 @@ public:
     EventHolder(Event *event) : event(event) {}
 };
 
-class BreakEvent : public Event
+class MetaEvent : public Event
 {
+    int m_type;
+
 public:
 
-    virtual void execute(Driver &drv) const override;
+    enum {
+        Stop,
+    };
 
-    BreakEvent(uint64_t tick) : Event(tick) {}
+    virtual void execute(Driver &drv) const override
+    {
+        throw std::runtime_error("Event::execute called on a meta event");
+    }
+
+    int type() const { return m_type; }
+
+    MetaEvent(uint64_t tick, int type) : Event(tick), m_type(type) {}
 };
 
 class SignalEvent : public Event
@@ -65,7 +79,7 @@ class Callback
 {
 public:
 
-    virtual void execute(Driver &drv) const = 0;
+    virtual void callback(Driver &drv) const = 0;
 };
 
 struct DriverOptions
@@ -82,47 +96,9 @@ class Driver
     std::unique_ptr<UserMem> mem;
     std::unique_ptr<UserIO> reg;
 
-    struct SignalObject
-    {
-        std::string name;
-        int width;
-        bool output;
-        uint32_t reg_offset;
-    };
-
-    struct TriggerObject
-    {
-        std::string name;
-        int reg_index;
-    };
-
-    struct AXIObject
-    {
-        std::string name;
-        uint64_t size;
-        uint32_t reg_offset;
-        uint64_t assigned_offset;
-        uint64_t assigned_size;
-    };
-
-    std::vector<SignalObject> signal_list;
-    std::vector<TriggerObject> trigger_list;
-    std::vector<AXIObject> axi_list;
-
-    template<typename T>
-    int list_lookup(const std::string &name, const std::vector<T> &list)
-    {
-        for (size_t i = 0; i < list.size(); i++)
-            if (list.at(i).name == name)
-                return i;
-        return -1;
-    }
-
-    template<typename T>
-    std::string list_get_name(int index, const std::vector<T> &list)
-    {
-        return list.at(index).name;
-    }
+    ObjectManager<SignalObject> om_signal;
+    ObjectManager<TriggerObject> om_trigger;
+    ObjectManager<AXIObject> om_axi;
 
     void init_uma();
     void init_signal();
@@ -130,7 +106,7 @@ class Driver
     void init_axi();
 
     std::priority_queue<EventHolder> event_queue;
-    std::map<int, std::unique_ptr<Callback>> trigger_callbacks;
+    std::map<int, Callback*> trigger_callbacks;
 
 public:
 
@@ -152,16 +128,16 @@ public:
 
     // Signal
 
-    int lookup_signal(const std::string &name) { return list_lookup(name, signal_list); }
-    std::string get_signal_name(int index) { return list_get_name(index, signal_list); }
+    int lookup_signal(const std::string &name) { return om_signal.lookup(name); }
+    std::string get_signal_name(int index) { return om_signal.get(index).name; }
 
-    BitVector get_signal(int index);
-    void set_signal(int index, const BitVector &value);
+    BitVector get_signal_value(int index);
+    void set_signal_value(int index, const BitVector &value);
 
     // Trigger
 
-    int lookup_trigger(const std::string &name) { return list_lookup(name, trigger_list); }
-    std::string get_trigger_name(int index) { return list_get_name(index, trigger_list); }
+    int lookup_trigger(const std::string &name) { return om_trigger.lookup(name); }
+    std::string get_trigger_name(int index) { return om_trigger.get(index).name; }
 
     bool is_trigger_active(int index);
     bool get_trigger_enable(int index);
@@ -170,14 +146,14 @@ public:
 
     // AXI
 
-    int lookup_axi(const std::string &name) { return list_lookup(name, axi_list); }
-    std::string get_axi_name(int index) { return list_get_name(index, axi_list); }
+    int lookup_axi(const std::string &name) { return om_axi.lookup(name); }
+    std::string get_axi_name(int index) { return om_axi.get(index).name; }
 
     // Scheduling
 
     void schedule_event(EventHolder event)
     {
-        if (event->tick < get_tick_count())
+        if (event->tick() < get_tick_count())
             throw std::invalid_argument("scheduling event behind current tick");
 
         event_queue.push(event);
@@ -185,10 +161,13 @@ public:
 
     void register_trigger_callback(int index, Callback *callback)
     {
-        trigger_callbacks[index] = std::unique_ptr<Callback>(callback);
+        trigger_callbacks[index] = callback;
     }
 
-    bool running = false;
+    void unregister_trigger_callback(int index)
+    {
+        trigger_callbacks.erase(index);
+    }
 
     bool handle_events();
 

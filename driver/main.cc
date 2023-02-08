@@ -70,26 +70,19 @@ int main(int argc, const char *argv[])
     Driver driver(sysinfo, platinfo, options);
 
     int rst_index = driver.lookup_signal("rst");
-    int tx_valid_index = driver.lookup_trigger("u_uart.rx_tx_imp._tx_valid");
-    int tx_ch_index = driver.lookup_signal("u_uart.rx_tx_imp._tx_ch");
-    int rx_valid_index = driver.lookup_signal("u_uart.rx_tx_imp._rx_valid");
-    int rx_ch_index = driver.lookup_signal("u_uart.rx_tx_imp._rx_ch");
 
-    driver.register_trigger_callback(tx_valid_index, new UartTxCallback(tx_ch_index));
+    UartHandler uart(driver, "u_uart");
 
     driver.schedule_event(new SignalEvent(0, rst_index, BitVector(1, 1)));
     driver.schedule_event(new SignalEvent(10, rst_index, BitVector(1, 0)));
-    driver.schedule_event(new BreakEvent(100000));
+    driver.schedule_event(new MetaEvent(100000, MetaEvent::Stop));
 
-    UartRxWorker rx_worker(driver, rx_valid_index, rx_ch_index);
-
-    driver.running = true;
     while (true) {
         if (!driver.is_run_mode())
             if (!driver.handle_events())
                 break;
 
-        rx_worker.handle_input();
+        uart.handle_rx();
     }
 
     return 0;
