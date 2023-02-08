@@ -60,6 +60,9 @@ void Driver::init_signal()
             .reg_offset     = info.reg_offset,
         });
     }
+    for (auto &signal : om_signal)
+        if (!signal.output)
+            set_signal_value(signal.index, BitVector(signal.width, 0));
 }
 
 void Driver::init_trigger()
@@ -70,8 +73,8 @@ void Driver::init_trigger()
             .reg_index      = info.index,
         });
     }
-    for (size_t i = 0; i < om_trigger.size(); i++)
-        set_trigger_enable(i, true);
+    for (auto &trigger : om_trigger)
+        set_trigger_enable(trigger.index, true);
 }
 
 void Driver::init_axi()
@@ -249,16 +252,26 @@ BitVector Driver::get_signal_value(int index)
 void Driver::set_signal_value(int index, const BitVector &value)
 {
     auto &sig = om_signal.get(index);
+
     if (sig.output)
         return;
+
     if (value.width() != sig.width)
         throw std::invalid_argument("value width mismatch");
+
     int nblks = (sig.width + 31) / 32;
     for (int i = 0; i < nblks; i++) {
         int offset = i * 32;
         int width = std::min(sig.width - offset, 32);
         reg->write(sig.reg_offset + i * 4, value.getValue(offset, width));
     }
+
+    signal_trace.list.push_back({
+        .tick   = get_tick_count(),
+        .index  = sig.index,
+        .data   = value,
+    });
+
 #if 0
     auto name = get_signal_name(index);
     fprintf(stderr, "[REMU] INFO: Tick %ld: set signal \"%s\" to %s\n",
@@ -337,7 +350,7 @@ bool Driver::handle_events()
     }
 
     while (!event_queue.empty()) {
-        auto &event = event_queue.top();
+        auto event = event_queue.top();
         auto event_tick = event->tick();
 
         if (event_tick < tick)
@@ -348,23 +361,14 @@ bool Driver::handle_events()
             break;
         }
 
-        auto meta_event = dynamic_cast<MetaEvent*>(event.get());
-        if (meta_event) {
-            switch (meta_event->type()) {
-                case MetaEvent::Stop:
-                    stop = true;
-                    break;
-            }
-        }
-        else {
-            event->execute(*this);
-        }
-
         event_queue.pop();
+
+        if (!event->execute(*this))
+            stop = true;
     }
 
     if (stop) {
-        fprintf(stderr, "[REMU] INFO: Tick %ld: stopping execution\n", tick);
+        fprintf(stderr, "[REMU] INFO: Tick %ld: stopped execution\n", tick);
         return false;
     }
 

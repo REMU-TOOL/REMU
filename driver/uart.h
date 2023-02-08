@@ -28,6 +28,8 @@ class UartHandler
     int sig_rx_valid;
     int sig_rx_ch;
 
+    uint64_t next_rx_tick;
+
     void init_term();
 
 public:

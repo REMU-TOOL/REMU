@@ -9,70 +9,14 @@
 #include "bitvector.h"
 #include "uma.h"
 #include "object.h"
+#include "event.h"
+#include "signal_trace.h"
 
 namespace REMU {
 
-class Driver;
-
-class Event
+struct DriverOptions
 {
-    uint64_t m_tick;
-
-public:
-
-    uint64_t tick() const { return m_tick; }
-    bool operator<(const Event &other) const { return m_tick > other.m_tick; }
-    virtual void execute(Driver &drv) const = 0;
-
-    Event(uint64_t tick) : m_tick(tick) {}
-    virtual ~Event() {}
-};
-
-class EventHolder
-{
-    Event *event;
-
-public:
-
-    Event* get() const { return event; }
-    Event& operator*() const { return *event; }
-    Event* operator->() const { return event; }
-    bool operator<(const EventHolder &other) const { return *event < *other.event; }
-
-    EventHolder(Event *event) : event(event) {}
-};
-
-class MetaEvent : public Event
-{
-    int m_type;
-
-public:
-
-    enum {
-        Stop,
-    };
-
-    virtual void execute(Driver &drv) const override
-    {
-        throw std::runtime_error("Event::execute called on a meta event");
-    }
-
-    int type() const { return m_type; }
-
-    MetaEvent(uint64_t tick, int type) : Event(tick), m_type(type) {}
-};
-
-class SignalEvent : public Event
-{
-    int index;
-    BitVector value;
-
-public:
-
-    virtual void execute(Driver &drv) const override;
-
-    SignalEvent(uint64_t tick, int index, const BitVector &value) :
-        Event(tick), index(index), value(value) {}
+    std::map<std::string, std::string> init_axi_mem;
 };
 
 class Callback
@@ -80,11 +24,6 @@ class Callback
 public:
 
     virtual void callback(Driver &drv) const = 0;
-};
-
-struct DriverOptions
-{
-    std::map<std::string, std::string> init_axi_mem;
 };
 
 class Driver
@@ -109,6 +48,8 @@ class Driver
     std::map<int, Callback*> trigger_callbacks;
 
 public:
+
+    SignalTraceList signal_trace;
 
     static void sleep(unsigned int milliseconds);
 

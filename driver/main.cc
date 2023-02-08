@@ -75,7 +75,7 @@ int main(int argc, const char *argv[])
 
     driver.schedule_event(new SignalEvent(0, rst_index, BitVector(1, 1)));
     driver.schedule_event(new SignalEvent(10, rst_index, BitVector(1, 0)));
-    driver.schedule_event(new MetaEvent(100000, MetaEvent::Stop));
+    driver.schedule_event(new StopEvent(10000));
 
     while (true) {
         if (!driver.is_run_mode())
@@ -83,6 +83,18 @@ int main(int argc, const char *argv[])
                 break;
 
         uart.handle_rx();
+
+        Driver::sleep(10);
+    }
+
+    std::string trace_file = "trace.json";
+    {
+        std::ofstream f(trace_file);
+        if (f.fail()) {
+            fprintf(stderr, "Can't open file `%s': %s\n", trace_file.c_str(), strerror(errno));
+            return 1;
+        }
+        f << driver.signal_trace;
     }
 
     return 0;

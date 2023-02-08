@@ -1,5 +1,5 @@
-#ifndef _CONFIG_H_
-#define _CONFIG_H_
+#ifndef _REMU_INFO_H_
+#define _REMU_INFO_H_
 
 #include <string>
 #include <vector>
@@ -108,4 +108,4 @@ std::istream& operator>>(std::istream &stream, PlatInfo &info);
 
 } // namespace REMU
 
-#endif // #ifndef _CONFIG_H_
+#endif // #ifndef _REMU_INFO_H_

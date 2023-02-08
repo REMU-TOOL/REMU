@@ -31,6 +31,10 @@ void UartHandler::handle_tx()
 
 void UartHandler::handle_rx()
 {
+    // FIXME: read tick count in run mode is risky
+    if (drv.get_tick_count() < next_rx_tick)
+        return;
+
     char ch = 0;
     read(0, &ch, 1);
     if (ch) {
@@ -39,6 +43,7 @@ void UartHandler::handle_rx()
         drv.schedule_event(new SignalEvent(tick, sig_rx_valid, BitVector(1, 1)));
         drv.schedule_event(new SignalEvent(tick, sig_rx_ch, BitVector(8, ch)));
         drv.schedule_event(new SignalEvent(tick + 1, sig_rx_valid, BitVector(1, 0)));
+        next_rx_tick = tick + 1;
     }
 }
 
@@ -48,6 +53,8 @@ UartHandler::UartHandler(Driver &drv, const std::string &name) : drv(drv), callb
     sig_tx_ch = drv.lookup_signal(name + ".rx_tx_imp._tx_ch");
     sig_rx_valid = drv.lookup_signal(name + ".rx_tx_imp._rx_valid");
     sig_rx_ch = drv.lookup_signal(name + ".rx_tx_imp._rx_ch");
+
+    next_rx_tick = 0;
 
     drv.register_trigger_callback(trig_tx_valid, &callback);
 

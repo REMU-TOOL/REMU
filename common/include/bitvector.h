@@ -234,6 +234,20 @@ public:
         return true;
     }
 
+    // cereal serialization functions
+
+    template<class Archive>
+    std::string save_minimal(Archive const &) const
+    {
+        return bin();
+    }
+
+    template<class Archive>
+    void load_minimal(Archive const &, std::string const &str)
+    {
+        *this = str;
+    }
+
 };
 
 class BitVectorArray
