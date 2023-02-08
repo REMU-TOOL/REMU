@@ -188,7 +188,7 @@ void connect_signals(EmulationDatabase &database, Module *top, CtrlConnBuilder &
         if (info.output) {
             o_sigs.append(sig);
             o_sig_widths.append(Const(info.width));
-            info.reg_offset = SIGNAL_IN_BASE + o_idx * 4;
+            info.reg_offset = SIGNAL_OUT_BASE + o_idx * 4;
             o_idx += nslices;
         }
         else {
