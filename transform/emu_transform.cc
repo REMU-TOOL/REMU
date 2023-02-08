@@ -77,7 +77,6 @@ struct EmuTransformPass : public Pass {
             Pass::call(design, "check"); // check pass should be called before blackboxes are removed
             Pass::call(design, "emu_restore_param_cells -mod-attr __emu_model_imp");
             Pass::call(design, "delete =A:blackbox");
-            Pass::call(design, "write_rtlil /tmp/foo.txt");
             Pass::call(design, "emu_package -top EMU_ELAB");
             Pass::call(design, "write_verilog " + elab_file);
             Pass::call(design, "design -pop");
