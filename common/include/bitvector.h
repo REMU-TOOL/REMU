@@ -51,7 +51,28 @@ public:
         return *to_ptr();
     }
 
-    std::string hex() const {
+    std::string bin() const
+    {
+        std::string res(width_, '0');
+        auto first = to_ptr();
+        auto last = first + blks() - 1;
+        width_t pos = 0;
+        for (auto p = first; p <= last; p++) {
+            auto value = *p;
+            for (int i = 0; i < 64; i++) {
+                if (pos >= width_)
+                    break;
+                if (value & 1)
+                    res[width_-1-pos] = '1';
+                pos++;
+                value >>= 1;
+            }
+        }
+        return res;
+    }
+
+    std::string hex() const
+    {
         std::ostringstream ss;
         auto first = to_ptr();
         auto last = first + blks() - 1;
