@@ -1,5 +1,5 @@
-#ifndef _REMU_Driver_H_
-#define _REMU_Driver_H_
+#ifndef _REMU_DRIVER_H_
+#define _REMU_DRIVER_H_
 
 #include <memory>
 #include <map>

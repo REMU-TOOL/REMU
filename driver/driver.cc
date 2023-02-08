@@ -318,7 +318,12 @@ std::vector<int> Driver::get_active_triggers(bool enabled)
 
 void Driver::stop()
 {
+    if (is_scan_mode())
+        throw std::runtime_error("stop called in scan mode");
+
     run_flag = false;
+    exit_run_mode();
+
     fprintf(stderr, "[REMU] INFO: Tick %ld: stopping execution\n",
         get_tick_count());
 }

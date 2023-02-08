@@ -5,6 +5,7 @@
 
 #include "emu_info.h"
 #include "driver.h"
+#include "uart.h"
 
 using namespace REMU;
 
@@ -69,9 +70,14 @@ int main(int argc, const char *argv[])
     Driver driver(sysinfo, platinfo, options);
 
     int rst_index = driver.lookup_signal("rst");
+    int tx_valid_index = driver.lookup_trigger("u_uart.rx_tx_imp._tx_valid");
+    int tx_ch_index = driver.lookup_signal("u_uart.rx_tx_imp._tx_ch");
+
+    driver.register_trigger_callback(tx_valid_index, new UartCallback(tx_ch_index));
+
     driver.schedule_event(new SignalEvent(0, rst_index, BitVector(1, 1)));
     driver.schedule_event(new SignalEvent(10, rst_index, BitVector(1, 0)));
-    driver.schedule_event(new BreakEvent(10000));
+    driver.schedule_event(new BreakEvent(100000));
 
     driver.main_loop();
 
