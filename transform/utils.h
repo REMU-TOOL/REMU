@@ -10,36 +10,6 @@
 
 namespace Yosys {
 
-inline bool is_public_id(IdString id)
-{
-    return id[0] == '\\';
-}
-
-inline std::string str_id(IdString id)
-{
-    if (is_public_id(id))
-        return id.str().substr(1);
-    else
-        return id.str();
-}
-
-// FIXME: Use verilog_hier_name
-// This is a workaround to handle hierarchical names in genblks as yosys can only generate
-// such information in escaped ids. This breaks the support of escaped ids in user design.
-inline std::string simple_hier_name(const std::vector<std::string> &hier)
-{
-    std::ostringstream os;
-    bool first = true;
-    for (auto &name : hier) {
-        if (first)
-            first = false;
-        else
-            os << ".";
-        os << name;
-    }
-    return os.str();
-}
-
 inline std::string pretty_name(IdString id, bool escape = true)
 {
     std::string res = id[0] == '\\' ? id.substr(1) : id.str();
