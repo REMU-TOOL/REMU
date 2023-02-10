@@ -7,12 +7,7 @@
 
 using namespace REMU;
 
-void UartCallback::callback(Driver &) const
-{
-    handler.handle_tx();
-}
-
-void UartHandler::init_term()
+void UartModel::init_term()
 {
     struct termios t;
     tcgetattr(0, &t);
@@ -22,18 +17,18 @@ void UartHandler::init_term()
     fcntl(0, F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK);
 }
 
-void UartHandler::handle_tx()
+bool UartModel::handle_tx(Driver &drv)
 {
     char ch = drv.get_signal_value(sig_tx_ch);
     printf("%c", ch);
     fflush(stdout);
+    return true;
 }
 
-void UartHandler::handle_rx()
+bool UartModel::handle_rx(Driver &drv)
 {
-    // FIXME: read tick count in run mode is risky
     if (drv.get_tick_count() < next_rx_tick)
-        return;
+        return false;
 
     char ch = 0;
     read(0, &ch, 1);
@@ -44,10 +39,13 @@ void UartHandler::handle_rx()
         drv.schedule_event(new SignalEvent(tick, sig_rx_ch, BitVector(8, ch)));
         drv.schedule_event(new SignalEvent(tick + 1, sig_rx_valid, BitVector(1, 0)));
         next_rx_tick = tick + 1;
+        return true;
     }
+
+    return false;
 }
 
-UartHandler::UartHandler(Driver &drv, const std::string &name) : drv(drv), callback(*this)
+UartModel::UartModel(Driver &drv, const std::string &name)
 {
     trig_tx_valid = drv.lookup_trigger(name + ".rx_tx_imp._tx_valid");
     sig_tx_ch = drv.lookup_signal(name + ".rx_tx_imp._tx_ch");
@@ -56,12 +54,8 @@ UartHandler::UartHandler(Driver &drv, const std::string &name) : drv(drv), callb
 
     next_rx_tick = 0;
 
-    drv.register_trigger_callback(trig_tx_valid, &callback);
+    drv.register_trigger_callback(trig_tx_valid, [this](Driver &drv) { return this->handle_tx(drv); });
+    drv.register_realtime_callback([this](Driver &drv) { return this->handle_rx(drv); });
 
     init_term();
-}
-
-UartHandler::~UartHandler()
-{
-    drv.unregister_trigger_callback(trig_tx_valid);
 }

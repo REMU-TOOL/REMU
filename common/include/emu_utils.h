@@ -6,6 +6,8 @@
 #include <string>
 #include <sstream>
 
+#include "escape.h"
+
 namespace REMU {
 
 inline uint64_t clog2(uint64_t val)
@@ -40,6 +42,20 @@ inline std::string join_string(const std::vector<std::string> &vec, char delim)
         else
             ss << delim;
         ss << s;
+    }
+    return ss.str();
+}
+
+inline std::string flatten_name(const std::vector<std::string> &name)
+{
+    bool first = true;
+    std::stringstream ss;
+    for (auto &s : name) {
+        if (first)
+            first = false;
+        else
+            ss << ".";
+        ss << Escape::escape_verilog_id(s);
     }
     return ss.str();
 }

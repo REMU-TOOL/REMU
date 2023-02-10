@@ -1,4 +1,4 @@
-#include "signal_trace.h"
+#include "signal_info.h"
 
 #include <cereal/types/map.hpp>
 #include <cereal/types/vector.hpp>
@@ -11,7 +11,7 @@ using namespace REMU;
 namespace cereal {
 
 template<class Archive>
-void serialize(Archive &archive, SignalTraceData &node)
+void serialize(Archive &archive, SignalState &node)
 {
     archive(
         NVP(tick),
@@ -20,26 +20,18 @@ void serialize(Archive &archive, SignalTraceData &node)
     );
 }
 
-template<class Archive>
-void serialize(Archive &archive, SignalTraceList &node)
-{
-    archive(
-        NVP(list)
-    );
-}
-
 } // namespace cereal
 
-std::ostream& REMU::operator<<(std::ostream &stream, const SignalTraceList &info)
+std::ostream& REMU::operator<<(std::ostream &stream, const SignalStateList &info)
 {
     cereal::JSONOutputArchive archive(stream);
-    archive(cereal::make_nvp("signal_trace", info));
+    archive(cereal::make_nvp("list", info));
     return stream;
 }
 
-std::istream& REMU::operator>>(std::istream &stream, SignalTraceList &info)
+std::istream& REMU::operator>>(std::istream &stream, SignalStateList &info)
 {
     cereal::JSONInputArchive archive(stream);
-    archive(cereal::make_nvp("signal_trace", info));
+    archive(cereal::make_nvp("list", info));
     return stream;
 }

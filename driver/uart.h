@@ -2,27 +2,10 @@
 #define _REMU_UART_H_
 
 #include "driver.h"
-
 namespace REMU {
 
-class UartHandler;
-
-class UartCallback : public Callback
+class UartModel : public DriverModel
 {
-    UartHandler &handler;
-
-public:
-
-    virtual void callback(Driver &) const override;
-
-    UartCallback(UartHandler &handler) : handler(handler) {}
-};
-
-class UartHandler
-{
-    Driver &drv;
-    UartCallback callback;
-
     int trig_tx_valid;
     int sig_tx_ch;
     int sig_rx_valid;
@@ -34,11 +17,10 @@ class UartHandler
 
 public:
 
-    void handle_tx();
-    void handle_rx();
+    bool handle_tx(Driver &drv);
+    bool handle_rx(Driver &drv);
 
-    UartHandler(Driver &drv, const std::string &name);
-    ~UartHandler();
+    UartModel(Driver &drv, const std::string &name);
 };
 
 }

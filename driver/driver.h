@@ -2,15 +2,16 @@
 #define _REMU_DRIVER_H_
 
 #include <memory>
-#include <map>
+#include <unordered_map>
 #include <queue>
+#include <functional>
 
 #include "emu_info.h"
 #include "bitvector.h"
 #include "uma.h"
 #include "object.h"
 #include "event.h"
-#include "signal_trace.h"
+#include "signal_info.h"
 
 namespace REMU {
 
@@ -19,11 +20,11 @@ struct DriverOptions
     std::map<std::string, std::string> init_axi_mem;
 };
 
-class Callback
+class DriverModel
 {
 public:
 
-    virtual void callback(Driver &drv) const = 0;
+    ~DriverModel() {}
 };
 
 class Driver
@@ -39,17 +40,21 @@ class Driver
     ObjectManager<TriggerObject> om_trigger;
     ObjectManager<AXIObject> om_axi;
 
+    std::priority_queue<EventHolder> event_queue;
+
+    std::unordered_map<std::string, std::unique_ptr<DriverModel>> models;
+    std::unordered_map<int, std::function<bool(Driver&)>> trigger_callbacks;
+    std::vector<std::function<bool(Driver&)>> realtime_callbacks;
+
     void init_uma();
     void init_signal();
     void init_trigger();
     void init_axi();
-
-    std::priority_queue<EventHolder> event_queue;
-    std::map<int, Callback*> trigger_callbacks;
+    void init_model();
 
 public:
 
-    SignalTraceList signal_trace;
+    SignalStateList signal_trace;
 
     static void sleep(unsigned int milliseconds);
 
@@ -100,17 +105,17 @@ public:
         event_queue.push(event);
     }
 
-    void register_trigger_callback(int index, Callback *callback)
+    void register_trigger_callback(int index, std::function<bool(Driver&)> callback)
     {
         trigger_callbacks[index] = callback;
     }
 
-    void unregister_trigger_callback(int index)
+    void register_realtime_callback(std::function<bool(Driver&)> callback)
     {
-        trigger_callbacks.erase(index);
+        realtime_callbacks.push_back(callback);
     }
 
-    bool handle_events();
+    void event_loop();
 
     Driver(
         const SysInfo &sysinfo,
@@ -123,6 +128,7 @@ public:
         init_signal();
         init_trigger();
         init_axi();
+        init_model();
     }
 };
 

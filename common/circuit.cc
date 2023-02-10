@@ -37,7 +37,7 @@ CircuitState::CircuitState(const SysInfo &sysinfo) : scan_ff(sysinfo.scan_ff), s
 
 void CircuitState::load(Checkpoint &checkpoint)
 {
-    auto data_stream = checkpoint.readItem("scanchain");
+    auto data_stream = checkpoint.readMem("scanchain");
 
     size_t ff_size = 0, ff_offset = 0;
     for (auto &info : scan_ff)

@@ -1,5 +1,7 @@
 project(common)
 
+set(CMAKE_CXX_STANDARD 17)
+
 file(GLOB common-sources "*.cc")
 
 add_library(common STATIC ${common-sources})

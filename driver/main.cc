@@ -5,7 +5,6 @@
 
 #include "emu_info.h"
 #include "driver.h"
-#include "uart.h"
 
 using namespace REMU;
 
@@ -71,21 +70,11 @@ int main(int argc, const char *argv[])
 
     int rst_index = driver.lookup_signal("rst");
 
-    UartHandler uart(driver, "u_uart");
-
     driver.schedule_event(new SignalEvent(0, rst_index, BitVector(1, 1)));
     driver.schedule_event(new SignalEvent(10, rst_index, BitVector(1, 0)));
     driver.schedule_event(new StopEvent(10000));
 
-    while (true) {
-        if (!driver.is_run_mode())
-            if (!driver.handle_events())
-                break;
-
-        uart.handle_rx();
-
-        Driver::sleep(10);
-    }
+    driver.event_loop();
 
     std::string trace_file = "trace.json";
     {

@@ -9,20 +9,17 @@
 
 namespace REMU {
 
-struct SignalTraceData
+struct SignalState
 {
     uint64_t tick;
     int index;
     BitVector data;
 };
 
-struct SignalTraceList
-{
-    std::vector<SignalTraceData> list;
-};
+using SignalStateList = std::vector<SignalState>;
 
-std::ostream& operator<<(std::ostream &stream, const SignalTraceList &info);
-std::istream& operator>>(std::istream &stream, SignalTraceList &info);
+std::ostream& operator<<(std::ostream &stream, const SignalStateList &info);
+std::istream& operator>>(std::istream &stream, SignalStateList &info);
 
 } // namespace REMU
 
