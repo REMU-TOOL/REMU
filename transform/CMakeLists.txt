@@ -1,5 +1,7 @@
 project(transform)
 
+set(CMAKE_CXX_STANDARD 11)
+
 file(GLOB transform-sources "*.cc")
 
 add_library(transform SHARED ${transform-sources})
