@@ -24,10 +24,12 @@ struct EmuPreserveTopPass : public Pass {
         log("Processing module %s...\n", log_id(top));
 
         for (auto cell : top->selected_cells())
-            cell->set_bool_attribute(ID::keep);
+            if (cell->name.isPublic())
+                cell->set_bool_attribute(ID::keep);
 
         for (auto wire : top->selected_wires())
-            wire->set_bool_attribute(ID::keep);
+            if (wire->name.isPublic())
+                wire->set_bool_attribute(ID::keep);
     }
 
 } EmuPreserveTopPass;
