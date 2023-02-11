@@ -1,6 +1,8 @@
 `timescale 1 ns / 1 ps
 
 module chain(
+    (* remu_clock *)
+    input clk,
     input                   ren1,
     input   [2:0]           raddr1,
     output  [31:0]          rdata1,
@@ -20,9 +22,6 @@ module chain(
     input   [2:0]           waddr3,
     input   [127:0]          wdata3
 );
-
-    wire clk;
-    EmuClock clock(.clock(clk));
 
     mem #(
         .WIDTH(32),

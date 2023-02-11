@@ -1,15 +1,14 @@
 `timescale 1 ns / 1 ps
 
 module arsw(
+    (* remu_clock *)
+    input clk,
     input   [5:0]           raddr,
     output  [79:0]          rdata,
     input                   wen,
     input   [5:0]           waddr,
     input   [79:0]          wdata
 );
-
-    wire clk;
-    EmuClock clock(.clock(clk));
 
     mem #(
         .WIDTH(80),

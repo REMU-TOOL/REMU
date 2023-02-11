@@ -1,6 +1,8 @@
 `timescale 1 ns / 1 ps
 
 module srsw_raddr(
+    (* remu_clock *)
+    input clk,
     input wen,
     input [1:0] waddr,
     input [31:0] wdata,
@@ -8,9 +10,6 @@ module srsw_raddr(
     input [1:0] raddr,
     output [31:0] rdata
 );
-
-    wire clk;
-    EmuClock clock(.clock(clk));
 
     reg [31:0] mem [3:0];
     reg [1:0] raddr_reg;

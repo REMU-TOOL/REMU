@@ -1,6 +1,8 @@
 `timescale 1 ns / 1 ps
 
 module srsw(
+    (* remu_clock *)
+    input clk,
     input                   ren,
     input   [2:0]           raddr,
     output  [79:0]          rdata,
@@ -8,9 +10,6 @@ module srsw(
     input   [2:0]           waddr,
     input   [79:0]          wdata
 );
-
-    wire clk;
-    EmuClock clock(.clock(clk));
 
     mem #(
         .WIDTH(80),

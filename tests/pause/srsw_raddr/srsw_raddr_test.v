@@ -48,6 +48,7 @@ module sim_top();
     );
 
     srsw_raddr ref(
+        .clk(ref_clk),
         .wen(wen),
         .waddr(waddr),
         .wdata(wdata),
@@ -55,8 +56,6 @@ module sim_top();
         .raddr(raddr),
         .rdata(rdata_ref)
     );
-
-    assign ref.clock.clock = ref_clk;
 
     always #5 clk = ~clk;
     always #10 begin

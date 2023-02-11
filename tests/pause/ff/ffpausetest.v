@@ -30,7 +30,7 @@ module sim_top();
         .EMU_RAM_SD         (ram_dir),
         .EMU_RAM_DI         (ram_sdi),
         .EMU_RAM_DO         (ram_sdo),
-        .EMU_PORT_reset_imp_user_rst    (rst),
+        .rst(rst),
         .en(en),
         .d(d),
         .q(q_dut)
@@ -45,13 +45,12 @@ module sim_top();
     );
 
     ffpause ref(
+        .clk(ref_clk),
+        .rst(rst),
         .en(en),
         .d(d),
         .q(q_ref)
     );
-
-    assign ref.clock.clock = ref_clk;
-    assign ref.reset.reset = rst;
 
     always #5 clk = ~clk;
     always #10 begin

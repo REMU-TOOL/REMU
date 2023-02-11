@@ -31,7 +31,7 @@ module sim_top();
         .EMU_RAM_SD         (ram_dir),
         .EMU_RAM_DI         (ram_sdi),
         .EMU_RAM_DO         (ram_sdo),
-        .EMU_PORT_reset_imp_user_rst    (rst),
+        .rst(rst),
         .wen(wen),
         .waddr(waddr),
         .wdata(wdata),
@@ -49,6 +49,8 @@ module sim_top();
     );
 
     srsw_rdata ref(
+        .clk(ref_clk),
+        .rst(rst),
         .wen(wen),
         .waddr(waddr),
         .wdata(wdata),
@@ -56,9 +58,6 @@ module sim_top();
         .raddr(raddr),
         .rdata(rdata_ref)
     );
-
-    assign ref.clock.clock = ref_clk;
-    assign ref.reset.reset = rst;
 
     always #5 clk = ~clk;
     always #10 begin
