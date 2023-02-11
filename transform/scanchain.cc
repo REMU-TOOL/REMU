@@ -50,6 +50,7 @@ void ScanchainWorker::handle_ignored_ff(Module *module, FfInitVals &initvals)
                 bits.push_back(i);
         ff = ff.slice(bits);
         ff.cell = cell;
+        ff.emit();
     }
 }
 
