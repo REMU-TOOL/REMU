@@ -1,26 +1,24 @@
-#ifndef _REMU_SIGNAL_TRACE_H_
-#define _REMU_SIGNAL_TRACE_H_
+#ifndef _REMU_SIGNAL_INFO_H_
+#define _REMU_SIGNAL_INFO_H_
 
 #include <cstdint>
-#include <vector>
+#include <map>
 #include <iostream>
 
 #include "bitvector.h"
 
 namespace REMU {
 
-struct SignalState
+struct SignalTraceDB
 {
-    uint64_t tick;
-    int index;
-    BitVector data;
+    // signal id -> { tick -> data }
+    std::map<int, std::map<uint64_t, BitVector>> trace_data;
+    uint64_t record_end;
 };
 
-using SignalStateList = std::vector<SignalState>;
-
-std::ostream& operator<<(std::ostream &stream, const SignalStateList &info);
-std::istream& operator>>(std::istream &stream, SignalStateList &info);
+std::ostream& operator<<(std::ostream &stream, const SignalTraceDB &info);
+std::istream& operator>>(std::istream &stream, SignalTraceDB &info);
 
 } // namespace REMU
 
-#endif // #ifndef _REMU_SIGNAL_TRACE_H_
+#endif // #ifndef _REMU_SIGNAL_INFO_H_

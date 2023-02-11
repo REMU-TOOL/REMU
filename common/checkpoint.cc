@@ -91,6 +91,24 @@ Checkpoint CheckpointManager::open(uint64_t tick)
     return Checkpoint(ckpt_path);
 }
 
+SignalTraceDB CheckpointManager::readTrace()
+{
+    SignalTraceDB res;
+    res.record_end = 0;
+    auto path = data->path / "trace.json";
+    std::ifstream f(path, std::ios::binary);
+    if (!f.fail())
+        f >> res;
+    return res;
+}
+
+void CheckpointManager::writeTrace(const SignalTraceDB &db)
+{
+    auto path = data->path / "trace.json";
+    std::ofstream f(path, std::ios::binary);
+    f << db;
+}
+
 CheckpointManager::CheckpointManager(const std::string &path) : data(new ImpData)
 {
     data->path = path;

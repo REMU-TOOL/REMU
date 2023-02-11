@@ -2,22 +2,38 @@
 #define _REMU_DRIVER_H_
 
 #include <memory>
+#include <vector>
 #include <unordered_map>
-#include <queue>
-#include <functional>
+#include <iostream>
 
 #include "emu_info.h"
-#include "bitvector.h"
+#include "signal_info.h"
+#include "checkpoint.h"
 #include "uma.h"
 #include "object.h"
-#include "event.h"
-#include "signal_info.h"
+#include "scheduler.h"
 
 namespace REMU {
 
-struct DriverOptions
+struct DriverParameters
 {
+    struct SetSignal
+    {
+        uint64_t tick;
+        std::string name;
+        BitVector value;
+    };
+
+    std::string ckpt_path;
+
+    bool end_specified;
+    uint64_t end;
+
+    bool replay_specified;
+    uint64_t replay;
+
     std::map<std::string, std::string> init_axi_mem;
+    std::vector<SetSignal> set_signal;
 };
 
 class DriverModel
@@ -31,7 +47,7 @@ class Driver
 {
     SysInfo sysinfo;
     PlatInfo platinfo;
-    DriverOptions options;
+    DriverParameters options;
 
     std::unique_ptr<UserMem> mem;
     std::unique_ptr<UserIO> reg;
@@ -40,11 +56,16 @@ class Driver
     ObjectManager<TriggerObject> om_trigger;
     ObjectManager<AXIObject> om_axi;
 
-    std::priority_queue<EventHolder> event_queue;
+    Scheduler scheduler;
 
     std::unordered_map<std::string, std::unique_ptr<DriverModel>> models;
     std::unordered_map<int, std::function<bool(Driver&)>> trigger_callbacks;
     std::vector<std::function<bool(Driver&)>> realtime_callbacks;
+
+    CheckpointManager ckpt_mgr;
+    SignalTraceDB trace_db;
+
+    bool running = false;
 
     void init_uma();
     void init_signal();
@@ -52,9 +73,10 @@ class Driver
     void init_axi();
     void init_model();
 
-public:
+    void load_checkpoint();
+    void save_checkpoint();
 
-    SignalStateList signal_trace;
+public:
 
     static void sleep(unsigned int milliseconds);
 
@@ -95,14 +117,33 @@ public:
     int lookup_axi(const std::string &name) { return om_axi.lookup(name); }
     std::string get_axi_name(int index) { return om_axi.get(index).name; }
 
-    // Scheduling
+    // Control
 
-    void schedule_event(EventHolder event)
+    bool is_replay_mode() { return options.replay_specified; }
+
+    void schedule_signal_set(uint64_t tick, int index, const BitVector &value)
     {
-        if (event->tick() < get_tick_count())
-            throw std::invalid_argument("scheduling event behind current tick");
+        if (!is_replay_mode())
+            trace_db.trace_data[index][tick] = value;
 
-        event_queue.push(event);
+        scheduler.schedule(tick, [this, index, value]() {
+            set_signal_value(index, value);
+        });
+    }
+
+    void schedule_stop(uint64_t tick)
+    {
+        scheduler.schedule(tick, [this]() {
+            running = false;
+        });
+    }
+
+    void schedule_periodical_save(uint64_t tick, uint64_t period)
+    {
+        scheduler.schedule(tick, [this, tick, period]() {
+            save_checkpoint();
+            schedule_periodical_save(tick + period, period);
+        });
     }
 
     void register_trigger_callback(int index, std::function<bool(Driver&)> callback)
@@ -115,14 +156,14 @@ public:
         realtime_callbacks.push_back(callback);
     }
 
-    void event_loop();
+    void main();
 
     Driver(
         const SysInfo &sysinfo,
         const PlatInfo &platinfo,
-        const DriverOptions &options
+        const DriverParameters &options
     )
-        : sysinfo(sysinfo), platinfo(platinfo), options(options)
+        : sysinfo(sysinfo), platinfo(platinfo), options(options), ckpt_mgr(options.ckpt_path)
     {
         init_uma();
         init_signal();

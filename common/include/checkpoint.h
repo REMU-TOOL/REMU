@@ -4,6 +4,8 @@
 #include <set>
 #include <fstream>
 
+#include "signal_info.h"
+
 namespace REMU {
 
 class Checkpoint
@@ -54,6 +56,9 @@ public:
     }
 
     Checkpoint open(uint64_t tick);
+
+    SignalTraceDB readTrace();
+    void writeTrace(const SignalTraceDB &db);
 
     CheckpointManager(const std::string &path);
     ~CheckpointManager();

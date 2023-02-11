@@ -53,12 +53,6 @@ void Driver::set_signal_value(int index, const BitVector &value)
         reg->write(sig.reg_offset + i * 4, value.getValue(offset, width));
     }
 
-    signal_trace.push_back({
-        .tick   = get_tick_count(),
-        .index  = sig.index,
-        .data   = value,
-    });
-
 #if 0
     auto name = get_signal_name(index);
     fprintf(stderr, "[REMU] INFO: Tick %ld: set signal \"%s\" to %s\n",

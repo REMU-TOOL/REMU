@@ -27,6 +27,9 @@ bool UartModel::handle_tx(Driver &drv)
 
 bool UartModel::handle_rx(Driver &drv)
 {
+    if (drv.is_replay_mode())
+        return false;
+
     if (drv.get_tick_count() < next_rx_tick)
         return false;
 
@@ -35,9 +38,9 @@ bool UartModel::handle_rx(Driver &drv)
     if (ch) {
         drv.exit_run_mode();
         uint64_t tick = drv.get_tick_count();
-        drv.schedule_event(new SignalEvent(tick, sig_rx_valid, BitVector(1, 1)));
-        drv.schedule_event(new SignalEvent(tick, sig_rx_ch, BitVector(8, ch)));
-        drv.schedule_event(new SignalEvent(tick + 1, sig_rx_valid, BitVector(1, 0)));
+        drv.schedule_signal_set(tick, sig_rx_valid, BitVector(1, 1));
+        drv.schedule_signal_set(tick, sig_rx_ch, BitVector(8, ch));
+        drv.schedule_signal_set(tick + 1, sig_rx_valid, BitVector(1, 0));
         next_rx_tick = tick + 1;
         return true;
     }

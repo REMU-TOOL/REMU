@@ -2,18 +2,18 @@
 
 #include <unistd.h>
 #include <cstdio>
-#include <cstring>
 #include <stdexcept>
-#include <algorithm>
-#include <fstream>
 
-#include "emu_utils.h"
 #include "regdef.h"
 #include "uma_cosim.h"
 #include "uma_devmem.h"
-#include "uart.h"
 
 using namespace REMU;
+
+void Driver::sleep(unsigned int milliseconds)
+{
+    usleep(1000 * milliseconds);
+}
 
 void Driver::init_uma()
 {
@@ -34,11 +34,6 @@ void Driver::init_uma()
         fprintf(stderr, "PlatInfo error: reg_type %s is not supported\n", platinfo.reg_type.c_str());
         throw std::runtime_error("bad platinfo");
     }
-}
-
-void Driver::sleep(unsigned int milliseconds)
-{
-    usleep(1000 * milliseconds);
 }
 
 bool Driver::is_run_mode()
@@ -125,61 +120,4 @@ void Driver::do_scan(bool scan_in)
         sleep(10);
 
     exit_scan_mode();
-}
-
-void Driver::event_loop()
-{
-    while (true) {
-        // If execution is paused, there are possibly events to be handled
-        if (!is_run_mode()) {
-            uint64_t tick = get_tick_count();
-            uint64_t step = UINT32_MAX;
-            bool stop = false;
-
-            for (int index : get_active_triggers(true)) {
-                // If the trigger is handled by a callback, ignore it
-                if (trigger_callbacks.count(index) > 0 &&
-                    trigger_callbacks.at(index)(*this))
-                    continue;
-
-                auto name = get_trigger_name(index);
-                fprintf(stderr, "[REMU] INFO: Tick %ld: trigger \"%s\" is activated\n",
-                    tick, name.c_str());
-                stop = true;
-            }
-
-            while (!event_queue.empty()) {
-                auto event = event_queue.top();
-                auto event_tick = event->tick();
-
-                if (event_tick < tick)
-                    throw std::runtime_error("executing event behind current tick");
-
-                if (event_tick > tick) {
-                    step = std::min(step, event_tick - tick);
-                    break;
-                }
-
-                event_queue.pop();
-
-                if (!event->execute(*this))
-                    stop = true;
-            }
-
-            if (stop) {
-                fprintf(stderr, "[REMU] INFO: Tick %ld: stopped execution\n", tick);
-                return;
-            }
-
-            set_step_count(step);
-            enter_run_mode();
-        }
-
-        bool update = false;
-        for (auto callback : realtime_callbacks)
-            update |= callback(*this);
-
-        if (!update)
-            Driver::sleep(10);
-    }
 }

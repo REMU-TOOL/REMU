@@ -60,7 +60,13 @@ void Driver::init_axi()
         reg->write(axi.reg_offset + 0xc, mask >> 32);
     }
 
-    // Process memory initialization
+    // Intialize memory
+
+    for (auto &axi : om_axi) {
+        fprintf(stderr, "[REMU] INFO: Clearing memory for AXI port \"%s\"\n",
+            axi.name.c_str());
+        mem->fill(0, axi.assigned_offset, axi.assigned_size);
+    }
 
     for (auto &kv : options.init_axi_mem) {
         int index = om_axi.lookup(kv.first);
