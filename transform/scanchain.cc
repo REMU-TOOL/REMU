@@ -246,7 +246,7 @@ void ScanchainWorker::restore_sync_read_port_ff
             });
         }
         else {
-            for (auto &chunk : rd.data.chunks()) {
+            for (auto &chunk : output.chunks()) {
                 log_assert(chunk.is_wire());
                 info_list.push_back({
                     .name = {id2str(chunk.wire->name)},
@@ -254,7 +254,7 @@ void ScanchainWorker::restore_sync_read_port_ff
                     .offset = chunk.offset,
                 });
             }
-            ff_sigs.append(rd.data);
+            ff_sigs.append(output);
         }
     }
 
