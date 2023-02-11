@@ -9,15 +9,6 @@ using namespace REMU;
 
 namespace cereal {
 
-template<class Archive>
-void serialize(Archive &archive, SignalTraceDB &node)
-{
-    archive(
-        NVP(trace_data),
-        NVP(record_end)
-    );
-}
-
 } // namespace cereal
 
 std::ostream& REMU::operator<<(std::ostream &stream, const SignalTraceDB &info)

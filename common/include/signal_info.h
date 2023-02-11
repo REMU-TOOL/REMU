@@ -9,12 +9,8 @@
 
 namespace REMU {
 
-struct SignalTraceDB
-{
-    // signal id -> { tick -> data }
-    std::map<int, std::map<uint64_t, BitVector>> trace_data;
-    uint64_t record_end;
-};
+// signal id -> { tick -> data }
+using SignalTraceDB = std::map<int, std::map<uint64_t, BitVector>>;
 
 std::ostream& operator<<(std::ostream &stream, const SignalTraceDB &info);
 std::istream& operator>>(std::istream &stream, SignalTraceDB &info);

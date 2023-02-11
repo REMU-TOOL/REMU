@@ -26,11 +26,14 @@ struct DriverParameters
 
     std::string ckpt_path;
 
-    bool end_specified;
-    uint64_t end;
+    bool period_specified;
+    uint64_t period;
 
     bool replay_specified;
     uint64_t replay;
+
+    bool to_specified;
+    uint64_t to;
 
     std::map<std::string, std::string> init_axi_mem;
     std::vector<SetSignal> set_signal;
@@ -73,7 +76,7 @@ class Driver
     void init_axi();
     void init_model();
 
-    void load_checkpoint();
+    void load_checkpoint(uint64_t tick);
     void save_checkpoint();
 
 public:
@@ -124,7 +127,7 @@ public:
     void schedule_signal_set(uint64_t tick, int index, const BitVector &value)
     {
         if (!is_replay_mode())
-            trace_db.trace_data[index][tick] = value;
+            trace_db[index][tick] = value;
 
         scheduler.schedule(tick, [this, index, value]() {
             set_signal_value(index, value);
@@ -156,7 +159,7 @@ public:
         realtime_callbacks.push_back(callback);
     }
 
-    void main();
+    int main();
 
     Driver(
         const SysInfo &sysinfo,

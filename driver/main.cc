@@ -14,14 +14,17 @@ void show_help(const char * argv_0)
     fprintf(stderr,
         "Usage: %s <sysinfo_file> <platinfo_file> [options]\n"
         "Options:\n"
-        "    --end <tick>\n"
-        "        Stop execution at the specified tick.\n"
+        "    --period <period>\n"
+        "        Set checkpoint period. Ignored in replay mode.\n"
         "    --init-axi-mem <axi_name> <bin_file>\n"
-        "        Initialize AXI memory region with specified file.\n"
+        "        Initialize AXI memory region with the specified file. Ignored in replay\n"
+        "        mode.\n"
         "    --replay <tick>\n"
-        "        Run in replay mode from the specified tick.\n"
+        "        Replay from the specified tick. This sets the driver in replay mode\n"
         "    --set-signal <tick> <name> <value>\n"
         "        Set signal value at the specified tick. Ignored in replay mode.\n"
+        "    --to <tick>\n"
+        "        Stop execution at the specified tick.\n"
         "\n"
         , argv_0);
 }
@@ -38,17 +41,18 @@ int main(int argc, const char *argv[])
 
     DriverParameters options;
     options.ckpt_path = "/tmp/ckpt";
-    options.end_specified = false;
+    options.period_specified = false;
     options.replay_specified = false;
+    options.to_specified = false;
 
     for (int i = 3; i < argc; i++) {
-        if (!strcmp(argv[i], "--end")) {
+        if (!strcmp(argv[i], "--period")) {
             if (argc - i <= 1) {
-                fprintf(stderr, "missing arguments for --end\n");
+                fprintf(stderr, "missing arguments for --period\n");
                 return 1;
             }
-            options.end_specified = true;
-            options.end = std::stoul(argv[++i]);
+            options.period_specified = true;
+            options.period = std::stoul(argv[++i]);
         }
         else if (!strcmp(argv[i], "--init-axi-mem")) {
             if (argc - i <= 2) {
@@ -81,6 +85,14 @@ int main(int argc, const char *argv[])
                 .value  = value,
             });
         }
+        else if (!strcmp(argv[i], "--to")) {
+            if (argc - i <= 1) {
+                fprintf(stderr, "missing arguments for --to\n");
+                return 1;
+            }
+            options.to_specified = true;
+            options.to = std::stoul(argv[++i]);
+        }
         else {
             fprintf(stderr, "unrecognized option %s\n", argv[i]);
             return 1;
@@ -110,7 +122,5 @@ int main(int argc, const char *argv[])
 
     Driver driver(sysinfo, platinfo, options);
 
-    driver.main();
-
-    return 0;
+    return driver.main();
 }

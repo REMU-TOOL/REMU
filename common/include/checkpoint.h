@@ -18,8 +18,8 @@ public:
     std::ifstream readMem(std::string name);
     std::ofstream writeMem(std::string name);
 
-    uint64_t getTick();
-    void setTick(uint64_t tick);
+    SignalTraceDB readTrace();
+    void writeTrace(const SignalTraceDB &db);
 
     Checkpoint(const std::string &path);
     ~Checkpoint();
@@ -37,7 +37,24 @@ class CheckpointManager
 
 public:
 
-    bool exists(uint64_t tick) { return tick_list.find(tick) != tick_list.end(); }
+    void clear()
+    {
+        tick_list.clear();
+        saveTickList();
+    }
+
+    bool exists(uint64_t tick)
+    {
+        return tick_list.find(tick) != tick_list.end();
+    }
+
+    uint64_t latest()
+    {
+        if (tick_list.empty())
+            return 0;
+
+        return *tick_list.rbegin();
+    }
 
     uint64_t findNearest(uint64_t tick)
     {
@@ -56,9 +73,6 @@ public:
     }
 
     Checkpoint open(uint64_t tick);
-
-    SignalTraceDB readTrace();
-    void writeTrace(const SignalTraceDB &db);
 
     CheckpointManager(const std::string &path);
     ~CheckpointManager();

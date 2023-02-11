@@ -1,7 +1,6 @@
 #include "driver.h"
 
 #include <cstdio>
-#include <cstring>
 #include <stdexcept>
 #include <fstream>
 
@@ -66,23 +65,5 @@ void Driver::init_axi()
         fprintf(stderr, "[REMU] INFO: Clearing memory for AXI port \"%s\"\n",
             axi.name.c_str());
         mem->fill(0, axi.assigned_offset, axi.assigned_size);
-    }
-
-    for (auto &kv : options.init_axi_mem) {
-        int index = om_axi.lookup(kv.first);
-        if (index < 0) {
-            fprintf(stderr, "[REMU] WARNING: AXI port \"%s\" specified by --init-axi-mem is not found\n",
-                kv.first.c_str());
-            continue;
-        }
-        auto &axi = om_axi.get(index);
-        fprintf(stderr, "[REMU] INFO: Initializing memory for AXI port \"%s\" with file \"%s\"\n",
-            kv.first.c_str(), kv.second.c_str());
-        std::ifstream f(kv.second, std::ios::binary);
-        if (f.fail()) {
-            fprintf(stderr, "[REMU] ERROR: Can't open file `%s': %s\n", kv.second.c_str(), strerror(errno));
-            continue;
-        }
-        mem->copy_from_stream(axi.assigned_offset, axi.assigned_size, f);
     }
 }

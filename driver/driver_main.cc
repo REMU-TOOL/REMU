@@ -1,17 +1,29 @@
 #include "driver.h"
 
 #include <cstdio>
+#include <cstring>
 #include <stdexcept>
 #include <algorithm>
 
 using namespace REMU;
 
-void Driver::main()
+int Driver::main()
 {
+    if (is_run_mode() || is_scan_mode()) {
+        fprintf(stderr, "[REMU] ERROR: Hardware components are in a bad state. Please reconfigure the FPGA.\n");
+        return 1;
+    }
+
     if (is_replay_mode()) {
-        trace_db = ckpt_mgr.readTrace();
+        uint64_t ckpt_tick = ckpt_mgr.findNearest(options.replay);
+        load_checkpoint(ckpt_tick);
+
+        // TODO: stop at trace end
     }
     else {
+
+        // Signal initialization
+
         for (auto &ss : options.set_signal) {
             int index = lookup_signal(ss.name);
             if (index < 0) {
@@ -19,13 +31,54 @@ void Driver::main()
                     ss.name.c_str());
                 continue;
             }
+
             schedule_signal_set(ss.tick, index, ss.value);
+        }
+
+        // AXI memory initialization
+
+        for (auto &kv : options.init_axi_mem) {
+            int index = om_axi.lookup(kv.first);
+            if (index < 0) {
+                fprintf(stderr, "[REMU] WARNING: AXI port \"%s\" specified by --init-axi-mem is not found\n",
+                    kv.first.c_str());
+                continue;
+            }
+            auto &axi = om_axi.get(index);
+            fprintf(stderr, "[REMU] INFO: Initializing memory for AXI port \"%s\" with file \"%s\"\n",
+                kv.first.c_str(), kv.second.c_str());
+            std::ifstream f(kv.second, std::ios::binary);
+            if (f.fail()) {
+                fprintf(stderr, "[REMU] ERROR: Can't open file `%s': %s\n", kv.second.c_str(), strerror(errno));
+                continue;
+            }
+            mem->copy_from_stream(axi.assigned_offset, axi.assigned_size, f);
+        }
+
+        // Checkpoint saving initialization
+
+        // TODO: continue execution in record mode from a specified tick
+        ckpt_mgr.clear();
+        set_tick_count(0);
+
+        if (options.period_specified) {
+            schedule_periodical_save(0, options.period);
+        }
+        else {
+            save_checkpoint();
         }
     }
 
-    if (options.end_specified) {
-        schedule_stop(options.end);
+    if (options.to_specified) {
+        schedule_stop(options.to);
     }
+
+    bool ignore_triggers = false;
+
+    if (is_replay_mode())
+        ignore_triggers = true;
+
+    fprintf(stderr, "[REMU] INFO: Tick %ld: Start execution\n", get_tick_count());
 
     running = true;
 
@@ -44,7 +97,9 @@ void Driver::main()
                 auto name = get_trigger_name(index);
                 fprintf(stderr, "[REMU] INFO: Tick %ld: trigger \"%s\" is activated\n",
                     tick, name.c_str());
-                running = false;
+
+                //if (!ignore_triggers)
+                    running = false;
             }
 
             while (!scheduler.empty()) {
@@ -62,8 +117,8 @@ void Driver::main()
             }
 
             if (!running) {
-                fprintf(stderr, "[REMU] INFO: Tick %ld: stopped execution\n", tick);
-                return;
+                fprintf(stderr, "[REMU] INFO: Tick %ld: Stop execution\n", tick);
+                break;
             }
 
             set_step_count(step);
@@ -78,6 +133,9 @@ void Driver::main()
             Driver::sleep(10);
     }
 
-    if (!is_replay_mode())
-        ckpt_mgr.writeTrace(trace_db);
+    if (!is_replay_mode()) {
+        save_checkpoint();
+    }
+
+    return 0;
 }
