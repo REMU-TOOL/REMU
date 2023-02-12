@@ -10,6 +10,8 @@ void Driver::load_checkpoint(uint64_t tick)
 {
     fprintf(stderr, "[REMU] INFO: Tick %ld: Loading checkpoint\n", tick);
 
+    scheduler.clear();
+
     auto ckpt = ckpt_mgr.open(tick);
     set_tick_count(tick);
 
@@ -45,6 +47,10 @@ void Driver::load_checkpoint(uint64_t tick)
         for (auto it = sig_data.lower_bound(tick); it != sig_data.end(); ++it) {
             schedule_signal_set(it->first, signal.index, it->second);
         }
+
+        // Stop at trace end
+
+        schedule_stop(latest_tick, "end of trace");
     }
 
     // Load memory regions
@@ -64,6 +70,11 @@ void Driver::load_checkpoint(uint64_t tick)
 void Driver::save_checkpoint()
 {
     uint64_t tick = get_tick_count();
+
+    if (ckpt_mgr.exists(tick)) {
+        fprintf(stderr, "[REMU] INFO: Tick %ld: Checkpoint already saved, skipping..\n", tick);
+        return;
+    }
 
     fprintf(stderr, "[REMU] INFO: Tick %ld: Saving checkpoint\n", tick);
 

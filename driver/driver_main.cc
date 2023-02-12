@@ -7,6 +7,34 @@
 
 using namespace REMU;
 
+void Driver::schedule_signal_set(uint64_t tick, int index, const BitVector &value)
+{
+    if (!is_replay_mode())
+        trace_db[index][tick] = value;
+
+    scheduler.schedule(tick, [this, index, value]() {
+        set_signal_value(index, value);
+    });
+}
+
+void Driver::schedule_stop(uint64_t tick, std::string reason)
+{
+    scheduler.schedule(tick, [this, tick, reason]() {
+        fprintf(stderr, "[REMU] INFO: Tick %ld: Stop requested, reason: %s\n",
+            tick, reason.c_str());
+        running = false;
+    });
+}
+
+void Driver::schedule_save(uint64_t tick, uint64_t period)
+{
+    scheduler.schedule(tick, [this, tick, period]() {
+        save_checkpoint();
+        if (period != 0)
+            schedule_save(tick + period, period);
+    });
+}
+
 int Driver::main()
 {
     if (is_run_mode() || is_scan_mode()) {
@@ -15,15 +43,13 @@ int Driver::main()
     }
 
     if (is_replay_mode()) {
-        uint64_t ckpt_tick = ckpt_mgr.findNearest(options.replay);
+        uint64_t ckpt_tick = ckpt_mgr.findNearest(options.replay.value());
         load_checkpoint(ckpt_tick);
 
-        // TODO: stop at trace end
+        // Stop at trace end
     }
     else {
-
         // Signal initialization
-
         for (auto &ss : options.set_signal) {
             int index = lookup_signal(ss.name);
             if (index < 0) {
@@ -36,7 +62,6 @@ int Driver::main()
         }
 
         // AXI memory initialization
-
         for (auto &kv : options.init_axi_mem) {
             int index = om_axi.lookup(kv.first);
             if (index < 0) {
@@ -61,16 +86,11 @@ int Driver::main()
         ckpt_mgr.clear();
         set_tick_count(0);
 
-        if (options.period_specified) {
-            schedule_periodical_save(0, options.period);
-        }
-        else {
-            save_checkpoint();
-        }
+        schedule_save(0, options.period.value_or(0));
     }
 
-    if (options.to_specified) {
-        schedule_stop(options.to);
+    if (options.to) {
+        schedule_stop(options.to.value(), "user specified end time");
     }
 
     bool ignore_triggers = false;
@@ -98,8 +118,8 @@ int Driver::main()
                 fprintf(stderr, "[REMU] INFO: Tick %ld: trigger \"%s\" is activated\n",
                     tick, name.c_str());
 
-                //if (!ignore_triggers)
-                    running = false;
+                if (!ignore_triggers)
+                    schedule_stop(tick, "trigger activated");
             }
 
             while (!scheduler.empty()) {
@@ -133,7 +153,7 @@ int Driver::main()
             Driver::sleep(10);
     }
 
-    if (!is_replay_mode()) {
+    if (options.save) {
         save_checkpoint();
     }
 

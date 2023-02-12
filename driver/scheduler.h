@@ -22,6 +22,11 @@ class Scheduler
 
 public:
 
+    void clear()
+    {
+        event_queue = {};
+    }
+
     bool empty() const
     {
         return event_queue.empty();

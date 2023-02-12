@@ -5,6 +5,7 @@
 #include <vector>
 #include <unordered_map>
 #include <iostream>
+#include <optional>
 
 #include "emu_info.h"
 #include "signal_info.h"
@@ -26,17 +27,20 @@ struct DriverParameters
 
     std::string ckpt_path;
 
-    bool period_specified;
-    uint64_t period;
+    // Common options
 
-    bool replay_specified;
-    uint64_t replay;
+    std::optional<uint64_t> to;
+    bool save = false;
 
-    bool to_specified;
-    uint64_t to;
+    // Record mode options
 
     std::map<std::string, std::string> init_axi_mem;
+    std::optional<uint64_t> period;
     std::vector<SetSignal> set_signal;
+
+    // Replay mode options
+
+    std::optional<uint64_t> replay;
 };
 
 class DriverModel
@@ -122,32 +126,11 @@ public:
 
     // Control
 
-    bool is_replay_mode() { return options.replay_specified; }
+    bool is_replay_mode() { return options.replay.has_value(); }
 
-    void schedule_signal_set(uint64_t tick, int index, const BitVector &value)
-    {
-        if (!is_replay_mode())
-            trace_db[index][tick] = value;
-
-        scheduler.schedule(tick, [this, index, value]() {
-            set_signal_value(index, value);
-        });
-    }
-
-    void schedule_stop(uint64_t tick)
-    {
-        scheduler.schedule(tick, [this]() {
-            running = false;
-        });
-    }
-
-    void schedule_periodical_save(uint64_t tick, uint64_t period)
-    {
-        scheduler.schedule(tick, [this, tick, period]() {
-            save_checkpoint();
-            schedule_periodical_save(tick + period, period);
-        });
-    }
+    void schedule_signal_set(uint64_t tick, int index, const BitVector &value);
+    void schedule_stop(uint64_t tick, std::string reason);
+    void schedule_save(uint64_t tick, uint64_t period);
 
     void register_trigger_callback(int index, std::function<bool(Driver&)> callback)
     {

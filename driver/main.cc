@@ -12,26 +12,31 @@ void show_help(const char * argv_0)
 {
     //   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
     fprintf(stderr,
-        "Usage: %s <sysinfo_file> <platinfo_file> [options]\n"
-        "Options:\n"
-        "    --period <period>\n"
-        "        Set checkpoint period. Ignored in replay mode.\n"
-        "    --init-axi-mem <axi_name> <bin_file>\n"
-        "        Initialize AXI memory region with the specified file. Ignored in replay\n"
-        "        mode.\n"
-        "    --replay <tick>\n"
-        "        Replay from the specified tick. This sets the driver in replay mode\n"
-        "    --set-signal <tick> <name> <value>\n"
-        "        Set signal value at the specified tick. Ignored in replay mode.\n"
+        "Usage: %s <sysinfo_file> <platinfo_file> <checkpoint_path> [options]\n"
+        "Common options:\n"
+        "    --save\n"
+        "        Save a checkpoint when execution is stopped.\n"
         "    --to <tick>\n"
         "        Stop execution at the specified tick.\n"
+        "\n"
+        "Record mode options:\n"
+        "    --init-axi-mem <axi_name> <bin_file>\n"
+        "        Initialize AXI memory region with the specified file.\n"
+        "    --period <period>\n"
+        "        Set checkpoint period.\n"
+        "    --set-signal <tick> <name> <value>\n"
+        "        Set signal value at the specified tick.\n"
+        "\n"
+        "Replay mode options:\n"
+        "    --replay <tick>\n"
+        "        Replay from the specified tick. Must be set for replay mode.\n"
         "\n"
         , argv_0);
 }
 
 int main(int argc, const char *argv[])
 {
-    if (argc < 3) {
+    if (argc < 4) {
         show_help(argv[0]);
         return 1;
     }
@@ -40,21 +45,22 @@ int main(int argc, const char *argv[])
     std::string platinfo_file = argv[2];
 
     DriverParameters options;
-    options.ckpt_path = "/tmp/ckpt";
-    options.period_specified = false;
-    options.replay_specified = false;
-    options.to_specified = false;
+    options.ckpt_path = argv[3];
 
-    for (int i = 3; i < argc; i++) {
-        if (!strcmp(argv[i], "--period")) {
+    for (int i = 4; i < argc; i++) {
+        if (!strcmp(argv[i], "--save")) {
+            options.save = true;
+            continue;
+        }
+        if (!strcmp(argv[i], "--to")) {
             if (argc - i <= 1) {
-                fprintf(stderr, "missing arguments for --period\n");
+                fprintf(stderr, "missing arguments for --to\n");
                 return 1;
             }
-            options.period_specified = true;
-            options.period = std::stoul(argv[++i]);
+            options.to = std::stoul(argv[++i]);
+            continue;
         }
-        else if (!strcmp(argv[i], "--init-axi-mem")) {
+        if (!strcmp(argv[i], "--init-axi-mem")) {
             if (argc - i <= 2) {
                 fprintf(stderr, "missing arguments for --init-axi-mem\n");
                 return 1;
@@ -62,16 +68,17 @@ int main(int argc, const char *argv[])
             auto axi_name = argv[++i];
             auto bin_file = argv[++i];
             options.init_axi_mem[axi_name] = bin_file;
+            continue;
         }
-        else if (!strcmp(argv[i], "--replay")) {
+        if (!strcmp(argv[i], "--period")) {
             if (argc - i <= 1) {
-                fprintf(stderr, "missing arguments for --replay\n");
+                fprintf(stderr, "missing arguments for --period\n");
                 return 1;
             }
-            options.replay_specified = true;
-            options.replay = std::stoul(argv[++i]);
+            options.period = std::stoul(argv[++i]);
+            continue;
         }
-        else if (!strcmp(argv[i], "--set-signal")) {
+        if (!strcmp(argv[i], "--set-signal")) {
             if (argc - i <= 3) {
                 fprintf(stderr, "missing arguments for --set-signal\n");
                 return 1;
@@ -84,19 +91,18 @@ int main(int argc, const char *argv[])
                 .name   = name,
                 .value  = value,
             });
+            continue;
         }
-        else if (!strcmp(argv[i], "--to")) {
+        if (!strcmp(argv[i], "--replay")) {
             if (argc - i <= 1) {
-                fprintf(stderr, "missing arguments for --to\n");
+                fprintf(stderr, "missing arguments for --replay\n");
                 return 1;
             }
-            options.to_specified = true;
-            options.to = std::stoul(argv[++i]);
+            options.replay = std::stoul(argv[++i]);
+            continue;
         }
-        else {
-            fprintf(stderr, "unrecognized option %s\n", argv[i]);
-            return 1;
-        }
+        fprintf(stderr, "unrecognized option %s\n", argv[i]);
+        return 1;
     }
 
     SysInfo sysinfo;
