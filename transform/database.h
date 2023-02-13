@@ -51,14 +51,19 @@ struct ChannelPort
 
 struct EmulationDatabase
 {
-    // Note: sysinfo.{clock, signal, trigger, axi} are copied from clock_ports, signal_ports, trigger_ports, axi_ports
-    SysInfo sysinfo;
+    std::map<std::vector<std::string>, SysInfo::WireInfo> wire;
+    std::map<std::vector<std::string>, SysInfo::RAMInfo> ram;
 
     std::vector<ClockPort> clock_ports;
     std::vector<SignalPort> signal_ports;
     std::vector<TriggerPort> trigger_ports;
     std::vector<AXIPort> axi_ports;
     std::vector<ChannelPort> channel_ports;
+
+    std::vector<SysInfo::ModelInfo> model;
+
+    std::vector<SysInfo::ScanFFInfo> scan_ff;
+    std::vector<SysInfo::ScanRAMInfo> scan_ram;
 
     void write_sysinfo(std::string file_name);
     void write_loader(std::string file_name);

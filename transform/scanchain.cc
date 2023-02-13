@@ -699,13 +699,13 @@ void ScanchainWorker::run()
     }
 
     auto &wire_infos = all_wire_infos.at(hier.top);
-    database.sysinfo.wire.insert(wire_infos.begin(), wire_infos.end());
+    database.wire.insert(wire_infos.begin(), wire_infos.end());
 
     auto &ram_infos = all_ram_infos.at(hier.top);
-    database.sysinfo.ram.insert(ram_infos.begin(), ram_infos.end());
+    database.ram.insert(ram_infos.begin(), ram_infos.end());
 
-    database.sysinfo.scan_ff = ff_lists.at(hier.top);
-    database.sysinfo.scan_ram = ram_lists.at(hier.top);
+    database.scan_ff = ff_lists.at(hier.top);
+    database.scan_ram = ram_lists.at(hier.top);
 }
 
 PRIVATE_NAMESPACE_BEGIN

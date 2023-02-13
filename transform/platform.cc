@@ -406,12 +406,12 @@ void PlatformTransform::run()
     Cell *scan_ctrl = top->addCell(top->uniquify("\\emu_scan_ctrl"), "\\EmuScanCtrl");
 
     uint64_t ff_count = 0;
-    for (auto &ff : database.sysinfo.scan_ff)
+    for (auto &ff : database.scan_ff)
         ff_count += ff.width;
     scan_ctrl->setParam("\\FF_COUNT", Const(ff_count, 64));
 
     uint64_t mem_count = 0;
-    for (auto &mem : database.sysinfo.scan_ram)
+    for (auto &mem : database.scan_ram)
         mem_count += mem.width * mem.depth;
     scan_ctrl->setParam("\\MEM_COUNT", Const(mem_count, 64));
 

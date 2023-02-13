@@ -58,5 +58,5 @@ void ModelAnalyzer::run()
 
     IdString top = hier.dag.rootNode().name;
     for (auto &info : all_model_infos.at(top))
-        database.sysinfo.model.push_back(info);
+        database.model.push_back(info);
 }
