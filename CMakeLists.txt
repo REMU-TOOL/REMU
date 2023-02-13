@@ -47,22 +47,9 @@ install(DIRECTORY ${CMAKE_SOURCE_DIR}/emulib/
     DESTINATION share/remu/emulib
 )
 
-# Add common project
-
+add_subdirectory(bitvector)
 add_subdirectory(common)
-
-# Add cosim project
-
 add_subdirectory(cosim)
-
-# Add driver project
-
 add_subdirectory(driver)
-
-# Add transform project
-
 add_subdirectory(transform)
-
-# Add replay project
-
 add_subdirectory(replay)

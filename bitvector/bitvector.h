@@ -28,7 +28,6 @@ private:
         uint64_t value; // Otherwise
     } u;
 
-    size_t blks() const { return (width_ + 63) / 64; }
     bool use_ptr() const { return width_ > 64; }
 
     static void copy(width_t width, uint64_t *to_data, width_t to_offset, const uint64_t *from_data, width_t from_offset);
@@ -43,6 +42,7 @@ public:
 
     uint64_t *to_ptr() { return use_ptr() ? u.data : &u.value; }
     const uint64_t *to_ptr() const { return use_ptr() ? u.data : &u.value; }
+    size_t blks() const { return (width_ + 63) / 64; }
 
     width_t width() const { return width_; }
 
@@ -277,6 +277,7 @@ public:
 
     uint64_t *to_ptr() { return data.to_ptr(); }
     const uint64_t *to_ptr() const { return data.to_ptr(); }
+    size_t blks() const { return data.blks(); }
 
     width_t width() const { return width_; }
     depth_t depth() const { return depth_; }
