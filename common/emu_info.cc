@@ -16,7 +16,9 @@ void serialize(Archive &archive, SysInfo::WireInfo &node)
     archive(
         NVP(width),
         NVP(start_offset),
-        NVP(upto)
+        NVP(upto),
+        NVP(init_zero),
+        NVP(init_data)
     );
 }
 
@@ -27,6 +29,8 @@ void serialize(Archive &archive, SysInfo::RAMInfo &node)
         NVP(width),
         NVP(depth),
         NVP(start_offset),
+        NVP(init_zero),
+        NVP(init_data),
         NVP(dissolved)
     );
 }
@@ -95,7 +99,9 @@ template<class Archive>
 void serialize(Archive &archive, SysInfo::ScanRAMInfo &node)
 {
     archive(
-        NVP(name)
+        NVP(name),
+        NVP(width),
+        NVP(depth)
     );
 }
 
