@@ -73,14 +73,23 @@ public:
 
     std::string hex() const
     {
-        std::ostringstream ss;
+        size_t hexw = (width_ + 3) / 4;
+        std::string res(hexw, '0');
         auto first = to_ptr();
         auto last = first + blks() - 1;
-        ss << std::hex << std::setfill('0') << std::setw(0);
-        for (auto p = last; p >= first; p--) {
-            ss << *p << std::setw(16);
+        width_t pos = 0;
+        for (auto p = first; p <= last; p++) {
+            auto value = *p;
+            for (int i = 0; i < 16; i++) {
+                if (pos >= hexw)
+                    break;
+                char digit = value & 0xf;
+                res[hexw-1-pos] = digit >= 10 ? digit - 10 + 'a' : digit + '0';
+                pos++;
+                value >>= 4;
+            }
         }
-        return ss.str();
+        return res;
     }
 
     // This sets all bits to 0
