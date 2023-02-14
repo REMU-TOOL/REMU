@@ -8,34 +8,36 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 
 link_libraries(common)
 
-file(GLOB replay-common-sources "core/*.cc" "model/*.cc")
+file(GLOB replay_common_sources "core/*.cc" "model/*.cc")
 
-# replay.vpi
+# replay_ivl
 
-file(GLOB replay-vpi-sources "vpi/*.cc")
+file(GLOB replay_ivl_sources "vpi/*.cc")
 
-add_library(replay-vpi SHARED
-    ${replay-common-sources}
-    ${replay-vpi-sources}
+add_library(replay_ivl SHARED
+    ${replay_common_sources}
+    ${replay_ivl_sources}
 )
 
-set_target_properties(replay-vpi PROPERTIES PREFIX "")
-set_target_properties(replay-vpi PROPERTIES SUFFIX ".vpi")
+set_target_properties(replay_ivl PROPERTIES PREFIX "")
+set_target_properties(replay_ivl PROPERTIES SUFFIX ".vpi")
 
-target_include_directories(replay-vpi PRIVATE ${iverilog-include-dir})
+target_include_directories(replay_ivl PRIVATE ${iverilog-include-dir})
 
-target_link_options(replay-vpi PRIVATE
+target_link_libraries(replay_ivl vpi_utils)
+
+target_link_options(replay_ivl PRIVATE
     -L${iverilog-bin-dir}/../lib
     -lveriuser -lvpi
 )
 
-install(TARGETS replay-vpi
+install(TARGETS replay_ivl
     LIBRARY DESTINATION share/remu
 )
 
 # scdump
 
-add_executable(scdump ${replay-common-sources} tools/scdump.cc)
+add_executable(scdump ${replay_common_sources} tools/scdump.cc)
 
 install(TARGETS scdump
     DESTINATION bin

@@ -1,6 +1,9 @@
-#include "replay_vpi.h"
+#include "replay_ivl.h"
 
 #include <cstring>
+#include <string>
+#include <optional>
+
 #include <vpi_user.h>
 
 using namespace REMU;
@@ -16,12 +19,17 @@ void replay_startup_routine() {
     }
 
     std::string sysinfo_file, checkpoint_path;
+    std::optional<uint64_t> tick = 0;
+
     for (size_t i = 0; i < args.size(); i++) {
         if (args[i] == "-sysinfo" && i+1 < args.size()) {
             sysinfo_file = args[++i];
         }
         if (args[i] == "-checkpoint" && i+1 < args.size()) {
             checkpoint_path = args[++i];
+        }
+        if (args[i] == "-tick" && i+1 < args.size()) {
+            tick = stol(args[++i]);
         }
     }
 
@@ -35,6 +43,11 @@ void replay_startup_routine() {
         return;
     }
 
+    if (!tick.has_value()) {
+        vpi_printf("ERROR: tick not specified\n");
+        return;
+    }
+
     SysInfo sysinfo;
     std::ifstream f(sysinfo_file);
     if (f.fail()) {
@@ -43,10 +56,10 @@ void replay_startup_routine() {
     }
     f >> sysinfo;
 
-    auto loader = new VPILoader(sysinfo, checkpoint_path);
+    static VPILoader loader(sysinfo, checkpoint_path, tick.value());
 
-    register_tfs(loader);
-    register_load_callback(loader);
+    register_tfs(&loader);
+    register_callback(&loader);
 }
 
 void (*vlog_startup_routines[])() = {
