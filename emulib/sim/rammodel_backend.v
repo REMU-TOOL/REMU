@@ -48,7 +48,7 @@ module emulib_rammodel_backend #(
         end
     end
 
-    always @(clk, breq_valid) begin
+    always @(clk, breq_valid, breq_id) begin
         if (!rst && breq_valid) begin
             result = $rammodel_b_req(handle, breq_id);
             if (!result) begin
@@ -58,7 +58,7 @@ module emulib_rammodel_backend #(
         end
     end
 
-    always @(clk, rreq_valid) begin
+    always @(clk, rreq_valid, rreq_id) begin
         if (!rst && rreq_valid) begin
             result = $rammodel_r_req(handle, rreq_id, rresp_data, rresp_last);
             if (!result) begin
