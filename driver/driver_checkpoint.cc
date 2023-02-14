@@ -32,20 +32,15 @@ void Driver::load_checkpoint(uint64_t tick)
 
         auto &sig_data = trace_db.at(signal.index);
 
-        // Find the value at current tick
-
-        auto it = sig_data.lower_bound(tick);
-        if (it != sig_data.end() && it->first > tick)
-            --it;
-
-        if (it != sig_data.end()) {
-            set_signal_value(signal.index, it->second);
-        }
-
         // Restore values after current tick
 
-        for (auto it = sig_data.lower_bound(tick); it != sig_data.end(); ++it) {
-            schedule_signal_set(it->first, signal.index, it->second);
+        for (auto &it : sig_data) {
+            if (it.first >= tick) {
+                schedule_signal_set(it.first, signal.index, it.second);
+            }
+            else {
+                set_signal_value(signal.index, it.second);
+            }
         }
 
         // Stop at trace end
