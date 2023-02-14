@@ -461,8 +461,8 @@ module sim_top;
         .ADDR_WIDTH     (32),
         .DATA_WIDTH     (32),
         .ID_WIDTH       (1),
-        .MEM_SIZE       ('h20000000),
-        .MEM_INIT       (0)
+        .MEM_SIZE       ('h100000),
+        .MEM_INIT       (1)
     ) sim_mem_inst (
         .clk            (clk),
         .rst            (rst),
