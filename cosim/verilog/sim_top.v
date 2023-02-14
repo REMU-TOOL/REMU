@@ -2,6 +2,15 @@
 
 module sim_top;
 
+    reg [512*8-1:0] dumpfile;
+
+    initial begin
+        if ($value$plusargs("dumpfile=%s", dumpfile)) begin
+            $dumpfile(dumpfile);
+            $dumpvars();
+        end
+    end
+
     reg clk = 0, rst = 1;
 
     always #5 clk = ~clk;
