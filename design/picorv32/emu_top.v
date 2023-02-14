@@ -99,7 +99,7 @@ module emu_top(
         .DATA_WIDTH     (32),
         .ADDR_WIDTH     (32),
         .M00_BASE_ADDR  (32'h00000000),
-        .M00_ADDR_WIDTH (32'd28),
+        .M00_ADDR_WIDTH (32'd16),
         .M01_BASE_ADDR  (32'h10000000),
         .M01_ADDR_WIDTH (32'd28)
     ) axil_ic (
@@ -168,6 +168,7 @@ module emu_top(
         .ADDR_WIDTH     (32),
         .DATA_WIDTH     (32),
         .ID_WIDTH       (1),
+        .MEM_SIZE       (64'h10000),
         .R_DELAY        (0),
         .W_DELAY        (0)
     )
