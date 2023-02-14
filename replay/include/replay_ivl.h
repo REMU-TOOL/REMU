@@ -15,6 +15,7 @@ struct VPILoader
     CircuitState circuit;
     CheckpointManager ckpt_mgr;
     uint64_t tick;
+    uint64_t latest_tick;
     Checkpoint checkpoint;
     SignalTraceDB trace;
 
@@ -22,7 +23,7 @@ struct VPILoader
         sysinfo(sysinfo), circuit(sysinfo), ckpt_mgr(ckpt_path), tick(tick), checkpoint(ckpt_mgr.open(tick))
     {
         circuit.load(checkpoint);
-        uint64_t latest_tick = ckpt_mgr.latest();
+        latest_tick = ckpt_mgr.latest();
         auto latest_ckpt = ckpt_mgr.open(latest_tick);
         trace = latest_ckpt.readTrace();
     }

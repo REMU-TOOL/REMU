@@ -516,6 +516,14 @@ void replay_initialize(VPILoader *loader)
         }));
         signal_cbs.at(index).register_callback(0, cbValueChange, event_obj);
     }
+
+    // Stop simulator at end of trace
+
+    static VPICallback eot_cb([](uint64_t) {
+        vpi_control(vpiFinish);
+        return 0;
+    });
+    eot_cb.register_callback((loader->latest_tick - init_tick) * period, cbAtEndOfSimTime);
 }
 
 void REMU::register_callback(VPILoader *loader)
