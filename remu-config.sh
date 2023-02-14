@@ -29,7 +29,7 @@ fi
 
 IVL_SRCS="$(find $EMULIB_DIR/sim -name '*.v')"
 IVL_FLAGS="-I $EMULIB_DIR/include -s reconstruct"
-VVP_FLAGS="-M $REMU_DIR -m replay"
+VVP_FLAGS="-M $REMU_DIR -m replay_ivl"
 COSIM_IVL_SRCS="$(find $REMU_DIR/cosim -name '*.v')"
 COSIM_IVL_FLAGS="-I $REMU_DIR/cosim/include"
 COSIM_VVP_FLAGS="-M $REMU_DIR -m cosim_ivl"
