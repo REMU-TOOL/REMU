@@ -49,6 +49,10 @@ int Driver::main()
         // Stop at trace end
     }
     else {
+        for (auto &signal : om_signal)
+            if (!signal.output)
+                trace_db[signal.index][0] = BitVector(signal.width);
+
         // Signal initialization
         for (auto &ss : options.set_signal) {
             int index = lookup_signal(ss.name);
