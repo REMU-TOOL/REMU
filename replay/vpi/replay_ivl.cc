@@ -453,9 +453,9 @@ void replay_initialize(VPILoader *loader)
     // clock callback
     // TODO: support multiple clocks with different frequencies
 
-    vpiHandle event_obj = vpi_handle_by_name("remu_replay.__global_event", 0);
+    vpiHandle event_obj = vpi_handle_by_name("remu_replay.internal.global_event", 0);
     if (event_obj == 0) {
-        vpi_printf("ERROR: failed to get remu_replay.__global_event\n");
+        vpi_printf("ERROR: failed to get remu_replay.internal.global_event\n");
         vpi_control(vpiFinish);
         return;
     }
@@ -499,22 +499,15 @@ void replay_initialize(VPILoader *loader)
 
         auto &sig_data = trace.at(index);
 
-        auto pos = sig_data.lower_bound(init_tick);
+        auto pos = sig_data.begin();
         auto end = sig_data.end();
 
-        // Find the greatest tick <= init_tick
-        if (pos != end && pos->first > init_tick) {
-            auto it = pos;
-            --it;
-            if (it != end)
-                pos = it;
-        }
-
-        signal_cbs.insert(std::make_pair(index, [obj, index, init_tick, pos, end](uint64_t time) mutable {
+        signal_cbs.insert(std::make_pair(index, [obj, init_tick, pos, end](uint64_t time) mutable {
             while (pos != end) {
-                auto sig_time = (pos->first - init_tick) * period;
-                if (time < sig_time)
+                auto tick = time / period + init_tick;
+                if (tick < pos->first)
                     break;
+
                 // use vpiInertialDelay according to cocotb
                 vpiSetValue(obj, pos->second, vpiInertialDelay);
                 ++pos;

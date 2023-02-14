@@ -56,8 +56,7 @@ private:
     unsigned int addr_width, data_width, id_width;
     uint64_t mem_size;
 
-    size_t array_width, array_depth;
-    BitVectorArray array;
+    BitVector data;
 
     std::queue<AChannel> a_queue;
     std::queue<WChannel> w_queue;
@@ -82,8 +81,7 @@ public:
 
     RamModel(unsigned int addr_w, unsigned int data_w, unsigned int id_w, uint64_t ram_sz) :
         addr_width(addr_w), data_width(data_w), id_width(id_w), mem_size(ram_sz),
-        array_width(data_w > 64 ? data_w : 64), array_depth(mem_size / (array_width / 8)),
-        array(array_width, array_depth) {}
+        data(ram_sz * 8) {}
 
 };
 

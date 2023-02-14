@@ -19,7 +19,7 @@ void RamModel::schedule() {
     uint64_t number_bytes = a.burst_size();
     uint64_t burst_length = a.burst_len();
 
-    if (number_bytes > array_width / 8) {
+    if (number_bytes > data_width / 8) {
         throw std::invalid_argument("burst size greater than AXI data width");
     }
 
@@ -50,18 +50,17 @@ void RamModel::schedule() {
             throw std::invalid_argument(ss.str());
         }
 
-        uint64_t index = address / (array_width / 8);
-        BitVector word = array.get(index);
+        BitVector word = data.getValue(address * 8, data_width);
 
         if (a.write) {
             // consume W request & write data to memory
             const WChannel &w = w_queue.front();
 
-            for (int j = 0; j < array_width / 8; j++)
+            for (int j = 0; j < data_width / 8; j++)
                 if (w.strb.getBit(j))
                     word.setValue(j * 8, w.data.getValue(j * 8, 8));
 
-            array.set(index, word);
+            data.setValue(address * 8, word);
             w_queue.pop();
         }
         else {
@@ -103,7 +102,7 @@ bool RamModel::w_req(const WChannel &payload) {
 bool RamModel::b_req(BChannel &payload) {
     schedule();
 
-    if (b_queue.size() == 0)
+    if (b_queue.empty())
         return false;
 
     payload = b_queue.front();
@@ -111,6 +110,9 @@ bool RamModel::b_req(BChannel &payload) {
 }
 
 bool RamModel::b_ack() {
+    if (b_queue.empty())
+        return false;
+
     b_queue.pop();
     return true;
 }
@@ -118,7 +120,7 @@ bool RamModel::b_ack() {
 bool RamModel::r_req(RChannel &payload) {
     schedule();
 
-    if (r_queue.size() == 0)
+    if (r_queue.empty())
         return false;
 
     payload = r_queue.front();
@@ -126,6 +128,9 @@ bool RamModel::r_req(RChannel &payload) {
 }
 
 bool RamModel::r_ack() {
+    if (r_queue.empty())
+        return false;
+
     r_queue.pop();
     return true;
 }
@@ -140,7 +145,7 @@ bool RamModel::reset() {
 }
 
 bool RamModel::load_data(std::istream &stream) {
-    stream.read(reinterpret_cast<char *>(array.to_ptr()), array_width / 8 * array_depth);
+    stream.read(reinterpret_cast<char *>(data.to_ptr()), data.blks());
     return !stream.fail();
 }
 
