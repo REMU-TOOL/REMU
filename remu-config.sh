@@ -27,12 +27,32 @@ if [[ ! -d $REMU_DIR || ! -d $EMULIB_DIR ]]; then
     exit 1
 fi
 
-IVL_SRCS="$(find $EMULIB_DIR/sim -name '*.v')"
-IVL_FLAGS="-I $EMULIB_DIR/include -s reconstruct"
-VVP_FLAGS="-M $REMU_DIR -m replay_ivl"
-COSIM_IVL_SRCS="$(find $REMU_DIR/cosim -name '*.v')"
-COSIM_IVL_FLAGS="-I $REMU_DIR/cosim/include"
-COSIM_VVP_FLAGS="-M $REMU_DIR -m cosim_ivl"
+IVL_SRCS=()
+IVL_SRCS+=($(find $EMULIB_DIR/sim -name '*.v'))
+
+IVL_FLAGS=()
+IVL_FLAGS+=(-I $EMULIB_DIR/include)
+IVL_FLAGS+=(-s remu_replay)
+IVL_FLAGS+=(-s EMU_TOP)
+
+VVP_FLAGS=()
+VVP_FLAGS+=(-M $REMU_DIR)
+VVP_FLAGS+=(-m replay_ivl)
+
+COSIM_IVL_SRCS=()
+COSIM_IVL_SRCS+=($(find $EMULIB_DIR/common -name '*.v'))
+COSIM_IVL_SRCS+=($(find $EMULIB_DIR/system -name '*.v'))
+COSIM_IVL_SRCS+=($(find $EMULIB_DIR/platform/sim -name '*.v'))
+COSIM_IVL_SRCS+=($(find $REMU_DIR/cosim -name '*.v'))
+
+COSIM_IVL_FLAGS=()
+COSIM_IVL_FLAGS+=(-I $EMULIB_DIR/include)
+COSIM_IVL_FLAGS+=(-I $REMU_DIR/cosim/include)
+COSIM_IVL_FLAGS+=(-s sim_top)
+
+COSIM_VVP_FLAGS=()
+COSIM_VVP_FLAGS+=(-M $REMU_DIR)
+COSIM_VVP_FLAGS+=(-m cosim_ivl)
 
 if [ $# -eq 0 ]; then
     help
@@ -41,27 +61,27 @@ fi
 for opt; do
     case "$opt" in
         --ivl-srcs)
-            echo $IVL_SRCS
+            echo "${IVL_SRCS[@]}"
             exit
         ;;
         --ivl-flags)
-            echo $IVL_FLAGS
+            echo "${IVL_FLAGS[@]}"
             exit
         ;;
         --vvp-flags)
-            echo $VVP_FLAGS
+            echo "${VVP_FLAGS[@]}"
             exit
         ;;
         --cosim-ivl-srcs)
-            echo $COSIM_IVL_SRCS
+            echo "${COSIM_IVL_SRCS[@]}"
             exit
         ;;
         --cosim-ivl-flags)
-            echo $COSIM_IVL_FLAGS
+            echo "${COSIM_IVL_FLAGS[@]}"
             exit
         ;;
         --cosim-vvp-flags)
-            echo $COSIM_VVP_FLAGS
+            echo "${COSIM_VVP_FLAGS[@]}"
             exit
         ;;
     esac
