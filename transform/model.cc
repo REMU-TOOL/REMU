@@ -57,6 +57,8 @@ void ModelAnalyzer::run()
     }
 
     IdString top = hier.dag.rootNode().name;
-    for (auto &info : all_model_infos.at(top))
+    for (auto info : all_model_infos.at(top)) {
+        info.name.insert(info.name.begin(), "EMU_TOP");
         database.model.push_back(info);
+    }
 }

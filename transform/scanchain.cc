@@ -698,14 +698,26 @@ void ScanchainWorker::run()
         hier.design->add(newmod);
     }
 
-    auto &wire_infos = all_wire_infos.at(hier.top);
-    database.wire.insert(wire_infos.begin(), wire_infos.end());
+    for (auto x : all_wire_infos.at(hier.top)) {
+        x.first.insert(x.first.begin(), "EMU_TOP");
+        database.wire.insert(x);
+    }
 
-    auto &ram_infos = all_ram_infos.at(hier.top);
-    database.ram.insert(ram_infos.begin(), ram_infos.end());
+    for (auto x : all_ram_infos.at(hier.top)) {
+        x.first.insert(x.first.begin(), "EMU_TOP");
+        database.ram.insert(x);
+    }
 
-    database.scan_ff = ff_lists.at(hier.top);
-    database.scan_ram = ram_lists.at(hier.top);
+    for (auto x : ff_lists.at(hier.top)) {
+        if (!x.name.empty())
+            x.name.insert(x.name.begin(), "EMU_TOP");
+        database.scan_ff.push_back(x);
+    }
+
+    for (auto x : ram_lists.at(hier.top)) {
+        x.name.insert(x.name.begin(), "EMU_TOP");
+        database.scan_ram.push_back(x);
+    }
 }
 
 PRIVATE_NAMESPACE_BEGIN

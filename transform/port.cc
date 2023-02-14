@@ -532,6 +532,16 @@ void PortTransform::process_channel_ports(Module *module)
     all_channel_ports[module->name] = info_list;
 }
 
+template<typename T>
+inline void copy_top_info(std::vector<T> &to, const std::vector<T> &from)
+{
+    to.clear();
+    for (auto x : from) {
+        x.name.insert(x.name.begin(), "EMU_TOP");
+        to.push_back(x);
+    }
+}
+
 void PortTransform::run()
 {
     for (auto &node : hier.dag.topoSort(true)) {
@@ -546,11 +556,11 @@ void PortTransform::run()
     }
 
     IdString top = hier.dag.rootNode().name;
-    database.clock_ports = all_clock_ports.at(top);
-    database.signal_ports = all_signal_ports.at(top);
-    database.trigger_ports = all_trigger_ports.at(top);
-    database.axi_ports = all_axi_ports.at(top);
-    database.channel_ports = all_channel_ports.at(top);
+    copy_top_info(database.clock_ports, all_clock_ports.at(top));
+    copy_top_info(database.signal_ports, all_signal_ports.at(top));
+    copy_top_info(database.trigger_ports, all_trigger_ports.at(top));
+    copy_top_info(database.axi_ports, all_axi_ports.at(top));
+    copy_top_info(database.channel_ports, all_channel_ports.at(top));
 
     Module *top_module = hier.design->module(top);
     Wire *host_rst  = CommonPort::get(top_module, CommonPort::PORT_HOST_RST);

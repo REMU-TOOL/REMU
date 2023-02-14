@@ -24,36 +24,21 @@ void EmulationDatabase::write_sysinfo(std::string file_name) {
 
     // Copy & prepend EMU_TOP to all records
 
-    auto emu_top = "EMU_TOP";
-
     SysInfo sysinfo;
 
-    for (auto &x : wire) {
-        auto name = x.first;
-        name.insert(name.begin(), emu_top);
-        sysinfo.wire[name] = x.second;
-    }
-
-    for (auto &x : ram) {
-        auto name = x.first;
-        name.insert(name.begin(), emu_top);
-        sysinfo.ram[name] = x.second;
-    }
+    sysinfo.wire = wire;
+    sysinfo.ram = ram;
 
     for (auto &x : clock_ports) {
-        auto name = x.name;
-        name.insert(name.begin(), emu_top);
         sysinfo.clock.push_back({
-            .name       = name,
+            .name       = x.name,
             .index      = x.index,
         });
     }
 
     for (auto &x : signal_ports) {
-        auto name = x.name;
-        name.insert(name.begin(), emu_top);
         sysinfo.signal.push_back({
-            .name       = name,
+            .name       = x.name,
             .width      = x.width,
             .output     = x.output,
             .reg_offset = x.reg_offset,
@@ -61,40 +46,23 @@ void EmulationDatabase::write_sysinfo(std::string file_name) {
     }
 
     for (auto &x : trigger_ports) {
-        auto name = x.name;
-        name.insert(name.begin(), emu_top);
         sysinfo.trigger.push_back({
-            .name       = name,
+            .name       = x.name,
             .index      = x.index,
         });
     }
 
     for (auto &x : axi_ports) {
-        auto name = x.name;
-        name.insert(name.begin(), emu_top);
         sysinfo.axi.push_back({
-            .name       = name,
+            .name       = x.name,
             .size       = x.size,
             .reg_offset = x.reg_offset,
         });
     }
 
-    for (auto x : model) {
-        x.name.insert(x.name.begin(), emu_top);
-        sysinfo.model.push_back(x);
-    }
-
-    for (auto x : scan_ff) {
-        if (!x.name.empty())
-            x.name.insert(x.name.begin(), emu_top);
-        sysinfo.scan_ff.push_back(x);
-    }
-
-    for (auto x : scan_ram) {
-        if (!x.name.empty())
-            x.name.insert(x.name.begin(), emu_top);
-        sysinfo.scan_ram.push_back(x);
-    }
+    sysinfo.model = model;
+    sysinfo.scan_ff = scan_ff;
+    sysinfo.scan_ram = scan_ram;
 
     f << sysinfo;
     f.close();
