@@ -172,15 +172,17 @@ inline uint64_t vpiGetSimTime()
 
 class VPICallback
 {
-    std::function<int()> callback;
+    std::function<int(uint64_t)> callback;
+    s_vpi_time cb_time;
+    s_vpi_value cb_value;
 
-    static PLI_INT32 vpi_cb_routine(p_cb_data cb_data);
+    static PLI_INT32 callback_routine(p_cb_data cb_data);
 
 public:
 
-    void register_callback(uint64_t time, PLI_INT32 reason);
+    void register_callback(uint64_t time, PLI_INT32 reason, vpiHandle obj = 0);
 
-    VPICallback(std::function<int()> callback) : callback(callback) {}
+    VPICallback(std::function<int(uint64_t)> callback) : callback(callback) {}
 };
 
 }
