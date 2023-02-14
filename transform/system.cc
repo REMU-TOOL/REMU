@@ -2,7 +2,7 @@
 
 #include "attr.h"
 #include "port.h"
-#include "platform.h"
+#include "system.h"
 #include "utils.h"
 
 USING_YOSYS_NAMESPACE
@@ -308,7 +308,7 @@ void add_axi_remap(EmulationDatabase &database, Module *top, CtrlConnBuilder &bu
 
 PRIVATE_NAMESPACE_END
 
-void PlatformTransform::run()
+void SystemTransform::run()
 {
     Module *top = design->top_module();
 

@@ -7,7 +7,7 @@
 #include "clock.h"
 #include "scanchain.h"
 #include "fame.h"
-#include "platform.h"
+#include "system.h"
 #include "emulib.h"
 
 using namespace REMU;
@@ -34,8 +34,8 @@ struct EmuTransformPass : public Pass {
         log("        write system info to the specified file\n");
         log("    -loader <file>\n");
         log("        write verilog loader definition to the specified file\n");
-        log("    -no_plat\n");
-        log("        skip platform transformation\n");
+        log("    -nosystem\n");
+        log("        skip system transformation\n");
         log("\n");
     }
 
@@ -122,7 +122,7 @@ struct EmuTransformPass : public Pass {
                 loader_file = args[++argidx];
                 continue;
             }
-            if (args[argidx] == "-no_plat") {
+            if (args[argidx] == "-nosystem") {
                 raw_plat = true;
                 continue;
             }
@@ -188,9 +188,9 @@ struct EmuTransformPass : public Pass {
         Pass::call(design, "emu_package -top EMU_SYSTEM");
 
         if (!raw_plat) {
-            log_header(design, "Executing platform transformation.\n");
+            log_header(design, "Executing system transformation.\n");
             log_push();
-            PlatformTransform worker(design, database, emulib);
+            SystemTransform worker(design, database, emulib);
             worker.run();
             log_pop();
         }

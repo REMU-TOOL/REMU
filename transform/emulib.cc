@@ -28,6 +28,6 @@ EmuLibInfo::EmuLibInfo()
     add_source_folder(model_sources, emulib_dirname + "common/");
     add_source_folder(model_sources, emulib_dirname + "model/");
     add_source_folder(model_sources, emulib_dirname + "fpga/");
-    add_source_folder(platform_sources, emulib_dirname + "common/");
-    add_source_folder(platform_sources, emulib_dirname + "platform/");
+    add_source_folder(system_sources, emulib_dirname + "common/");
+    add_source_folder(system_sources, emulib_dirname + "system/");
 }

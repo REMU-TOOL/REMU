@@ -9,7 +9,7 @@
 
 namespace REMU {
 
-struct PlatformTransform
+struct SystemTransform
 {
     Yosys::Design *design;
     EmulationDatabase &database;
@@ -17,7 +17,7 @@ struct PlatformTransform
 
     void run();
 
-    PlatformTransform(Yosys::Design *design, EmulationDatabase &database, EmuLibInfo &emulib)
+    SystemTransform(Yosys::Design *design, EmulationDatabase &database, EmuLibInfo &emulib)
         : design(design), database(database), emulib(emulib) {}
 };
 
