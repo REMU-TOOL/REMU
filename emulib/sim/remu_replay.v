@@ -6,12 +6,12 @@ module remu_replay;
 
     if (1) begin : internal // use generate if to create an internal scope
         reg global_event = 0;
-        reg [512*8-1:0] plusargs_dumpfile;
+        reg [512*8-1:0] dumpfile;
         reg [63:0] duration;
 
         initial begin
-            if ($value$plusargs("dumpfile=%s", plusargs_dumpfile)) begin
-                $dumpfile(plusargs_dumpfile);
+            if ($value$plusargs("dumpfile=%s", dumpfile)) begin
+                $dumpfile(dumpfile);
                 $dumpvars();
             end
         end
