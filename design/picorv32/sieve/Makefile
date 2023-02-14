@@ -1,9 +1,11 @@
 CFLAGS = -MD -O3 -march=rv32imc -ffreestanding -nostdlib
 TOOLCHAIN_PREFIX = /opt/riscv32imc/bin/riscv32-unknown-elf-
 
-OBJS = baremetal.o start.o
+NAME = baremetal
 
-all: baremetal.bin baremetal.hex baremetal.log
+OBJS = main.o start.o
+
+all: $(NAME).bin $(NAME).hex $(NAME).log
 
 %.o: %.c
 	$(TOOLCHAIN_PREFIX)gcc -c $(CFLAGS) $<
@@ -11,17 +13,17 @@ all: baremetal.bin baremetal.hex baremetal.log
 %.o: %.S
 	$(TOOLCHAIN_PREFIX)gcc -c $(CFLAGS) $<
 
-baremetal.elf: $(OBJS) sections.lds
-	$(TOOLCHAIN_PREFIX)gcc $(CFLAGS) -Wl,-Bstatic,-T,sections.lds,-Map,baremetal.map,--strip-debug -o $@ $(OBJS) -lgcc
+$(NAME).elf: $(OBJS) sections.lds
+	$(TOOLCHAIN_PREFIX)gcc $(CFLAGS) -Wl,-Bstatic,-T,sections.lds,-Map,$(NAME).map,--strip-debug -o $@ $(OBJS) -lgcc
 
-baremetal.bin: baremetal.elf
+$(NAME).bin: $(NAME).elf
 	$(TOOLCHAIN_PREFIX)objcopy -O binary $< $@
 
-baremetal.hex: baremetal.elf
+$(NAME).hex: $(NAME).elf
 	$(TOOLCHAIN_PREFIX)objcopy -O verilog $< $@
 
-baremetal.log: baremetal.elf
+$(NAME).log: $(NAME).elf
 	$(TOOLCHAIN_PREFIX)objdump -d $< > $@
 
 clean:
-	rm -f *.elf *.o *.d *.map *.log
+	rm -f *.elf *.o *.d *.map *.bin *.hex *.log

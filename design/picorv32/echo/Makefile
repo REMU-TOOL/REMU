@@ -3,7 +3,7 @@ TOOLCHAIN_PREFIX = /opt/riscv32imc/bin/riscv32-unknown-elf-
 
 NAME = echo
 
-OBJS = $(NAME).o start.o
+OBJS = main.o start.o
 
 all: $(NAME).bin $(NAME).hex $(NAME).log
 
