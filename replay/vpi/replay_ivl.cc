@@ -9,41 +9,44 @@
 
 using namespace REMU;
 
+inline std::string get_full_name(const std::vector<std::string> &path)
+{
+    std::string full_name;
+    bool first = true;
+    for (auto &name : path) {
+        std::string esc_name = Escape::escape_verilog_id(name);
+        if (first)
+            first = false;
+        else
+            full_name += ".";
+        full_name += esc_name;
+    }
+    return full_name;
+}
+
 void VPILoader::load()
 {
     circuit.load(checkpoint);
 
     for (auto &it : circuit.wire) {
-        vpiHandle obj = 0;
-        for (auto &name : it.first) {
-            std::string esc_name = Escape::escape_verilog_id(name);
-            vpiHandle parent = obj;
-            obj = vpi_handle_by_name(esc_name.c_str(), obj);
-            if (obj == 0) {
-                vpi_printf("WARNING: %s cannot be referenced (in scope %s)\n",
-                    esc_name.c_str(), parent == 0 ? "<TOPLEVEL>" : vpi_get_str(vpiFullName, parent));
-                break;
-            }
-        }
-        if (obj == 0)
+        std::string full_name = get_full_name(it.first);
+        vpiHandle obj = vpi_handle_by_name(full_name.c_str(), 0);
+        if (obj == 0) {
+            vpi_printf("WARNING: %s cannot be referenced\n",
+                full_name.c_str());
             continue;
+        }
         vpiSetValue(obj, it.second);
     }
 
     for (auto &it : circuit.ram) {
-        vpiHandle obj = 0;
-        for (auto &name : it.first) {
-            std::string esc_name = Escape::escape_verilog_id(name);
-            vpiHandle parent = obj;
-            obj = vpi_handle_by_name(esc_name.c_str(), obj);
-            if (obj == 0) {
-                vpi_printf("WARNING: %s cannot be referenced (in scope %s)\n",
-                    esc_name.c_str(), parent == 0 ? "<TOPLEVEL>" : vpi_get_str(vpiFullName, parent));
-                break;
-            }
-        }
-        if (obj == 0)
+        std::string full_name = get_full_name(it.first);
+        vpiHandle obj = vpi_handle_by_name(full_name.c_str(), 0);
+        if (obj == 0) {
+            vpi_printf("WARNING: %s cannot be referenced\n",
+                full_name.c_str());
             continue;
+        }
         int depth = it.second.depth();
         int start_offset = it.second.start_offset();
         for (int i = 0; i < depth; i++) {
