@@ -48,26 +48,6 @@ module emulib_rammodel_backend #(
         end
     end
 
-    always @(clk, breq_valid, breq_id) begin
-        if (!rst && breq_valid) begin
-            result = $rammodel_b_req(handle, breq_id);
-            if (!result) begin
-                $display("ERROR: rammodel internal error");
-                $fatal;
-            end
-        end
-    end
-
-    always @(clk, rreq_valid, rreq_id) begin
-        if (!rst && rreq_valid) begin
-            result = $rammodel_r_req(handle, rreq_id, rresp_data, rresp_last);
-            if (!result) begin
-                $display("ERROR: rammodel internal error");
-                $fatal;
-            end
-        end
-    end
-
     always @(posedge clk) begin
         if (rst) begin
             result = $rammodel_reset(handle);
@@ -78,33 +58,43 @@ module emulib_rammodel_backend #(
         end
         else begin
             if (areq_valid) begin
-                result = $rammodel_a_req(handle, areq_id, areq_addr, areq_len, areq_size, areq_burst, areq_write);
+                result = $rammodel_a_push(handle, areq_id, areq_addr, areq_len, areq_size, areq_burst, areq_write);
                 if (!result) begin
                     $display("ERROR: rammodel internal error");
                     $fatal;
                 end
             end
             if (wreq_valid) begin
-                result = $rammodel_w_req(handle, wreq_data, wreq_strb, wreq_last);
+                result = $rammodel_w_push(handle, wreq_data, wreq_strb, wreq_last);
                 if (!result) begin
                     $display("ERROR: rammodel internal error");
                     $fatal;
                 end
             end
             if (breq_valid) begin
-                result = $rammodel_b_ack(handle);
+                result = $rammodel_b_pop(handle);
                 if (!result) begin
                     $display("ERROR: rammodel internal error");
                     $fatal;
                 end
             end
             if (rreq_valid) begin
-                result = $rammodel_r_ack(handle);
+                result = $rammodel_r_pop(handle);
                 if (!result) begin
                     $display("ERROR: rammodel internal error");
                     $fatal;
                 end
             end
+        end
+        result = $rammodel_b_front(handle, breq_id);
+        if (!result) begin
+            $display("ERROR: rammodel internal error");
+            $fatal;
+        end
+        result = $rammodel_r_front(handle, rreq_id, rresp_data, rresp_last);
+        if (!result) begin
+            $display("ERROR: rammodel internal error");
+            $fatal;
         end
     end
 

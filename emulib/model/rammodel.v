@@ -28,8 +28,8 @@ module EmuRam #(
             $display("%m: DATA_WIDTH must be 8, 16, 32 or 64");
             $finish;
         end
-        if (ID_WIDTH < 1) begin
-            $display("%m: ID_WIDTH must be greater than 0");
+        if (ID_WIDTH < 1 || ID_WIDTH > 16) begin
+            $display("%m: ID_WIDTH must be in [1,16]");
             $finish;
         end
         if (MEM_SIZE % 'h1000 != 0) begin

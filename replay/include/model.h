@@ -67,12 +67,12 @@ private:
 
 public:
 
-    bool a_req(const AChannel &payload);
-    bool w_req(const WChannel &payload);
-    bool b_req(BChannel &payload);
-    bool b_ack();
-    bool r_req(RChannel &payload);
-    bool r_ack();
+    bool a_push(const AChannel &payload);
+    bool w_push(const WChannel &payload);
+    bool b_front(uint16_t id, BChannel &payload);
+    bool b_pop();
+    bool r_front(uint16_t id, RChannel &payload);
+    bool r_pop();
 
     bool reset();
 

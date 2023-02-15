@@ -127,8 +127,9 @@ int rammodel_reset_tf(char* user_data)
         vpiSetValue(callh, 0);
         return 0;
     }
+    auto &rammodel = rammodel_list[index];
 
-    bool res = rammodel_list[index].reset();
+    bool res = rammodel.reset();
     if (!res) {
         vpi_printf("%s: reset failed\n", __func__);
         vpiSetValue(callh, 0);
@@ -139,7 +140,7 @@ int rammodel_reset_tf(char* user_data)
     return 0;
 }
 
-int rammodel_a_req_tf(char* user_data)
+int rammodel_a_push_tf(char* user_data)
 {
     static_cast<void>(user_data);
     vpiHandle callh = vpi_handle(vpiSysTfCall, 0);
@@ -157,6 +158,7 @@ int rammodel_a_req_tf(char* user_data)
         vpiSetValue(callh, 0);
         return 0;
     }
+    auto &rammodel = rammodel_list[index];
 
     RamModel::AChannel payload = {
         .addr    = vpiGetValue<uint64_t>(args[2]),
@@ -167,7 +169,7 @@ int rammodel_a_req_tf(char* user_data)
         .write   = vpiGetValue<bool>(args[6])
     };
 
-    bool res = rammodel_list[index].a_req(payload);
+    bool res = rammodel.a_push(payload);
     if (!res) {
         vpi_printf("%s: A req failed\n", __func__);
         vpiSetValue(callh, 0);
@@ -178,7 +180,7 @@ int rammodel_a_req_tf(char* user_data)
     return 0;
 }
 
-int rammodel_w_req_tf(char* user_data)
+int rammodel_w_push_tf(char* user_data)
 {
     static_cast<void>(user_data);
     vpiHandle callh = vpi_handle(vpiSysTfCall, 0);
@@ -196,6 +198,7 @@ int rammodel_w_req_tf(char* user_data)
         vpiSetValue(callh, 0);
         return 0;
     }
+    auto &rammodel = rammodel_list[index];
 
     RamModel::WChannel payload = {
         .data   = vpiGetValue<BitVector>(args[1]),
@@ -203,7 +206,7 @@ int rammodel_w_req_tf(char* user_data)
         .last   = vpiGetValue<bool>(args[3])
     };
 
-    bool res = rammodel_list[index].w_req(payload);
+    bool res = rammodel.w_push(payload);
     if (!res) {
         vpi_printf("%s: W req failed\n", __func__);
         vpiSetValue(callh, 0);
@@ -214,7 +217,7 @@ int rammodel_w_req_tf(char* user_data)
     return 0;
 }
 
-int rammodel_b_req_tf(char* user_data)
+int rammodel_b_front_tf(char* user_data)
 {
     static_cast<void>(user_data);
     vpiHandle callh = vpi_handle(vpiSysTfCall, 0);
@@ -232,11 +235,10 @@ int rammodel_b_req_tf(char* user_data)
         vpiSetValue(callh, 0);
         return 0;
     }
+    auto &rammodel = rammodel_list[index];
 
-    RamModel::BChannel payload = {
-        .id = vpiGetValue<uint16_t>(args[1])
-    };
-    bool res = rammodel_list[index].b_req(payload);
+    RamModel::BChannel payload;
+    bool res = rammodel.b_front(vpiGetValue<uint16_t>(args[1]), payload);
     if (!res) {
         vpi_printf("%s: B req failed\n", __func__);
         vpiSetValue(callh, 0);
@@ -247,7 +249,7 @@ int rammodel_b_req_tf(char* user_data)
     return 0;
 }
 
-int rammodel_b_ack_tf(char* user_data)
+int rammodel_b_pop_tf(char* user_data)
 {
     static_cast<void>(user_data);
     vpiHandle callh = vpi_handle(vpiSysTfCall, 0);
@@ -265,8 +267,9 @@ int rammodel_b_ack_tf(char* user_data)
         vpiSetValue(callh, 0);
         return 0;
     }
+    auto &rammodel = rammodel_list[index];
 
-    bool res = rammodel_list[index].b_ack();
+    bool res = rammodel.b_pop();
     if (!res) {
         vpi_printf("%s: B ack failed\n", __func__);
         vpiSetValue(callh, 0);
@@ -277,7 +280,7 @@ int rammodel_b_ack_tf(char* user_data)
     return 0;
 }
 
-int rammodel_r_req_tf(char* user_data)
+int rammodel_r_front_tf(char* user_data)
 {
     static_cast<void>(user_data);
     vpiHandle callh = vpi_handle(vpiSysTfCall, 0);
@@ -295,13 +298,10 @@ int rammodel_r_req_tf(char* user_data)
         vpiSetValue(callh, 0);
         return 0;
     }
+    auto &rammodel = rammodel_list[index];
 
-    RamModel::RChannel payload = {
-        .data   = BitVector(1),
-        .id     = vpiGetValue<uint16_t>(args[1]),
-        .last   = false
-    };
-    bool res = rammodel_list[index].r_req(payload);
+    RamModel::RChannel payload;
+    bool res = rammodel.r_front(vpiGetValue<uint16_t>(args[1]), payload);
     if (!res) {
         vpi_printf("%s: R req failed\n", __func__);
         vpiSetValue(callh, 0);
@@ -315,7 +315,7 @@ int rammodel_r_req_tf(char* user_data)
     return 0;
 }
 
-int rammodel_r_ack_tf(char* user_data)
+int rammodel_r_pop_tf(char* user_data)
 {
     static_cast<void>(user_data);
     vpiHandle callh = vpi_handle(vpiSysTfCall, 0);
@@ -333,8 +333,9 @@ int rammodel_r_ack_tf(char* user_data)
         vpiSetValue(callh, 0);
         return 0;
     }
+    auto &rammodel = rammodel_list[index];
 
-    bool res = rammodel_list[index].r_ack();
+    bool res = rammodel.r_pop();
     if (!res) {
         vpi_printf("%s: R ack failed\n", __func__);
         vpiSetValue(callh, 0);
@@ -370,8 +371,8 @@ void REMU::register_tfs(REMU::VPILoader *loader)
 
     tf_data.type        = vpiSysFunc;
     tf_data.sysfunctype = vpiIntFunc;
-    tf_data.tfname      = "$rammodel_a_req";
-    tf_data.calltf      = rammodel_a_req_tf;
+    tf_data.tfname      = "$rammodel_a_push";
+    tf_data.calltf      = rammodel_a_push_tf;
     tf_data.compiletf   = 0;
     tf_data.sizetf      = 0;
     tf_data.user_data   = user_data;
@@ -379,8 +380,8 @@ void REMU::register_tfs(REMU::VPILoader *loader)
 
     tf_data.type        = vpiSysFunc;
     tf_data.sysfunctype = vpiIntFunc;
-    tf_data.tfname      = "$rammodel_w_req";
-    tf_data.calltf      = rammodel_w_req_tf;
+    tf_data.tfname      = "$rammodel_w_push";
+    tf_data.calltf      = rammodel_w_push_tf;
     tf_data.compiletf   = 0;
     tf_data.sizetf      = 0;
     tf_data.user_data   = user_data;
@@ -388,8 +389,8 @@ void REMU::register_tfs(REMU::VPILoader *loader)
 
     tf_data.type        = vpiSysFunc;
     tf_data.sysfunctype = vpiIntFunc;
-    tf_data.tfname      = "$rammodel_b_req";
-    tf_data.calltf      = rammodel_b_req_tf;
+    tf_data.tfname      = "$rammodel_b_front";
+    tf_data.calltf      = rammodel_b_front_tf;
     tf_data.compiletf   = 0;
     tf_data.sizetf      = 0;
     tf_data.user_data   = user_data;
@@ -397,8 +398,8 @@ void REMU::register_tfs(REMU::VPILoader *loader)
 
     tf_data.type        = vpiSysFunc;
     tf_data.sysfunctype = vpiIntFunc;
-    tf_data.tfname      = "$rammodel_b_ack";
-    tf_data.calltf      = rammodel_b_ack_tf;
+    tf_data.tfname      = "$rammodel_b_pop";
+    tf_data.calltf      = rammodel_b_pop_tf;
     tf_data.compiletf   = 0;
     tf_data.sizetf      = 0;
     tf_data.user_data   = user_data;
@@ -406,8 +407,8 @@ void REMU::register_tfs(REMU::VPILoader *loader)
 
     tf_data.type        = vpiSysFunc;
     tf_data.sysfunctype = vpiIntFunc;
-    tf_data.tfname      = "$rammodel_r_req";
-    tf_data.calltf      = rammodel_r_req_tf;
+    tf_data.tfname      = "$rammodel_r_front";
+    tf_data.calltf      = rammodel_r_front_tf;
     tf_data.compiletf   = 0;
     tf_data.sizetf      = 0;
     tf_data.user_data   = user_data;
@@ -415,8 +416,8 @@ void REMU::register_tfs(REMU::VPILoader *loader)
 
     tf_data.type        = vpiSysFunc;
     tf_data.sysfunctype = vpiIntFunc;
-    tf_data.tfname      = "$rammodel_r_ack";
-    tf_data.calltf      = rammodel_r_ack_tf;
+    tf_data.tfname      = "$rammodel_r_pop";
+    tf_data.calltf      = rammodel_r_pop_tf;
     tf_data.compiletf   = 0;
     tf_data.sizetf      = 0;
     tf_data.user_data   = user_data;

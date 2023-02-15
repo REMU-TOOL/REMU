@@ -89,27 +89,33 @@ void RamModel::schedule() {
     a_queue.pop();
 }
 
-bool RamModel::a_req(const AChannel &payload) {
+bool RamModel::a_push(const AChannel &payload) {
     a_queue.push(payload);
     return true;
 }
 
-bool RamModel::w_req(const WChannel &payload) {
+bool RamModel::w_push(const WChannel &payload) {
     w_queue.push(payload);
     return true;
 }
 
-bool RamModel::b_req(BChannel &payload) {
+bool RamModel::b_front(uint16_t id, BChannel &payload) {
     schedule();
 
-    if (b_queue.empty())
-        return false;
+    // currently unused
+    (void)id;
 
-    payload = b_queue.front();
+    if (!b_queue.empty())
+        payload = b_queue.front();
+    else
+        payload = {
+            .id     = 0,
+        };
+
     return true;
 }
 
-bool RamModel::b_ack() {
+bool RamModel::b_pop() {
     if (b_queue.empty())
         return false;
 
@@ -117,17 +123,25 @@ bool RamModel::b_ack() {
     return true;
 }
 
-bool RamModel::r_req(RChannel &payload) {
+bool RamModel::r_front(uint16_t id, RChannel &payload) {
     schedule();
 
-    if (r_queue.empty())
-        return false;
+    // currently unused
+    (void)id;
 
-    payload = r_queue.front();
+    if (!r_queue.empty())
+        payload = r_queue.front();
+    else
+        payload = {
+            .data   = BitVector(data_width),
+            .id     = 0,
+            .last   = false
+        };
+
     return true;
 }
 
-bool RamModel::r_ack() {
+bool RamModel::r_pop() {
     if (r_queue.empty())
         return false;
 
