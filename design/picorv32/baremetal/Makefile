@@ -1,9 +1,9 @@
 CFLAGS = -MD -O3 -march=rv32imc -ffreestanding -nostdlib
 TOOLCHAIN_PREFIX = /opt/riscv32imc/bin/riscv32-unknown-elf-
 
-NAME = echo
+NAME = baremetal
 
-OBJS = main.o start.o
+OBJS = start.o main.o sieve.o echo.o print.o
 
 all: $(NAME).bin $(NAME).hex $(NAME).log
 

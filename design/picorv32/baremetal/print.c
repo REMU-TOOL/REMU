@@ -1,4 +1,4 @@
-void main();
+#include "print.h"
 
 #define UART_RX_FIFO    0x00
 #define UART_TX_FIFO    0x04
@@ -21,26 +21,18 @@ char getc() {
     return uart[UART_RX_FIFO/4];
 }
 
-#define N 128
+void print(const char *s) {
+    char c;
+    while ((c = *s++) != '\0')
+        putc(c);
+}
 
-char buffer[N];
-
-void main() {
-    while (1) {
-        char *wp = buffer;
-        char c;
-        while (1) {
-            c = getc();
-            *wp++ = c;
-            if (c == '\n')
-                break;
-        }
-        char *rp = buffer;
-        while (1) {
-            c = *rp++;
-            putc(c);
-            if (rp == wp)
-                break;
-        }
-    }
+void printu(unsigned int n) {
+    char stack[10], *p = stack;
+    do {
+        *p++ = '0' + n % 10;
+        n /= 10;
+    } while (n != 0);
+    while (p != stack)
+        putc(*--p);
 }
