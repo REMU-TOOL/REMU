@@ -119,6 +119,7 @@ void ClockTreeRewriter::run()
             log_id(ram_clk));
 
         for (Cell *cell : module->cells()) {
+            std::vector<SigBit> tpl_bits;
             if (hier.celltypes.cell_known(cell->type)) {
                 Module *tpl = hier.design->module(cell->type);
                 for (auto &conn : cell->connections()) {
@@ -126,12 +127,15 @@ void ClockTreeRewriter::run()
                         if (sigmap(conn.second[i]) == clk) {
                             SigBit tpl_bit(tpl->wire(conn.first), i);
                             work_queue.push(tpl_bit);
-                            if (tpl_bit.wire->name != CommonPort::PORT_MDL_CLK.id) {
-                                cell->setPort(to_ff_clk(tpl_bit), ff_clk);
-                                cell->setPort(to_ram_clk(tpl_bit), ram_clk);
-                            }
+                            tpl_bits.push_back(tpl_bit);
                         }
                     }
+                }
+            }
+            for (auto &tpl_bit : tpl_bits) {
+                if (tpl_bit.wire->name != CommonPort::PORT_MDL_CLK.id) {
+                    cell->setPort(to_ff_clk(tpl_bit), ff_clk);
+                    cell->setPort(to_ram_clk(tpl_bit), ram_clk);
                 }
             }
         }
