@@ -3,6 +3,10 @@
 
 ##### Design Compilation & Emulation #####
 
+YOSYS ?= yosys
+IVL ?= iverilog
+VVP ?= vvp
+
 DESIGN ?=
 
 BUILD_ROOT := build
@@ -55,7 +59,7 @@ replay:
 	$(error No design specified)
 else
 replay: $(REPLAY_VVP)
-	vvp $(VVP_FLAGS) $^ $(REPLAY_PLUSARGS)
+	$(VVP) $(VVP_FLAGS) $^ $(REPLAY_PLUSARGS)
 endif
 
 .PHONY: cosim
@@ -64,7 +68,7 @@ cosim:
 	$(error No design specified)
 else
 cosim: $(COSIM_VVP)
-	vvp $(COSIM_VVP_FLAGS) $^ $(COSIM_PLUSARGS)
+	$(VVP) $(COSIM_VVP_FLAGS) $^ $(COSIM_PLUSARGS)
 endif
 
 .PHONY: cosim-kill
@@ -82,14 +86,14 @@ endif
 
 $(OUTPUT_V): $(VSRCS)
 	mkdir -p $(BUILD_DIR)
-	yosys -m transform -p "read_verilog $^; emu_transform -top $(VTOP) -elab $(ELAB_V) -sysinfo $(SYSINFO_FILE); write_verilog $@"
+	$(YOSYS) -m transform -p "read_verilog $^; emu_transform -top $(VTOP) -elab $(ELAB_V) -sysinfo $(SYSINFO_FILE); write_verilog $@"
 
 $(ELAB_V): $(OUTPUT_V)
 
 $(REPLAY_VVP): $(ELAB_V) $(IVL_SRCS)
 	mkdir -p $(BUILD_DIR)
-	iverilog $(IVL_FLAGS) -o $@ $^
+	$(IVL) $(IVL_FLAGS) -o $@ $^
 
 $(COSIM_VVP) : $(OUTPUT_V) $(COSIM_VSRCS) $(COSIM_IVL_SRCS)
 	mkdir -p $(BUILD_DIR)
-	iverilog $(COSIM_IVL_FLAGS) -o $@ $^
+	$(IVL) $(COSIM_IVL_FLAGS) -o $@ $^
