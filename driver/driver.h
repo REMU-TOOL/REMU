@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <iostream>
 #include <optional>
+#include <chrono>
 
 #include "emu_info.h"
 #include "signal_info.h"
@@ -49,6 +50,43 @@ public:
     ~DriverModel() {}
 };
 
+struct EmuTimeDiff
+{
+    std::chrono::nanoseconds timediff;
+    int64_t tickdiff;
+
+    double mhz() const
+    {
+        using namespace std::literals;
+        return static_cast<double>(tickdiff) / (timediff / 1us);
+    }
+
+    EmuTimeDiff(decltype(timediff) timediff, decltype(tickdiff) tickdiff)
+        : timediff(timediff), tickdiff(tickdiff) {}
+};
+
+struct EmuTime
+{
+    std::chrono::time_point<std::chrono::steady_clock> time;
+    uint64_t tick;
+
+    EmuTimeDiff operator-(const EmuTime &other) const
+    {
+        return EmuTimeDiff(
+            time - other.time,
+            tick - other.tick);
+    }
+
+    static EmuTime now(uint64_t tick)
+    {
+        return EmuTime(std::chrono::steady_clock::now(), tick);
+    }
+
+    EmuTime() = default;
+    EmuTime(decltype(time) time, decltype(tick) tick)
+        : time(time), tick(tick) {}
+};
+
 class Driver
 {
     SysInfo sysinfo;
@@ -67,6 +105,9 @@ class Driver
     SignalTraceDB trace_db;
 
     bool stop_flag = false;
+
+    EmuTime prev_time;
+    void diff_and_print_time(uint64_t tick);
 
     void init_model();
 
@@ -97,6 +138,7 @@ public:
     void schedule_signal_set(uint64_t tick, int index, const BitVector &value);
     void schedule_stop(uint64_t tick, std::string reason);
     void schedule_save(uint64_t tick, uint64_t period);
+    void schedule_print_time(uint64_t tick, uint64_t period);
 
     void register_trigger_callback(int index, std::function<bool(Driver&)> callback)
     {

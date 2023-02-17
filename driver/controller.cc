@@ -171,12 +171,6 @@ void Controller::set_signal_value(int index, const BitVector &value)
         int width = std::min(sig.width - offset, 32);
         reg->write(sig.reg_offset + i * 4, value.getValue(offset, width));
     }
-
-#if 0
-    auto name = get_signal_name(index);
-    fprintf(stderr, "[REMU] INFO: Tick %ld: set signal \"%s\" to %s\n",
-        get_tick_count(), name.c_str(), value.bin().c_str());
-#endif
 }
 
 void Controller::init_trigger(const SysInfo &sysinfo)

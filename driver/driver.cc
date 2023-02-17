@@ -10,6 +10,18 @@
 
 using namespace REMU;
 
+void Driver::diff_and_print_time(uint64_t tick)
+{
+    using namespace std::literals;
+    auto new_time = EmuTime::now(tick);
+    auto diff = new_time - prev_time;
+    fprintf(stderr, "[REMU] INFO: Tick %lu: Elasped time %.3lf, rate %.2lf MHz\n",
+        tick,
+        (std::chrono::duration<double, std::milli>(diff.timediff) / 1s),
+        diff.mhz());
+    prev_time = new_time;
+}
+
 void Driver::init_model()
 {
     for (auto &info : sysinfo.model) {
@@ -43,7 +55,7 @@ void Driver::schedule_signal_set(uint64_t tick, int index, const BitVector &valu
 void Driver::schedule_stop(uint64_t tick, std::string reason)
 {
     scheduler.schedule(tick, [this, tick, reason]() {
-        fprintf(stderr, "[REMU] INFO: Tick %ld: Stop requested, reason: %s\n",
+        fprintf(stderr, "[REMU] INFO: Tick %lu: Stop requested, reason: %s\n",
             tick, reason.c_str());
         stop_flag = true;
     });
@@ -58,9 +70,18 @@ void Driver::schedule_save(uint64_t tick, uint64_t period)
     });
 }
 
+void Driver::schedule_print_time(uint64_t tick, uint64_t period)
+{
+    scheduler.schedule(tick, [this, tick, period]() {
+        diff_and_print_time(tick);
+        if (period != 0)
+            schedule_print_time(tick + period, period);
+    });
+}
+
 void Driver::load_checkpoint(uint64_t tick)
 {
-    fprintf(stderr, "[REMU] INFO: Tick %ld: Loading checkpoint\n", tick);
+    fprintf(stderr, "[REMU] INFO: Tick %lu: Loading checkpoint\n", tick);
 
     scheduler.clear();
 
@@ -112,7 +133,7 @@ void Driver::load_checkpoint(uint64_t tick)
 
     ctrl.do_scan(true);
 
-    fprintf(stderr, "[REMU] INFO: Tick %ld: Loaded checkpoint\n", tick);
+    fprintf(stderr, "[REMU] INFO: Tick %lu: Loaded checkpoint\n", tick);
 }
 
 void Driver::save_checkpoint()
@@ -120,11 +141,12 @@ void Driver::save_checkpoint()
     uint64_t tick = current_tick();
 
     if (ckpt_mgr.exists(tick)) {
-        fprintf(stderr, "[REMU] INFO: Tick %ld: Checkpoint already saved, skipping..\n", tick);
+        fprintf(stderr, "[REMU] INFO: Tick %lu: Checkpoint already saved, skipping..\n", tick);
         return;
     }
 
-    fprintf(stderr, "[REMU] INFO: Tick %ld: Saving checkpoint\n", tick);
+    diff_and_print_time(tick);
+    fprintf(stderr, "[REMU] INFO: Tick %lu: Saving checkpoint\n", tick);
 
     auto ckpt = ckpt_mgr.open(tick);
 
@@ -144,7 +166,8 @@ void Driver::save_checkpoint()
 
     ckpt.writeTrace(trace_db);
 
-    fprintf(stderr, "[REMU] INFO: Tick %ld: Saved checkpoint\n", tick);
+    fprintf(stderr, "[REMU] INFO: Tick %lu: Saved checkpoint\n", tick);
+    diff_and_print_time(tick);
 }
 
 void Driver::process_design_inits()
@@ -206,7 +229,7 @@ void Driver::handle_triggers()
             continue;
 
         auto &trigger = ctrl.triggers().get(index);
-        fprintf(stderr, "[REMU] INFO: Tick %ld: trigger \"%s\" is activated\n",
+        fprintf(stderr, "[REMU] INFO: Tick %lu: trigger \"%s\" is activated\n",
             tick, trigger.name.c_str());
 
         schedule_stop(tick, "trigger activated");
@@ -242,7 +265,9 @@ void Driver::handle_pause()
 
 void Driver::main_loop()
 {
-    fprintf(stderr, "[REMU] INFO: Tick %ld: Start execution\n", current_tick());
+    fprintf(stderr, "[REMU] INFO: Tick %lu: Start execution\n", current_tick());
+    prev_time = EmuTime::now(current_tick());
+    schedule_print_time(100000000, 100000000);
 
     stop_flag = false;
     while (true) {
@@ -262,7 +287,7 @@ void Driver::main_loop()
             Controller::sleep();
     }
 
-    fprintf(stderr, "[REMU] INFO: Tick %ld: Stop execution\n", current_tick());
+    fprintf(stderr, "[REMU] INFO: Tick %lu: Stop execution\n", current_tick());
 }
 
 int Driver::main()
