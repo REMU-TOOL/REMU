@@ -2,7 +2,7 @@
 
 using namespace REMU;
 
-inline constexpr uint64_t bufsize = 4096;
+inline constexpr uint64_t bufsize = 4UL*1096*1096;
 
 uint64_t UserMem::copy_from_stream(uint64_t offset, uint64_t len, std::istream &stream)
 {
