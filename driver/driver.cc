@@ -15,9 +15,9 @@ void Driver::diff_and_print_time(uint64_t tick)
     using namespace std::literals;
     auto new_time = EmuTime::now(tick);
     auto diff = new_time - prev_time;
-    fprintf(stderr, "[REMU] INFO: Tick %lu: Elasped time %.3lf, rate %.2lf MHz\n",
+    fprintf(stderr, "[REMU] INFO: Tick %lu: Elasped time %.6lf, rate %.2lf MHz\n",
         tick,
-        (std::chrono::duration<double, std::milli>(diff.timediff) / 1s),
+        (std::chrono::duration<double, std::micro>(diff.timediff) / 1s),
         diff.mhz());
     prev_time = new_time;
 }
