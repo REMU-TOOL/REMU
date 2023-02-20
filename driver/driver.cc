@@ -145,22 +145,34 @@ void Driver::save_checkpoint()
         return;
     }
 
-    diff_and_print_time(tick);
     fprintf(stderr, "[REMU] INFO: Tick %lu: Saving checkpoint\n", tick);
+    diff_and_print_time(tick);
 
     auto ckpt = ckpt_mgr.open(tick);
 
     // Save design state
 
+    fprintf(stderr, "[REMU] INFO: Before design scan\n", tick);
+    diff_and_print_time(tick);
+
     ctrl.do_scan(false);
 
+    fprintf(stderr, "[REMU] INFO: After design scan\n", tick);
+    diff_and_print_time(tick);
+
     // Save memory regions
+
+    fprintf(stderr, "[REMU] INFO: Before memory save\n", tick);
+    diff_and_print_time(tick);
 
     for (auto &axi : ctrl.axis()) {
         auto stream = ckpt.writeMem(axi.name);
         // FIXME: wrap copy_to_stream in Controller
         ctrl.memory()->copy_to_stream(axi.assigned_offset, axi.assigned_size, stream);
     }
+
+    fprintf(stderr, "[REMU] INFO: After memory save\n", tick);
+    diff_and_print_time(tick);
 
     // Save trace
 
