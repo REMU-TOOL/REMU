@@ -67,6 +67,12 @@ struct ScanchainWorker
         std::vector<SysInfo::ScanRAMInfo> &info_list
     );
 
+    void parse_dissolved_rams
+    (
+        Yosys::Module *module,
+        Yosys::dict<std::vector<std::string>, SysInfo::RAMInfo> &ram_infos
+    );
+
     void instrument_module(Yosys::Module *module);
     void tieoff_ram_last(Yosys::Module *module);
     void run();

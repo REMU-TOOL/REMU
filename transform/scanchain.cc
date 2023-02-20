@@ -462,12 +462,34 @@ void ScanchainWorker::instrument_module_ram
             .start_offset = mem.start_offset,
             .init_zero = init_zero,
             .init_data = init_zero ? "" : init_data.as_string(),
-            .dissolved = false, // TODO
+            .dissolved = false,
         };
     }
 
     module->connect({ram_di_list, ram_do}, {ram_di, ram_do_list});
     module->connect({ram_lo, ram_li_list}, {ram_lo_list, ram_li});
+}
+
+void ScanchainWorker::parse_dissolved_rams
+(
+    Module *module,
+    dict<std::vector<std::string>, SysInfo::RAMInfo> &ram_infos
+)
+{
+    auto names = module->get_strpool_attribute("\\dissolved_mems");
+    for (auto &name : names) {
+        auto info = module->get_intvec_attribute("\\dissolved_mem_" + name);
+        if (info.size() == 3) {
+            ram_infos[{name}] = {
+                .width = info.at(0),
+                .depth = info.at(1),
+                .start_offset = info.at(2),
+                .init_zero = true, // RAMs with init data are never dissolved
+                .init_data = "",
+                .dissolved = true,
+            };
+        }
+    }
 }
 
 template<typename T>
@@ -560,6 +582,10 @@ void ScanchainWorker::instrument_module(Module *module)
     sig_ram_lo = module->addWire(NEW_ID);
     instrument_module_ram(module, sig_ram_di, sig_ram_do, sig_ram_li, sig_ram_lo,
         all_ram_infos[module->name], ram_lists[module->name]);
+
+    // Parse dissolved mem info
+
+    parse_dissolved_rams(module, all_ram_infos[module->name]);
 
     // Append FFs & RAMs in submodules
 

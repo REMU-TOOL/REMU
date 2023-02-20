@@ -2,6 +2,8 @@
 #include "kernel/ff.h"
 #include "kernel/mem.h"
 
+#include "utils.h"
+
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
@@ -22,14 +24,27 @@ struct EmuOptShallowMemoryPass : public Pass {
         RTLIL::Selection selection(false);
 
         for (auto mod : design->modules()) {
+            pool<std::string> mem_names;
             for (auto &mem : Mem::get_all_memories(mod)) {
-                if (mem.size <= threshold) {
-                    if (mem.packed)
-                        selection.select(mod, mem.cell);
-                    else
-                        selection.select(mod, mem.mem);
-                }
+                if (mem.size > threshold)
+                    continue;
+
+                // ignore mems with inits
+                if (mem.inits.size() > 0)
+                    continue;
+
+                // save mem info
+                auto name = id2str(mem.memid);
+                mem_names.insert(name);
+                mod->set_intvec_attribute("\\dissolved_mem_" + name, {mem.width, mem.size, mem.start_offset});
+
+                if (mem.packed)
+                    selection.select(mod, mem.cell);
+                else
+                    selection.select(mod, mem.mem);
             }
+            // save mem list
+            mod->set_strpool_attribute("\\dissolved_mems", mem_names);
         }
 
         log_push();

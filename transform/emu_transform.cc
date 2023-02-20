@@ -64,7 +64,7 @@ struct EmuTransformPass : public Pass {
 
         Pass::call(design, "memory_collect");
         Pass::call(design, "memory_share -nosat -nowiden");
-        //Pass::call(design, "emu_opt_shallow_memory");
+        Pass::call(design, "emu_opt_shallow_memory");
         Pass::call(design, "opt -full */t:$mem* %m");
 
         Pass::call(design, "emu_check");
