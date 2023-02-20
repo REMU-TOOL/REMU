@@ -339,6 +339,7 @@ void SystemTransform::run()
     make_internal(ram_do);
 
     Wire *tick = top->wire("\\EMU_TICK"); // created in FAMETransform
+    make_internal(tick);
 
     // Create AXI lite adapter & interfaces
 

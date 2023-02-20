@@ -128,6 +128,7 @@ void FAMETransform::run()
             // For output signals, delay 1 target cycle to capture
             // the value before the clock edge when a trigger is active
             Wire *sig_wire = top->wire("\\" + info.port_name);
+            make_internal(sig_wire);
             info.port_name += "_REG";
             Wire *reg_wire = top->addWire("\\" + info.port_name, info.width);
             reg_wire->port_output = true;
