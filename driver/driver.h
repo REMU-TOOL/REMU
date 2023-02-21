@@ -6,13 +6,13 @@
 #include <unordered_map>
 #include <iostream>
 #include <optional>
-#include <chrono>
 
 #include "emu_info.h"
 #include "signal_info.h"
 #include "checkpoint.h"
 #include "controller.h"
 #include "scheduler.h"
+#include "perfmon.h"
 
 namespace REMU {
 
@@ -32,6 +32,10 @@ struct DriverParameters
     std::optional<uint64_t> to;
     bool save = false;
 
+    bool perf = false;
+    std::string perf_file;
+    uint64_t perf_interval = 0;
+
     // Record mode options
 
     std::map<std::string, std::string> init_axi_mem;
@@ -48,43 +52,6 @@ class DriverModel
 public:
 
     ~DriverModel() {}
-};
-
-struct EmuTimeDiff
-{
-    std::chrono::nanoseconds timediff;
-    int64_t tickdiff;
-
-    double mhz() const
-    {
-        using namespace std::literals;
-        return static_cast<double>(tickdiff) / (timediff / 1us);
-    }
-
-    EmuTimeDiff(decltype(timediff) timediff, decltype(tickdiff) tickdiff)
-        : timediff(timediff), tickdiff(tickdiff) {}
-};
-
-struct EmuTime
-{
-    std::chrono::time_point<std::chrono::steady_clock> time;
-    uint64_t tick;
-
-    EmuTimeDiff operator-(const EmuTime &other) const
-    {
-        return EmuTimeDiff(
-            time - other.time,
-            tick - other.tick);
-    }
-
-    static EmuTime now(uint64_t tick)
-    {
-        return EmuTime(std::chrono::steady_clock::now(), tick);
-    }
-
-    EmuTime() = default;
-    EmuTime(decltype(time) time, decltype(tick) tick)
-        : time(time), tick(tick) {}
 };
 
 class Driver
@@ -104,10 +71,9 @@ class Driver
     CheckpointManager ckpt_mgr;
     SignalTraceDB trace_db;
 
-    bool stop_flag = false;
+    std::unique_ptr<PerfMon> perfmon;
 
-    EmuTime prev_time;
-    void diff_and_print_time(uint64_t tick);
+    bool stop_flag = false;
 
     void init_model();
 

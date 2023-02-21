@@ -18,6 +18,12 @@ void show_help(const char * argv_0)
         "        Save a checkpoint when execution is stopped.\n"
         "    --to <tick>\n"
         "        Stop execution at the specified tick.\n"
+        "    --perf\n"
+        "        Enable performance monitor.\n"
+        "    --perf-file <file>\n"
+        "        Specify performance monitor log file (STDERR by default).\n"
+        "    --perf-interval <tick>\n"
+        "        Specify performance monitor interval, 0 to disable (0 by default).\n"
         "\n"
         "Record mode options:\n"
         "    --init-axi-mem <axi_name> <bin_file>\n"
@@ -58,6 +64,26 @@ int main(int argc, const char *argv[])
                 return 1;
             }
             options.to = std::stoul(argv[++i]);
+            continue;
+        }
+        if (!strcmp(argv[i], "--perf")) {
+            options.perf = true;
+            continue;
+        }
+        if (!strcmp(argv[i], "--perf-file")) {
+            if (argc - i <= 1) {
+                fprintf(stderr, "missing arguments for --perf-file\n");
+                return 1;
+            }
+            options.perf_file = argv[++i];
+            continue;
+        }
+        if (!strcmp(argv[i], "--perf-interval")) {
+            if (argc - i <= 1) {
+                fprintf(stderr, "missing arguments for --perf-interval\n");
+                return 1;
+            }
+            options.perf_interval = std::stoul(argv[++i]);
             continue;
         }
         if (!strcmp(argv[i], "--init-axi-mem")) {

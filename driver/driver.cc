@@ -10,18 +10,6 @@
 
 using namespace REMU;
 
-void Driver::diff_and_print_time(uint64_t tick)
-{
-    using namespace std::literals;
-    auto new_time = EmuTime::now(tick);
-    auto diff = new_time - prev_time;
-    fprintf(stderr, "[REMU] INFO: Tick %lu: Elasped time %.6lf, rate %.2lf MHz\n",
-        tick,
-        (std::chrono::duration<double, std::micro>(diff.timediff) / 1s),
-        diff.mhz());
-    prev_time = new_time;
-}
-
 void Driver::init_model()
 {
     for (auto &info : sysinfo.model) {
@@ -73,7 +61,8 @@ void Driver::schedule_save(uint64_t tick, uint64_t period)
 void Driver::schedule_print_time(uint64_t tick, uint64_t period)
 {
     scheduler.schedule(tick, [this, tick, period]() {
-        diff_and_print_time(tick);
+        if (perfmon)
+            perfmon->log("interval", tick);
         if (period != 0)
             schedule_print_time(tick + period, period);
     });
@@ -82,6 +71,8 @@ void Driver::schedule_print_time(uint64_t tick, uint64_t period)
 void Driver::load_checkpoint(uint64_t tick)
 {
     fprintf(stderr, "[REMU] INFO: Tick %lu: Loading checkpoint\n", tick);
+    if (perfmon)
+        perfmon->log("checkpoint load begin", tick);
 
     scheduler.clear();
 
@@ -123,17 +114,31 @@ void Driver::load_checkpoint(uint64_t tick)
 
     // Load memory regions
 
+    if (perfmon)
+        perfmon->log("load memory begin", tick);
+
     for (auto &axi : ctrl.axis()) {
         auto stream = ckpt.readMem(axi.name);
         // FIXME: wrap copy_from_stream in Controller
         ctrl.memory()->copy_from_stream(axi.assigned_offset, axi.assigned_size, stream);
     }
 
+    if (perfmon)
+        perfmon->log("load memory end", tick);
+
     // Load design state
+
+    if (perfmon)
+        perfmon->log("scan begin", tick);
 
     ctrl.do_scan(true);
 
+    if (perfmon)
+        perfmon->log("scan end", tick);
+
     fprintf(stderr, "[REMU] INFO: Tick %lu: Loaded checkpoint\n", tick);
+    if (perfmon)
+        perfmon->log("checkpoint load end", tick);
 }
 
 void Driver::save_checkpoint()
@@ -146,24 +151,25 @@ void Driver::save_checkpoint()
     }
 
     fprintf(stderr, "[REMU] INFO: Tick %lu: Saving checkpoint\n", tick);
-    diff_and_print_time(tick);
+    if (perfmon)
+        perfmon->log("checkpoint save begin", tick);
 
     auto ckpt = ckpt_mgr.open(tick);
 
     // Save design state
 
-    fprintf(stderr, "[REMU] INFO: Tick %lu: Before design scan\n", tick);
-    diff_and_print_time(tick);
+    if (perfmon)
+        perfmon->log("scan begin", tick);
 
     ctrl.do_scan(false);
 
-    fprintf(stderr, "[REMU] INFO: Tick %lu: After design scan\n", tick);
-    diff_and_print_time(tick);
+    if (perfmon)
+        perfmon->log("scan end", tick);
 
     // Save memory regions
 
-    fprintf(stderr, "[REMU] INFO: Tick %lu: Before memory save\n", tick);
-    diff_and_print_time(tick);
+    if (perfmon)
+        perfmon->log("save memory begin", tick);
 
     for (auto &axi : ctrl.axis()) {
         auto stream = ckpt.writeMem(axi.name);
@@ -171,15 +177,16 @@ void Driver::save_checkpoint()
         ctrl.memory()->copy_to_stream(axi.assigned_offset, axi.assigned_size, stream);
     }
 
-    fprintf(stderr, "[REMU] INFO: Tick %lu: After memory save\n", tick);
-    diff_and_print_time(tick);
+    if (perfmon)
+        perfmon->log("save memory end", tick);
 
     // Save trace
 
     ckpt.writeTrace(trace_db);
 
     fprintf(stderr, "[REMU] INFO: Tick %lu: Saved checkpoint\n", tick);
-    diff_and_print_time(tick);
+    if (perfmon)
+        perfmon->log("checkpoint save end", tick);
 }
 
 void Driver::process_design_inits()
@@ -278,8 +285,9 @@ void Driver::handle_pause()
 void Driver::main_loop()
 {
     fprintf(stderr, "[REMU] INFO: Tick %lu: Start execution\n", current_tick());
-    prev_time = EmuTime::now(current_tick());
-    schedule_print_time(100000000, 100000000);
+
+    if (options.perf_interval)
+        schedule_print_time(0, options.perf_interval);
 
     stop_flag = false;
     while (true) {
@@ -304,6 +312,9 @@ void Driver::main_loop()
 
 int Driver::main()
 {
+    if (options.perf)
+        perfmon = std::make_unique<PerfMon>(options.perf_file, 0);
+
     if (is_replay_mode()) {
         uint64_t ckpt_tick = ckpt_mgr.findNearest(options.replay.value());
         load_checkpoint(ckpt_tick);
