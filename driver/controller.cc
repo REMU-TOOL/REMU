@@ -17,7 +17,7 @@ constexpr uint32_t SLEEP_PERIOD = 10000;
 
 void Controller::sleep()
 {
-    usleep(SLEEP_PERIOD);
+    //usleep(SLEEP_PERIOD);
 }
 
 void Controller::init_uma(const PlatInfo &platinfo)

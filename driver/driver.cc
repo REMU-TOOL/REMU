@@ -152,17 +152,17 @@ void Driver::save_checkpoint()
 
     // Save design state
 
-    fprintf(stderr, "[REMU] INFO: Before design scan\n", tick);
+    fprintf(stderr, "[REMU] INFO: Tick %lu: Before design scan\n", tick);
     diff_and_print_time(tick);
 
     ctrl.do_scan(false);
 
-    fprintf(stderr, "[REMU] INFO: After design scan\n", tick);
+    fprintf(stderr, "[REMU] INFO: Tick %lu: After design scan\n", tick);
     diff_and_print_time(tick);
 
     // Save memory regions
 
-    fprintf(stderr, "[REMU] INFO: Before memory save\n", tick);
+    fprintf(stderr, "[REMU] INFO: Tick %lu: Before memory save\n", tick);
     diff_and_print_time(tick);
 
     for (auto &axi : ctrl.axis()) {
@@ -171,7 +171,7 @@ void Driver::save_checkpoint()
         ctrl.memory()->copy_to_stream(axi.assigned_offset, axi.assigned_size, stream);
     }
 
-    fprintf(stderr, "[REMU] INFO: After memory save\n", tick);
+    fprintf(stderr, "[REMU] INFO: Tick %lu: After memory save\n", tick);
     diff_and_print_time(tick);
 
     // Save trace
