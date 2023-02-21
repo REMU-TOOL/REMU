@@ -48,6 +48,10 @@ struct PerfMon
 {
     FILE *log_file;
     EmuTime prev_time;
+    uint64_t triggered_count;
+    uint64_t prev_triggered_count;
+
+    void triggered() { triggered_count++; }
 
     void log(const std::string &reason, uint64_t tick);
 

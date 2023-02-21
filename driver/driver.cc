@@ -242,6 +242,9 @@ void Driver::handle_triggers()
     uint64_t tick = current_tick();
 
     for (int index : ctrl.get_active_triggers(true)) {
+        if (perfmon)
+            perfmon->triggered();
+
         // If the trigger is handled by a callback, ignore it
         if (trigger_callbacks.count(index) > 0 &&
             trigger_callbacks.at(index)(*this))
