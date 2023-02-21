@@ -53,10 +53,7 @@ struct EmuTransformPass : public Pass {
 
         Pass::call(design, load_model_cmd);
 
-        if (top.empty())
-            Pass::call(design, "hierarchy -auto-top");
-        else
-            Pass::call(design, "hierarchy -top " + top);
+        Pass::call(design, {"hierarchy", "-top", top, "-simcheck"});
 
         Pass::call(design, "emu_preserve_top");
         Pass::call(design, "proc");
@@ -129,6 +126,9 @@ struct EmuTransformPass : public Pass {
             break;
         }
         extra_args(args, argidx, design);
+
+        if (top.empty())
+            log_error("No top module specified\n");
 
         integrate(design);
 

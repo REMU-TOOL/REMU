@@ -265,6 +265,8 @@ void ClockTreeRewriter::run()
     // check clock signal use
 
     ModWalkerCache mwc;
+    CellTypes ct;
+    ct.setup();
 
     for (auto clk : primary_clock_bits) {
         Module *module = clk.wire->module;
@@ -294,10 +296,12 @@ void ClockTreeRewriter::run()
                         log_id(portbit.port));
             }
             else if (!hier.celltypes.cell_known(cell->type)) {
-                log_error("Clock signal %s used in combinational logic (%s, %s)\n",
-                    pretty_name(bit).c_str(),
-                    log_id(cell),
-                    log_id(portbit.port));
+                if (ct.cell_known(cell->type)) {
+                    log_error("Clock signal %s used in combinational logic (%s, %s)\n",
+                        pretty_name(bit).c_str(),
+                        log_id(cell),
+                        log_id(portbit.port));
+                }
             }
         }
     }
