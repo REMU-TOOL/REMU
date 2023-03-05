@@ -132,7 +132,7 @@ int main(int argc, const char *argv[])
     }
 
     SysInfo sysinfo;
-    PlatInfo platinfo;
+    YAML::Node platinfo;
 
     {
         std::ifstream f(sysinfo_file);
@@ -140,7 +140,7 @@ int main(int argc, const char *argv[])
             fprintf(stderr, "Can't open file `%s': %s\n", sysinfo_file.c_str(), strerror(errno));
             return 1;
         }
-        f >> sysinfo;
+        sysinfo = SysInfo::fromJson(f);
     }
 
     {
@@ -149,7 +149,7 @@ int main(int argc, const char *argv[])
             fprintf(stderr, "Can't open file `%s': %s\n", platinfo_file.c_str(), strerror(errno));
             return 1;
         }
-        f >> platinfo;
+        platinfo = YAML::Load(f);
     }
 
     Driver driver(sysinfo, platinfo, options);

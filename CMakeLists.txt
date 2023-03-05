@@ -14,6 +14,10 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(JUST_INSTALL_CEREAL ON)
 add_subdirectory(cereal)
 
+# Add yaml-cpp project
+
+add_subdirectory(yaml-cpp)
+
 # Add yosys project
 
 set(YOSYS_TMP_DESTDIR   ${CMAKE_BINARY_DIR}/yosys_destdir)

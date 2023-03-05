@@ -7,6 +7,8 @@
 #include <iostream>
 #include <optional>
 
+#include "yaml-cpp/yaml.h"
+
 #include "emu_info.h"
 #include "signal_info.h"
 #include "checkpoint.h"
@@ -97,7 +99,7 @@ class Controller
     ObjectManager<TriggerObject> om_trigger;
     ObjectManager<AXIObject> om_axi;
 
-    void init_uma(const PlatInfo &platinfo);
+    void init_uma(const YAML::Node &platinfo);
     void init_signal(const SysInfo &sysinfo);
     void init_trigger(const SysInfo &sysinfo);
     void init_axi(const SysInfo &sysinfo);
@@ -105,8 +107,6 @@ class Controller
 public:
 
     std::unique_ptr<UserMem> const& memory() const { return mem; }
-
-    static void sleep();
 
     bool is_run_mode();
     void enter_run_mode();
@@ -134,7 +134,7 @@ public:
     void set_trigger_enable(int index, bool enable);
     std::vector<int> get_active_triggers(bool enabled);
 
-    Controller(const SysInfo &sysinfo, const PlatInfo &platinfo)
+    Controller(const SysInfo &sysinfo, const YAML::Node &platinfo)
     {
         init_uma(platinfo);
         init_signal(sysinfo);

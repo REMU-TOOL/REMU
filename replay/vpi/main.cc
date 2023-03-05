@@ -54,7 +54,7 @@ void replay_startup_routine() {
         fprintf(stderr, "Can't open file `%s': %s\n", sysinfo_file.c_str(), strerror(errno));
         return;
     }
-    f >> sysinfo;
+    sysinfo = SysInfo::fromJson(f);
 
     static VPILoader loader(sysinfo, checkpoint_path, tick.value());
 

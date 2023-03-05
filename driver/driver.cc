@@ -305,9 +305,6 @@ void Driver::main_loop()
         bool update = false;
         for (auto callback : parallel_callbacks)
             update |= callback(*this);
-
-        if (!update)
-            Controller::sleep();
     }
 
     fprintf(stderr, "[REMU] INFO: Tick %lu: Stop execution\n", current_tick());

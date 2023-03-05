@@ -121,46 +121,18 @@ void serialize(Archive &archive, SysInfo &node)
     );
 }
 
-template<class Archive>
-void serialize(Archive &archive, PlatInfo &node)
-{
-    archive(
-        NVP(mem_type),
-        NVP(mem_base),
-        NVP(mem_size),
-        NVP(mem_dmabase),
-        NVP(reg_type),
-        NVP(reg_base),
-        NVP(reg_size)
-    );
-}
-
 } // namespace cereal
 
-std::ostream& REMU::operator<<(std::ostream &stream, const SysInfo &info)
+void SysInfo::toJson(std::ostream &stream)
 {
     cereal::JSONOutputArchive archive(stream);
-    archive(cereal::make_nvp("sysinfo", info));
-    return stream;
+    cereal::serialize(archive, *this);
 }
 
-std::istream& REMU::operator>>(std::istream &stream, SysInfo &info)
+SysInfo SysInfo::fromJson(std::istream &stream)
 {
+    SysInfo info;
     cereal::JSONInputArchive archive(stream);
-    archive(cereal::make_nvp("sysinfo", info));
-    return stream;
-}
-
-std::ostream& REMU::operator<<(std::ostream &stream, const PlatInfo &info)
-{
-    cereal::JSONOutputArchive archive(stream);
-    archive(cereal::make_nvp("platinfo", info));
-    return stream;
-}
-
-std::istream& REMU::operator>>(std::istream &stream, PlatInfo &info)
-{
-    cereal::JSONInputArchive archive(stream);
-    archive(cereal::make_nvp("platinfo", info));
-    return stream;
+    cereal::serialize(archive, info);
+    return info;
 }

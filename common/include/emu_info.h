@@ -87,24 +87,10 @@ struct SysInfo
     std::vector<ModelInfo> model;
     std::vector<ScanFFInfo> scan_ff;
     std::vector<ScanRAMInfo> scan_ram;
+
+    void toJson(std::ostream &stream);
+    static SysInfo fromJson(std::istream &stream);
 };
-
-std::ostream& operator<<(std::ostream &stream, const SysInfo &info);
-std::istream& operator>>(std::istream &stream, SysInfo &info);
-
-struct PlatInfo
-{
-    std::string mem_type;
-    uint64_t mem_base;
-    uint64_t mem_size;
-    uint64_t mem_dmabase;
-    std::string reg_type;
-    uint64_t reg_base;
-    uint64_t reg_size;
-};
-
-std::ostream& operator<<(std::ostream &stream, const PlatInfo &info);
-std::istream& operator>>(std::istream &stream, PlatInfo &info);
 
 } // namespace REMU
 

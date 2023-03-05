@@ -57,7 +57,6 @@ public:
 class Driver
 {
     SysInfo sysinfo;
-    PlatInfo platinfo;
     DriverParameters options;
 
     Controller ctrl;
@@ -120,9 +119,9 @@ public:
 
     Driver(
         const SysInfo &sysinfo,
-        const PlatInfo &platinfo,
+        const YAML::Node &platinfo,
         const DriverParameters &options
-    ) : sysinfo(sysinfo), platinfo(platinfo), options(options), ckpt_mgr(options.ckpt_path), ctrl(sysinfo, platinfo)
+    ) : sysinfo(sysinfo), options(options), ckpt_mgr(options.ckpt_path), ctrl(sysinfo, platinfo)
     {
         init_model();
     }

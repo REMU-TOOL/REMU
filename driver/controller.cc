@@ -1,10 +1,10 @@
 #include "controller.h"
 
-#include <unistd.h>
 #include <cstdio>
 
 #include <stdexcept>
 #include <fstream>
+#include <functional>
 
 #include "emu_utils.h"
 #include "uma_cosim.h"
@@ -13,32 +13,72 @@
 
 using namespace REMU;
 
-constexpr uint32_t SLEEP_PERIOD = 10000;
+namespace {
 
-void Controller::sleep()
+#define FROM_NODE(t, v) auto v = node[#v].as<t>();
+
+const std::unordered_map<std::string,
+    std::function<std::unique_ptr<UserMem>(const YAML::Node &)>> mem_type_funcs = {
+    {"cosim",   [](const YAML::Node &node) {
+        FROM_NODE(int,      cid)
+        FROM_NODE(uint64_t, size)
+        return std::make_unique<CosimUserMem>(cid, size);
+    }},
+    {"devmem",  [](const YAML::Node &node) {
+        FROM_NODE(uint64_t, base)
+        FROM_NODE(uint64_t, size)
+        FROM_NODE(uint64_t, dma_base)
+        return std::make_unique<DMUserMem>(base, size, dma_base);
+    }},
+};
+
+const std::unordered_map<std::string,
+    std::function<std::unique_ptr<UserIO>(const YAML::Node &)>> reg_type_funcs = {
+    {"cosim",   [](const YAML::Node &node) {
+        FROM_NODE(int,      cid)
+        return std::make_unique<CosimUserIO>(cid);
+    }},
+    {"devmem",  [](const YAML::Node &node) {
+        FROM_NODE(uint64_t, base)
+        FROM_NODE(uint64_t, size)
+        return std::make_unique<DMUserIO>(base, size);
+    }},
+};
+
+std::unique_ptr<UserMem> create_uma_mem(const YAML::Node &node)
 {
-    //usleep(SLEEP_PERIOD);
+    FROM_NODE(std::string, type)
+
+    auto it = mem_type_funcs.find(type);
+    if (it == mem_type_funcs.end()) {
+        fprintf(stderr, "PlatInfo error: mem type %s is not supported\n", type.c_str());
+        throw std::runtime_error("bad platinfo");
+    }
+
+    return it->second(node);
 }
 
-void Controller::init_uma(const PlatInfo &platinfo)
+std::unique_ptr<UserIO> create_uma_reg(const YAML::Node &node)
 {
-    if (platinfo.mem_type == "cosim")
-        mem = std::unique_ptr<UserMem>(new CosimUserMem(platinfo.mem_base, platinfo.mem_size));
-    else if (platinfo.mem_type == "devmem")
-        mem = std::unique_ptr<UserMem>(new DMUserMem(platinfo.mem_base, platinfo.mem_size, platinfo.mem_dmabase));
-    else {
-        fprintf(stderr, "PlatInfo error: mem_type %s is not supported\n", platinfo.mem_type.c_str());
+    FROM_NODE(std::string, type)
+
+    auto it = reg_type_funcs.find(type);
+    if (it == reg_type_funcs.end()) {
+        fprintf(stderr, "PlatInfo error: reg type %s is not supported\n", type.c_str());
         throw std::runtime_error("bad platinfo");
     }
 
-    if (platinfo.reg_type == "cosim")
-        reg = std::unique_ptr<UserIO>(new CosimUserIO(platinfo.reg_base));
-    else if (platinfo.reg_type == "devmem")
-        reg = std::unique_ptr<UserIO>(new DMUserIO(platinfo.reg_base, platinfo.reg_size));
-    else {
-        fprintf(stderr, "PlatInfo error: reg_type %s is not supported\n", platinfo.reg_type.c_str());
-        throw std::runtime_error("bad platinfo");
-    }
+    return it->second(node);
+}
+
+#undef FROM_NODE
+
+} // namespace
+
+void Controller::init_uma(const YAML::Node &platinfo)
+{
+    mem = create_uma_mem(platinfo["mem"]);
+    reg = create_uma_reg(platinfo["reg"]);
 }
 
 bool Controller::is_run_mode()
@@ -58,9 +98,10 @@ void Controller::exit_run_mode()
     uint32_t mode_ctrl = reg->read(RegDef::MODE_CTRL);
     mode_ctrl &= ~RegDef::MODE_CTRL_RUN_MODE;
     reg->write(RegDef::MODE_CTRL, mode_ctrl);
-    while (reg->read(RegDef::MODE_CTRL) & RegDef::MODE_CTRL_PAUSE_BUSY)
-       sleep();
+    while (reg->read(RegDef::MODE_CTRL) & RegDef::MODE_CTRL_PAUSE_BUSY);
     // FIXME: 1 host cycle must be waited to correctly save RAM internal registers
+    // Although it should take several cycles to complete reg->read transaction,
+    // there is currently no mechanism to guarantee this.
 }
 
 bool Controller::is_scan_mode()
@@ -70,8 +111,7 @@ bool Controller::is_scan_mode()
 
 void Controller::enter_scan_mode()
 {
-    while (reg->read(RegDef::MODE_CTRL) & RegDef::MODE_CTRL_MODEL_BUSY)
-        sleep();
+    while (reg->read(RegDef::MODE_CTRL) & RegDef::MODE_CTRL_MODEL_BUSY);
     uint32_t mode_ctrl = reg->read(RegDef::MODE_CTRL);
     mode_ctrl |= RegDef::MODE_CTRL_SCAN_MODE;
     reg->write(RegDef::MODE_CTRL, mode_ctrl);
@@ -111,8 +151,7 @@ void Controller::do_scan(bool scan_in)
         throw std::runtime_error("do_scan called in run mode or scan mode");
 
     // Wait for all models to be in idle state
-    while (reg->read(RegDef::MODE_CTRL) & RegDef::MODE_CTRL_MODEL_BUSY)
-        sleep();
+    while (reg->read(RegDef::MODE_CTRL) & RegDef::MODE_CTRL_MODEL_BUSY);
 
     enter_scan_mode();
 
@@ -121,8 +160,7 @@ void Controller::do_scan(bool scan_in)
         scan_ctrl |= RegDef::SCAN_CTRL_DIRECTION;
     reg->write(RegDef::SCAN_CTRL, scan_ctrl);
 
-    while (reg->read(RegDef::SCAN_CTRL) & RegDef::SCAN_CTRL_RUNNING)
-        sleep();
+    while (reg->read(RegDef::SCAN_CTRL) & RegDef::SCAN_CTRL_RUNNING);
 
     exit_scan_mode();
 }

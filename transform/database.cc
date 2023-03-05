@@ -64,7 +64,7 @@ void EmulationDatabase::write_sysinfo(std::string file_name) {
     sysinfo.scan_ff = scan_ff;
     sysinfo.scan_ram = scan_ram;
 
-    f << sysinfo;
+    sysinfo.toJson(f);
     f.close();
 }
 

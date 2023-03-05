@@ -52,7 +52,7 @@ int main(int argc, const char *argv[]) {
         fprintf(stderr, "Can't open file `%s': %s\n", sysinfo_file.c_str(), strerror(errno));
         return 1;
     }
-    f >> sysinfo;
+    sysinfo = SysInfo::fromJson(f);
 
     Checkpoint ckpt(ckpt_path);
 
