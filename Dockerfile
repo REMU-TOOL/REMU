@@ -26,24 +26,24 @@ RUN apt-get update \
  && update-ca-certificates \
  && rm -rf /var/lib/apt/lists
 
-# Install iverilog 11.0
+# Install iverilog
 
 RUN cd /tmp && \
-    wget -O iverilog.tar.gz https://github.com/steveicarus/iverilog/archive/refs/tags/v11_0.tar.gz && \
-    mkdir -p iverilog && \
-    tar xzf iverilog.tar.gz -C iverilog --strip-components 1 && \
+    git clone https://gitlab.agileserve.org.cn:8001/remu/iverilog.git iverilog && \
     cd iverilog && \
+    git checkout e9646bb && \
     sh autoconf.sh && \
     ./configure && \
     make -j`nproc` && \
     make install && \
-    rm -rf /tmp/iverilog.tar.gz /tmp/iverilog
+    rm -rf /tmp/iverilog
 
 # Build REMU
 
 COPY . /tmp/remu
 
 RUN cd /tmp/remu && \
+    export ABCURL="https://gitlab.agileserve.org.cn:8001/remu/yosys-abc.git" && \
     cmake -DCMAKE_BUILD_TYPE=Release . && \
     make -j`nproc` && \
     make install && \

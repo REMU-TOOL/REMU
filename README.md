@@ -48,7 +48,6 @@ This project also requires `iverilog` (>= 11.0). This can be built from source c
 # Run the following command outside the directory of this repository
 git clone https://github.com/steveicarus/iverilog
 cd iverilog
-git checkout v11_0
 sh autoconf.sh
 ./configure
 # or specify a prefix different from /usr/local:
