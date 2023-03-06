@@ -220,7 +220,7 @@ module emu_top(
         .s_axi_rlast    ()
     );
 
-    EmuUART u_uart (
+    EmuUart u_uart (
         .clk                (clk),
         .rst                (rst),
         .s_axilite_awaddr   (m01_axil_awaddr),

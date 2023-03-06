@@ -3,7 +3,7 @@
 `include "axi.vh"
 
 (* __emu_model_type = "uart" *)
-module EmuUART #(
+module EmuUart #(
     parameter   RX_FIFO_DEPTH   = 16,
     parameter   TX_FIFO_DEPTH   = 16
 )(
@@ -26,7 +26,7 @@ module EmuUART #(
     wire         rx_valid;
     wire [7:0]   rx_ch;
 
-    EmuUARTRxTxImp rx_tx_imp (
+    EmuUartRxTxImp rx_tx_imp (
         .clk        (clk),
         .tx_valid   (tx_valid),
         .tx_ch      (tx_ch),

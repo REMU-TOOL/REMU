@@ -4,12 +4,14 @@
 `define INITMEM_FILE "initmem.txt"
 `endif
 
-module emu_top();
+module emu_top(
+    (* remu_clock *)
+    input   clk,
+    input   rst
+);
 
-    wire clk, rst, trig;
-    EmuClock clock(.clock(clk));
-    EmuReset reset(.reset(rst));
-    EmuTrigger trigger(.trigger(trig));
+    (* remu_trigger *)
+    wire trig;
 
     wire [31:0] PC;
     wire [31:0] Instruction;

@@ -361,7 +361,7 @@ module emu_top(
         .s_axi_rid      (io_mem_rid)
     );
 
-    EmuUART u_uart (
+    EmuUart u_uart (
         .clk                (clk),
         .rst                (rst),
         .s_axilite_awaddr   (mmio_axil_awaddr),

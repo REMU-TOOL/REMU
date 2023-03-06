@@ -2,7 +2,7 @@
 
 `include "axi.vh"
 
-module EmuUARTRxTxImp (
+module EmuUartRxTxImp (
     input  wire         clk,
 
     input  wire         tx_valid,
