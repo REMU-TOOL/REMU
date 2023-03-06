@@ -15,12 +15,11 @@ RUN apt-get update \
     flex \
     pkg-config \
     python3 \
-	libreadline-dev \
+    libreadline-dev \
     tcl-dev \
     libffi-dev \
     libboost-filesystem-dev \
-    libboost-iostreams-dev \
-	libboost-python-dev \
+    libboost-python-dev \
     libboost-system-dev \
     zlib1g-dev \
  && apt-get autoclean && apt-get clean && apt-get -y autoremove \
