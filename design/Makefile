@@ -12,8 +12,8 @@ DESIGN ?=
 BUILD_ROOT := build
 BUILD_DIR := $(BUILD_ROOT)/$(DESIGN)
 
-OUTPUT_V     := $(BUILD_DIR)/output.v
-ELAB_V       := $(BUILD_DIR)/elab.v
+SYSTEM_V     := $(BUILD_DIR)/emu_system.v
+ELAB_V       := $(BUILD_DIR)/emu_elab.v
 SYSINFO_FILE := $(BUILD_DIR)/sysinfo.json
 REPLAY_VVP   := $(BUILD_DIR)/replay.vvp
 REPLAY_DUMP  := $(BUILD_DIR)/replay.fst
@@ -50,7 +50,7 @@ ifeq ($(DESIGN),)
 all:
 	$(error No design specified)
 else
-all: $(OUTPUT_V) $(REPLAY_VVP)
+all: $(SYSTEM_V) $(REPLAY_VVP)
 endif
 
 .PHONY: replay
@@ -84,16 +84,16 @@ clean:
 	rm -rf $(BUILD_DIR)
 endif
 
-$(OUTPUT_V): $(VSRCS)
+$(SYSTEM_V): $(VSRCS)
 	mkdir -p $(BUILD_DIR)
 	$(YOSYS) -m transform -p "read_verilog $^; emu_transform -top $(VTOP) -elab $(ELAB_V) -sysinfo $(SYSINFO_FILE); write_verilog $@"
 
-$(ELAB_V): $(OUTPUT_V)
+$(ELAB_V): $(SYSTEM_V)
 
 $(REPLAY_VVP): $(ELAB_V) $(IVL_SRCS)
 	mkdir -p $(BUILD_DIR)
 	$(IVL) $(IVL_FLAGS) -o $@ $^
 
-$(COSIM_VVP) : $(OUTPUT_V) $(COSIM_VSRCS) $(COSIM_IVL_SRCS)
+$(COSIM_VVP) : $(SYSTEM_V) $(COSIM_VSRCS) $(COSIM_IVL_SRCS)
 	mkdir -p $(BUILD_DIR)
 	$(IVL) $(COSIM_IVL_FLAGS) -o $@ $^
