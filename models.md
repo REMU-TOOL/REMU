@@ -1,47 +1,5 @@
 # Emulation Models
 
-## EmuClock
-
-This model generates a global clock for DUT use. All clocks signals in DUT **must** be driven by an EmuClock instance.
-
-### Prototype
-
-```verilog
-module EmuClock (
-    output clock
-);
-
-endmodule
-```
-
-## EmuReset
-
-This model generates a global reset for DUT use. The value of the reset signal is controlled by the monitor software.
-
-### Prototype
-
-```verilog
-module EmuReset (
-    output reset
-);
-
-endmodule
-```
-
-### EmuTrigger
-
-This model provides a sink point for a trigger signal. If a trigger is active (high), emulation will pause in the next cycle.
-
-### Prototype
-
-```verilog
-module EmuTrigger(
-    input trigger
-);
-
-endmodule
-```
-
 ## EmuRam
 
 This model emulates a memory with AXI interface. The read/write latency can be configured via the parameters.
@@ -53,7 +11,7 @@ module EmuRam #(
     parameter   ADDR_WIDTH      = 32,
     parameter   DATA_WIDTH      = 64,
     parameter   ID_WIDTH        = 4,
-    parameter   PAGE_COUNT      = 'h10000,
+    parameter   MEM_SIZE        = 64'h10000000,
     parameter   MAX_INFLIGHT    = 8,
     parameter   R_DELAY         = 25,
     parameter   W_DELAY         = 3
@@ -111,19 +69,50 @@ module EmuRam #(
 endmodule
 ```
 
-## EmuPutChar
+## EmuUart
 
-This model provides a sink point for console output. All valid data will be interpreted as chars and printed to the console.
+This model emulates the function of UART controller. The user can interact with this in a terminal console.
+
+This model is compatible to Xilinx AXI UART-Lite.
 
 ### Prototype
 
 ```verilog
-module EmuTrigger(
-    input         clk,
-    input         rst,
-    input         valid,
-    input [7:0]   data
+module EmuUart #(
+    parameter   RX_FIFO_DEPTH   = 16,
+    parameter   TX_FIFO_DEPTH   = 16
+)(
+    input  wire         clk,
+    input  wire         rst,
+
+    input  wire         s_axilite_awvalid,
+    output wire         s_axilite_awready,
+    input  wire [3:0]   s_axilite_awaddr,
+    input  wire [2:0]   s_axilite_awprot,
+
+    input  wire         s_axilite_wvalid,
+    output wire         s_axilite_wready,
+    input  wire [31:0]  s_axilite_wdata,
+    input  wire [3:0]   s_axilite_wstrb,
+
+    output wire         s_axilite_bvalid,
+    input  wire         s_axilite_bready,
+    output wire [1:0]   s_axilite_bresp,
+
+    input  wire         s_axilite_arvalid,
+    output wire         s_axilite_arready,
+    input  wire [3:0]   s_axilite_araddr,
+    input  wire [2:0]   s_axilite_arprot,
+
+    output wire         s_axilite_rvalid,
+    input  wire         s_axilite_rready,
+    output wire [31:0]  s_axilite_rdata,
+    output wire [1:0]   s_axilite_rresp
 );
 
 endmodule
 ```
+
+### Register Space
+
+TODO

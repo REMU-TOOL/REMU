@@ -33,12 +33,11 @@ sudo apt-get install -y \
     flex \
     pkg-config \
     python3 \
-	libreadline-dev \
+    libreadline-dev \
     tcl-dev \
     libffi-dev \
     libboost-filesystem-dev \
-    libboost-iostreams-dev \
-	libboost-python-dev \
+    libboost-python-dev \
     libboost-system-dev \
     zlib1g-dev
 ```
@@ -91,29 +90,68 @@ docker run -it remu
 
 The steps described below should be followed to use REMU for hardware emulation.
 
+## Top-level I/O
+
+The design under test (DUT) must be instantiated in an emulation top module.
+Clock ports must be marked with `remu_clock` attribute.
+Reset or any other I/O ports must be marked with `remu_signal` attribute.
+Any signal (not restricted to ports) can be marked with `remu_trigger` to indicate a 
+break point condition, which stops the emulation when the signal is `1`.
+
+Here is an example:
+
+```verilog
+module emu_top(
+    (* remu_clock *)
+    input   clk,
+    (* remu_signal *)
+    input   rst
+);
+
+    (* remu_trigger *)
+    wire trap;
+
+    // ...
+
+endmodule
+```
+
 ## Integrate with emulation models
 
-The design under test (DUT) must be integrated with emulation models before the transformation process. [design/picorv32/emu_top.v](design/picorv32/emu_top.v) is an example which integrate a PicoRV32 core with clock, reset, memory and peripheral models in REMU.
+REMU provides emulation models to emulate memories/peripherals in a processor system.
+[design/picorv32/emu_top.v](design/picorv32/emu_top.v) is an example which integrate a PicoRV32 core with clock, reset, memory and peripheral models in REMU.
 
 For a full list of emulation models, please refer to [Emulation Models](models.md).
 
 ## Transform DUT into an emulator design
 
-After integration, run the following command to execute the transformation process. This assumes that you have integrated the DUT (`dut.v`) into a module named `emu_top` (`emu_top.v`), with the output design file named `emu_system.v` and the configuration file named `sysinfo.yml`.
+After integration, run the following command to execute the transformation process. This assumes that you have integrated the DUT (`dut.v`) into a module named `emu_top` (`emu_top.v`), with the output design file named `emu_system.v` and the configuration file named `sysinfo.json`.
 
 ```sh
-yosys -m transform -p "read_verilog emu_top.v dut.v; emu_transform -top emu_top -elab emu_elab.v -yaml sysinfo.yml; write_verilog emu_system.v"
+yosys -m transform -p "read_verilog emu_top.v dut.v; emu_transform -top emu_top -elab emu_elab.v -sysinfo sysinfo.json; write_verilog emu_system.v"
+```
+
+The `design` directory contains some example projects. You can run the transformation process of them with:
+
+```sh
+cd design
+
+# build the design
+make DESIGN=picorv32 # or any other project
+
+# clean design outputs
+make DESIGN=picorv32 clean
 ```
 
 ## Generate FPGA bitstream
 
 In this step you need to create an FPGA design with a vendor tool (e.g. Vivado), using the output design file `emu_system.v` and the following supplementary files:
 
-- Verilog sources in `emulib/rtl/`
-- Verilog headers in `emulib/include/`
-- Platform-dependent implementation of `ClockGate`, located in `platform/` (`platform/xilinx/common/sources/ClockGate.v` for Xilinx FPGAs)
+- Verilog include directories listed by `remu-config --includes`
+- Verilog sources listed by `remu-config --plat <platform> --sources`
+    - Currently supported platforms are: `sim`, `xilinx`
 
-The output design `emu_system.v` should be instantiated with module `EMU_SYSTEM`. This module has a clock and a reset port, and an AXI-lite interface for emulation control and several AXI interface for memory accessing. These interfaces should be connected to CPU and FPGA DRAM in the top design.
+The output design `emu_system.v` should be instantiated with module `EMU_SYSTEM`. This module has a clock and a reset port, and an AXI-lite interface for emulation control and several AXI interface for memory access. These interfaces should be connected to CPU and FPGA DRAM in the top design.
 
 After the FPGA design is created, run the synthesis & implementation flow and a bitstream for FPGA programming is generated.
 
@@ -121,9 +159,7 @@ After the FPGA design is created, run the synthesis & implementation flow and a 
 
 (TODO)
 
-The Python module in `monitor/` is used to control the execution of FPGA emulation.
-
-The checkpoint can be saved by using `--dump` option.
+The driver executable `remu-driver` is used to control the execution of FPGA emulation.
 
 ## Replay in simulator
 
@@ -138,7 +174,7 @@ iverilog $(remu-config --ivl-flags) -s emu_top -o sim.vvp emu_elab.v
 Run simulation to replay a checkpoint for a specified period of time:
 
 ```sh
-vvp $(remu-config --vvp-flags) sim.vvp -fst -replay-scanchain sysinfo.yml -replay-checkpoint checkpoint +dumpfile=dump.fst +runcycle=1000
+vvp $(remu-config --vvp-flags) sim.vvp -fst -replay-scanchain sysinfo.json -replay-checkpoint checkpoint +dumpfile=dump.fst +runcycle=1000
 ```
 
 # Limitations
