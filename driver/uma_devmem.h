@@ -9,7 +9,6 @@ class DevMem
 {
     int m_fd;
     size_t m_base, m_size;
-    bool m_sync;
     void *m_ptr;
 
 public:
