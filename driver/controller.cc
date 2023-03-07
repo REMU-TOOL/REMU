@@ -7,6 +7,7 @@
 #include <functional>
 
 #include "emu_utils.h"
+#include "uma_cdma.h"
 #include "uma_cosim.h"
 #include "uma_devmem.h"
 #include "regdef.h"
@@ -29,6 +30,14 @@ const std::unordered_map<std::string,
         FROM_NODE(uint64_t, size)
         FROM_NODE(uint64_t, dma_base)
         return std::make_unique<DMUserMem>(base, size, dma_base);
+    }},
+    {"cdma",    [](const YAML::Node &node) {
+        FROM_NODE(uint64_t, base)
+        FROM_NODE(uint64_t, size)
+        FROM_NODE(uint64_t, bounce_base)
+        FROM_NODE(uint64_t, bounce_size)
+        FROM_NODE(uint64_t, cdma_base)
+        return std::make_unique<CDMAUserMem>(base, size, bounce_base, bounce_size, cdma_base);
     }},
 };
 

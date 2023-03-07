@@ -23,11 +23,11 @@ public:
 
     void fill(char c, size_t offset, size_t len);
 
-    DevMem(size_t base, size_t size);
+    DevMem(size_t base, size_t size, bool sync);
     ~DevMem();
 };
 
-class DMUserMem : public UserMem
+class DMUserMemBase : public UserMem
 {
     DevMem dm;
     uint64_t m_dmabase;
@@ -52,7 +52,22 @@ public:
     virtual uint64_t size() const override { return dm.size(); }
     virtual uint64_t dmabase() const override { return m_dmabase; }
 
-    DMUserMem(uint64_t base, uint64_t size, uint64_t dmabase) : dm(base, size), m_dmabase(dmabase) {}
+    DMUserMemBase(uint64_t base, uint64_t size, uint64_t dmabase, bool sync)
+        : dm(base, size, sync), m_dmabase(dmabase) {}
+};
+
+class DMUserMem : public DMUserMemBase
+{
+public:
+    DMUserMem(uint64_t base, uint64_t size, uint64_t dmabase)
+        : DMUserMemBase(base, size, dmabase, true) {}
+};
+
+class DMUserMemCached : public DMUserMemBase
+{
+public:
+    DMUserMemCached(uint64_t base, uint64_t size, uint64_t dmabase)
+        : DMUserMemBase(base, size, dmabase, false) {}
 };
 
 class DMUserIO : public UserIO
@@ -71,7 +86,7 @@ public:
         dm.write_u32(offset, value);
     }
 
-    DMUserIO(uint64_t base, uint64_t size) : dm(base, size) {}
+    DMUserIO(uint64_t base, uint64_t size) : dm(base, size, true) {}
 };
 
 };

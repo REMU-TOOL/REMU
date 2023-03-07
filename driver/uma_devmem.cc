@@ -13,7 +13,7 @@
 
 using namespace REMU;
 
-DevMem::DevMem(size_t base, size_t size)
+DevMem::DevMem(size_t base, size_t size, bool sync)
 {
     size_t pg_size = sysconf(_SC_PAGE_SIZE);
     if (base % pg_size != 0)
@@ -25,7 +25,10 @@ DevMem::DevMem(size_t base, size_t size)
     if (geteuid() != 0)
         throw std::runtime_error("root permission is required") ;
 
-    m_fd = open("/dev/mem", O_RDWR | O_SYNC);
+    int flag = O_RDWR;
+    if (sync)
+        flag |= O_SYNC;
+    m_fd = open("/dev/mem", flag);
     if (m_fd < 0)
         throw std::system_error(errno, std::generic_category(), "failed to open /dev/mem");
 
