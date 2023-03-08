@@ -105,6 +105,9 @@ module axi_interconnect_wrap_2x1 #
     output wire                     s00_axi_rvalid,
     input  wire                     s00_axi_rready,
 
+    input  wire [3:0]               s00_axi_arregion,
+    input  wire [3:0]               s00_axi_awregion,
+
     input  wire [ID_WIDTH-1:0]      s01_axi_awid,
     input  wire [ADDR_WIDTH-1:0]    s01_axi_awaddr,
     input  wire [7:0]               s01_axi_awlen,
@@ -147,6 +150,9 @@ module axi_interconnect_wrap_2x1 #
     output wire [RUSER_WIDTH-1:0]   s01_axi_ruser,
     output wire                     s01_axi_rvalid,
     input  wire                     s01_axi_rready,
+
+    input  wire [3:0]               s01_axi_arregion,
+    input  wire [3:0]               s01_axi_awregion,
 
     /*
      * AXI master interface

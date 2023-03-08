@@ -1,0 +1,8 @@
+mem:
+  type: cosim
+  cid: 0
+  size: 0x40000000
+reg:
+  type: cosim
+  cid: 1
+  size: 0x10000

@@ -466,11 +466,11 @@ module sim_top;
         .m00_axi_rready (sim_mem_rready)
     );
 
-    axi_sim_mem #(
+    axi_sim_mem_fast #(
         .ADDR_WIDTH     (32),
         .DATA_WIDTH     (32),
         .ID_WIDTH       (1),
-        .MEM_SIZE       ('h100000),
+        .MEM_SIZE       ('h40000000),
         .MEM_INIT       (1)
     ) sim_mem_inst (
         .clk            (clk),

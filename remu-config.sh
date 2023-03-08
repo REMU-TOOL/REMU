@@ -96,6 +96,7 @@ get_cosim_vvp_flags() {
     COSIM_VVP_FLAGS=()
     COSIM_VVP_FLAGS+=(-M $REMU_DIR)
     COSIM_VVP_FLAGS+=(-m cosim_ivl)
+    COSIM_VVP_FLAGS+=(-m fastarray_ivl)
 }
 
 if [ $# -eq 0 ]; then
