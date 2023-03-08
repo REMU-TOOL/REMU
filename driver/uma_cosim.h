@@ -5,6 +5,8 @@
 
 namespace REMU {
 
+#ifdef ENABLE_COSIM
+
 class CosimUserMem : public UserMem
 {
     uint64_t m_size;
@@ -32,6 +34,7 @@ public:
     CosimUserIO();
 };
 
+#endif
 
 };
 

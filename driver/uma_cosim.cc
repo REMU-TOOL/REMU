@@ -1,3 +1,5 @@
+#ifdef ENABLE_COSIM
+
 #include "uma_cosim.h"
 #include "cosim.h"
 
@@ -50,3 +52,5 @@ void CosimUserIO::write(uint64_t offset, uint32_t value)
 {
     client->reg_write(offset, value);
 }
+
+#endif

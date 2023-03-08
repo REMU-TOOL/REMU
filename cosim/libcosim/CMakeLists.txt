@@ -4,6 +4,9 @@ set(iverilog-include-dir ${iverilog-bin-dir}/../include/iverilog)
 
 project(libcosim)
 
+find_package(Boost REQUIRED)
+include_directories(${BOOST_INCLUDE_DIRS})
+
 add_library(cosim_api STATIC cosim.cc)
 add_library(cosim_ivl SHARED cosim.cc cosim_vpi.cc)
 

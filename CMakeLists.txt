@@ -4,6 +4,8 @@ include(ExternalProject)
 
 project(remu)
 
+option(ENABLE_REMU_COSIM "enable co-simulation feature in REMU" OFF)
+
 enable_testing()
 
 set(CMAKE_CXX_STANDARD 17)
@@ -53,8 +55,12 @@ install(DIRECTORY ${CMAKE_SOURCE_DIR}/emulib/
 
 add_subdirectory(bitvector)
 add_subdirectory(common)
-add_subdirectory(cosim)
 add_subdirectory(driver)
 add_subdirectory(replay)
 add_subdirectory(tools)
 add_subdirectory(transform)
+add_subdirectory(vpi_utils)
+
+if(${ENABLE_REMU_COSIM})
+    add_subdirectory(cosim)
+endif()
