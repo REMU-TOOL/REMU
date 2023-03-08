@@ -207,3 +207,8 @@ void fastarray_register()
     tf_data.user_data   = 0;
     vpi_register_systf(&tf_data);
 }
+
+void (*vlog_startup_routines[])() = {
+    fastarray_register,
+    0
+};
