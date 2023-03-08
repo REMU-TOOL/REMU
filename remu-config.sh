@@ -79,7 +79,7 @@ get_cosim_ivl_srcs() {
     for x in "${SOURCES[@]}"; do
         COSIM_IVL_SRCS+=($x)
     done
-    COSIM_IVL_SRCS+=($(find $REMU_DIR/cosim -name '*.v'))
+    COSIM_IVL_SRCS+=($(find $EMULIB_DIR/cosim -name '*.v'))
 }
 
 get_cosim_ivl_flags() {
@@ -88,7 +88,6 @@ get_cosim_ivl_flags() {
     for x in "${INCLUDES[@]}"; do
         COSIM_IVL_FLAGS+=(-I $x)
     done
-    COSIM_IVL_FLAGS+=(-I $REMU_DIR/cosim/include)
     COSIM_IVL_FLAGS+=(-s sim_top)
 }
 

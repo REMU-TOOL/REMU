@@ -1,89 +1,52 @@
 #include "uma_cosim.h"
-#include "cosim_bfm_api.h"
+#include "cosim.h"
 
 #include <cstring>
 
+#include <memory>
+
 using namespace REMU;
 
-CosimBFM::CosimBFM(int cid) : m_cid(cid)
+std::unique_ptr<CosimClient> client;
+
+inline void setup_client()
 {
-    bfm_set_verbose(1);
-    bfm_open(cid);
-    bfm_barrier(cid);
+    if (!client)
+        client = std::make_unique<CosimClient>();
 }
 
-CosimBFM::~CosimBFM()
+CosimUserMem::CosimUserMem()
 {
-    bfm_close(m_cid);
+    setup_client();
 }
 
-void CosimBFM::read(char *buf, uint64_t offset, uint64_t len)
+CosimUserIO::CosimUserIO()
 {
-    auto p = reinterpret_cast<uint8_t*>(buf);
-    unsigned int n = (4 - (offset % 4)) % 4;
-    if (n != 0 && len >= n) {
-        bfm_read_core(m_cid, 0, offset, p, 1, n, 1);
-        p += n;
-        offset += n;
-        len -= n;
-    }
-    while (len >= 4) {
-        // 4-byte transfer
-        n = len / 4;
-        if (n > 256) n = 256;
-        bfm_read_core(m_cid, 0, offset, p, 4, n, 1);
-        p += n * 4;
-        offset += n * 4;
-        len -= n * 4;
-    }
-    if (len > 0) {
-        bfm_read_core(m_cid, 0, offset, p, 1, n, 1);
-    }
+    setup_client();
 }
 
-void CosimBFM::write(const char *buf, uint64_t offset, uint64_t len)
+void CosimUserMem::read(char *buf, uint64_t offset, uint64_t len)
 {
-    auto p = reinterpret_cast<uint8_t*>(const_cast<char*>(buf));
-    unsigned int n = (4 - (offset % 4)) % 4;
-    if (n != 0 && len >= n) {
-        bfm_write_core(m_cid, 0, offset, p, 1, n, 1);
-        p += n;
-        offset += n;
-        len -= n;
-    }
-    while (len >= 4) {
-        // 4-byte transfer
-        n = len / 4;
-        if (n > 256) n = 256;
-        bfm_write_core(m_cid, 0, offset, p, 4, n, 1);
-        p += n * 4;
-        offset += n * 4;
-        len -= n * 4;
-    }
-    if (len > 0) {
-        bfm_write_core(m_cid, 0, offset, p, 1, n, 1);
-    }
+    memcpy(buf, (char*)client->mem_ptr() + offset, len);
 }
 
-void CosimBFM::fill(char c, uint64_t offset, uint64_t len)
+void CosimUserMem::write(const char *buf, uint64_t offset, uint64_t len)
 {
-    uint8_t arr[4*256];
-    memset(arr, c, 4*256);
-    unsigned int n = (4 - (offset % 4)) % 4;
-    if (n != 0 && len >= n) {
-        bfm_write_core(m_cid, 0, offset, arr, 1, n, 1);
-        offset += n;
-        len -= n;
-    }
-    while (len >= 4) {
-        // 4-byte transfer
-        n = len / 4;
-        if (n > 256) n = 256;
-        bfm_write_core(m_cid, 0, offset, arr, 4, n, 1);
-        offset += n * 4;
-        len -= n * 4;
-    }
-    if (len > 0) {
-        bfm_write_core(m_cid, 0, offset, arr, 1, n, 1);
-    }
+    memcpy((char*)client->mem_ptr() + offset, buf, len);
+}
+
+void CosimUserMem::fill(char c, uint64_t offset, uint64_t len)
+{
+    memset((char*)client->mem_ptr() + offset, c, len);
+}
+
+
+uint32_t CosimUserIO::read(uint64_t offset)
+{
+    return client->reg_read(offset);
+}
+
+void CosimUserIO::write(uint64_t offset, uint32_t value)
+{
+    client->reg_write(offset, value);
 }

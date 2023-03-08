@@ -21,9 +21,7 @@ namespace {
 const std::unordered_map<std::string,
     std::function<std::unique_ptr<UserMem>(const YAML::Node &)>> mem_type_funcs = {
     {"cosim",   [](const YAML::Node &node) {
-        FROM_NODE(int,      cid)
-        FROM_NODE(uint64_t, size)
-        return std::make_unique<CosimUserMem>(cid, size);
+        return std::make_unique<CosimUserMem>();
     }},
     {"devmem",  [](const YAML::Node &node) {
         FROM_NODE(uint64_t, base)
@@ -44,8 +42,7 @@ const std::unordered_map<std::string,
 const std::unordered_map<std::string,
     std::function<std::unique_ptr<UserIO>(const YAML::Node &)>> reg_type_funcs = {
     {"cosim",   [](const YAML::Node &node) {
-        FROM_NODE(int,      cid)
-        return std::make_unique<CosimUserIO>(cid);
+        return std::make_unique<CosimUserIO>();
     }},
     {"devmem",  [](const YAML::Node &node) {
         FROM_NODE(uint64_t, base)
