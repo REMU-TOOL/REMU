@@ -265,8 +265,7 @@ class BitVectorArray
 public:
 
     using width_t = BitVector::width_t;
-    using depth_t = uint64_t;
-    using index_t = int64_t;
+    using depth_t = int64_t;
 
 private:
 
@@ -277,7 +276,7 @@ private:
     depth_t depth_;
 
     // the first index
-    index_t start_offset_;
+    depth_t start_offset_;
 
     // flattened data
     BitVector data;
@@ -290,7 +289,7 @@ public:
 
     width_t width() const { return width_; }
     depth_t depth() const { return depth_; }
-    index_t start_offset() const { return start_offset_; }
+    depth_t start_offset() const { return start_offset_; }
 
     // set all bits to 0
     void clear()
@@ -298,20 +297,20 @@ public:
         data.clear();
     }
 
-    BitVector get(width_t index) const
+    BitVector get(depth_t index) const
     {
-        if (index < start_offset_ || index - start_offset_ >= depth_)
+        if (index < start_offset_ || index >= start_offset_ + depth_)
             throw std::out_of_range("index out of range");
 
         return data.getValue(index * width_, width_);
     }
 
-    void set(index_t index, const BitVector &value)
+    void set(depth_t index, const BitVector &value)
     {
         if (value.width() != width_)
             throw std::invalid_argument("value width mismatch");
 
-        if (index < start_offset_ || index - start_offset_ >= depth_)
+        if (index < start_offset_ || index >= start_offset_ + depth_)
             throw std::out_of_range("index out of range");
 
         data.setValue(index * width_, value);
@@ -329,7 +328,7 @@ public:
 
     BitVectorArray() : BitVectorArray(0, 0) {}
 
-    BitVectorArray(width_t width, depth_t depth, index_t start_offset = 0) :
+    BitVectorArray(width_t width, depth_t depth, depth_t start_offset = 0) :
         width_(width), depth_(depth), start_offset_(start_offset), data(width * depth) {}
 
 };
