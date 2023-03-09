@@ -1,3 +1,3 @@
 project(tools)
 
-add_subdirectory(scdump)
+add_subdirectory(cpedit)

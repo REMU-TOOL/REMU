@@ -10,25 +10,27 @@ namespace REMU {
 
 class Checkpoint
 {
-    struct ImpData;
-    ImpData *data;
+    std::string ckpt_path;
+
+    std::string getMemPath(std::string name);
 
 public:
 
     std::ifstream readMem(std::string name);
     std::ofstream writeMem(std::string name);
+    void importMem(std::string name, std::string file);
+    void exportMem(std::string name, std::string file);
+    void truncMem(std::string name, size_t size);
 
     SignalTraceDB readTrace();
     void writeTrace(const SignalTraceDB &db);
 
     Checkpoint(const std::string &path);
-    ~Checkpoint();
 };
 
 class CheckpointManager
 {
-    struct ImpData;
-    ImpData *data;
+    std::string ckpt_root_path;
 
     std::set<uint64_t> tick_list;
 
@@ -41,6 +43,11 @@ public:
     {
         tick_list.clear();
         saveTickList();
+    }
+
+    const std::set<uint64_t>& list()
+    {
+        return tick_list;
     }
 
     bool exists(uint64_t tick)
@@ -75,7 +82,6 @@ public:
     Checkpoint open(uint64_t tick);
 
     CheckpointManager(const std::string &path);
-    ~CheckpointManager();
 };
 
 };

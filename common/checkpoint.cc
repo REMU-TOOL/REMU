@@ -14,30 +14,40 @@ namespace fs = std::filesystem;
 
 using namespace REMU;
 
-struct Checkpoint::ImpData
+std::string Checkpoint::getMemPath(std::string name)
 {
-    fs::path path;
-};
-
-struct CheckpointManager::ImpData
-{
-    fs::path path;
-};
+    return fs::path(ckpt_path) / "mem" / name;
+}
 
 std::ifstream Checkpoint::readMem(std::string name)
 {
-    return std::ifstream(data->path / "mem" / name, std::ios::binary);
+    return std::ifstream(getMemPath(name), std::ios::binary);
 }
 
 std::ofstream Checkpoint::writeMem(std::string name)
 {
-    return std::ofstream(data->path / "mem" / name, std::ios::binary);
+    return std::ofstream(getMemPath(name), std::ios::binary);
+}
+
+void Checkpoint::importMem(std::string name, std::string file)
+{
+    fs::copy_file(file, getMemPath(name));
+}
+
+void Checkpoint::exportMem(std::string name, std::string file)
+{
+    fs::copy_file(getMemPath(name), file);
+}
+
+void Checkpoint::truncMem(std::string name, size_t size)
+{
+    fs::resize_file(getMemPath(name), size);
 }
 
 SignalTraceDB Checkpoint::readTrace()
 {
     SignalTraceDB res;
-    auto path = data->path / "trace.json";
+    auto path = fs::path(ckpt_path) / "trace.json";
     std::ifstream f(path, std::ios::binary);
     if (!f.fail())
         f >> res;
@@ -46,33 +56,28 @@ SignalTraceDB Checkpoint::readTrace()
 
 void Checkpoint::writeTrace(const SignalTraceDB &db)
 {
-    auto path = data->path / "trace.json";
+    auto path = fs::path(ckpt_path) / "trace.json";
     std::ofstream f(path, std::ios::binary);
     f << db;
 }
 
-Checkpoint::Checkpoint(const std::string &path) : data(new ImpData)
+Checkpoint::Checkpoint(const std::string &path)
 {
-    data->path = path;
-    fs::create_directories(data->path);
-    fs::create_directories(data->path / "mem");
-}
-
-Checkpoint::~Checkpoint()
-{
-    delete data;
+    ckpt_path = path;
+    fs::create_directories(fs::path(path));
+    fs::create_directories(fs::path(path) / "mem");
 }
 
 void CheckpointManager::saveTickList()
 {
-    std::ofstream f(data->path / "ticks.json");
+    std::ofstream f(fs::path(ckpt_root_path) / "ticks.json");
     cereal::JSONOutputArchive archive(f);
     archive << tick_list;
 }
 
 void CheckpointManager::loadTickList()
 {
-    std::ifstream f(data->path / "ticks.json");
+    std::ifstream f(fs::path(ckpt_root_path) / "ticks.json");
     if (f.fail()) {
         tick_list = {};
         return;
@@ -90,20 +95,15 @@ Checkpoint CheckpointManager::open(uint64_t tick)
     char ckpt_name[32];
     snprintf(ckpt_name, 32, "%020lu", tick);
 
-    auto ckpt_path = data->path / ckpt_name;
+    auto ckpt_path = fs::path(ckpt_root_path) / ckpt_name;
     fs::create_directories(ckpt_path);
 
     return Checkpoint(ckpt_path);
 }
 
-CheckpointManager::CheckpointManager(const std::string &path) : data(new ImpData)
+CheckpointManager::CheckpointManager(const std::string &path)
 {
-    data->path = path;
-    fs::create_directories(data->path);
+    ckpt_root_path = path;
+    fs::create_directories(fs::path(path));
     loadTickList();
-}
-
-CheckpointManager::~CheckpointManager()
-{
-    delete data;
 }
