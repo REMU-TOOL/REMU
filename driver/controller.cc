@@ -329,10 +329,8 @@ void Controller::init_axi(const SysInfo &sysinfo)
     for (auto &axi : om_axi) {
         uint64_t base = dmabase + axi.assigned_offset;
         uint64_t mask = axi.assigned_size - 1;
-        reg->write(axi.reg_offset + 0x0, base >>  0);
-        reg->write(axi.reg_offset + 0x4, base >> 32);
-        reg->write(axi.reg_offset + 0x8, mask >>  0);
-        reg->write(axi.reg_offset + 0xc, mask >> 32);
+        reg->write(axi.reg_offset + 0x0, base >> 12);
+        reg->write(axi.reg_offset + 0x4, mask >> 12);
     }
 
     // Intialize memory
