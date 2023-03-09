@@ -15,6 +15,7 @@ BUILD_DIR := $(BUILD_ROOT)/$(DESIGN)
 SYSTEM_V     := $(BUILD_DIR)/emu_system.v
 ELAB_V       := $(BUILD_DIR)/emu_elab.v
 SYSINFO_FILE := $(BUILD_DIR)/sysinfo.json
+CKPT_PATH    := $(BUILD_DIR)/ckpt
 REPLAY_VVP   := $(BUILD_DIR)/replay.vvp
 REPLAY_DUMP  := $(BUILD_DIR)/replay.fst
 COSIM_VVP    := $(BUILD_DIR)/cosim.vvp
@@ -86,7 +87,7 @@ endif
 
 $(SYSTEM_V): $(VSRCS)
 	mkdir -p $(BUILD_DIR)
-	$(YOSYS) -m transform -p "read_verilog $^; emu_transform -top $(VTOP) -elab $(ELAB_V) -sysinfo $(SYSINFO_FILE); write_verilog $@"
+	$(YOSYS) -m transform -p "read_verilog $^; emu_transform -top $(VTOP) -elab $(ELAB_V) -sysinfo $(SYSINFO_FILE) -ckpt $(CKPT_PATH); write_verilog $@"
 
 $(ELAB_V): $(SYSTEM_V)
 

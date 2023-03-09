@@ -67,6 +67,7 @@ struct EmulationDatabase
 
     void write_sysinfo(std::string file_name);
     void write_loader(std::string file_name);
+    void write_checkpoint(std::string ckpt_path);
 
     EmulationDatabase() {}
 };

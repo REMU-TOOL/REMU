@@ -2,6 +2,7 @@
 #include "kernel/ff.h"
 #include "kernel/mem.h"
 
+#include "circuit.h"
 #include "escape.h"
 
 #include "attr.h"
@@ -12,7 +13,8 @@ using namespace REMU;
 
 USING_YOSYS_NAMESPACE
 
-void EmulationDatabase::write_sysinfo(std::string file_name) {
+void EmulationDatabase::write_sysinfo(std::string file_name)
+{
     std::ofstream f;
 
     f.open(file_name, std::ios::trunc);
@@ -68,7 +70,8 @@ void EmulationDatabase::write_sysinfo(std::string file_name) {
     f.close();
 }
 
-void EmulationDatabase::write_loader(std::string file_name) {
+void EmulationDatabase::write_loader(std::string file_name)
+{
     std::ofstream os;
 
     os.open(file_name, std::ios::trunc);
@@ -120,4 +123,28 @@ void EmulationDatabase::write_loader(std::string file_name) {
     os << "`define RAM_BIT_COUNT " << addr << "\n";
 
     os.close();
+}
+
+void EmulationDatabase::write_checkpoint(std::string ckpt_path)
+{
+    log("Writing initial checkpoint to `%s'\n", ckpt_path.c_str());
+
+    CheckpointManager ckpt_mgr(ckpt_path);
+    auto ckpt = ckpt_mgr.open(0);
+
+    const std::string pad(0x100000, '\0');
+
+    for (auto &axi : axi_ports) {
+        auto stream = ckpt.writeMem(flatten_name(axi.name));
+
+        size_t size = axi.size;
+        while (size > 0) {
+            size_t slice = std::min(size, pad.size());
+            stream.write(pad.c_str(), slice);
+            size -= slice;
+        }
+    }
+
+    CircuitState circuit(wire, ram, scan_ff, scan_ram);
+    circuit.save(ckpt);
 }

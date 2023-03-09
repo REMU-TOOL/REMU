@@ -21,8 +21,8 @@ constexpr R bitmask(unsigned int const onecount)
 CircuitState::CircuitState(
     const decltype(SysInfo::wire) &wire_info,
     const decltype(SysInfo::ram) &ram_info,
-    const decltype(SysInfo::scan_ff) &ff_scan,
-    const decltype(SysInfo::scan_ram) &ram_scan
+    const decltype(SysInfo::scan_ff) &scan_ff,
+    const decltype(SysInfo::scan_ram) &scan_ram
 ) : scan_ff(scan_ff), scan_ram(scan_ram)
 {
     for (auto &it : wire_info) {
@@ -108,4 +108,9 @@ void CircuitState::save(Checkpoint &checkpoint)
         }
     }
     data_stream.write(reinterpret_cast<char *>(ram_data.to_ptr()), (mem_size + 63) / 64 * 8);
+
+    size_t pos = data_stream.tellp();
+    size_t pad_len = -pos & 0xfff;
+    const std::string pad(pad_len, '\0');
+    data_stream.write(pad.c_str(), pad.size());
 }

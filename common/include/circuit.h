@@ -28,8 +28,8 @@ public:
     CircuitState(
         const decltype(SysInfo::wire) &wire_info,
         const decltype(SysInfo::ram) &ram_info,
-        const decltype(SysInfo::scan_ff) &ff_scan,
-        const decltype(SysInfo::scan_ram) &ram_scan
+        const decltype(SysInfo::scan_ff) &scan_ff,
+        const decltype(SysInfo::scan_ram) &scan_ram
     );
 
     CircuitState(const SysInfo &sysinfo)

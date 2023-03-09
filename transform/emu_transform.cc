@@ -34,12 +34,14 @@ struct EmuTransformPass : public Pass {
         log("        write system info to the specified file\n");
         log("    -loader <file>\n");
         log("        write verilog loader definition to the specified file\n");
+        log("    -ckpt <path>\n");
+        log("        write initial checkpoint\n");
         log("    -nosystem\n");
         log("        skip system transformation\n");
         log("\n");
     }
 
-    std::string top, elab_file, sysinfo_file, loader_file;
+    std::string top, elab_file, sysinfo_file, loader_file, ckpt_path;
     bool raw_plat = false;
 
     EmuLibInfo emulib;
@@ -117,6 +119,10 @@ struct EmuTransformPass : public Pass {
             }
             if (args[argidx] == "-loader" && argidx+1 < args.size()) {
                 loader_file = args[++argidx];
+                continue;
+            }
+            if (args[argidx] == "-ckpt" && argidx+1 < args.size()) {
+                ckpt_path = args[++argidx];
                 continue;
             }
             if (args[argidx] == "-nosystem") {
@@ -204,6 +210,9 @@ struct EmuTransformPass : public Pass {
 
         if (!loader_file.empty())
             database.write_loader(loader_file);
+
+        if (!ckpt_path.empty())
+            database.write_checkpoint(ckpt_path);
 
         log_pop();
     }
