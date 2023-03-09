@@ -42,6 +42,10 @@ void CosimUserMem::fill(char c, uint64_t offset, uint64_t len)
     memset((char*)client->mem_ptr() + offset, c, len);
 }
 
+uint64_t CosimUserMem::size() const
+{
+    return client->mem_size();
+}
 
 uint32_t CosimUserIO::read(uint64_t offset)
 {

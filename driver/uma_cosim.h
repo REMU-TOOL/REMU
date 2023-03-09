@@ -9,7 +9,6 @@ namespace REMU {
 
 class CosimUserMem : public UserMem
 {
-    uint64_t m_size;
 
 public:
 
@@ -17,7 +16,7 @@ public:
     virtual void write(const char *buf, uint64_t offset, uint64_t len) override;
     virtual void fill(char c, uint64_t offset, uint64_t len) override;
 
-    virtual uint64_t size() const override { return m_size; }
+    virtual uint64_t size() const override;
     virtual uint64_t dmabase() const override { return 0; }
 
     CosimUserMem();
