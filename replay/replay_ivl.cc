@@ -524,6 +524,7 @@ void replay_initialize(VPILoader *loader)
     // Stop simulator at end of trace
 
     static VPICallback eot_cb([](uint64_t) {
+        vpi_printf("[REMU] End of trace\n");
         vpi_control(vpiFinish);
         return 0;
     });
