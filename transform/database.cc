@@ -132,19 +132,15 @@ void EmulationDatabase::write_checkpoint(std::string ckpt_path)
     CheckpointManager ckpt_mgr(ckpt_path);
     auto ckpt = ckpt_mgr.open(0);
 
-    const std::string pad(0x100000, '\0');
-
     for (auto &axi : axi_ports) {
         auto stream = ckpt.writeMem(flatten_name(axi.name));
-
-        size_t size = axi.size;
-        while (size > 0) {
-            size_t slice = std::min(size, pad.size());
-            stream.write(pad.c_str(), slice);
-            size -= slice;
-        }
+        stream.close();
     }
 
     CircuitState circuit(wire, ram, scan_ff, scan_ram);
     circuit.save(ckpt);
+
+    for (auto &axi : axi_ports) {
+        ckpt.truncMem(flatten_name(axi.name), axi.size);
+    }
 }

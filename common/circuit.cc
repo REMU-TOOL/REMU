@@ -108,9 +108,4 @@ void CircuitState::save(Checkpoint &checkpoint)
         }
     }
     data_stream.write(reinterpret_cast<char *>(ram_data.to_ptr()), (mem_size + 63) / 64 * 8);
-
-    size_t pos = data_stream.tellp();
-    size_t pad_len = -pos & 0xfff;
-    const std::string pad(pad_len, '\0');
-    data_stream.write(pad.c_str(), pad.size());
 }
