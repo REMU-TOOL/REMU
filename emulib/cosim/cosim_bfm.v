@@ -57,8 +57,6 @@ module cosim_bfm #(
 
     // Memory BFM
 
-    reg [MEM_DATA_WIDTH-1:0]    temp_data;
-
     integer mem_r_state;
 
     reg [MEM_ID_WIDTH-1:0]      mem_read_id;
@@ -70,6 +68,7 @@ module cosim_bfm #(
     reg [MEM_ADDR_WIDTH-1:0]    mem_read_addr_wrap_ub;
 
     reg [MEM_DATA_WIDTH-1:0]    mem_axi_rdata_reg;
+    reg [MEM_DATA_WIDTH-1:0]    temp_r_data;
 
     always @(posedge clk) begin
         if (rst) begin
@@ -107,8 +106,8 @@ module cosim_bfm #(
         end
         if (mem_r_state == STATE_AR && mem_axi_arvalid ||
             mem_r_state == STATE_R && mem_read_len != 0) begin
-            result = $cosim_mem_read(mem_read_addr, temp_data);
-            mem_axi_rdata_reg <= temp_data;
+            result = $cosim_mem_read(mem_read_addr, temp_r_data);
+            mem_axi_rdata_reg <= temp_r_data;
         end
     end
 
@@ -128,6 +127,8 @@ module cosim_bfm #(
     reg [1:0]                   mem_write_burst;
     reg [MEM_ADDR_WIDTH-1:0]    mem_write_addr_wrap_lb;
     reg [MEM_ADDR_WIDTH-1:0]    mem_write_addr_wrap_ub;
+
+    reg [MEM_DATA_WIDTH-1:0]    temp_w_data;
 
     always @(posedge clk) begin
         if (rst) begin
@@ -152,11 +153,11 @@ module cosim_bfm #(
                         if (mem_axi_wlast) begin
                             mem_w_state <= STATE_B;
                         end
-                        result = $cosim_mem_read(mem_write_addr, temp_data);
+                        result = $cosim_mem_read(mem_write_addr, temp_w_data);
                         for (i=0; i<MEM_STRB_WIDTH; i=i+1)
                             if (mem_axi_wstrb[i])
-                                temp_data[i*8+:8] <= mem_axi_wdata[i*8+:8];
-                        result = $cosim_mem_write(mem_write_addr, temp_data);
+                                temp_w_data[i*8+:8] = mem_axi_wdata[i*8+:8];
+                        result = $cosim_mem_write(mem_write_addr, temp_w_data);
                         if (mem_write_burst == BURST_WRAP && mem_write_addr == mem_write_addr_wrap_ub) begin
                             mem_write_addr = mem_write_addr_wrap_lb;
                         end
