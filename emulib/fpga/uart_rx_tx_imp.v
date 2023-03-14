@@ -2,6 +2,7 @@
 
 `include "axi.vh"
 
+(* __emu_model_imp *)
 module EmuUartRxTxImp (
     input  wire         clk,
 
