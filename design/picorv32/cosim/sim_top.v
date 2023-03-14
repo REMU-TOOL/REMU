@@ -42,7 +42,7 @@ module sim_top;
         .S_DATA_WIDTH   (32),
         .M_DATA_WIDTH   (64),
         .ID_WIDTH       (1)
-    ) scan_dma_adapter (
+    ) rammodel_adapter (
         .clk            (clk),
         .rst            (rst),
         `AXI4_CONNECT   (s_axi, rammodel),
