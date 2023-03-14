@@ -15,7 +15,7 @@ module emulib_deserializer #(
 );
 
     localparam CNT_BITS = $clog2(DATA_WIDTH + 1);
-    reg [CNT_BITS-1:0] cnt;
+    reg [CNT_BITS-1:0] cnt = 0;
 
     assign o_valid  = cnt == DATA_WIDTH;
     assign i_ready  = !o_valid;

@@ -37,9 +37,9 @@ module emulib_axis_width_upsizer #(
         STATE_XFER_S    = 1'b0,
         STATE_XFER_M    = 1'b1;
 
-    reg [0:0] state, state_next;
+    reg [0:0] state = STATE_XFER_S, state_next;
 
-    reg [$clog2(RATIO)-1:0] slice_cnt;
+    reg [$clog2(RATIO)-1:0] slice_cnt = 0;
     reg [M_TDATA_WIDTH-1:0] buf_tdata;
     reg [M_TDATA_BYTES-1:0] buf_tkeep;
     reg buf_tlast;

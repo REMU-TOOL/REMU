@@ -10,7 +10,7 @@ module reset_token_handler (
     input  wire     tk_rst,
 
     input  wire     allow_rst,
-    output reg      rst_out
+    output reg      rst_out = 1'b0
 
 );
 
@@ -19,7 +19,7 @@ module reset_token_handler (
         FIRE    = 2'd1,
         DONE    = 2'd2;
 
-    reg [1:0] state, state_next;
+    reg [1:0] state = IDLE, state_next;
 
     always @(posedge mdl_clk)
         if (mdl_rst)

@@ -386,7 +386,7 @@ module emulib_rammodel_backend #(
         SCHED_DO_B  = 3'd4;
 
     (* __emu_no_scanchain *)
-    reg [2:0] sched_state, sched_state_next;
+    reg [2:0] sched_state = SCHED_IDLE, sched_state_next;
 
     wire sched_ok_to_ar = sched_avalid && !sched_awrite && r_fifo_count == 0;
     wire sched_ok_to_aw = sched_avalid && sched_awrite && w_fifo_count > sched_alen && b_fifo_count == 0;

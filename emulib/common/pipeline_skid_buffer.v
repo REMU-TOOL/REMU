@@ -8,9 +8,9 @@ module emulib_pipeline_skid_buffer #(
 
     input  wire                     i_valid,
     input  wire [DATA_WIDTH-1:0]    i_data,
-    output reg                      i_ready,
+    output reg                      i_ready = 1'b1,
 
-    output reg                      o_valid,
+    output reg                      o_valid = 1'b0,
     output reg  [DATA_WIDTH-1:0]    o_data,
     input  wire                     o_ready
 );
