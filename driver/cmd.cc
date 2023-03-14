@@ -63,30 +63,18 @@ bool Driver::cmd_save(const std::vector<std::string> &args)
     return true;
 }
 
-bool Driver::cmd_replay(const std::vector<std::string> &args)
+bool Driver::cmd_replay_record(const std::vector<std::string> &args)
 {
     if (args.size() != 2) {
         fprintf(stderr, "Incorrect number of arguments for this command\n");
         return false;
     }
 
-    uint64_t tick = std::stoul(args[1]);
-    cur_tick = ckpt_mgr.find_latest(tick);
-    load_checkpoint(false);
-
-    return true;
-}
-
-bool Driver::cmd_record(const std::vector<std::string> &args)
-{
-    if (args.size() != 2) {
-        fprintf(stderr, "Incorrect number of arguments for this command\n");
-        return false;
-    }
+    bool record = args[0] == "record";
 
     uint64_t tick = std::stoul(args[1]);
     cur_tick = ckpt_mgr.find_latest(tick);
-    load_checkpoint(true);
+    load_checkpoint(record);
 
     return true;
 }
@@ -167,8 +155,8 @@ decltype(Driver::cmd_dispatcher) Driver::cmd_dispatcher = {
     {"help",        &Driver::cmd_help},
     {"list",        &Driver::cmd_list},
     {"save",        &Driver::cmd_save},
-    {"replay",      &Driver::cmd_replay},
-    {"record",      &Driver::cmd_record},
+    {"replay",      &Driver::cmd_replay_record},
+    {"record",      &Driver::cmd_replay_record},
     {"run",         &Driver::cmd_run},
     {"signal",      &Driver::cmd_signal},
 };

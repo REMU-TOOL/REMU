@@ -240,8 +240,6 @@ bool Driver::handle_event()
 {
     bool stop_requested = false;
 
-    cur_tick = ctrl.get_tick_count();
-
     for (auto &trigger : trigger_db.objects()) {
         if (!ctrl.get_trigger_enable(trigger) || !ctrl.is_trigger_active(trigger))
             continue;
@@ -372,13 +370,13 @@ void Driver::run()
         ctrl.set_trigger_enable(trigger, trigger.enabled);
     }
 
-    bool running = true;
+    bool break_flag = false;
 
-    SigIntHandler sigint([&running](){
-        running = false;
+    SigIntHandler sigint([&break_flag](){
+        break_flag = true;
     });
 
-    while (running) {
+    while (!break_flag) {
         uint32_t step = calc_next_event_step();
         if (step > 0) {
             ctrl.set_step_count(step);
@@ -389,9 +387,11 @@ void Driver::run()
             for (auto callback : parallel_callbacks)
                 callback(*this);
 
-            if (!running)
+            if (break_flag)
                 ctrl.exit_run_mode();
         }
+
+        cur_tick = ctrl.get_tick_count();
 
         if (handle_event())
             break;

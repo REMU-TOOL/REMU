@@ -80,14 +80,14 @@ class Driver
     uint32_t calc_next_event_step();
     void run();
 
-    bool cmd_help       (const std::vector<std::string> &args);
-    bool cmd_list       (const std::vector<std::string> &args);
-    bool cmd_save       (const std::vector<std::string> &args);
-    bool cmd_replay     (const std::vector<std::string> &args);
-    bool cmd_record     (const std::vector<std::string> &args);
-    bool cmd_run        (const std::vector<std::string> &args);
-    bool cmd_trigger    (const std::vector<std::string> &args);
-    bool cmd_signal     (const std::vector<std::string> &args);
+    bool cmd_help           (const std::vector<std::string> &args);
+    bool cmd_list           (const std::vector<std::string> &args);
+    bool cmd_save           (const std::vector<std::string> &args);
+    bool cmd_replay_record  (const std::vector<std::string> &args);
+    bool cmd_record         (const std::vector<std::string> &args);
+    bool cmd_run            (const std::vector<std::string> &args);
+    bool cmd_trigger        (const std::vector<std::string> &args);
+    bool cmd_signal         (const std::vector<std::string> &args);
 
     static std::unordered_map<std::string, decltype(&Driver::cmd_help)> cmd_dispatcher;
 
@@ -103,7 +103,12 @@ public:
     bool is_replay_mode() { return cur_tick < ckpt_mgr.last_tick(); }
 
     bool is_running() { return ctrl.is_run_mode(); }
-    void pause() { ctrl.exit_run_mode(); }
+
+    void pause()
+    {
+        ctrl.exit_run_mode();
+        cur_tick = ctrl.get_tick_count();
+    }
 
     int lookup_signal(const std::string &name)
     {
