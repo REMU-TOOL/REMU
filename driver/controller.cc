@@ -175,86 +175,55 @@ void Controller::do_scan(bool scan_in)
     exit_scan_mode();
 }
 
-void Controller::init_signal(const SysInfo &sysinfo)
+BitVector Controller::get_signal_value(const RTSignal &signal)
 {
-    for (auto &info : sysinfo.signal) {
-        om_signal.add({
-            .name           = flatten_name(info.name),
-            .width          = info.width,
-            .output         = info.output,
-            .reg_offset     = info.reg_offset,
-        });
-    }
-    for (auto &signal : om_signal)
-        if (!signal.output)
-            set_signal_value(signal.index, BitVector(signal.width, 0));
-}
-
-BitVector Controller::get_signal_value(int index)
-{
-    auto &sig = om_signal.get(index);
-    int nblks = (sig.width + 31) / 32;
-    BitVector res(sig.width);
+    int nblks = (signal.width + 31) / 32;
+    BitVector res(signal.width);
     for (int i = 0; i < nblks; i++) {
         int offset = i * 32;
-        int width = std::min(sig.width - offset, 32);
-        res.setValue(offset, width, reg->read(sig.reg_offset + i * 4));
+        int width = std::min(signal.width - offset, 32);
+        res.setValue(offset, width, reg->read(signal.reg_offset + i * 4));
     }
     return res;
 }
 
-void Controller::set_signal_value(int index, const BitVector &value)
+void Controller::set_signal_value(const RTSignal &signal, const BitVector &value)
 {
-    auto &sig = om_signal.get(index);
-
-    if (sig.output)
+    if (signal.output)
         return;
 
-    if (value.width() != sig.width)
+    if (value.width() != signal.width)
         throw std::invalid_argument("value width mismatch");
 
-    int nblks = (sig.width + 31) / 32;
+    int nblks = (signal.width + 31) / 32;
     for (int i = 0; i < nblks; i++) {
         int offset = i * 32;
-        int width = std::min(sig.width - offset, 32);
-        reg->write(sig.reg_offset + i * 4, value.getValue(offset, width));
+        int width = std::min(signal.width - offset, 32);
+        reg->write(signal.reg_offset + i * 4, value.getValue(offset, width));
     }
 }
 
-void Controller::init_trigger(const SysInfo &sysinfo)
+bool Controller::is_trigger_active(const RTTrigger &trigger)
 {
-    for (auto &info : sysinfo.trigger) {
-        om_trigger.add({
-            .name           = flatten_name(info.name),
-            .reg_index      = info.index,
-        });
-    }
-    for (auto &trigger : om_trigger)
-        set_trigger_enable(trigger.index, true);
-}
-
-bool Controller::is_trigger_active(int index)
-{
-    int id = om_trigger.get(index).reg_index;
+    int id = trigger.reg_index;
     int addr = RegDef::TRIG_STAT_START + (id / 32) * 4;
     int offset = id % 32;
     uint32_t value = reg->read(addr);
     return value & (1 << offset);
 }
 
-bool Controller::get_trigger_enable(int index)
+bool Controller::get_trigger_enable(const RTTrigger &trigger)
 {
-    int id = om_trigger.get(index).reg_index;
+    int id = trigger.reg_index;
     int addr = RegDef::TRIG_EN_START + (id / 32) * 4;
     int offset = id % 32;
     uint32_t value = reg->read(addr);
     return value & (1 << offset);
 }
 
-void Controller::set_trigger_enable(int index, bool enable)
+void Controller::set_trigger_enable(const RTTrigger &trigger, bool enable)
 {
-    auto &trig = om_trigger.get(index);
-    int id = trig.reg_index;
+    int id = trigger.reg_index;
     int addr = RegDef::TRIG_EN_START + (id / 32) * 4;
     int offset = id % 32;
     uint32_t value = reg->read(addr);
@@ -263,81 +232,12 @@ void Controller::set_trigger_enable(int index, bool enable)
     else
         value &= ~(1 << offset);
     reg->write(addr, value);
-    fprintf(stderr, "[REMU] INFO: Trigger \"%s\" is %s\n",
-        trig.name.c_str(), enable ? "enabled" : "disabled");
 }
 
-std::vector<int> Controller::get_active_triggers(bool enabled)
+void Controller::configure_axi_range(const RTAXI &axi)
 {
-    std::vector<int> res;
-    constexpr int nregs = (RegDef::TRIG_STAT_END - RegDef::TRIG_STAT_START) / 4;
-    uint32_t values[nregs];
-    for (int i = 0; i < nregs; i++) {
-        values[i] = reg->read(RegDef::TRIG_STAT_START + 4*i);
-        if (enabled)
-            values[i] &= reg->read(RegDef::TRIG_EN_START + 4*i);
-    }
-    for (auto &trigger : om_trigger) {
-        int id = trigger.reg_index;
-        if (values[id / 32] & (1 << (id % 32)))
-            res.push_back(trigger.index);
-    }
-    return res;
-}
-
-void Controller::init_axi(const SysInfo &sysinfo)
-{
-    for (auto &info : sysinfo.axi) {
-        om_axi.add({
-            .name           = flatten_name(info.name),
-            .size           = info.size,
-            .reg_offset     = info.reg_offset,
-            .assigned_offset  = 0,
-            .assigned_size  = 0,
-        });
-    }
-
-    // Allocate memory regions, the largest size first
-
-    std::vector<AXIObject*> sort_list;
-    for (auto &axi : om_axi)
-        sort_list.push_back(&axi);
-
-    std::sort(sort_list.begin(), sort_list.end(),
-        [](AXIObject *a, AXIObject *b) { return a->size > b->size; });
-
-    uint64_t dmabase = mem->dmabase();
-    uint64_t alloc_size = 0;
-    for (auto p : sort_list) {
-        p->assigned_size = 1 << clog2(p->size); // power of 2
-        p->assigned_offset = alloc_size;
-        alloc_size += p->assigned_size;
-        fprintf(stderr, "[REMU] INFO: Allocated memory (offset 0x%08lx - 0x%08lx) for AXI port \"%s\"\n",
-            dmabase + p->assigned_offset,
-            dmabase + p->assigned_offset + p->assigned_size,
-            p->name.c_str());
-    }
-
-    if (alloc_size > mem->size()) {
-        fprintf(stderr, "[REMU] ERROR: this platform does not have enough device memory (0x%lx actual, 0x%lx required)\n",
-            mem->size(), alloc_size);
-        throw std::runtime_error("insufficient device memory");
-    }
-
-    // Configure AXI remap
-
-    for (auto &axi : om_axi) {
-        uint64_t base = dmabase + axi.assigned_offset;
-        uint64_t mask = axi.assigned_size - 1;
-        reg->write(axi.reg_offset + 0x0, base >> 12);
-        reg->write(axi.reg_offset + 0x4, mask >> 12);
-    }
-
-    // Intialize memory
-
-    for (auto &axi : om_axi) {
-        fprintf(stderr, "[REMU] INFO: Clearing memory for AXI port \"%s\"\n",
-            axi.name.c_str());
-        mem->fill(0, axi.assigned_offset, axi.assigned_size);
-    }
+    uint64_t base = axi.assigned_base;
+    uint64_t mask = axi.assigned_size - 1;
+    reg->write(axi.reg_offset + 0x0, base >> 12);
+    reg->write(axi.reg_offset + 0x4, mask >> 12);
 }

@@ -18,21 +18,17 @@ constexpr R bitmask(unsigned int const onecount)
 
 }; // namespace
 
-CircuitState::CircuitState(
-    const decltype(SysInfo::wire) &wire_info,
-    const decltype(SysInfo::ram) &ram_info,
-    const decltype(SysInfo::scan_ff) &scan_ff,
-    const decltype(SysInfo::scan_ram) &scan_ram
-) : scan_ff(scan_ff), scan_ram(scan_ram)
+CircuitState::CircuitState(const SysInfo &sysinfo)
+    : scan_ff(sysinfo.scan_ff), scan_ram(sysinfo.scan_ram)
 {
-    for (auto &it : wire_info) {
+    for (auto &it : sysinfo.wire) {
         if (it.second.init_zero)
             wire[it.first] = BitVector(it.second.width);
         else
             wire[it.first] = BitVector(it.second.init_data);
     }
 
-    for (auto &it : ram_info) {
+    for (auto &it : sysinfo.ram) {
         BitVectorArray array(it.second.width, it.second.depth, it.second.start_offset);
         if (!it.second.init_zero)
             array.set_flattened_data(BitVector(it.second.init_data));
@@ -42,7 +38,7 @@ CircuitState::CircuitState(
 
 void CircuitState::load(Checkpoint &checkpoint)
 {
-    auto data_stream = checkpoint.readMem("scanchain");
+    auto data_stream = checkpoint.axi_mems.at("scanchain").read();
 
     size_t ff_size = 0, ff_offset = 0;
     for (auto &info : scan_ff)
@@ -77,7 +73,7 @@ void CircuitState::load(Checkpoint &checkpoint)
 
 void CircuitState::save(Checkpoint &checkpoint)
 {
-    auto data_stream = checkpoint.writeMem("scanchain");
+    auto data_stream = checkpoint.axi_mems.at("scanchain").write();
 
     size_t ff_size = 0, ff_offset = 0;
     for (auto &info : scan_ff)

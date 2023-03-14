@@ -51,11 +51,13 @@ struct PerfMon
     uint64_t triggered_count;
     uint64_t prev_triggered_count;
 
-    void triggered() { triggered_count++; }
+    void reset(uint64_t tick) { prev_time = EmuTime::now(tick); }
+
+    void incr_triggered_count() { triggered_count++; }
 
     void log(const std::string &reason, uint64_t tick);
 
-    PerfMon(const std::string &filename, uint64_t tick);
+    PerfMon(const std::string &filename);
     ~PerfMon();
 };
 

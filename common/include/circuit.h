@@ -25,15 +25,7 @@ public:
     void load(Checkpoint &checkpoint);
     void save(Checkpoint &checkpoint);
 
-    CircuitState(
-        const decltype(SysInfo::wire) &wire_info,
-        const decltype(SysInfo::ram) &ram_info,
-        const decltype(SysInfo::scan_ff) &scan_ff,
-        const decltype(SysInfo::scan_ram) &scan_ram
-    );
-
-    CircuitState(const SysInfo &sysinfo)
-        : CircuitState(sysinfo.wire, sysinfo.ram, sysinfo.scan_ff, sysinfo.scan_ram) {}
+    CircuitState(const SysInfo &sysinfo);
 };
 
 struct CircuitPath : public std::vector<std::string>

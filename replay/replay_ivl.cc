@@ -2,10 +2,12 @@
 #include "model.h"
 #include "vpi_utils.h"
 #include "escape.h"
+#include "emu_utils.h"
 
 #include <map>
 #include <string>
 #include <vector>
+#include <list>
 
 using namespace REMU;
 
@@ -26,7 +28,7 @@ inline std::string get_full_name(const std::vector<std::string> &path)
 
 void VPILoader::load()
 {
-    circuit.load(checkpoint);
+    circuit.load(ckpt);
 
     for (auto &it : circuit.wire) {
         std::string full_name = get_full_name(it.first);
@@ -90,7 +92,7 @@ int rammodel_new_tf(char* user_data)
     std::string name = vpi_get_str(vpiFullName, scope);
     vpi_printf("rammodel info: %s registered with handle %ld\n", name.c_str(), index);
 
-    auto data_stream = loader->checkpoint.readMem(name + ".host_axi");
+    auto data_stream = loader->ckpt.axi_mems.at(name + ".host_axi").read();
     if (data_stream.fail()) {
         vpi_printf("ERROR: failed to open rammodel data file\n");
         vpiSetValue(callh, -1);
@@ -488,25 +490,25 @@ void replay_initialize(VPILoader *loader)
 
     // signals
 
-    static std::map<size_t, VPICallback> signal_cbs;
+    static std::list<VPICallback> signal_cbs;
     const auto &signal_info = loader->sysinfo.signal;
-    for (size_t index = 0; index < signal_info.size(); index++) {
-        auto &info = signal_info[index];
+    for (auto &info : signal_info) {
         if (info.output)
             continue;
 
+        std::string name = flatten_name(info.name);
         vpiHandle obj = vpiHandleByPath(info.name, 0);
 
-        auto &trace = loader->trace;
-        if (trace.find(index) == trace.end())
+        auto &trace = loader->ckpt_mgr.signal_trace;
+        if (trace.find(name) == trace.end())
             continue;
 
-        auto &sig_data = trace.at(index);
+        auto &sig_data = trace.at(name);
 
         auto pos = sig_data.begin();
         auto end = sig_data.end();
 
-        signal_cbs.insert(std::make_pair(index, [obj, init_tick, pos, end](uint64_t time) mutable {
+        signal_cbs.push_back(VPICallback([obj, init_tick, pos, end](uint64_t time) mutable {
             while (pos != end) {
                 auto tick = time / period + init_tick;
                 if (tick < pos->first)
@@ -518,7 +520,7 @@ void replay_initialize(VPILoader *loader)
             }
             return 0;
         }));
-        signal_cbs.at(index).register_callback(0, cbValueChange, event_obj);
+        signal_cbs.back().register_callback(0, cbValueChange, event_obj);
     }
 
     // Stop simulator at end of trace
@@ -528,7 +530,7 @@ void replay_initialize(VPILoader *loader)
         vpi_control(vpiFinish);
         return 0;
     });
-    eot_cb.register_callback((loader->latest_tick - init_tick) * period, cbAtEndOfSimTime);
+    eot_cb.register_callback((loader->ckpt_mgr.last_tick() - init_tick) * period, cbAtEndOfSimTime);
 }
 
 void REMU::register_callback(VPILoader *loader)

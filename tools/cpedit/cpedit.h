@@ -25,12 +25,12 @@ class CpEdit
     bool cmd_help       (const std::vector<std::string> &args);
     bool cmd_list       (const std::vector<std::string> &args);
     bool cmd_current    (const std::vector<std::string> &args);
-    bool cmd_axi_import (const std::vector<std::string> &args);
-    bool cmd_axi_export (const std::vector<std::string> &args);
+    bool cmd_axi        (const std::vector<std::string> &args);
     bool cmd_ff         (const std::vector<std::string> &args);
     bool cmd_ram        (const std::vector<std::string> &args);
     bool cmd_ff_dump    (const std::vector<std::string> &args);
     bool cmd_ram_dump   (const std::vector<std::string> &args);
+    bool cmd_save       (const std::vector<std::string> &args);
 
     static std::unordered_map<std::string, decltype(&CpEdit::cmd_help)> cmd_dispatcher;
 

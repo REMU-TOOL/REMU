@@ -13,20 +13,10 @@ using namespace REMU;
 
 USING_YOSYS_NAMESPACE
 
-void EmulationDatabase::write_sysinfo(std::string file_name)
+void EmulationDatabase::generate_sysinfo()
 {
-    std::ofstream f;
-
-    f.open(file_name, std::ios::trunc);
-    if (f.fail()) {
-        log_error("Can't open file `%s' for writing: %s\n", file_name.c_str(), strerror(errno));
-    }
-
-    log("Writing to file `%s'\n", file_name.c_str());
-
-    // Copy & prepend EMU_TOP to all records
-
-    SysInfo sysinfo;
+    if (sysinfo_generated)
+        return;
 
     sysinfo.wire = wire;
     sysinfo.ram = ram;
@@ -65,6 +55,22 @@ void EmulationDatabase::write_sysinfo(std::string file_name)
     sysinfo.model = model;
     sysinfo.scan_ff = scan_ff;
     sysinfo.scan_ram = scan_ram;
+
+    sysinfo_generated = true;
+}
+
+void EmulationDatabase::write_sysinfo(std::string file_name)
+{
+    std::ofstream f;
+
+    f.open(file_name, std::ios::trunc);
+    if (f.fail()) {
+        log_error("Can't open file `%s' for writing: %s\n", file_name.c_str(), strerror(errno));
+    }
+
+    log("Writing to file `%s'\n", file_name.c_str());
+
+    generate_sysinfo();
 
     sysinfo.toJson(f);
     f.close();
@@ -129,18 +135,27 @@ void EmulationDatabase::write_checkpoint(std::string ckpt_path)
 {
     log("Writing initial checkpoint to `%s'\n", ckpt_path.c_str());
 
-    CheckpointManager ckpt_mgr(ckpt_path);
+    generate_sysinfo();
+
+    CheckpointManager ckpt_mgr(sysinfo, ckpt_path);
     auto ckpt = ckpt_mgr.open(0);
 
-    for (auto &axi : axi_ports) {
-        auto stream = ckpt.writeMem(flatten_name(axi.name));
-        stream.close();
-    }
+    // Write initial circuit state
 
-    CircuitState circuit(wire, ram, scan_ff, scan_ram);
+    CircuitState circuit(sysinfo);
     circuit.save(ckpt);
 
-    for (auto &axi : axi_ports) {
-        ckpt.truncMem(flatten_name(axi.name), axi.size);
+    // Write initial signal state & trace
+
+    for (auto &signal : sysinfo.signal) {
+        if (signal.output)
+            continue;
+
+        auto name = flatten_name(signal.name);
+        BitVector value(signal.width);
+        ckpt.signal_state[name] = value;
+        ckpt_mgr.signal_trace[name][0] = value;
     }
+
+    // ckpt & ckpt_mgr will be flushed on destruction
 }

@@ -7,90 +7,156 @@
 #include <fstream>
 #include <filesystem>
 
+#include <cereal/types/map.hpp>
 #include <cereal/types/set.hpp>
+#include <cereal/types/vector.hpp>
 #include <cereal/archives/json.hpp>
+
+#include "emu_utils.h"
+
+#define NVP(name) cereal::make_nvp(#name, node.name)
+
+namespace cereal {
+
+template<class Archive>
+void serialize(Archive &archive, REMU::Checkpoint &node)
+{
+    archive(
+        NVP(signal_state),
+        NVP(pending_value_changes)
+    );
+}
+
+template<class Archive>
+void serialize(Archive &archive, REMU::CheckpointManager &node)
+{
+    archive(
+        NVP(ticks),
+        NVP(signal_trace)
+    );
+}
+
+}
 
 namespace fs = std::filesystem;
 
 using namespace REMU;
 
-std::string Checkpoint::getMemPath(std::string name)
+static size_t copy_stream(std::istream &in, std::ostream &out, size_t size, size_t buf_size = 0x100000)
+{
+    size_t xferred = 0;
+    auto buf = new char[buf_size];
+
+    while (xferred < size) {
+        size_t slice = size > buf_size ? buf_size : size;
+
+        in.read(buf, slice);
+        out.write(buf, in.gcount());
+
+        xferred += in.gcount();
+
+        if (in.gcount() < slice)
+            break;
+    }
+
+    delete[] buf;
+    return xferred;
+}
+
+std::ifstream CheckpointMem::read()
+{
+    return std::ifstream(mem_path, std::ios::binary);
+}
+
+std::ofstream CheckpointMem::write()
+{
+    return std::ofstream(mem_path, std::ios::binary);
+}
+
+void CheckpointMem::load(std::string file)
+{
+    std::ifstream in(file, std::ios::binary);
+    std::ofstream out(mem_path, std::ios::binary);
+    copy_stream(in, out, mem_size);
+}
+
+void CheckpointMem::save(std::string file)
+{
+    std::ifstream in(mem_path, std::ios::binary);
+    std::ofstream out(file, std::ios::binary);
+    copy_stream(in, out, mem_size);
+}
+
+void CheckpointMem::flush()
+{
+    if (!fs::exists(mem_path)) {
+        auto f = write();
+        f.close();
+    }
+    fs::resize_file(mem_path, mem_size);
+}
+
+std::string Checkpoint::get_mem_path(std::string name)
 {
     return fs::path(ckpt_path) / "mem" / name;
 }
 
-std::ifstream Checkpoint::readMem(std::string name)
+void Checkpoint::flush()
 {
-    return std::ifstream(getMemPath(name), std::ios::binary);
-}
-
-std::ofstream Checkpoint::writeMem(std::string name)
-{
-    return std::ofstream(getMemPath(name), std::ios::binary);
-}
-
-void Checkpoint::importMem(std::string name, std::string file)
-{
-    fs::copy_file(file, getMemPath(name));
-}
-
-void Checkpoint::exportMem(std::string name, std::string file)
-{
-    fs::copy_file(getMemPath(name), file);
-}
-
-void Checkpoint::truncMem(std::string name, size_t size)
-{
-    fs::resize_file(getMemPath(name), size);
-}
-
-SignalTraceDB Checkpoint::readTrace()
-{
-    SignalTraceDB res;
-    auto path = fs::path(ckpt_path) / "trace.json";
-    std::ifstream f(path, std::ios::binary);
-    if (!f.fail())
-        f >> res;
-    return res;
-}
-
-void Checkpoint::writeTrace(const SignalTraceDB &db)
-{
-    auto path = fs::path(ckpt_path) / "trace.json";
-    std::ofstream f(path, std::ios::binary);
-    f << db;
-}
-
-Checkpoint::Checkpoint(const std::string &path)
-{
-    ckpt_path = path;
-    fs::create_directories(fs::path(path));
-    fs::create_directories(fs::path(path) / "mem");
-}
-
-void CheckpointManager::saveTickList()
-{
-    std::ofstream f(fs::path(ckpt_root_path) / "ticks.json");
+    std::ofstream f(fs::path(ckpt_path) / "data.json");
     cereal::JSONOutputArchive archive(f);
-    archive << tick_list;
+    cereal::serialize(archive, *this);
 }
 
-void CheckpointManager::loadTickList()
+Checkpoint::Checkpoint(const CheckpointInfo &info, const std::string &path)
+    : info(info), ckpt_path(path)
 {
-    std::ifstream f(fs::path(ckpt_root_path) / "ticks.json");
-    if (f.fail()) {
-        tick_list = {};
-        return;
+    // Create checkpoint directorires
+
+    fs::create_directories(fs::path(ckpt_path));
+    fs::create_directories(fs::path(ckpt_path) / "mem");
+
+    // Load or Initialize serializable data
+
+    std::ifstream f(fs::path(ckpt_path) / "data.json");
+    if (!f.fail()) {
+        cereal::JSONInputArchive archive(f);
+        cereal::serialize(archive, *this);
     }
 
-    cereal::JSONInputArchive archive(f);
-    archive >> tick_list;
+    for (auto &x : info.input_signals) {
+        signal_state.try_emplace(x);
+        pending_value_changes.try_emplace(x);
+    }
+
+    // Create memory objects
+
+    for (auto &x : info.axi_size_map) {
+        axi_mems.try_emplace(x.first, get_mem_path(x.first), x.second);
+    }
+}
+
+void CheckpointManager::flush()
+{
+    std::ofstream f(fs::path(ckpt_root_path) / "data.json");
+    cereal::JSONOutputArchive archive(f);
+    cereal::serialize(archive, *this);
+}
+
+void CheckpointManager::truncate(uint64_t tick)
+{
+    auto it = ticks.upper_bound(tick);
+    ticks.erase(it, ticks.end());
+
+    for (auto &trace : signal_trace) {
+        auto it = trace.second.upper_bound(tick);
+        trace.second.erase(it, trace.second.end());
+    }
 }
 
 Checkpoint CheckpointManager::open(uint64_t tick)
 {
-    tick_list.insert(tick);
-    saveTickList();
+    ticks.insert(tick);
 
     char ckpt_name[32];
     snprintf(ckpt_name, 32, "%020lu", tick);
@@ -98,12 +164,37 @@ Checkpoint CheckpointManager::open(uint64_t tick)
     auto ckpt_path = fs::path(ckpt_root_path) / ckpt_name;
     fs::create_directories(ckpt_path);
 
-    return Checkpoint(ckpt_path);
+    return Checkpoint(info, ckpt_path);
 }
 
-CheckpointManager::CheckpointManager(const std::string &path)
+CheckpointManager::CheckpointManager(const SysInfo &sysinfo, const std::string &path)
+    : ckpt_root_path(path)
 {
-    ckpt_root_path = path;
-    fs::create_directories(fs::path(path));
-    loadTickList();
+    // Initialize checkpoint info
+
+    for (auto &x : sysinfo.signal) {
+        if (!x.output) {
+            info.input_signals.insert(flatten_name(x.name));
+        }
+    }
+
+    for (auto &x : sysinfo.axi) {
+        info.axi_size_map[flatten_name(x.name)] = x.size;
+    }
+
+    // Create checkpoint directorires
+
+    fs::create_directories(fs::path(ckpt_root_path));
+
+    // Load or Initialize serializable data
+
+    std::ifstream f(fs::path(ckpt_root_path) / "data.json");
+    if (!f.fail()) {
+        cereal::JSONInputArchive archive(f);
+        cereal::serialize(archive, *this);
+    }
+
+    for (auto &x : info.input_signals) {
+        signal_trace.try_emplace(x);
+    }
 }

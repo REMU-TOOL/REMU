@@ -19,7 +19,7 @@ void UartModel::init_term()
 
 bool UartModel::handle_tx(Driver &drv)
 {
-    char ch = drv.signal_get_value(sig_tx_ch);
+    char ch = drv.get_signal_value(sig_tx_ch);
     printf("%c", ch);
     fflush(stdout);
     return true;
@@ -38,9 +38,9 @@ bool UartModel::handle_rx(Driver &drv)
     if (ch) {
         drv.pause();
         uint64_t tick = drv.current_tick();
-        drv.schedule_signal_set(tick, sig_rx_valid, BitVector(1, 1));
-        drv.schedule_signal_set(tick, sig_rx_ch, BitVector(8, ch));
-        drv.schedule_signal_set(tick + 1, sig_rx_valid, BitVector(1, 0));
+        drv.set_signal_value(sig_rx_valid, BitVector(1, 1), tick);
+        drv.set_signal_value(sig_rx_ch, BitVector(8, ch), tick);
+        drv.set_signal_value(sig_rx_valid, BitVector(1, 0), tick + 1);
         next_rx_tick = tick + 1;
         return true;
     }
@@ -50,10 +50,10 @@ bool UartModel::handle_rx(Driver &drv)
 
 UartModel::UartModel(Driver &drv, const std::string &name)
 {
-    trig_tx_valid = drv.trigger_lookup(name + ".rx_tx_imp._tx_valid");
-    sig_tx_ch = drv.signal_lookup(name + ".rx_tx_imp._tx_ch");
-    sig_rx_valid = drv.signal_lookup(name + ".rx_tx_imp._rx_valid");
-    sig_rx_ch = drv.signal_lookup(name + ".rx_tx_imp._rx_ch");
+    trig_tx_valid = drv.lookup_trigger(name + ".rx_tx_imp._tx_valid");
+    sig_tx_ch = drv.lookup_signal(name + ".rx_tx_imp._tx_ch");
+    sig_rx_valid = drv.lookup_signal(name + ".rx_tx_imp._rx_valid");
+    sig_rx_ch = drv.lookup_signal(name + ".rx_tx_imp._rx_ch");
 
     next_rx_tick = 0;
 

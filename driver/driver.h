@@ -4,47 +4,24 @@
 #include <memory>
 #include <vector>
 #include <unordered_map>
+#include <queue>
 #include <iostream>
 #include <optional>
 
-#include "emu_info.h"
-#include "signal_info.h"
+#include "runtime_data.h"
 #include "checkpoint.h"
 #include "controller.h"
-#include "scheduler.h"
 #include "perfmon.h"
 
 namespace REMU {
 
 struct DriverParameters
 {
-    struct SetSignal
-    {
-        uint64_t tick;
-        std::string name;
-        BitVector value;
-    };
-
     std::string ckpt_path;
-
-    // Common options
-
-    std::optional<uint64_t> to;
-    bool save = false;
 
     bool perf = false;
     std::string perf_file;
     uint64_t perf_interval = 0;
-
-    // Record mode options
-
-    std::map<std::string, std::string> init_axi_mem;
-    std::optional<uint64_t> period;
-    std::vector<SetSignal> set_signal;
-
-    // Replay mode options
-
-    std::optional<uint64_t> replay;
 };
 
 class DriverModel
@@ -56,58 +33,96 @@ public:
 
 class Driver
 {
-    SysInfo sysinfo;
     DriverParameters options;
-
     Controller ctrl;
+    CheckpointManager ckpt_mgr;
 
-    Scheduler scheduler;
+    RTDatabase<RTSignal> signal_db;
+    RTDatabase<RTTrigger> trigger_db;
+    RTDatabase<RTAXI> axi_db;
 
     std::unordered_map<std::string, std::unique_ptr<DriverModel>> models;
-    std::unordered_map<int, std::function<bool(Driver&)>> trigger_callbacks;
     std::vector<std::function<bool(Driver&)>> parallel_callbacks;
-
-    CheckpointManager ckpt_mgr;
-    SignalTraceDB trace_db;
 
     std::unique_ptr<PerfMon> perfmon;
 
-    bool stop_flag = false;
+    uint64_t cur_tick = 0;
 
-    void init_model();
+    enum MetaEventType
+    {
+        // Priority max
+        Stop,
+        Perf,
+        Ckpt,
+        // Priority min
+    };
 
-    void process_design_inits();
+    using MetaEvent = std::pair<uint64_t, MetaEventType>;
 
-    void load_checkpoint(uint64_t tick);
+    std::priority_queue<MetaEvent, std::vector<MetaEvent>, std::greater<MetaEvent>> meta_event_q;
+
+    uint64_t ckpt_interval = 0;
+    uint64_t perf_interval = 0;
+
+    void init_axi(const SysInfo &sysinfo);
+    void init_model(const SysInfo &sysinfo);
+    void init_perf(const std::string &file, uint64_t interval);
+
+    // immediately change signal value
+    void set_signal_value(RTSignal &signal, const BitVector &value);
+
+    void load_checkpoint(bool record);
     void save_checkpoint();
 
-    void handle_triggers();
-    void handle_pause();
-    void main_loop();
+    // -> whether stop is requested
+    bool handle_event();
+
+    uint32_t calc_next_event_step();
+    void run();
+
+    bool cmd_help       (const std::vector<std::string> &args);
+    bool cmd_list       (const std::vector<std::string> &args);
+    bool cmd_save       (const std::vector<std::string> &args);
+    bool cmd_replay     (const std::vector<std::string> &args);
+    bool cmd_record     (const std::vector<std::string> &args);
+    bool cmd_run        (const std::vector<std::string> &args);
+    bool cmd_trigger    (const std::vector<std::string> &args);
+    bool cmd_signal     (const std::vector<std::string> &args);
+
+    static std::unordered_map<std::string, decltype(&Driver::cmd_help)> cmd_dispatcher;
+
+    bool execute_cmd(const std::string &args);
+    void run_cli();
 
 public:
 
-    uint64_t current_tick() { return ctrl.get_tick_count(); }
+    // must be called when paused
+    uint64_t current_tick() { return cur_tick; }
+
+    // must be called when paused
+    bool is_replay_mode() { return cur_tick < ckpt_mgr.last_tick(); }
+
     bool is_running() { return ctrl.is_run_mode(); }
     void pause() { ctrl.exit_run_mode(); }
 
-    bool is_replay_mode() { return options.replay.has_value(); }
+    int lookup_signal(const std::string &name)
+    {
+        return signal_db.index_by_name(name);
+    }
 
-    int signal_lookup(const std::string &name) { return ctrl.signals().lookup(name); }
-    std::string signal_get_name(int index) { return ctrl.signals().get(index).name; }
-    BitVector signal_get_value(int index) { return ctrl.get_signal_value(index); }
+    BitVector get_signal_value(int index);
 
-    int trigger_lookup(const std::string &name) { return ctrl.triggers().lookup(name); }
-    std::string trigger_get_name(int index) { return ctrl.triggers().get(index).name; }
+    // schedule a value change at the specified tick
+    void set_signal_value(int index, const BitVector &value, uint64_t tick);
 
-    void schedule_signal_set(uint64_t tick, int index, const BitVector &value);
-    void schedule_stop(uint64_t tick, std::string reason);
-    void schedule_save(uint64_t tick, uint64_t period);
-    void schedule_print_time(uint64_t tick, uint64_t period);
+    int lookup_trigger(const std::string &name)
+    {
+        return trigger_db.index_by_name(name);
+    }
 
     void register_trigger_callback(int index, std::function<bool(Driver&)> callback)
     {
-        trigger_callbacks[index] = callback;
+        trigger_db.object_by_index(index).callback = callback;
     }
 
     void register_parallel_callback(std::function<bool(Driver&)> callback)
@@ -121,10 +136,7 @@ public:
         const SysInfo &sysinfo,
         const YAML::Node &platinfo,
         const DriverParameters &options
-    ) : sysinfo(sysinfo), options(options), ckpt_mgr(options.ckpt_path), ctrl(sysinfo, platinfo)
-    {
-        init_model();
-    }
+    );
 };
 
 };

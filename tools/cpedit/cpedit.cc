@@ -19,6 +19,7 @@ void CpEdit::load(uint64_t tick)
 
     current_tick = tick;
     ckpt = ckpt_mgr.open(tick);
+    ckpt_mgr.flush();
     circuit.load(ckpt);
 }
 
@@ -32,10 +33,13 @@ void CpEdit::save()
         fprintf(stderr, "Import AXI %s with file %s\n",
             it.first.c_str(), it.second.c_str());
 
-        ckpt.importMem(it.first, it.second);
-        ckpt.truncMem(it.first, axi_info.at(it.first));
+        auto &mem = ckpt.axi_mems.at(it.first);
+        mem.load(it.second);
+        mem.flush();
     }
     pending_axi_imports.clear();
+
+    ckpt.flush();
 }
 
 bool CpEdit::cmd_help(const std::vector<std::string> &args)
@@ -50,9 +54,11 @@ bool CpEdit::cmd_help(const std::vector<std::string> &args)
         "    current [<tick>]\n"
         "        Get/set current tick. Setting tick value will cause the corresponding \n"
         "        checkpoint to be loaded. The default tick is 0.\n"
-        "    axi-import <axi> <file>\n"
+        "    axi\n"
+        "        List AXI memories.\n"
+        "    axi import <axi> <file>\n"
         "        Import data to AXI memory from the specified file.\n"
-        "    axi-export <axi> <file>\n"
+        "    axi export <axi> <file>\n"
         "        Export data from AXI memory to the specified file.\n"
         "    ff \n"
         "        List FFs.\n"
@@ -81,7 +87,7 @@ bool CpEdit::cmd_help(const std::vector<std::string> &args)
 bool CpEdit::cmd_list(const std::vector<std::string> &args)
 {
     printf("Checkpointed ticks:\n");
-    for (auto tick : ckpt_mgr.list()) {
+    for (auto tick : ckpt_mgr.ticks) {
         printf("%ld\n", tick);
     }
 
@@ -95,7 +101,7 @@ bool CpEdit::cmd_current(const std::vector<std::string> &args)
     }
     else if (args.size() == 2) {
         uint64_t tick = std::stoul(args[1]);
-        if (!ckpt_mgr.exists(tick)) {
+        if (!ckpt_mgr.has_tick(tick)) {
             fprintf(stderr, "Tick %ld is not checkpointed\n", tick);
             return false;
         }
@@ -108,47 +114,50 @@ bool CpEdit::cmd_current(const std::vector<std::string> &args)
     return true;
 }
 
-bool CpEdit::cmd_axi_import(const std::vector<std::string> &args)
+bool CpEdit::cmd_axi(const std::vector<std::string> &args)
 {
-    if (args.size() != 3) {
+    if (args.size() == 1) {
+        for (auto &it : axi_info) {
+            printf("%s\n", it.first.c_str());
+        }
+        return true;
+    }
+
+    if (args.size() != 4) {
         fprintf(stderr, "Incorrect number of arguments for this command\n");
         return false;
     }
 
-    std::string axi_name = args[1];
-    std::string file_name = args[2];
+    auto action = args[1];
+    auto axi_name = args[2];
+    auto file_name = args[3];
 
-    if (axi_info.find(axi_name) == axi_info.end()) {
-        fprintf(stderr, "AXI %s does not exist\n", axi_name.c_str());
-        return false;
+    if (action == "import") {
+        if (axi_info.find(axi_name) == axi_info.end()) {
+            fprintf(stderr, "AXI %s does not exist\n", axi_name.c_str());
+            return false;
+        }
+
+        pending_axi_imports.push_back(std::make_pair(axi_name, file_name));
+
+        fprintf(stderr, "AXI import action queued\n");
+        return true;
+    }
+    else if (action == "export") {
+        if (axi_info.find(axi_name) == axi_info.end()) {
+            fprintf(stderr, "AXI %s does not exist\n", axi_name.c_str());
+            return false;
+        }
+
+        fprintf(stderr, "Export AXI %s to file %s\n",
+            axi_name.c_str(), file_name.c_str());
+
+        ckpt.axi_mems.at(axi_name).save(file_name);
+        return true;
     }
 
-    pending_axi_imports.push_back(std::make_pair(axi_name, file_name));
-
-    fprintf(stderr, "AXI import action queued\n");
-    return true;
-}
-
-bool CpEdit::cmd_axi_export(const std::vector<std::string> &args)
-{
-    if (args.size() != 3) {
-        fprintf(stderr, "Incorrect number of arguments for this command\n");
-        return false;
-    }
-
-    std::string axi_name = args[1];
-    std::string file_name = args[2];
-
-    if (axi_info.find(axi_name) == axi_info.end()) {
-        fprintf(stderr, "AXI %s does not exist\n", axi_name.c_str());
-        return false;
-    }
-
-    fprintf(stderr, "Export AXI %s to file %s\n",
-        axi_name.c_str(), file_name.c_str());
-
-    ckpt.exportMem(axi_name, file_name);
-    return true;
+    fprintf(stderr, "Unknown subcommand %s\n", action.c_str());
+    return false;
 }
 
 bool CpEdit::cmd_ff(const std::vector<std::string> &args)
@@ -288,16 +297,22 @@ bool CpEdit::cmd_ram_dump(const std::vector<std::string> &args)
     return true;
 }
 
+bool CpEdit::cmd_save(const std::vector<std::string> &args)
+{
+    save();
+    return true;
+}
+
 decltype(CpEdit::cmd_dispatcher) CpEdit::cmd_dispatcher = {
     {"help",        &CpEdit::cmd_help},
     {"list",        &CpEdit::cmd_list},
     {"current",     &CpEdit::cmd_current},
-    {"axi-import",  &CpEdit::cmd_axi_import},
-    {"axi-export",  &CpEdit::cmd_axi_export},
+    {"axi",         &CpEdit::cmd_axi},
     {"ff",          &CpEdit::cmd_ff},
     {"ram",         &CpEdit::cmd_ram},
     {"ff-dump",     &CpEdit::cmd_ff_dump},
     {"ram-dump",    &CpEdit::cmd_ram_dump},
+    {"save",        &CpEdit::cmd_save},
 };
 
 bool CpEdit::execute(std::string cmd)
@@ -335,7 +350,7 @@ void CpEdit::run_cli()
 }
 
 CpEdit::CpEdit(const SysInfo &sysinfo, const std::string &ckpt_path) :
-    ckpt_mgr(ckpt_path),
+    ckpt_mgr(sysinfo, ckpt_path),
     ckpt(ckpt_mgr.open(0)),
     circuit(sysinfo)
 {

@@ -15,17 +15,12 @@ struct VPILoader
     CircuitState circuit;
     CheckpointManager ckpt_mgr;
     uint64_t tick;
-    uint64_t latest_tick;
-    Checkpoint checkpoint;
-    SignalTraceDB trace;
+    Checkpoint ckpt;
 
     VPILoader(const SysInfo &sysinfo, std::string ckpt_path, uint64_t tick) :
-        sysinfo(sysinfo), circuit(sysinfo), ckpt_mgr(ckpt_path), tick(tick), checkpoint(ckpt_mgr.open(tick))
+        sysinfo(sysinfo), circuit(sysinfo), ckpt_mgr(sysinfo, ckpt_path), tick(tick), ckpt(ckpt_mgr.open(tick))
     {
-        circuit.load(checkpoint);
-        latest_tick = ckpt_mgr.latest();
-        auto latest_ckpt = ckpt_mgr.open(latest_tick);
-        trace = latest_ckpt.readTrace();
+        circuit.load(ckpt);
     }
 
     void load();

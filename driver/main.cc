@@ -13,29 +13,13 @@ void show_help(const char * argv_0)
     //   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
     fprintf(stderr,
         "Usage: %s <sysinfo_file> <platinfo_file> <checkpoint_path> [options]\n"
-        "Common options:\n"
-        "    --save\n"
-        "        Save a checkpoint when execution is stopped.\n"
-        "    --to <tick>\n"
-        "        Stop execution at the specified tick.\n"
+        "Options:\n"
         "    --perf\n"
         "        Enable performance monitor.\n"
         "    --perf-file <file>\n"
         "        Specify performance monitor log file (STDERR by default).\n"
         "    --perf-interval <tick>\n"
         "        Specify performance monitor interval, 0 to disable (0 by default).\n"
-        "\n"
-        "Record mode options:\n"
-        "    --init-axi-mem <axi_name> <bin_file>\n"
-        "        Initialize AXI memory region with the specified file.\n"
-        "    --period <period>\n"
-        "        Set checkpoint period.\n"
-        "    --set-signal <tick> <name> <value>\n"
-        "        Set signal value at the specified tick.\n"
-        "\n"
-        "Replay mode options:\n"
-        "    --replay <tick>\n"
-        "        Replay from the specified tick. Must be set for replay mode.\n"
         "\n"
         , argv_0);
 }
@@ -54,18 +38,6 @@ int main(int argc, const char *argv[])
     options.ckpt_path = argv[3];
 
     for (int i = 4; i < argc; i++) {
-        if (!strcmp(argv[i], "--save")) {
-            options.save = true;
-            continue;
-        }
-        if (!strcmp(argv[i], "--to")) {
-            if (argc - i <= 1) {
-                fprintf(stderr, "missing arguments for --to\n");
-                return 1;
-            }
-            options.to = std::stoul(argv[++i]);
-            continue;
-        }
         if (!strcmp(argv[i], "--perf")) {
             options.perf = true;
             continue;
@@ -84,47 +56,6 @@ int main(int argc, const char *argv[])
                 return 1;
             }
             options.perf_interval = std::stoul(argv[++i]);
-            continue;
-        }
-        if (!strcmp(argv[i], "--init-axi-mem")) {
-            if (argc - i <= 2) {
-                fprintf(stderr, "missing arguments for --init-axi-mem\n");
-                return 1;
-            }
-            auto axi_name = argv[++i];
-            auto bin_file = argv[++i];
-            options.init_axi_mem[axi_name] = bin_file;
-            continue;
-        }
-        if (!strcmp(argv[i], "--period")) {
-            if (argc - i <= 1) {
-                fprintf(stderr, "missing arguments for --period\n");
-                return 1;
-            }
-            options.period = std::stoul(argv[++i]);
-            continue;
-        }
-        if (!strcmp(argv[i], "--set-signal")) {
-            if (argc - i <= 3) {
-                fprintf(stderr, "missing arguments for --set-signal\n");
-                return 1;
-            }
-            auto tick = std::stoul(argv[++i]);
-            auto name = argv[++i];
-            BitVector value(argv[++i]);
-            options.set_signal.push_back({
-                .tick   = tick,
-                .name   = name,
-                .value  = value,
-            });
-            continue;
-        }
-        if (!strcmp(argv[i], "--replay")) {
-            if (argc - i <= 1) {
-                fprintf(stderr, "missing arguments for --replay\n");
-                return 1;
-            }
-            options.replay = std::stoul(argv[++i]);
             continue;
         }
         fprintf(stderr, "unrecognized option %s\n", argv[i]);
