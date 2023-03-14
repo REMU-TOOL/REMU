@@ -24,3 +24,14 @@
 
 - Load init data in emulation
 - 4KB boundary check in simple DMA
+
+# Notes
+
+## rammodel_backend
+
+In the initial checkpoint, rammodel_backend is not in *reset* state but *initial* state,
+which may cause problems. Currently all registers in the components used by rammodel_backend 
+are initialized to their reset states to prevent any misfunction.
+
+One better solution is to use dedicated save/load logic instead of scan chain, so that the FIFO
+flags can be mantained.
