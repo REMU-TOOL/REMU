@@ -50,8 +50,8 @@ inline T vpiGetValue(vpiHandle obj, std::enable_if_t<std::is_integral_v<T>>* = 0
 
     T res = 0;
     for (int i = 0; i < count; i++) {
-        T chunk = value.value.vector[i].aval & ~value.value.vector[i].bval;
-        res |= chunk << (i * 32);
+        uint32_t chunk = value.value.vector[i].aval & ~value.value.vector[i].bval;
+        res |= T(chunk) << (i * 32);
     }
 
     return res;
