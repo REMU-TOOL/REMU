@@ -186,9 +186,14 @@ module cosim_bfm #(
 
     integer mmio_state;
 
-    integer     mmio_write;
+    integer     msg_type;
     reg [31:0]  mmio_addr;
     reg [31:0]  mmio_value;
+
+    localparam
+        MSG_EXIT        = -1,
+        MSG_REGREAD     = 0,
+        MSG_REGWRITE    = 1;
 
     always @(posedge clk) begin
         if (rst) begin
@@ -197,9 +202,24 @@ module cosim_bfm #(
         else begin
             case (mmio_state)
                 STATE_IDLE: begin
-                    result = $cosim_poll_req(mmio_write, mmio_addr, mmio_value);
+                    result = $cosim_poll_req(msg_type, mmio_addr, mmio_value);
                     if (result > 0) begin
-                        mmio_state <= mmio_write ? STATE_AW : STATE_AR;
+                        case (msg_type)
+                        MSG_EXIT: begin
+                            $display("cosim exit");
+                            $finish;
+                        end
+                        MSG_REGREAD: begin
+                            mmio_state <= STATE_AR;
+                        end
+                        MSG_REGWRITE: begin
+                            mmio_state <= STATE_AW;
+                        end
+                        default: begin
+                            $display("ERROR: unknown msg type %d", msg_type);
+                            $fatal;
+                        end
+                        endcase
                     end
                 end
                 STATE_AR: begin

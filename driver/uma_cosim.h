@@ -20,6 +20,7 @@ public:
     virtual uint64_t dmabase() const override { return 0; }
 
     CosimUserMem();
+    virtual ~CosimUserMem();
 };
 
 class CosimUserIO : public UserIO
@@ -31,6 +32,7 @@ public:
     virtual void write(uint64_t offset, uint32_t value) override;
 
     CosimUserIO();
+    virtual ~CosimUserIO();
 };
 
 #endif

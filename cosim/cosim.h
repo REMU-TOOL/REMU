@@ -8,8 +8,9 @@ namespace REMU {
 
 enum CosimMsgType
 {
-    RegRead,
-    RegWrite,
+    Exit        = -1,
+    RegRead     = 0,
+    RegWrite    = 1,
 };
 
 struct CosimMsgReq
@@ -93,6 +94,7 @@ public:
     void reg_write(uint32_t addr, uint32_t value);
 
     CosimClient();
+    ~CosimClient();
 };
 
 }

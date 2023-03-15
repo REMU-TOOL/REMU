@@ -92,7 +92,7 @@ int cosim_mem_write_calltf(char*)
 }
 
 // function integer $cosim_poll_req(
-//    output integer write,
+//    output integer type,
 //    output [63:0] addr,
 //    output [31:0] value)
 int cosim_poll_req_calltf(char*)
@@ -108,7 +108,7 @@ int cosim_poll_req_calltf(char*)
 
     CosimMsgReq req;
     if (server->poll_req(req)) {
-        vpiSetValue(args[0], req.type == RegWrite);
+        vpiSetValue(args[0], static_cast<int>(req.type));
         vpiSetValue(args[1], req.addr);
         vpiSetValue(args[2], req.value);
 

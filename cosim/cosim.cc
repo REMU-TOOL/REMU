@@ -108,3 +108,13 @@ CosimClient::CosimClient() :
     shm.get_size(size);
     region = mapped_region(shm, read_write, 0, size);
 }
+
+CosimClient::~CosimClient()
+{
+    CosimMsgReq req = {
+        .type   = Exit,
+        .value  = 0,
+        .addr   = 0,
+    };
+    send_req(req);
+}

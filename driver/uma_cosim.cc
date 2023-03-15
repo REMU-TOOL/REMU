@@ -9,22 +9,42 @@
 
 using namespace REMU;
 
-std::unique_ptr<CosimClient> client;
+static std::unique_ptr<CosimClient> client;
+static unsigned int client_refcount = 0;
 
-inline void setup_client()
+inline void start_client()
 {
-    if (!client)
+    if (client_refcount == 0)
         client = std::make_unique<CosimClient>();
+    client_refcount++;
+}
+
+inline void stop_client()
+{
+    if (client_refcount > 0)
+        client_refcount--;
+    if (client_refcount == 0)
+        client = 0;
 }
 
 CosimUserMem::CosimUserMem()
 {
-    setup_client();
+    start_client();
+}
+
+CosimUserMem::~CosimUserMem()
+{
+    stop_client();
 }
 
 CosimUserIO::CosimUserIO()
 {
-    setup_client();
+    start_client();
+}
+
+CosimUserIO::~CosimUserIO()
+{
+    stop_client();
 }
 
 void CosimUserMem::read(char *buf, uint64_t offset, uint64_t len)
