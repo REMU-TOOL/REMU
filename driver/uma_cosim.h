@@ -5,69 +5,37 @@
 
 namespace REMU {
 
-class CosimBFM
-{
-    int m_cid;
-
-public:
-
-    void read(char *buf, uint64_t offset, uint64_t len);
-    void write(const char *buf, uint64_t offset, uint64_t len);
-    void fill(char c, uint64_t offset, uint64_t len);
-
-    CosimBFM(int cid);
-    ~CosimBFM();
-};
+#ifdef ENABLE_COSIM
 
 class CosimUserMem : public UserMem
 {
-    CosimBFM bfm;
-    uint64_t m_size;
 
 public:
 
-    virtual void read(char *buf, uint64_t offset, uint64_t len) override
-    {
-        bfm.read(buf, offset, len);
-    }
+    virtual void read(char *buf, uint64_t offset, uint64_t len) override;
+    virtual void write(const char *buf, uint64_t offset, uint64_t len) override;
+    virtual void fill(char c, uint64_t offset, uint64_t len) override;
 
-    virtual void write(const char *buf, uint64_t offset, uint64_t len) override
-    {
-        bfm.write(buf, offset, len);
-    }
-
-    virtual void fill(char c, uint64_t offset, uint64_t len) override
-    {
-        bfm.fill(c, offset, len);
-    }
-
-    virtual uint64_t size() const override { return m_size; }
+    virtual uint64_t size() const override;
     virtual uint64_t dmabase() const override { return 0; }
 
-    CosimUserMem(int cid, uint64_t size) : bfm(cid), m_size(size) {}
+    CosimUserMem();
+    virtual ~CosimUserMem();
 };
 
 class CosimUserIO : public UserIO
 {
-    CosimBFM bfm;
 
 public:
 
-    virtual uint32_t read(uint64_t offset) override
-    {
-        uint32_t val;
-        bfm.read(reinterpret_cast<char*>(&val), offset, 4);
-        return val;
-    }
+    virtual uint32_t read(uint64_t offset) override;
+    virtual void write(uint64_t offset, uint32_t value) override;
 
-    virtual void write(uint64_t offset, uint32_t value) override
-    {
-        bfm.write(reinterpret_cast<char*>(&value), offset, 4);
-    }
-
-    CosimUserIO(int cid) : bfm(cid) {}
+    CosimUserIO();
+    virtual ~CosimUserIO();
 };
 
+#endif
 
 };
 

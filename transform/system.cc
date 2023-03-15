@@ -11,20 +11,20 @@ using namespace REMU;
 
 PRIVATE_NAMESPACE_BEGIN
 
-const uint32_t  CTRL_ADDR_WIDTH         = 16;
+constexpr uint32_t  CTRL_ADDR_WIDTH         = 16;
 
-const uint32_t  SYS_CTRL_BASE           = 0x0000;
-const uint32_t  SYS_CTRL_WIDTH          = 12;
+constexpr uint32_t  SYS_CTRL_BASE           = 0x0000;
+constexpr uint32_t  SYS_CTRL_WIDTH          = 12;
 
-const uint32_t  AXI_REMAP_CFG_BASE      = 0x1000;
-const uint32_t  AXI_REMAP_CFG_WIDTH     = 4;
-const uint32_t  AXI_REMAP_CFG_LIMIT     = 0x1400;
+constexpr uint32_t  AXI_REMAP_CFG_BASE      = 0x1000;
+constexpr uint32_t  AXI_REMAP_CFG_WIDTH     = 3;
+constexpr uint32_t  AXI_REMAP_CFG_LIMIT     = 0x1400;
 
-const uint32_t  SIGNAL_IN_BASE          = 0x2000;
-const uint32_t  SIGNAL_IN_WIDTH         = 12;
+constexpr uint32_t  SIGNAL_IN_BASE          = 0x2000;
+constexpr uint32_t  SIGNAL_IN_WIDTH         = 12;
 
-const uint32_t  SIGNAL_OUT_BASE         = 0x3000;
-const uint32_t  SIGNAL_OUT_WIDTH        = 12;
+constexpr uint32_t  SIGNAL_OUT_BASE         = 0x3000;
+constexpr uint32_t  SIGNAL_OUT_WIDTH        = 12;
 
 struct CtrlSig
 {
@@ -265,6 +265,7 @@ void add_axi_remap(EmulationDatabase &database, Module *top, CtrlConnBuilder &bu
 
     int i = 0;
     constexpr int step = 1 << AXI_REMAP_CFG_WIDTH;
+    constexpr int remap_addr_width = 40;
 
     for (auto &info : database.axi_ports) {
         IdString araddr_name = "\\" + info.axi.ar.addr.name;
@@ -273,8 +274,10 @@ void add_axi_remap(EmulationDatabase &database, Module *top, CtrlConnBuilder &bu
         Wire *awaddr = top->wire(awaddr_name);
         top->rename(araddr, NEW_ID);
         top->rename(awaddr, NEW_ID);
-        Wire *new_araddr = top->addWire(araddr_name, araddr);
-        Wire *new_awaddr = top->addWire(awaddr_name, awaddr);
+        Wire *new_araddr = top->addWire(araddr_name, remap_addr_width);
+        Wire *new_awaddr = top->addWire(awaddr_name, remap_addr_width);
+        new_araddr->port_output = true;
+        new_awaddr->port_output = true;
         make_internal(araddr);
         make_internal(awaddr);
 

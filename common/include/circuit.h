@@ -12,15 +12,18 @@
 
 namespace REMU {
 
-struct CircuitState
+class CircuitState
 {
-    std::map<std::vector<std::string>, BitVector> wire;
-    std::map<std::vector<std::string>, BitVectorArray> ram;
-
     decltype(SysInfo::scan_ff) scan_ff;
     decltype(SysInfo::scan_ram) scan_ram;
 
+public:
+
+    std::map<std::vector<std::string>, BitVector> wire;
+    std::map<std::vector<std::string>, BitVectorArray> ram;
+
     void load(Checkpoint &checkpoint);
+    void save(Checkpoint &checkpoint);
 
     CircuitState(const SysInfo &sysinfo);
 };

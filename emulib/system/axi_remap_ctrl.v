@@ -15,50 +15,43 @@ module EmuAXIRemapCtrl #(
     output reg  [31:0]                  ctrl_rdata,
 
     input  wire [AXI_ADDR_WIDTH-1:0]    araddr_i,
-    output wire [AXI_ADDR_WIDTH-1:0]    araddr_o,
+    output wire [39:0]                  araddr_o,
     input  wire [AXI_ADDR_WIDTH-1:0]    awaddr_i,
-    output wire [AXI_ADDR_WIDTH-1:0]    awaddr_o
+    output wire [39:0]                  awaddr_o
 );
 
     // Registers
-    // 0x00 -> BASE_LO
-    // 0x04 -> BASE_HI
-    // 0x08 -> MASK_LO
-    // 0x0c -> MASK_HI
+    // 0x00 -> BASE_12
+    // 0x04 -> MASK_12
 
-    reg [51:0] base, mask; // high 52 bits
+    reg [27:0] base, mask; // high 28 bits
 
     always @(posedge clk) begin
         if (rst) begin
-            base <= 52'h00000000_00000;
-            mask <= 52'hffffffff_fffff;
+            base <= 28'h0000000;
+            mask <= 28'hfffffff;
         end
         else if (ctrl_wen) begin
-            case (ctrl_waddr[3:2])
-                2'd0:   base[19: 0] <= ctrl_wdata[31:12];
-                2'd1:   base[51:20] <= ctrl_wdata;
-                2'd2:   mask[19: 0] <= ctrl_wdata[31:12];
-                2'd3:   mask[51:20] <= ctrl_wdata;
+            case (ctrl_waddr[2:2])
+                1'd0:   base <= ctrl_wdata[27:0];
+                1'd1:   mask <= ctrl_wdata[27:0];
             endcase
         end
     end
 
-    wire [63:0] full_base = {base, 12'h000};
-    wire [63:0] full_mask = {mask, 12'hfff};
-
     always @* begin
-        case (ctrl_raddr[3:2])
-            2'd0:   ctrl_rdata = full_base[31: 0];
-            2'd1:   ctrl_rdata = full_base[63:32];
-            2'd2:   ctrl_rdata = full_mask[31: 0];
-            2'd3:   ctrl_rdata = full_mask[63:32];
+        case (ctrl_raddr[2:2])
+            1'd0:   ctrl_rdata = {4'd0, base};
+            1'd1:   ctrl_rdata = {4'd0, mask};
         endcase
     end
 
-    wire [AXI_ADDR_WIDTH-1:0] real_base = full_base[AXI_ADDR_WIDTH-1:0];
-    wire [AXI_ADDR_WIDTH-1:0] real_mask = full_mask[AXI_ADDR_WIDTH-1:0];
+    wire [39:0] full_base = {base, 12'h000};
+    wire [39:0] full_mask = {mask, 12'hfff};
+    wire [39:0] araddr_i_ext = {{40-AXI_ADDR_WIDTH{1'b0}}, araddr_i};
+    wire [39:0] awaddr_i_ext = {{40-AXI_ADDR_WIDTH{1'b0}}, awaddr_i};
 
-    assign araddr_o = (real_mask & araddr_i) | (~real_mask & real_base);
-    assign awaddr_o = (real_mask & awaddr_i) | (~real_mask & real_base);
+    assign araddr_o = (full_mask & araddr_i_ext) | (~full_mask & full_base);
+    assign awaddr_o = (full_mask & awaddr_i_ext) | (~full_mask & full_base);
 
 endmodule

@@ -4,23 +4,31 @@
 #include "driver.h"
 namespace REMU {
 
-class UartModel : public DriverModel
+class UartModel : public EmuModel
 {
     int trig_tx_valid;
     int sig_tx_ch;
     int sig_rx_valid;
     int sig_rx_ch;
 
-    uint64_t next_rx_tick;
+    // serializable data begin
+
+    bool rx_ready;
+
+    // serializable data end
 
     void init_term();
 
 public:
 
-    bool handle_tx(Driver &drv);
-    bool handle_rx(Driver &drv);
+    virtual void save(std::ostream &) const override;
+    virtual void load(std::istream &) override;
 
-    UartModel(Driver &drv, const std::string &name);
+    virtual bool handle_realtime_callback(Driver &) override;
+    virtual bool handle_tick_callback(Driver &, uint64_t) override;
+    virtual bool handle_trigger_callback(Driver &, int) override;
+
+    UartModel(Driver &driver, const std::string &name);
 };
 
 }

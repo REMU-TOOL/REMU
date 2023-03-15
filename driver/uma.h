@@ -18,8 +18,8 @@ public:
     virtual uint64_t dmabase() const = 0;
     virtual ~UserMem() {}
 
-    uint64_t copy_from_stream(uint64_t offset, uint64_t len, std::istream &stream);
-    uint64_t copy_to_stream(uint64_t offset, uint64_t len, std::ostream &stream);
+    virtual uint64_t copy_from_stream(uint64_t offset, uint64_t len, std::istream &stream);
+    virtual uint64_t copy_to_stream(uint64_t offset, uint64_t len, std::ostream &stream);
 };
 
 class UserIO

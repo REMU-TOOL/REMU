@@ -19,7 +19,7 @@ void PerfMon::log(const std::string &reason, uint64_t tick)
     prev_triggered_count = triggered_count;
 }
 
-PerfMon::PerfMon(const std::string &filename, uint64_t tick)
+PerfMon::PerfMon(const std::string &filename)
 {
     if (filename.empty())
         log_file = stderr;
@@ -29,7 +29,7 @@ PerfMon::PerfMon(const std::string &filename, uint64_t tick)
     if (!log_file)
         throw std::system_error(errno, std::generic_category(), "failed to open " + filename);
 
-    prev_time = EmuTime::now(tick);
+    prev_time = EmuTime::now(0);
     triggered_count = 0;
     prev_triggered_count = 0;
 }

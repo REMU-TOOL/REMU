@@ -18,7 +18,8 @@ constexpr R bitmask(unsigned int const onecount)
 
 }; // namespace
 
-CircuitState::CircuitState(const SysInfo &sysinfo) : scan_ff(sysinfo.scan_ff), scan_ram(sysinfo.scan_ram)
+CircuitState::CircuitState(const SysInfo &sysinfo)
+    : scan_ff(sysinfo.scan_ff), scan_ram(sysinfo.scan_ram)
 {
     for (auto &it : sysinfo.wire) {
         if (it.second.init_zero)
@@ -37,7 +38,7 @@ CircuitState::CircuitState(const SysInfo &sysinfo) : scan_ff(sysinfo.scan_ff), s
 
 void CircuitState::load(Checkpoint &checkpoint)
 {
-    auto data_stream = checkpoint.readMem("scanchain");
+    auto data_stream = checkpoint.axi_mems.at("scanchain").read();
 
     size_t ff_size = 0, ff_offset = 0;
     for (auto &info : scan_ff)
@@ -64,8 +65,43 @@ void CircuitState::load(Checkpoint &checkpoint)
     for (auto &info : scan_ram) {
         auto &data = ram.at(info.name);
         for (int i = 0; i < info.depth; i++) {
-            data.set(i, ram_data.getValue(ram_offset, info.width));
+            data.set(data.start_offset() + i, ram_data.getValue(ram_offset, info.width));
             ram_offset += info.width;
         }
     }
+}
+
+void CircuitState::save(Checkpoint &checkpoint)
+{
+    auto data_stream = checkpoint.axi_mems.at("scanchain").write();
+
+    size_t ff_size = 0, ff_offset = 0;
+    for (auto &info : scan_ff)
+        ff_size += info.width;
+
+    BitVector ff_data(ff_size);
+
+    for (auto &info : scan_ff) {
+        if (!info.name.empty()) {
+            auto &data = wire.at(info.name);
+            ff_data.setValue(ff_offset, data.getValue(info.offset, info.width));
+        }
+        ff_offset += info.width;
+    }
+    data_stream.write(reinterpret_cast<char *>(ff_data.to_ptr()), (ff_size + 63) / 64 * 8);
+
+    size_t mem_size = 0, ram_offset = 0;
+    for (auto &info : scan_ram)
+        mem_size += info.width * info.depth;
+
+    BitVector ram_data(mem_size);
+
+    for (auto &info : scan_ram) {
+        auto &data = ram.at(info.name);
+        for (int i = 0; i < info.depth; i++) {
+            ram_data.setValue(ram_offset, data.get(data.start_offset() + i));
+            ram_offset += info.width;
+        }
+    }
+    data_stream.write(reinterpret_cast<char *>(ram_data.to_ptr()), (mem_size + 63) / 64 * 8);
 }

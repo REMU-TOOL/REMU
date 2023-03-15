@@ -9,100 +9,18 @@
 
 #include "yaml-cpp/yaml.h"
 
-#include "emu_info.h"
-#include "signal_info.h"
+#include "runtime_data.h"
 #include "checkpoint.h"
 #include "uma.h"
-#include "scheduler.h"
 
 namespace REMU {
-
-struct SignalObject
-{
-    int index;
-    std::string name;
-    int width;
-    bool output;
-    uint32_t reg_offset;
-};
-
-struct TriggerObject
-{
-    int index;
-    std::string name;
-    int reg_index;
-};
-
-struct AXIObject
-{
-    int index;
-    std::string name;
-    uint64_t size;
-    uint32_t reg_offset;
-    uint64_t assigned_offset;
-    uint64_t assigned_size;
-};
-
-template<typename T>
-class ObjectManager
-{
-    std::vector<T> obj_list;
-    std::unordered_map<std::string, int> name_map;
-
-public:
-
-    void add(const T &obj)
-    {
-        std::string name = obj.name;
-        int index = obj_list.size();
-        obj.index = index;
-        obj_list.push_back(obj);
-        name_map.insert({name, index});
-    }
-
-    void add(T &&obj)
-    {
-        std::string name = obj.name;
-        int index = obj_list.size();
-        obj.index = index;
-        obj_list.push_back(std::move(obj));
-        name_map.insert({name, index});
-    }
-
-    int lookup(const std::string &name) const
-    {
-        if (name_map.find(name) == name_map.end())
-            return -1;
-        return name_map.at(name);
-    }
-
-    T& get(int index) { return obj_list.at(index); }
-    const T& get(int index) const { return obj_list.at(index); }
-
-    T& get(const std::string name) { return get(lookup(name)); }
-    const T& get(const std::string name) const { return get(lookup(name)); }
-
-    int size() const { return obj_list.size(); }
-
-    typename std::vector<T>::iterator begin() { return obj_list.begin(); }
-    typename std::vector<T>::iterator end() { return obj_list.end(); }
-    typename std::vector<T>::const_iterator begin() const { return obj_list.begin(); }
-    typename std::vector<T>::const_iterator end() const { return obj_list.end(); }
-};
 
 class Controller
 {
     std::unique_ptr<UserMem> mem;
     std::unique_ptr<UserIO> reg;
 
-    ObjectManager<SignalObject> om_signal;
-    ObjectManager<TriggerObject> om_trigger;
-    ObjectManager<AXIObject> om_axi;
-
     void init_uma(const YAML::Node &platinfo);
-    void init_signal(const SysInfo &sysinfo);
-    void init_trigger(const SysInfo &sysinfo);
-    void init_axi(const SysInfo &sysinfo);
 
 public:
 
@@ -122,24 +40,18 @@ public:
 
     void do_scan(bool scan_in);
 
-    ObjectManager<SignalObject> const& signals() const { return om_signal; }
-    ObjectManager<TriggerObject> const& triggers() const { return om_trigger; }
-    ObjectManager<AXIObject> const& axis() const { return om_axi; }
+    BitVector get_signal_value(const RTSignal &signal);
+    void set_signal_value(const RTSignal &signal, const BitVector &value);
 
-    BitVector get_signal_value(int index);
-    void set_signal_value(int index, const BitVector &value);
+    bool is_trigger_active(const RTTrigger &trigger);
+    bool get_trigger_enable(const RTTrigger &trigger);
+    void set_trigger_enable(const RTTrigger &trigger, bool enable);
 
-    bool is_trigger_active(int index);
-    bool get_trigger_enable(int index);
-    void set_trigger_enable(int index, bool enable);
-    std::vector<int> get_active_triggers(bool enabled);
+    void configure_axi_range(const RTAXI &axi);
 
     Controller(const SysInfo &sysinfo, const YAML::Node &platinfo)
     {
         init_uma(platinfo);
-        init_signal(sysinfo);
-        init_trigger(sysinfo);
-        init_axi(sysinfo);
     }
 };
 

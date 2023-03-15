@@ -65,8 +65,14 @@ struct EmulationDatabase
     std::vector<SysInfo::ScanFFInfo> scan_ff;
     std::vector<SysInfo::ScanRAMInfo> scan_ram;
 
+    SysInfo sysinfo;
+    bool sysinfo_generated = false;
+
+    void generate_sysinfo();
+
     void write_sysinfo(std::string file_name);
     void write_loader(std::string file_name);
+    void write_checkpoint(std::string ckpt_path);
 
     EmulationDatabase() {}
 };

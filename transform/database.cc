@@ -2,6 +2,7 @@
 #include "kernel/ff.h"
 #include "kernel/mem.h"
 
+#include "circuit.h"
 #include "escape.h"
 
 #include "attr.h"
@@ -12,19 +13,10 @@ using namespace REMU;
 
 USING_YOSYS_NAMESPACE
 
-void EmulationDatabase::write_sysinfo(std::string file_name) {
-    std::ofstream f;
-
-    f.open(file_name, std::ios::trunc);
-    if (f.fail()) {
-        log_error("Can't open file `%s' for writing: %s\n", file_name.c_str(), strerror(errno));
-    }
-
-    log("Writing to file `%s'\n", file_name.c_str());
-
-    // Copy & prepend EMU_TOP to all records
-
-    SysInfo sysinfo;
+void EmulationDatabase::generate_sysinfo()
+{
+    if (sysinfo_generated)
+        return;
 
     sysinfo.wire = wire;
     sysinfo.ram = ram;
@@ -64,11 +56,28 @@ void EmulationDatabase::write_sysinfo(std::string file_name) {
     sysinfo.scan_ff = scan_ff;
     sysinfo.scan_ram = scan_ram;
 
+    sysinfo_generated = true;
+}
+
+void EmulationDatabase::write_sysinfo(std::string file_name)
+{
+    std::ofstream f;
+
+    f.open(file_name, std::ios::trunc);
+    if (f.fail()) {
+        log_error("Can't open file `%s' for writing: %s\n", file_name.c_str(), strerror(errno));
+    }
+
+    log("Writing to file `%s'\n", file_name.c_str());
+
+    generate_sysinfo();
+
     sysinfo.toJson(f);
     f.close();
 }
 
-void EmulationDatabase::write_loader(std::string file_name) {
+void EmulationDatabase::write_loader(std::string file_name)
+{
     std::ofstream os;
 
     os.open(file_name, std::ios::trunc);
@@ -120,4 +129,32 @@ void EmulationDatabase::write_loader(std::string file_name) {
     os << "`define RAM_BIT_COUNT " << addr << "\n";
 
     os.close();
+}
+
+void EmulationDatabase::write_checkpoint(std::string ckpt_path)
+{
+    log("Writing initial checkpoint to `%s'\n", ckpt_path.c_str());
+
+    generate_sysinfo();
+
+    CheckpointManager ckpt_mgr(sysinfo, ckpt_path);
+    auto ckpt = ckpt_mgr.open(0);
+
+    // Write initial circuit state
+
+    CircuitState circuit(sysinfo);
+    circuit.save(ckpt);
+
+    // Write initial signal state & trace
+
+    for (auto &signal : sysinfo.signal) {
+        if (signal.output)
+            continue;
+
+        auto name = flatten_name(signal.name);
+        BitVector value(signal.width);
+        ckpt_mgr.signal_trace[name][0] = value;
+    }
+
+    // ckpt & ckpt_mgr will be flushed on destruction
 }

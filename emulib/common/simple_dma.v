@@ -43,15 +43,15 @@ module emulib_simple_dma #(
 
 );
 
-    reg [ADDR_WIDTH-1:0] read_addr, write_addr;
-    reg [COUNT_WIDTH-1:0] read_count, write_count;
+    reg [ADDR_WIDTH-1:0] read_addr = 0, write_addr = 0;
+    reg [COUNT_WIDTH-1:0] read_count = 0, write_count = 0;
 
     localparam [1:0]
         R_IDLE  = 2'd0,
         R_DO_AR = 2'd1,
         R_DO_R  = 2'd2;
 
-    reg [1:0] r_state, r_state_next;
+    reg [1:0] r_state = R_IDLE, r_state_next;
 
     localparam [1:0]
         W_IDLE  = 2'd0,
@@ -59,7 +59,7 @@ module emulib_simple_dma #(
         W_DO_W  = 2'd2,
         W_DO_B  = 2'd3;
 
-    reg [1:0] w_state, w_state_next;
+    reg [1:0] w_state = W_IDLE, w_state_next;
 
     wire m_axi_arfire       = m_axi_arvalid && m_axi_arready;
     wire m_axi_rfire        = m_axi_rvalid && m_axi_rready;
@@ -75,7 +75,7 @@ module emulib_simple_dma #(
     wire read_start         = read_count != 0;
     wire write_start        = write_count != 0;
 
-    reg [7:0] wlen;
+    reg [7:0] wlen = 8'd0;
 
     ////////////////////////////// READ //////////////////////////////
 

@@ -14,11 +14,11 @@ module emulib_ready_valid_fifo #(
     output wire                 iready,
     input  wire [WIDTH-1:0]     idata,
 
-    output reg                  ovalid,
+    output reg                  ovalid = 1'b0,
     input  wire                 oready,
     output wire [WIDTH-1:0]     odata,
 
-    output reg  [CNTW-1:0]      count
+    output reg  [CNTW-1:0]      count = 0
 
 );
 

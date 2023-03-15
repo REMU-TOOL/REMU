@@ -11,11 +11,11 @@ module emulib_fifo #(
     input  wire                 rst,
 
     input  wire                 winc,
-    output reg                  wfull,
+    output reg                  wfull = 1'b0,
     input  wire [WIDTH-1:0]     wdata,
 
     input  wire                 rinc,
-    output reg                  rempty,
+    output reg                  rempty = 1'b1,
     output reg  [WIDTH-1:0]     rdata
 
 );
@@ -37,7 +37,7 @@ module emulib_fifo #(
         PTR_INC = 1;
 
     reg [WIDTH-1:0] data [DEPTH-1:0];
-    reg [CNTW-1:0] rp, wp;
+    reg [CNTW-1:0] rp = PTR_ZRO, wp = PTR_ZRO;
 
     wire wfire = winc && !wfull;
     wire rfire = rinc && !rempty;

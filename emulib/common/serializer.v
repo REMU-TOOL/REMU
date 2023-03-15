@@ -16,7 +16,7 @@ module emulib_serializer #(
 
     localparam CNT_BITS = $clog2(DATA_WIDTH + 1);
     reg [DATA_WIDTH-1:0] data_reg;
-    reg [CNT_BITS-1:0] cnt;
+    reg [CNT_BITS-1:0] cnt = 0;
 
     assign i_ready  = cnt == 0;
     assign o_valid  = !i_ready;
