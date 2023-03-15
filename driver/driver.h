@@ -24,11 +24,25 @@ struct DriverParameters
     uint64_t perf_interval = 0;
 };
 
-class DriverModel
+class Driver;
+
+class EmuModel
 {
+    std::string name;
+
 public:
 
-    ~DriverModel() {}
+    const std::string get_name() const { return name; }
+
+    virtual void save(std::ostream &) const = 0;
+    virtual void load(std::istream &) = 0;
+
+    virtual bool handle_realtime_callback(Driver &) { return false; }
+    virtual bool handle_trigger_callback(Driver &, int) { return false; }
+    virtual bool handle_tick_callback(Driver &, uint64_t) { return false; }
+
+    EmuModel(const std::string &name) : name(name) {}
+    virtual ~EmuModel() {}
 };
 
 class Driver
@@ -41,8 +55,11 @@ class Driver
     RTDatabase<RTTrigger> trigger_db;
     RTDatabase<RTAXI> axi_db;
 
-    std::unordered_map<std::string, std::unique_ptr<DriverModel>> models;
-    std::vector<std::function<bool(Driver&)>> parallel_callbacks;
+    std::unordered_map<std::string, EmuModel*> models;
+
+    std::set<EmuModel*> model_realtime_cbs;
+    std::map<int, EmuModel*> model_trigger_cbs;
+    std::multimap<uint64_t, EmuModel*> model_tick_cbs; // serializable
 
     std::unique_ptr<PerfMon> perfmon;
 
@@ -68,7 +85,7 @@ class Driver
     void init_model(const SysInfo &sysinfo);
     void init_perf(const std::string &file, uint64_t interval);
 
-    // immediately change signal value
+    BitVector get_signal_value(RTSignal &signal);
     void set_signal_value(RTSignal &signal, const BitVector &value);
 
     void load_checkpoint(bool record);
@@ -84,6 +101,7 @@ class Driver
     bool cmd_list           (const std::vector<std::string> &args);
     bool cmd_save           (const std::vector<std::string> &args);
     bool cmd_replay_record  (const std::vector<std::string> &args);
+    bool cmd_ckpt_interval  (const std::vector<std::string> &args);
     bool cmd_record         (const std::vector<std::string> &args);
     bool cmd_run            (const std::vector<std::string> &args);
     bool cmd_trigger        (const std::vector<std::string> &args);
@@ -115,24 +133,39 @@ public:
         return signal_db.index_by_name(name);
     }
 
-    BitVector get_signal_value(int index);
+    BitVector get_signal_value(int index)
+    {
+        auto &signal = signal_db.object_by_index(index);
+        return get_signal_value(signal);
+    }
 
-    // schedule a value change at the specified tick
-    void set_signal_value(int index, const BitVector &value, uint64_t tick);
+    void set_signal_value(int index, const BitVector &value)
+    {
+        auto &signal = signal_db.object_by_index(index);
+        set_signal_value(signal, value);
+    }
 
     int lookup_trigger(const std::string &name)
     {
         return trigger_db.index_by_name(name);
     }
 
-    void register_trigger_callback(int index, std::function<bool(Driver&)> callback)
+    void register_realtime_callback(EmuModel *model)
     {
-        trigger_db.object_by_index(index).callback = callback;
+        model_realtime_cbs.insert(model);
     }
 
-    void register_parallel_callback(std::function<bool(Driver&)> callback)
+    void register_trigger_callback(EmuModel *model, int index)
     {
-        parallel_callbacks.push_back(callback);
+        if (model_trigger_cbs.find(index) != model_trigger_cbs.end())
+            throw std::runtime_error("trigger callback already registered");
+
+        model_trigger_cbs[index] = model;
+    }
+
+    void register_tick_callback(EmuModel *model, uint64_t tick)
+    {
+        model_tick_cbs.insert({tick, model});
     }
 
     int main();
@@ -142,6 +175,8 @@ public:
         const YAML::Node &platinfo,
         const DriverParameters &options
     );
+
+    ~Driver();
 };
 
 };

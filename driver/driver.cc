@@ -51,12 +51,12 @@ void Driver::init_model(const SysInfo &sysinfo)
     for (auto &info : sysinfo.model) {
         auto name = flatten_name(info.name);
         if (info.type == "uart") {
-            fprintf(stderr, "[REMU] INFO: Model \"%s\" recognized as UART model\n",
+            models[name] = new UartModel(*this, name);
+            fprintf(stderr, "[REMU] INFO: UART model \"%s\" loaded\n",
                 name.c_str());
-            models[name] = std::unique_ptr<DriverModel>(new UartModel(*this, name));
         }
         else if (info.type == "rammodel"){
-            fprintf(stderr, "[REMU] INFO: Model \"%s\" recognized as RAM model\n",
+            fprintf(stderr, "[REMU] INFO: RAM model \"%s\" loaded\n",
                 name.c_str());
         }
         else {
@@ -72,27 +72,15 @@ void Driver::init_perf(const std::string &file, uint64_t interval)
     perf_interval = interval;
 }
 
+BitVector Driver::get_signal_value(RTSignal &signal)
+{
+    return ctrl.get_signal_value(signal);
+}
+
 void Driver::set_signal_value(RTSignal &signal, const BitVector &value)
 {
     ctrl.set_signal_value(signal, value);
     signal.trace[cur_tick] = value;
-}
-
-BitVector Driver::get_signal_value(int index)
-{
-    auto &signal = signal_db.object_by_index(index);
-    return ctrl.get_signal_value(signal);
-}
-
-void Driver::set_signal_value(int index, const BitVector &value, uint64_t tick)
-{
-    auto &signal = signal_db.object_by_index(index);
-    auto &q = signal.pending_changes;
-
-    // Truncate pending value changes
-    q.erase(q.lower_bound(tick), q.end());
-
-    q[tick] = value;
 }
 
 void Driver::load_checkpoint(bool record)
@@ -119,26 +107,24 @@ void Driver::load_checkpoint(bool record)
         // Prune checkpoints in record mode
         ckpt_mgr.truncate(cur_tick);
     }
-    else {
-        // Setup trace replay queue
-        for (auto &signal : signal_db.objects()) {
-            if (signal.output)
-                continue;
-
-            signal.trace_replay_q = decltype(signal.trace_replay_q)();
-            for (auto it = signal.trace.lower_bound(cur_tick); 
-                    it != signal.trace.end(); ++it) {
-                signal.trace_replay_q.push(*it);
-            }
-        }
-
-        // Stop at end of trace in replay mode
-        meta_event_q.push({ckpt_mgr.last_tick(), Stop});
-    }
 
     {
         auto ckpt = ckpt_mgr.open(cur_tick);
         ctrl.set_tick_count(cur_tick);
+
+        // Restore tick callbacks
+
+        model_tick_cbs.clear();
+        for (auto &x : ckpt.tick_cbs) {
+            register_tick_callback(models.at(x.second), x.first);
+        }
+
+        // Restore models
+
+        for (auto &x : models) {
+            auto stream = ckpt.models.at(x.first).load_data();
+            x.second->load(stream);
+        }
 
         // Restore signals
 
@@ -146,9 +132,14 @@ void Driver::load_checkpoint(bool record)
             if (signal.output)
                 continue;
 
-            ctrl.set_signal_value(signal, ckpt.signal_state.at(signal.name));
             signal.trace = ckpt_mgr.signal_trace.at(signal.name);
-            signal.pending_changes = ckpt.pending_value_changes.at(signal.name);
+
+            auto it = signal.trace.upper_bound(cur_tick);
+            if (it == signal.trace.begin())
+                throw std::runtime_error("failed to find current signal value in trace");
+
+            --it;
+            ctrl.set_signal_value(signal, it->second);
         }
 
         // Load memory regions
@@ -173,6 +164,23 @@ void Driver::load_checkpoint(bool record)
 
         if (perfmon)
             perfmon->log("scan end", cur_tick);
+    }
+
+    if (!record) {
+        // Setup trace replay queue
+        for (auto &signal : signal_db.objects()) {
+            if (signal.output)
+                continue;
+
+            signal.trace_replay_q = decltype(signal.trace_replay_q)();
+            for (auto it = signal.trace.lower_bound(cur_tick); 
+                    it != signal.trace.end(); ++it) {
+                signal.trace_replay_q.push(*it);
+            }
+        }
+
+        // Stop at end of trace in replay mode
+        meta_event_q.push({ckpt_mgr.last_tick(), Stop});
     }
 
     fprintf(stderr, "[REMU] INFO: Tick %lu: Loaded checkpoint\n", cur_tick);
@@ -223,9 +231,20 @@ void Driver::save_checkpoint()
             if (signal.output)
                 continue;
 
-            ckpt.signal_state[signal.name] = ctrl.get_signal_value(signal);
-            ckpt.pending_value_changes[signal.name] = signal.pending_changes;
             ckpt_mgr.signal_trace[signal.name] = signal.trace;
+        }
+
+        // Save models
+
+        for (auto &x : models) {
+            auto stream = ckpt.models.at(x.first).save_data();
+            x.second->save(stream);
+        }
+
+        // Save tick callbacks
+
+        for (auto &x : model_tick_cbs) {
+            ckpt.tick_cbs.insert({x.first, x.second->get_name()});
         }
     }
 
@@ -240,7 +259,9 @@ bool Driver::handle_event()
 {
     bool stop_requested = false;
 
-    for (auto &trigger : trigger_db.objects()) {
+    for (int index = 0; index < trigger_db.count(); index++) {
+        auto &trigger = trigger_db.object_by_index(index);
+
         if (!ctrl.get_trigger_enable(trigger) || !ctrl.is_trigger_active(trigger))
             continue;
 
@@ -248,8 +269,11 @@ bool Driver::handle_event()
             perfmon->incr_triggered_count();
 
         // If the trigger is handled by a callback, ignore it
-        if (trigger.callback && trigger.callback(*this))
-            continue;
+        auto cb_it = model_trigger_cbs.find(index);
+        if (cb_it != model_trigger_cbs.end()) {
+            if (cb_it->second->handle_trigger_callback(*this, index))
+                continue;
+        }
 
         fprintf(stderr, "[REMU] INFO: Tick %lu: trigger \"%s\" is activated\n",
             cur_tick, trigger.name.c_str());
@@ -257,21 +281,18 @@ bool Driver::handle_event()
         stop_requested = true;
     }
 
-    // Process signal value changes
+    // Process tick callbacks
 
-    for (auto &signal : signal_db.objects()) {
-        auto &q = signal.pending_changes;
-        while (!q.empty()) {
-            auto it = q.begin();
-            auto next_tick = it->first;
+    while (!model_tick_cbs.empty()) {
+        auto it = model_tick_cbs.begin();
+        auto next_tick = it->first;
 
-            if (next_tick > cur_tick)
-                break;
+        if (next_tick > cur_tick)
+            break;
 
-            set_signal_value(signal, it->second);
+        it->second->handle_tick_callback(*this, cur_tick);
 
-            q.erase(it);
-        }
+        model_tick_cbs.erase(it);
     }
 
     // Process meta events
@@ -293,6 +314,8 @@ bool Driver::handle_event()
                 break;
             case Ckpt:
                 save_checkpoint();
+                if (ckpt_interval > 0)
+                    meta_event_q.push({cur_tick + ckpt_interval, Ckpt});
                 break;
         }
 
@@ -323,12 +346,10 @@ uint32_t Driver::calc_next_event_step()
 {
     uint64_t step = UINT32_MAX;
 
-    for (auto &signal : signal_db.objects()) {
-        auto &q = signal.pending_changes;
-        if (q.empty())
-            continue;
+    // Process tick callbacks
 
-        auto it = q.begin();
+    if (!model_tick_cbs.empty()) {
+        auto it = model_tick_cbs.begin();
         auto next_tick = it->first;
 
         if (next_tick < cur_tick)
@@ -336,6 +357,8 @@ uint32_t Driver::calc_next_event_step()
 
         step = std::min(step, next_tick - cur_tick);
     }
+
+    // Process meta events
 
     if (!meta_event_q.empty()) {
         auto &event = meta_event_q.top();
@@ -346,6 +369,8 @@ uint32_t Driver::calc_next_event_step()
 
         step = std::min(step, next_tick - cur_tick);
     }
+
+    // Process trace replay
 
     if (is_replay_mode()) {
         for (auto &signal : signal_db.objects()) {
@@ -384,8 +409,8 @@ void Driver::run()
         }
 
         while (is_running()) {
-            for (auto callback : parallel_callbacks)
-                callback(*this);
+            for (auto model : model_realtime_cbs)
+                model->handle_realtime_callback(*this);
 
             if (break_flag)
                 ctrl.exit_run_mode();
@@ -425,4 +450,10 @@ Driver::Driver(
 
     if (options.perf)
         init_perf(options.perf_file, options.perf_interval);
+}
+
+Driver::~Driver()
+{
+    for (auto &x : models)
+        delete x.second;
 }

@@ -153,7 +153,6 @@ void EmulationDatabase::write_checkpoint(std::string ckpt_path)
 
         auto name = flatten_name(signal.name);
         BitVector value(signal.width);
-        ckpt.signal_state[name] = value;
         ckpt_mgr.signal_trace[name][0] = value;
     }
 

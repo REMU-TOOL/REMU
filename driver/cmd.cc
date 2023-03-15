@@ -29,18 +29,14 @@ bool Driver::cmd_help(const std::vector<std::string> &args)
         "        Get/set checkpoint interval\n"
         "    run [<tick>]\n"
         "        Run emulation (to the specified tick).\n"
-        "    trigger status <trigger>\n"
-        "        Show trigger status.\n"
-        "    trigger enable <trigger>\n"
-        "        Enable trigger.\n"
-        "    trigger disable <trigger>\n"
-        "        Disable trigger.\n"
+        "    trigger\n"
+        "        List triggers.\n"
+        "    trigger <trigger> [enable|disable]\n"
+        "        Show trigger status or enable/disable trigger.\n"
         "    signal\n"
         "        List signals.\n"
-        "    signal <signal>\n"
-        "        Get signal value.\n"
-        "    signal <signal> <value> [<tick>]\n"
-        "        Change signal value immediately or at the specified tick.\n"
+        "    signal <signal> [<value>]\n"
+        "        Get/set signal value.\n"
         "\n"
         );
 
@@ -79,6 +75,25 @@ bool Driver::cmd_replay_record(const std::vector<std::string> &args)
     return true;
 }
 
+bool Driver::cmd_ckpt_interval(const std::vector<std::string> &args)
+{
+    if (args.size() == 1) {
+        printf("Checkpoint interval: %lu\n", ckpt_interval);
+        return true;
+    }
+
+    uint64_t interval = std::stoul(args[1]);
+
+    if (args.size() == 2) {
+        ckpt_interval = interval;
+        meta_event_q.push({cur_tick, Ckpt});
+        return true;
+    }
+
+    fprintf(stderr, "Incorrect number of arguments for this command\n");
+    return false;
+}
+
 bool Driver::cmd_run(const std::vector<std::string> &args)
 {
     if (args.size() == 1) {
@@ -101,6 +116,46 @@ bool Driver::cmd_run(const std::vector<std::string> &args)
     return true;
 }
 
+bool Driver::cmd_trigger(const std::vector<std::string> &args)
+{
+    if (args.size() == 1) {
+        for (auto &trigger : trigger_db.objects()) {
+            printf("%s\n", trigger.name.c_str());
+        }
+        return true;
+    }
+
+    auto &name = args[1];
+    if (!trigger_db.has(name)) {
+        fprintf(stderr, "Trigger %s does not exist\n", name.c_str());
+        return false;
+    }
+
+    auto &trigger = trigger_db.object_by_name(name);
+
+    if (args.size() == 2) {
+        printf("%s\n", ctrl.get_trigger_enable(trigger) ? "enabled" : "disabled");
+        return true;
+    }
+
+    auto &action = args[2];
+    if (action == "enable") {
+        ctrl.set_trigger_enable(trigger, true);
+        return true;
+    }
+    else if (action == "disable") {
+        ctrl.set_trigger_enable(trigger, false);
+        return true;
+    }
+    else {
+        fprintf(stderr, "Unknown action %s\n", action.c_str());
+        return false;
+    }
+
+    fprintf(stderr, "Incorrect number of arguments for this command\n");
+    return false;
+}
+
 bool Driver::cmd_signal(const std::vector<std::string> &args)
 {
     if (args.size() == 1) {
@@ -110,17 +165,16 @@ bool Driver::cmd_signal(const std::vector<std::string> &args)
         return true;
     }
 
-    auto name = args[1];
+    auto &name = args[1];
     if (!signal_db.has(name)) {
         fprintf(stderr, "Signal %s does not exist\n", name.c_str());
         return false;
     }
 
-    int index = signal_db.index_by_name(name);
-    auto &signal = signal_db.object_by_index(index);
+    auto &signal = signal_db.object_by_name(name);
 
     if (args.size() == 2) {
-        printf("%s\n", get_signal_value(index).bin().c_str());
+        printf("%s\n", get_signal_value(signal).bin().c_str());
         return true;
     }
 
@@ -140,25 +194,20 @@ bool Driver::cmd_signal(const std::vector<std::string> &args)
         return true;
     }
 
-    uint64_t tick = std::stoul(args[3]);
-
-    if (args.size() == 4) {
-        set_signal_value(index, value, tick);
-        return true;
-    }
-
     fprintf(stderr, "Incorrect number of arguments for this command\n");
     return false;
 }
 
 decltype(Driver::cmd_dispatcher) Driver::cmd_dispatcher = {
-    {"help",        &Driver::cmd_help},
-    {"list",        &Driver::cmd_list},
-    {"save",        &Driver::cmd_save},
-    {"replay",      &Driver::cmd_replay_record},
-    {"record",      &Driver::cmd_replay_record},
-    {"run",         &Driver::cmd_run},
-    {"signal",      &Driver::cmd_signal},
+    {"help",            &Driver::cmd_help},
+    {"list",            &Driver::cmd_list},
+    {"save",            &Driver::cmd_save},
+    {"replay",          &Driver::cmd_replay_record},
+    {"record",          &Driver::cmd_replay_record},
+    {"ckpt_interval",   &Driver::cmd_ckpt_interval},
+    {"run",             &Driver::cmd_run},
+    {"trigger",         &Driver::cmd_trigger},
+    {"signal",          &Driver::cmd_signal},
 };
 
 bool Driver::execute_cmd(const std::string &cmd)

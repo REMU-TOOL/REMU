@@ -22,8 +22,11 @@ struct RTSignal
     bool output;
     uint32_t reg_offset;
 
+    // serializable data begin
+
     std::map<uint64_t, BitVector> trace;
-    std::map<uint64_t, BitVector> pending_changes;
+
+    // serializable data end
 
     std::queue<std::pair<uint64_t, BitVector>> trace_replay_q;
 
@@ -42,7 +45,6 @@ struct RTTrigger
 
     // whether the trigger is enabled in record mode
     bool enabled;
-    std::function<bool(Driver&)> callback;
 
     RTTrigger(const SysInfo::TriggerInfo &info) :
         name(flatten_name(info.name)),
@@ -99,22 +101,9 @@ struct RTDatabase
         return object_by_index(index_by_name(name));
     }
 
-    std::vector<int> indices()
+    int count()
     {
-        std::vector<int> res;
-        res.reserve(m_data.size());
-        for (int i=0; i<m_data.size(); i++)
-            res.push_back(i);
-        return res;
-    }
-
-    std::vector<std::string> names()
-    {
-        std::vector<std::string> res;
-        res.reserve(m_data.size());
-        for (auto &x : m_map)
-            res.push_back(x.first);
-        return res;
+        return m_data.size();
     }
 
     std::vector<T>& objects()

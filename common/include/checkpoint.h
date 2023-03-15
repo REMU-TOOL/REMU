@@ -16,6 +16,7 @@ struct CheckpointInfo
 {
     std::unordered_set<std::string> input_signals;
     std::unordered_map<std::string, uint64_t> axi_size_map;
+    std::unordered_set<std::string> models;
 };
 
 class CheckpointMem
@@ -38,12 +39,26 @@ public:
     ~CheckpointMem() { flush(); }
 };
 
+class CheckpointModel
+{
+    std::string model_path;
+
+public:
+
+    std::ifstream load_data();
+    std::ofstream save_data();
+
+    CheckpointModel(const std::string &path) :
+        model_path(path) {}
+};
+
 class Checkpoint
 {
     CheckpointInfo info;
     std::string ckpt_path;
 
     std::string get_mem_path(std::string name);
+    std::string get_model_path(std::string name);
 
 public:
 
@@ -51,12 +66,12 @@ public:
 
     // SERIALIZABLE DATA BEGIN
 
-    std::map<std::string, BitVector> signal_state; // TODO: remove
-    std::map<std::string, std::map<uint64_t, BitVector>> pending_value_changes; // TODO: remove
+    std::multimap<uint64_t, std::string> tick_cbs;
 
     // SERIALIZABLE DATA END
 
     std::unordered_map<std::string, CheckpointMem> axi_mems;
+    std::unordered_map<std::string, CheckpointModel> models;
 
     Checkpoint(const CheckpointInfo &info, const std::string &path);
 
@@ -96,16 +111,11 @@ public:
 
     uint64_t find_latest(uint64_t tick)
     {
-        auto it = ticks.lower_bound(tick); // the smallest value which is >= tick
-        if (it == ticks.end())
+        auto it = ticks.upper_bound(tick); // the smallest value which is > tick
+        if (it == ticks.begin())
             return 0;
 
-        if (*it == tick)
-            return tick;
-
-        --it; // if not == tick, the previous one is the biggest value which is < tick
-        if (it == ticks.end())
-            return 0;
+        --it; // the previous one is the biggest value which is <= tick
 
         return *it;
     }
