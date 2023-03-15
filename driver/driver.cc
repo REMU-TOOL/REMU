@@ -83,7 +83,7 @@ void Driver::set_signal_value(RTSignal &signal, const BitVector &value)
     signal.trace[cur_tick] = value;
 }
 
-void Driver::load_checkpoint(bool record)
+void Driver::load_checkpoint()
 {
     if (!ckpt_mgr.has_tick(cur_tick)) {
         fprintf(stderr, "[REMU] ERROR: Checkpoint for tick %lu does not exist\n", cur_tick);
@@ -102,11 +102,6 @@ void Driver::load_checkpoint(bool record)
     // Reset meta event queue
 
     meta_event_q = decltype(meta_event_q)();
-
-    if (record) {
-        // Prune checkpoints in record mode
-        ckpt_mgr.truncate(cur_tick);
-    }
 
     {
         auto ckpt = ckpt_mgr.open(cur_tick);
@@ -166,7 +161,7 @@ void Driver::load_checkpoint(bool record)
             perfmon->log("scan end", cur_tick);
     }
 
-    if (!record) {
+    if (is_replay_mode()) {
         // Setup trace replay queue
         for (auto &signal : signal_db.objects()) {
             if (signal.output)
@@ -421,16 +416,6 @@ void Driver::run()
         if (handle_event())
             break;
     }
-}
-
-int Driver::main()
-{
-    cur_tick = ckpt_mgr.last_tick();
-    load_checkpoint(true);
-
-    run_cli();
-
-    return 0;
 }
 
 Driver::Driver(

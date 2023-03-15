@@ -88,7 +88,7 @@ class Driver
     BitVector get_signal_value(RTSignal &signal);
     void set_signal_value(RTSignal &signal, const BitVector &value);
 
-    void load_checkpoint(bool record);
+    void load_checkpoint();
     void save_checkpoint();
 
     // -> whether stop is requested
@@ -110,7 +110,6 @@ class Driver
     static std::unordered_map<std::string, decltype(&Driver::cmd_help)> cmd_dispatcher;
 
     bool execute_cmd(const std::string &args);
-    void run_cli();
 
 public:
 
@@ -168,7 +167,7 @@ public:
         model_tick_cbs.insert({tick, model});
     }
 
-    int main();
+    int main(const std::vector<std::string> &commands, bool batch);
 
     Driver(
         const SysInfo &sysinfo,

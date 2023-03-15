@@ -68,9 +68,13 @@ bool Driver::cmd_replay_record(const std::vector<std::string> &args)
 
     bool record = args[0] == "record";
 
+    if (record) {
+        ckpt_mgr.truncate(cur_tick);
+    }
+
     uint64_t tick = std::stoul(args[1]);
     cur_tick = ckpt_mgr.find_latest(tick);
-    load_checkpoint(record);
+    load_checkpoint();
 
     return true;
 }
@@ -225,24 +229,40 @@ bool Driver::execute_cmd(const std::string &cmd)
     return (this->*(it->second))(args);
 }
 
-void Driver::run_cli()
+int Driver::main(const std::vector<std::string> &commands, bool batch)
 {
+    cur_tick = ckpt_mgr.last_tick();
+    load_checkpoint();
+
+    auto cmd_it = commands.begin();
+
     while (true) {
         char buf[64];
         snprintf(buf, sizeof(buf), "[REMU %s @ %lu]> ", is_replay_mode() ? "replaying" : "recording", cur_tick);
 
-        char *line = readline(buf);
-        if (!line)
-            break;
+        std::string cmd;
 
-        add_history(line);
+        if (cmd_it != commands.end()) {
+            cmd = *cmd_it++;
+            fprintf(stderr, "%s%s\n", buf, cmd.c_str());
+        }
+        else {
+            if (batch)
+                break;
 
-        std::string cmd(line);
-        free(line);
+            char *line = readline(buf);
+            if (!line)
+                break;
+
+            add_history(line);
+            cmd = line;
+            free(line);
+        }
 
         if (cmd == "exit")
             break;
 
         execute_cmd(cmd);
     }
+    return 0;
 }

@@ -12,8 +12,10 @@ void show_help(const char * argv_0)
 {
     //   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
     fprintf(stderr,
-        "Usage: %s <sysinfo_file> <platinfo_file> <checkpoint_path> [options]\n"
+        "Usage: %s <sysinfo_file> <platinfo_file> <checkpoint_path> [options] [commands]\n"
         "Options:\n"
+        "    --batch\n"
+        "        Exit after commands are finished.\n"
         "    --perf\n"
         "        Enable performance monitor.\n"
         "    --perf-file <file>\n"
@@ -31,36 +33,49 @@ int main(int argc, const char *argv[])
         return 1;
     }
 
-    std::string sysinfo_file = argv[1];
-    std::string platinfo_file = argv[2];
+    int argidx = 1;
+
+    std::string sysinfo_file = argv[argidx++];
+    std::string platinfo_file = argv[argidx++];
 
     DriverParameters options;
-    options.ckpt_path = argv[3];
+    options.ckpt_path = argv[argidx++];
 
-    for (int i = 4; i < argc; i++) {
-        if (!strcmp(argv[i], "--perf")) {
+    bool batch = false;
+
+    for (; argidx < argc; argidx++) {
+        if (!strcmp(argv[argidx], "--batch")) {
+            batch = true;
+            continue;
+        }
+        if (!strcmp(argv[argidx], "--perf")) {
             options.perf = true;
             continue;
         }
-        if (!strcmp(argv[i], "--perf-file")) {
-            if (argc - i <= 1) {
+        if (!strcmp(argv[argidx], "--perf-file")) {
+            if (argc - argidx <= 1) {
                 fprintf(stderr, "missing arguments for --perf-file\n");
                 return 1;
             }
-            options.perf_file = argv[++i];
+            options.perf_file = argv[++argidx];
             continue;
         }
-        if (!strcmp(argv[i], "--perf-interval")) {
-            if (argc - i <= 1) {
+        if (!strcmp(argv[argidx], "--perf-interval")) {
+            if (argc - argidx <= 1) {
                 fprintf(stderr, "missing arguments for --perf-interval\n");
                 return 1;
             }
-            options.perf_interval = std::stoul(argv[++i]);
+            options.perf_interval = std::stoul(argv[++argidx]);
             continue;
         }
-        fprintf(stderr, "unrecognized option %s\n", argv[i]);
+        if (argv[argidx][0] != '-') {
+            break;
+        }
+        fprintf(stderr, "unrecognized option %s\n", argv[argidx]);
         return 1;
     }
+
+    std::vector<std::string> commands(argv + argidx, argv + argc);
 
     SysInfo sysinfo;
     YAML::Node platinfo;
@@ -85,5 +100,5 @@ int main(int argc, const char *argv[])
 
     Driver driver(sysinfo, platinfo, options);
 
-    return driver.main();
+    return driver.main(commands, batch);
 }
