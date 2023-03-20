@@ -59,14 +59,14 @@ struct RTAXI
     uint64_t size;
     uint32_t reg_offset;
 
-    uint64_t assigned_base;
+    uint64_t assigned_offset;
     uint64_t assigned_size;
 
     RTAXI(const SysInfo::AXIInfo &info) :
         name(flatten_name(info.name)),
         size(info.size),
         reg_offset(info.reg_offset),
-        assigned_base(0),
+        assigned_offset(0),
         assigned_size(0)
     {}
 };

@@ -68,12 +68,13 @@ bool Driver::cmd_replay_record(const std::vector<std::string> &args)
 
     bool record = args[0] == "record";
 
+    uint64_t tick = std::stoul(args[1]);
+    cur_tick = ckpt_mgr.find_latest(tick);
+
     if (record) {
         ckpt_mgr.truncate(cur_tick);
     }
 
-    uint64_t tick = std::stoul(args[1]);
-    cur_tick = ckpt_mgr.find_latest(tick);
     load_checkpoint();
 
     return true;

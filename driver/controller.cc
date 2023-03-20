@@ -234,9 +234,9 @@ void Controller::set_trigger_enable(const RTTrigger &trigger, bool enable)
     reg->write(addr, value);
 }
 
-void Controller::configure_axi_range(const RTAXI &axi)
+void Controller::configure_axi_range(const RTAXI &axi, uint64_t mem_base)
 {
-    uint64_t base = axi.assigned_base;
+    uint64_t base = mem_base + axi.assigned_offset;
     uint64_t mask = axi.assigned_size - 1;
     reg->write(axi.reg_offset + 0x0, base >> 12);
     reg->write(axi.reg_offset + 0x4, mask >> 12);

@@ -9,7 +9,7 @@
 #define UART_TX_FIFO_EMPTY      (1 << 2)
 #define UART_TX_FIFO_FULL       (1 << 3)
 
-volatile unsigned int *uart = (void *)0x10000000;
+volatile unsigned int *uart = (void *)UART_BASE;
 
 void putc(char c) {
     while (uart[UART_STAT/4] & UART_TX_FIFO_FULL);

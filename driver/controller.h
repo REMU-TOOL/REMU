@@ -47,7 +47,7 @@ public:
     bool get_trigger_enable(const RTTrigger &trigger);
     void set_trigger_enable(const RTTrigger &trigger, bool enable);
 
-    void configure_axi_range(const RTAXI &axi);
+    void configure_axi_range(const RTAXI &axi, uint64_t mem_base);
 
     Controller(const SysInfo &sysinfo, const YAML::Node &platinfo)
     {
