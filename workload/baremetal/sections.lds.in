@@ -8,6 +8,7 @@ means.
 */
 
 SECTIONS {
+	. = @BASE@;
 	.text : {
 		start*(.text);
 		*(.text .text.*);

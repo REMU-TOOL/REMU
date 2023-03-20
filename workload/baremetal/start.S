@@ -3,6 +3,6 @@
 	.global main
 
 start:
-	li sp,0x90000000
-	jal ra,main
+	li sp, STACK_TOP
+	jal ra, main
 	ebreak
