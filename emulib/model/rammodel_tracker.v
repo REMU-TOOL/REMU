@@ -7,7 +7,8 @@ module emulib_rammodel_tracker #(
     parameter   ADDR_WIDTH      = 32,
     parameter   DATA_WIDTH      = 64,
     parameter   ID_WIDTH        = 4,
-    parameter   MAX_INFLIGHT    = 8
+    parameter   MAX_R_INFLIGHT  = 8,
+    parameter   MAX_W_INFLIGHT  = 8
 )(
 
     input  wire                     clk,
@@ -17,118 +18,80 @@ module emulib_rammodel_tracker #(
     `AXI4_W_SLAVE_IF                (axi, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
     `AXI4_AR_SLAVE_IF               (axi, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
 
-    `AXI4_B_SLAVE_IF                (axi, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
-    `AXI4_R_SLAVE_IF                (axi, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
-
-    output wire                     areq_valid,
-    output wire                     areq_write,
-    output wire [ID_WIDTH-1:0]      areq_id,
-    output wire [ADDR_WIDTH-1:0]    areq_addr,
-    output wire [7:0]               areq_len,
-    output wire [2:0]               areq_size,
-    output wire [1:0]               areq_burst,
-
-    output wire                     wreq_valid,
-    output wire [DATA_WIDTH-1:0]    wreq_data,
-    output wire [DATA_WIDTH/8-1:0]  wreq_strb,
-    output wire                     wreq_last
+    `AXI4_B_INPUT_IF                (axi, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
+    `AXI4_R_INPUT_IF                (axi, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)
 
 );
 
-    // AW/AR arbitration
+    wire axi_arfire = axi_arvalid && axi_arready;
+    wire axi_awfire = axi_awvalid && axi_awready;
+    wire axi_wfire = axi_wvalid && axi_wready;
+    wire axi_rfire = axi_rvalid && axi_rready;
+    wire axi_bfire = axi_bvalid && axi_bready;
 
-    `AXI4_CUSTOM_A_WIRE(arb, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    // In-flight read/write request counter
 
-    emulib_ready_valid_arb #(
-        .NUM_I      (2),
-        .DATA_WIDTH (`AXI4_CUSTOM_A_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
-    ) aw_ar_arb (
-        .i_valid    ({axi_awvalid, axi_arvalid}),
-        .i_ready    ({axi_awready, axi_arready}),
-        .i_data     ({`AXI4_CUSTOM_A_PAYLOAD_FROM_AW(axi), `AXI4_CUSTOM_A_PAYLOAD_FROM_AR(axi)}),
-        .o_valid    (arb_avalid),
-        .o_ready    (arb_aready),
-        .o_data     (`AXI4_CUSTOM_A_PAYLOAD(arb)),
-        .o_sel      ()
+    localparam R_IF_CNT_LEN = $clog2(MAX_R_INFLIGHT + 1);
+    localparam W_IF_CNT_LEN = $clog2(MAX_W_INFLIGHT + 1);
+
+    reg [R_IF_CNT_LEN-1:0] r_if_cnt;
+    reg [W_IF_CNT_LEN-1:0] w_if_cnt;
+
+    always @(posedge clk)
+        if (rst)
+            r_if_cnt <= 0;
+        else
+            r_if_cnt <= r_if_cnt + axi_arfire - (axi_rfire && axi_rlast);
+
+    always @(posedge clk)
+        if (rst)
+            w_if_cnt <= 0;
+        else
+            w_if_cnt <= w_if_cnt + axi_awfire -axi_bfire;
+
+    assign axi_arready = r_if_cnt != MAX_R_INFLIGHT;
+    assign axi_awready = w_if_cnt != MAX_W_INFLIGHT;
+
+    // AWLEN FIFO
+
+    wire awlen_q_rinc;
+    wire awlen_q_rempty;
+    wire [7:0] awlen_q_rdata;
+
+    emulib_fifo #(
+        .WIDTH      (8),
+        .DEPTH      (MAX_W_INFLIGHT),
+        .FAST_READ  (1)
+    ) awlen_q (
+        .clk        (clk),
+        .rst        (rst),
+        .winc       (axi_awfire),
+        .wfull      (),
+        .wdata      (axi_awlen),
+        .rinc       (awlen_q_rinc),
+        .rempty     (awlen_q_rempty),
+        .rdata      (awlen_q_rdata)
     );
 
-    // In-flight counter
+    assign axi_wready = !awlen_q_rempty;
+    assign awlen_q_rinc = axi_wfire && axi_wlast;
 
-    localparam IF_CNT_LEN = $clog2(MAX_INFLIGHT) + 1;
-
-    reg [IF_CNT_LEN-1:0] if_cnt, if_cnt_next;
-
-    always @(posedge clk)
-        if (rst)
-            if_cnt <= 0;
-        else
-            if_cnt <= if_cnt_next;
-
-    always @* begin
-        if_cnt_next = if_cnt;
-        if (arb_avalid && arb_aready)
-            if_cnt_next = if_cnt_next + 1;
-        if (axi_bvalid && axi_bready)
-            if_cnt_next = if_cnt_next - 1;
-        if (axi_rvalid && axi_rready && axi_rlast)
-            if_cnt_next = if_cnt_next - 1;
-    end
-
-    wire if_full = if_cnt == MAX_INFLIGHT;
-
-    // AW counter
-
-    reg [IF_CNT_LEN-1:0] aw_cnt, aw_cnt_next;
-
-    always @(posedge clk)
-        if (rst)
-            aw_cnt <= 0;
-        else
-            aw_cnt <= aw_cnt_next;
-
-    always @* begin
-        aw_cnt_next = aw_cnt;
-        if (axi_awvalid && axi_awready)
-            aw_cnt_next = aw_cnt_next + 1;
-        if (axi_wvalid && axi_wready && axi_wlast)
-            aw_cnt_next = aw_cnt_next - 1;
-    end
-
-    wire aw_empty = aw_cnt == 0;
-
-    // Apply restrictions
-
-    assign areq_valid   = arb_avalid && arb_aready;
-    assign areq_write   = arb_awrite;
-    assign areq_id      = arb_aid;
-    assign areq_addr    = arb_aaddr;
-    assign areq_len     = arb_alen;
-    assign areq_size    = arb_asize;
-    assign areq_burst   = arb_aburst;
-    assign arb_aready   = !if_full;
-
-    assign wreq_valid   = axi_wvalid && axi_wready;
-    assign wreq_data    = axi_wdata;
-    assign wreq_strb    = axi_wstrb;
-    assign wreq_last    = axi_wlast;
-    assign axi_wready   = !aw_empty;
-
-    assign axi_bready = 1'b1;
-    assign axi_rready = 1'b1;
-
-`ifdef SIM_LOG
+    reg [8:0] wcnt = 9'd0;
 
     always @(posedge clk) begin
-        if (!rst) begin
-            if (if_cnt != if_cnt_next) begin
-                $display("[%0d ns] %m: if_cnt %0d -> %0d", $time, if_cnt, if_cnt_next);
-            end
-            if (aw_cnt != aw_cnt_next) begin
-                $display("[%0d ns] %m: aw_cnt %0d -> %0d", $time, aw_cnt, aw_cnt_next);
-            end
-        end
+        if (rst)
+            wcnt <= 9'd0;
+        else if (axi_wfire)
+            wcnt <= axi_wlast ? 9'd0 : wcnt + 9'd1;
     end
 
-`endif
+    (* remu_trigger *)
+    wire w_count_overflow = wcnt[8];
+
+    (* remu_trigger *)
+    reg w_pos_check_failed = 1'b0;
+
+    always @(posedge clk)
+        w_pos_check_failed <= axi_wfire && axi_wlast && (awlen_q_rdata != wcnt);
 
 endmodule

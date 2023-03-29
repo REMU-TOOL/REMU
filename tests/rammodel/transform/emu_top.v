@@ -3,8 +3,15 @@
 module emu_top #(
     parameter   ADDR_WIDTH      = 32,
     parameter   DATA_WIDTH      = 64,
-    parameter   ID_WIDTH        = 4
+    parameter   ID_WIDTH        = 4,
+    parameter   MEM_SIZE        = 64'h10000
 )(
+
+    (* remu_clock *)
+    input clk,
+
+    (* remu_signal *)
+    input rst,
 
     input                       s_axi_awvalid,
     output                      s_axi_awready,
@@ -52,14 +59,12 @@ module emu_top #(
 
 );
 
-    wire clk, rst;
-    EmuClock clock(.clock(clk));
-    EmuReset reset(.reset(rst));
-
     EmuRam #(
-        .ADDR_WIDTH (ADDR_WIDTH),
-        .DATA_WIDTH (DATA_WIDTH),
-        .ID_WIDTH   (ID_WIDTH)
+        .ADDR_WIDTH     (ADDR_WIDTH),
+        .DATA_WIDTH     (DATA_WIDTH),
+        .ID_WIDTH       (ID_WIDTH),
+        .MEM_SIZE       (MEM_SIZE),
+        .TIMING_TYPE    ("fixed")
     )
     u_rammodel (
         .clk            (clk),

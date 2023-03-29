@@ -10,14 +10,6 @@
 
 namespace REMU {
 
-inline vpiHandle vpiHandleByPath(const std::vector<std::string> &path, vpiHandle scope)
-{
-    for (auto &s : path) {
-        scope = vpi_handle_by_name(s.c_str(), scope);
-    }
-    return scope;
-}
-
 inline std::vector<std::string> vpiGetFullPath(vpiHandle obj)
 {
     std::vector<std::string> res;

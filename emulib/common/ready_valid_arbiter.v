@@ -1,6 +1,6 @@
 `timescale 1ns / 1ps
 
-module emulib_ready_valid_arb #(
+module emulib_ready_valid_arbiter #(
     parameter   NUM_I       = 1,
     parameter   DATA_WIDTH  = 1
 )(

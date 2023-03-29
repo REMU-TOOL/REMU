@@ -3,7 +3,7 @@
 `include "axi.vh"
 
 module test #(
-    // DO NOT CHANGE
+    // must be consistent with emu_top
     parameter   ADDR_WIDTH      = 32,
     parameter   DATA_WIDTH      = 64,
     parameter   ID_WIDTH        = 4
@@ -62,7 +62,7 @@ module test #(
     output                      m_axi_awvalid,
     input                       m_axi_awready,
     output  [ADDR_WIDTH-1:0]    m_axi_awaddr,
-    output  [ID_WIDTH-1:0]      m_axi_awid,
+    output                      m_axi_awid,
     output  [7:0]               m_axi_awlen,
     output  [2:0]               m_axi_awsize,
     output  [1:0]               m_axi_awburst,
@@ -81,12 +81,12 @@ module test #(
     input                       m_axi_bvalid,
     output                      m_axi_bready,
     input   [1:0]               m_axi_bresp,
-    input   [ID_WIDTH-1:0]      m_axi_bid,
+    input                       m_axi_bid,
 
     output                      m_axi_arvalid,
     input                       m_axi_arready,
     output  [ADDR_WIDTH-1:0]    m_axi_araddr,
-    output  [ID_WIDTH-1:0]      m_axi_arid,
+    output                      m_axi_arid,
     output  [7:0]               m_axi_arlen,
     output  [2:0]               m_axi_arsize,
     output  [1:0]               m_axi_arburst,
@@ -100,7 +100,7 @@ module test #(
     output                      m_axi_rready,
     input   [DATA_WIDTH-1:0]    m_axi_rdata,
     input   [1:0]               m_axi_rresp,
-    input   [ID_WIDTH-1:0]      m_axi_rid,
+    input                       m_axi_rid,
     input                       m_axi_rlast,
 
     input                       ff_scan,
@@ -119,7 +119,10 @@ module test #(
 
 );
 
-    EMU_SYSTEM emu_dut(
+    wire tick;
+
+    EMU_SYSTEM emu_dut (
+        .rst                (target_rst),
 
         .s_axi_awvalid  (s_axi_awvalid),
         .s_axi_awready  (s_axi_awready),
@@ -175,17 +178,19 @@ module test #(
         .EMU_RAM_SD         (ram_dir),
         .EMU_RAM_DI         (ram_sdi),
         .EMU_RAM_DO         (ram_sdo),
-        .EMU_PORT_reset_imp_user_rst    (target_rst),
         .EMU_RUN_MODE       (run_mode),
         .EMU_SCAN_MODE      (scan_mode),
         .EMU_IDLE           (idle),
-        `AXI4_CONNECT       (EMU_AXI_u_rammodel_backend_host_axi, m_axi)
+        .EMU_TICK           (tick),
+        `AXI4_CONNECT_NO_ID (EMU_AXI_u_rammodel_backend_host_axi, m_axi)
     );
 
-    // Note: EMU_PORT_clock_user_clk is not driven, so we create target_clk from EMU_PORT_clock_user_clk_FF
+    assign m_axi_arid = 0;
+    assign m_axi_awid = 0;
+
     ClockGate target_clk_gate (
-        .CLK(emu_dut.EMU_PORT_clock_user_clk_FF),
-        .EN(!ff_scan),
+        .CLK(host_clk),
+        .EN(tick && run_mode),
         .OCLK(target_clk)
     );
 

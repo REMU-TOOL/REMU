@@ -2,11 +2,36 @@
 
 using namespace REMU;
 
-void FifoModel::load(CircuitState &circuit, const CircuitPath &path)
+void REMU::load_fifo(std::queue<BitVector> &fifo, CircuitState &circuit, const CircuitPath &path)
 {
-    fifo = decltype(fifo)();
+    // assuming circuit is an instance of emulib_fifo
 
+    // TODO: FAST_READ = 1
+
+    auto &rempty = circuit.wire.at(path / "rempty");
+    if (rempty != 0)
+        return;
+
+    int rp = circuit.wire.at(path / "rp");
+    int wp = circuit.wire.at(path / "wp");
+
+    // TODO: dissolved RAM
+    auto &data = circuit.ram.at(path / "data");
+
+    int depth = data.depth();
+    int start_offset = data.start_offset();
+
+    while (rp != wp) {
+        fifo.push(data.get(rp++ - start_offset));
+        if (rp == depth) rp = 0;
+    }
+}
+
+void REMU::load_ready_valid_fifo(std::queue<BitVector> &fifo, CircuitState &circuit, const CircuitPath &path)
+{
     // assuming circuit is an instance of emulib_ready_valid_fifo
+
+    // TODO: FAST_READ = 1
 
     // process output reg in emulib_ready_valid_fifo
 
@@ -16,21 +41,5 @@ void FifoModel::load(CircuitState &circuit, const CircuitPath &path)
 
     // process emulib_fifo instance
 
-    auto &rempty = circuit.wire.at(path / "fifo" / "rempty");
-    if (rempty != 0)
-        return;
-
-    int rp = circuit.wire.at(path / "fifo" / "rp");
-    int wp = circuit.wire.at(path / "fifo" / "wp");
-
-    // TODO: dissolved RAM
-    auto &data = circuit.ram.at(path / "fifo" / "data");
-
-    int depth = data.depth();
-    int start_offset = data.start_offset();
-
-    while (rp != wp) {
-        fifo.push(data.get(rp++ - start_offset));
-        if (rp == depth) rp = 0;
-    }
+    load_fifo(fifo, circuit, path / "fifo");
 }

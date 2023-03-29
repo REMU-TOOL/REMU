@@ -33,8 +33,13 @@ module sim_top;
 
         `AXI4LITE_CONNECT   (EMU_CTRL, mmio_axi),
         `AXI4_CONNECT_NO_ID (EMU_SCAN_DMA_AXI, scan_dma),
-        `AXI4_CONNECT       (EMU_AXI_u_rammodel_backend_host_axi, rammodel)
+        `AXI4_CONNECT_NO_ID (EMU_AXI_u_rammodel_backend_host_axi, rammodel)
     );
+
+    assign scan_dma_arid = 0;
+    assign scan_dma_awid = 0;
+    assign rammodel_arid = 0;
+    assign rammodel_awid = 0;
 
     axi_interconnect_wrap_2x1 #(
         .DATA_WIDTH     (64),

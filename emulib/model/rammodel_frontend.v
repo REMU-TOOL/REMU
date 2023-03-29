@@ -7,9 +7,9 @@ module emulib_rammodel_frontend #(
     parameter   ADDR_WIDTH      = 32,
     parameter   DATA_WIDTH      = 64,
     parameter   ID_WIDTH        = 4,
-    parameter   MAX_INFLIGHT    = 8,
-    parameter   R_DELAY         = 25,
-    parameter   W_DELAY         = 3
+    parameter   MAX_R_INFLIGHT  = 8,
+    parameter   MAX_W_INFLIGHT  = 8,
+    parameter   TIMING_TYPE     = "fixed"
 )(
 
     input  wire                     clk,
@@ -17,13 +17,19 @@ module emulib_rammodel_frontend #(
 
     `AXI4_SLAVE_IF                  (target_axi, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
 
-    output wire                     areq_valid,
-    output wire                     areq_write,
-    output wire [ID_WIDTH-1:0]      areq_id,
-    output wire [ADDR_WIDTH-1:0]    areq_addr,
-    output wire [7:0]               areq_len,
-    output wire [2:0]               areq_size,
-    output wire [1:0]               areq_burst,
+    output wire                     arreq_valid,
+    output wire [ID_WIDTH-1:0]      arreq_id,
+    output wire [ADDR_WIDTH-1:0]    arreq_addr,
+    output wire [7:0]               arreq_len,
+    output wire [2:0]               arreq_size,
+    output wire [1:0]               arreq_burst,
+
+    output wire                     awreq_valid,
+    output wire [ID_WIDTH-1:0]      awreq_id,
+    output wire [ADDR_WIDTH-1:0]    awreq_addr,
+    output wire [7:0]               awreq_len,
+    output wire [2:0]               awreq_size,
+    output wire [1:0]               awreq_burst,
 
     output wire                     wreq_valid,
     output wire [DATA_WIDTH-1:0]    wreq_data,
@@ -44,39 +50,55 @@ module emulib_rammodel_frontend #(
     `AXI4_WIRE(tracker, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
 
     wire timing_model_awvalid, timing_model_awready;
-    wire timing_model_wvalid, timing_model_wready;
+    wire timing_model_wvalid,  timing_model_wready;
     wire timing_model_arvalid, timing_model_arready;
-    wire timing_model_bvalid, timing_model_bready;
-    wire timing_model_rvalid, timing_model_rready;
+    wire timing_model_bvalid,  timing_model_bready;
+    wire timing_model_rvalid,  timing_model_rready;
 
-    // Fork target AW, W, AR to tracker & timing model
+    // Fork target AW, W, AR to tracker & timing model & backend
 
-    emulib_ready_valid_fork #(.BRANCHES(2)) fork_aw (
+    emulib_ready_valid_fork #(.BRANCHES(3)) fork_aw (
         .i_valid        (target_axi_awvalid),
         .i_ready        (target_axi_awready),
-        .o_valid        ({timing_model_awvalid, tracker_awvalid}),
-        .o_ready        ({timing_model_awready, tracker_awready})
+        .o_valid        ({awreq_valid, timing_model_awvalid, tracker_awvalid}),
+        .o_ready        ({1'b1, timing_model_awready, tracker_awready})
     );
 
     assign `AXI4_AW_PAYLOAD(tracker) = `AXI4_AW_PAYLOAD(target_axi);
 
-    emulib_ready_valid_fork #(.BRANCHES(2)) fork_w (
+    assign awreq_id     = target_axi_awid;
+    assign awreq_addr   = target_axi_awaddr;
+    assign awreq_len    = target_axi_awlen;
+    assign awreq_size   = target_axi_awsize;
+    assign awreq_burst  = target_axi_awburst;
+
+    emulib_ready_valid_fork #(.BRANCHES(3)) fork_w (
         .i_valid        (target_axi_wvalid),
         .i_ready        (target_axi_wready),
-        .o_valid        ({timing_model_wvalid, tracker_wvalid}),
-        .o_ready        ({timing_model_wready, tracker_wready})
+        .o_valid        ({wreq_valid, timing_model_wvalid, tracker_wvalid}),
+        .o_ready        ({1'b1, timing_model_wready, tracker_wready})
     );
 
     assign `AXI4_W_PAYLOAD(tracker) = `AXI4_W_PAYLOAD(target_axi);
 
-    emulib_ready_valid_fork #(.BRANCHES(2)) fork_ar (
+    assign wreq_data    = target_axi_wdata;
+    assign wreq_strb    = target_axi_wstrb;
+    assign wreq_last    = target_axi_wlast;
+
+    emulib_ready_valid_fork #(.BRANCHES(3)) fork_ar (
         .i_valid        (target_axi_arvalid),
         .i_ready        (target_axi_arready),
-        .o_valid        ({timing_model_arvalid, tracker_arvalid}),
-        .o_ready        ({timing_model_arready, tracker_arready})
+        .o_valid        ({arreq_valid, timing_model_arvalid, tracker_arvalid}),
+        .o_ready        ({1'b1, timing_model_arready, tracker_arready})
     );
 
     assign `AXI4_AR_PAYLOAD(tracker) = `AXI4_AR_PAYLOAD(target_axi);
+
+    assign arreq_id     = target_axi_arid;
+    assign arreq_addr   = target_axi_araddr;
+    assign arreq_len    = target_axi_arlen;
+    assign arreq_size   = target_axi_arsize;
+    assign arreq_burst  = target_axi_arburst;
 
     // Tracker
 
@@ -84,31 +106,22 @@ module emulib_rammodel_frontend #(
         .ADDR_WIDTH     (ADDR_WIDTH),
         .DATA_WIDTH     (DATA_WIDTH),
         .ID_WIDTH       (ID_WIDTH),
-        .MAX_INFLIGHT   (MAX_INFLIGHT)
+        .MAX_R_INFLIGHT (MAX_R_INFLIGHT),
+        .MAX_W_INFLIGHT (MAX_W_INFLIGHT)
     ) tracker (
         .clk            (clk),
         .rst            (rst),
-        `AXI4_CONNECT   (axi, tracker),
-        .areq_valid     (areq_valid),
-        .areq_write     (areq_write),
-        .areq_id        (areq_id),
-        .areq_addr      (areq_addr),
-        .areq_len       (areq_len),
-        .areq_size      (areq_size),
-        .areq_burst     (areq_burst),
-        .wreq_valid     (wreq_valid),
-        .wreq_data      (wreq_data),
-        .wreq_strb      (wreq_strb),
-        .wreq_last      (wreq_last)
+        `AXI4_CONNECT   (axi, tracker)
     );
 
     // Timing model
 
-    emulib_rammodel_tm_fixed #(
-        .ADDR_WIDTH (ADDR_WIDTH),
-        .ID_WIDTH   (ID_WIDTH),
-        .R_DELAY    (R_DELAY),
-        .W_DELAY    (W_DELAY)
+    emulib_rammodel_timing_model #(
+        .ADDR_WIDTH     (ADDR_WIDTH),
+        .ID_WIDTH       (ID_WIDTH),
+        .MAX_R_INFLIGHT (MAX_R_INFLIGHT),
+        .MAX_W_INFLIGHT (MAX_W_INFLIGHT),
+        .TIMING_TYPE    ("fixed")
     )
     timing_model (
         .clk        (clk),
@@ -148,21 +161,19 @@ module emulib_rammodel_frontend #(
     assign target_axi_rlast = rresp_last;
     assign target_axi_rresp = 2'b00;
 
-    // Fork timing model B, R to tracker & target
+    assign target_axi_bvalid    = timing_model_bvalid;
+    assign timing_model_bready  = target_axi_bready;
 
-    emulib_ready_valid_fork #(.BRANCHES(2)) fork_b (
-        .i_valid        (timing_model_bvalid),
-        .i_ready        (timing_model_bready),
-        .o_valid        ({target_axi_bvalid, tracker_bvalid}),
-        .o_ready        ({target_axi_bready, tracker_bready})
-    );
+    assign target_axi_rvalid    = timing_model_rvalid;
+    assign timing_model_rready  = target_axi_rready;
 
-    emulib_ready_valid_fork #(.BRANCHES(2)) fork_r (
-        .i_valid        (timing_model_rvalid),
-        .i_ready        (timing_model_rready),
-        .o_valid        ({target_axi_rvalid, tracker_rvalid}),
-        .o_ready        ({target_axi_rready, tracker_rready})
-    );
+    // Mirror B & R to tracker
+
+    assign tracker_bvalid       = target_axi_bvalid;
+    assign tracker_bready       = target_axi_bready;
+
+    assign tracker_rvalid       = target_axi_rvalid;
+    assign tracker_rready       = target_axi_rready;
 
     assign `AXI4_B_PAYLOAD(tracker) = `AXI4_B_PAYLOAD(target_axi);
     assign `AXI4_R_PAYLOAD(tracker) = `AXI4_R_PAYLOAD(target_axi);

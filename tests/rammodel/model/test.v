@@ -6,7 +6,9 @@ module rammodel_test #(
     parameter   ADDR_WIDTH      = 32,
     parameter   DATA_WIDTH      = 64,
     parameter   ID_WIDTH        = 4,
-    parameter   PAGE_COUNT      = 'h1
+    parameter   MEM_SIZE        = 64'h10000,
+    parameter   R_DELAY         = 25,
+    parameter   W_DELAY         = 3
 )(
     input                       host_clk,
     input                       host_rst,
@@ -15,11 +17,14 @@ module rammodel_test #(
     input                       target_rst,
 
     `AXI4_SLAVE_IF              (s_axi,     ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
-    `AXI4_MASTER_IF             (host_axi,  ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
+    `AXI4_MASTER_IF             (host_axi,  ADDR_WIDTH, DATA_WIDTH, 1),
 
     input                       run_mode,
     output                      idle
 );
+
+    assign uut.frontend.timing_model.fixed.inst.cfg.r_delay = R_DELAY;
+    assign uut.frontend.timing_model.fixed.inst.cfg.w_delay = W_DELAY;
 
     wire finishing;
     wire tick = run_mode && finishing;
@@ -33,10 +38,11 @@ module rammodel_test #(
     always @(posedge target_clk) target_cnt <= target_cnt + 1;
 
     EmuRam #(
-        .ADDR_WIDTH (ADDR_WIDTH),
-        .DATA_WIDTH (DATA_WIDTH),
-        .ID_WIDTH   (ID_WIDTH),
-        .PAGE_COUNT (PAGE_COUNT)
+        .ADDR_WIDTH     (ADDR_WIDTH),
+        .DATA_WIDTH     (DATA_WIDTH),
+        .ID_WIDTH       (ID_WIDTH),
+        .MEM_SIZE       (MEM_SIZE),
+        .TIMING_TYPE    ("fixed")
     )
     uut (
         .clk            (target_clk),
@@ -56,22 +62,34 @@ module rammodel_test #(
         else if (tk_rst_fire)
             tk_rst_done <= 1'b1;
 
-    reg tk_areq_done;
-    wire tk_areq_valid  = !tk_areq_done && run_mode;
-    wire tk_areq_ready  = uut.backend.tk_areq_ready;
-    wire tk_areq_fire   = tk_areq_valid && tk_areq_ready;
-    assign uut.backend.tk_areq_valid = tk_areq_valid;
+    reg tk_arreq_done;
+    wire tk_arreq_valid  = !tk_arreq_done && run_mode;
+    wire tk_arreq_ready  = uut.backend.tk_arreq_ready;
+    wire tk_arreq_fire   = tk_arreq_valid && tk_arreq_ready;
+    assign uut.backend.tk_arreq_valid = tk_arreq_valid;
 
     always @(posedge host_clk)
         if (host_rst || tick)
-            tk_areq_done <= 1'b0;
-        else if (tk_areq_fire)
-            tk_areq_done <= 1'b1;
+            tk_arreq_done <= 1'b0;
+        else if (tk_arreq_fire)
+            tk_arreq_done <= 1'b1;
+
+    reg tk_awreq_done;
+    wire tk_awreq_valid  = !tk_awreq_done && run_mode;
+    wire tk_awreq_ready  = uut.backend.tk_awreq_ready;
+    wire tk_awreq_fire   = tk_awreq_valid && tk_awreq_ready;
+    assign uut.backend.tk_awreq_valid = tk_awreq_valid;
+
+    always @(posedge host_clk)
+        if (host_rst || tick)
+            tk_awreq_done <= 1'b0;
+        else if (tk_awreq_fire)
+            tk_awreq_done <= 1'b1;
 
     reg tk_wreq_done;
     wire tk_wreq_valid  = !tk_wreq_done && run_mode;
     wire tk_wreq_ready  = uut.backend.tk_wreq_ready;
-    wire tk_wreq_fire   = tk_areq_valid && tk_wreq_ready;
+    wire tk_wreq_fire   = tk_wreq_valid && tk_wreq_ready;
     assign uut.backend.tk_wreq_valid = tk_wreq_valid;
 
     always @(posedge host_clk)
@@ -130,7 +148,8 @@ module rammodel_test #(
 
     assign finishing = &{
         tk_rst_fire || tk_rst_done,
-        tk_areq_fire || tk_areq_done,
+        tk_arreq_fire || tk_arreq_done,
+        tk_awreq_fire || tk_awreq_done,
         tk_wreq_fire || tk_wreq_done,
         tk_breq_fire || tk_breq_done,
         tk_rreq_fire || tk_rreq_done,
@@ -147,7 +166,6 @@ module rammodel_test #(
     assign  /**********/    host_axi_awvalid    =   uut.backend.    host_axi_awvalid;
     assign  uut.backend.    host_axi_awready    =   /**********/    host_axi_awvalid;
     assign  /**********/    host_axi_awaddr     =   uut.backend.    host_axi_awaddr;
-    assign  /**********/    host_axi_awid       =   uut.backend.    host_axi_awid;
     assign  /**********/    host_axi_awlen      =   uut.backend.    host_axi_awlen;
     assign  /**********/    host_axi_awsize     =   uut.backend.    host_axi_awsize;
     assign  /**********/    host_axi_awburst    =   uut.backend.    host_axi_awburst;
@@ -164,11 +182,9 @@ module rammodel_test #(
     assign  uut.backend.    host_axi_bvalid     =   /**********/    host_axi_bvalid;
     assign  /**********/    host_axi_bready     =   uut.backend.    host_axi_bready;
     assign  uut.backend.    host_axi_bresp      =   /**********/    host_axi_bresp;
-    assign  uut.backend.    host_axi_bid        =   /**********/    host_axi_bid;
     assign  /**********/    host_axi_arvalid    =   uut.backend.    host_axi_arvalid;
     assign  uut.backend.    host_axi_arready    =   /**********/    host_axi_arready;
     assign  /**********/    host_axi_araddr     =   uut.backend.    host_axi_araddr;
-    assign  /**********/    host_axi_arid       =   uut.backend.    host_axi_arid;
     assign  /**********/    host_axi_arlen      =   uut.backend.    host_axi_arlen;
     assign  /**********/    host_axi_arsize     =   uut.backend.    host_axi_arsize;
     assign  /**********/    host_axi_arburst    =   uut.backend.    host_axi_arburst;
@@ -181,7 +197,9 @@ module rammodel_test #(
     assign  /**********/    host_axi_rready     =   uut.backend.    host_axi_rready;
     assign  uut.backend.    host_axi_rdata      =   /**********/    host_axi_rdata;
     assign  uut.backend.    host_axi_rresp      =   /**********/    host_axi_rresp;
-    assign  uut.backend.    host_axi_rid        =   /**********/    host_axi_rid;
     assign  uut.backend.    host_axi_rlast      =   /**********/    host_axi_rlast;
+
+    assign host_axi_awid = 0;
+    assign host_axi_arid = 0;
 
 endmodule

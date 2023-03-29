@@ -9,9 +9,9 @@ module EmuRam #(
     parameter   DATA_WIDTH      = 64,
     parameter   ID_WIDTH        = 4,
     parameter   MEM_SIZE        = 64'h10000000,
-    parameter   MAX_INFLIGHT    = 8,
-    parameter   R_DELAY         = 25,
-    parameter   W_DELAY         = 3
+    parameter   MAX_R_INFLIGHT  = 8,
+    parameter   MAX_W_INFLIGHT  = 8,
+    parameter   TIMING_TYPE     = "fixed"
 )(
     input  wire                 clk,
     input  wire                 rst,
@@ -20,16 +20,31 @@ module EmuRam #(
 );
 
     initial begin
-        if (ADDR_WIDTH < 1 || ADDR_WIDTH > 64) begin
-            $display("%m: ADDR_WIDTH must be in [1,64]");
+        if (ADDR_WIDTH <= 0) begin
+            $display("%m: ADDR_WIDTH must be greater than 0");
             $finish;
         end
-        if (DATA_WIDTH != 8 && DATA_WIDTH != 16 && DATA_WIDTH != 32 && DATA_WIDTH != 64) begin
-            $display("%m: DATA_WIDTH must be 8, 16, 32 or 64");
+        if (ADDR_WIDTH > 64) begin
+            $display("%m: ADDR_WIDTH must not be greater than 64");
             $finish;
         end
-        if (ID_WIDTH < 1 || ID_WIDTH > 16) begin
-            $display("%m: ID_WIDTH must be in [1,16]");
+        if (DATA_WIDTH != 8 &&
+            DATA_WIDTH != 16 &&
+            DATA_WIDTH != 32 &&
+            DATA_WIDTH != 64 &&
+            DATA_WIDTH != 128 &&
+            DATA_WIDTH != 256 &&
+            DATA_WIDTH != 512 &&
+            DATA_WIDTH != 1024) begin
+            $display("%m: DATA_WIDTH must be 8, 16, 32, 64, 128, 256, 512 or 1024");
+            $finish;
+        end
+        if (ID_WIDTH <= 0) begin
+            $display("%m: ID_WIDTH must be greater than 0");
+            $finish;
+        end
+        if (ID_WIDTH > 8) begin
+            $display("%m: ID_WIDTH must not be greater than 8");
             $finish;
         end
         if (MEM_SIZE % 'h1000 != 0) begin
@@ -38,13 +53,19 @@ module EmuRam #(
         end
     end
 
-    wire                     areq_valid;
-    wire                     areq_write;
-    wire [ID_WIDTH-1:0]      areq_id;
-    wire [ADDR_WIDTH-1:0]    areq_addr;
-    wire [7:0]               areq_len;
-    wire [2:0]               areq_size;
-    wire [1:0]               areq_burst;
+    wire                     arreq_valid;
+    wire [ID_WIDTH-1:0]      arreq_id;
+    wire [ADDR_WIDTH-1:0]    arreq_addr;
+    wire [7:0]               arreq_len;
+    wire [2:0]               arreq_size;
+    wire [1:0]               arreq_burst;
+
+    wire                     awreq_valid;
+    wire [ID_WIDTH-1:0]      awreq_id;
+    wire [ADDR_WIDTH-1:0]    awreq_addr;
+    wire [7:0]               awreq_len;
+    wire [2:0]               awreq_size;
+    wire [1:0]               awreq_burst;
 
     wire                     wreq_valid;
     wire [DATA_WIDTH-1:0]    wreq_data;
@@ -64,9 +85,9 @@ module EmuRam #(
         .ADDR_WIDTH     (ADDR_WIDTH),
         .DATA_WIDTH     (DATA_WIDTH),
         .ID_WIDTH       (ID_WIDTH),
-        .MAX_INFLIGHT   (MAX_INFLIGHT),
-        .R_DELAY        (R_DELAY),
-        .W_DELAY        (W_DELAY)
+        .MAX_R_INFLIGHT (MAX_R_INFLIGHT),
+        .MAX_W_INFLIGHT (MAX_W_INFLIGHT),
+        .TIMING_TYPE    (TIMING_TYPE)
     )
     frontend (
 
@@ -75,13 +96,19 @@ module EmuRam #(
 
         `AXI4_CONNECT           (target_axi, s_axi),
 
-        .areq_valid             (areq_valid),
-        .areq_write             (areq_write),
-        .areq_id                (areq_id),
-        .areq_addr              (areq_addr),
-        .areq_len               (areq_len),
-        .areq_size              (areq_size),
-        .areq_burst             (areq_burst),
+        .arreq_valid            (arreq_valid),
+        .arreq_id               (arreq_id),
+        .arreq_addr             (arreq_addr),
+        .arreq_len              (arreq_len),
+        .arreq_size             (arreq_size),
+        .arreq_burst            (arreq_burst),
+
+        .awreq_valid            (awreq_valid),
+        .awreq_id               (awreq_id),
+        .awreq_addr             (awreq_addr),
+        .awreq_len              (awreq_len),
+        .awreq_size             (awreq_size),
+        .awreq_burst            (awreq_burst),
 
         .wreq_valid             (wreq_valid),
         .wreq_data              (wreq_data),
@@ -104,20 +131,27 @@ module EmuRam #(
         .DATA_WIDTH     (DATA_WIDTH),
         .ID_WIDTH       (ID_WIDTH),
         .MEM_SIZE       (MEM_SIZE),
-        .MAX_INFLIGHT   (MAX_INFLIGHT)
+        .MAX_R_INFLIGHT (MAX_R_INFLIGHT),
+        .MAX_W_INFLIGHT (MAX_W_INFLIGHT)
     )
     backend (
 
         .clk                    (clk),
         .rst                    (rst),
 
-        .areq_valid             (areq_valid),
-        .areq_write             (areq_write),
-        .areq_id                (areq_id),
-        .areq_addr              (areq_addr),
-        .areq_len               (areq_len),
-        .areq_size              (areq_size),
-        .areq_burst             (areq_burst),
+        .arreq_valid            (arreq_valid),
+        .arreq_id               (arreq_id),
+        .arreq_addr             (arreq_addr),
+        .arreq_len              (arreq_len),
+        .arreq_size             (arreq_size),
+        .arreq_burst            (arreq_burst),
+
+        .awreq_valid            (awreq_valid),
+        .awreq_id               (awreq_id),
+        .awreq_addr             (awreq_addr),
+        .awreq_len              (awreq_len),
+        .awreq_size             (awreq_size),
+        .awreq_burst            (awreq_burst),
 
         .wreq_valid             (wreq_valid),
         .wreq_data              (wreq_data),
