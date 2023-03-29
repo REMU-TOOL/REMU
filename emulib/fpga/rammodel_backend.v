@@ -9,7 +9,10 @@ module emulib_rammodel_backend #(
     parameter   DATA_WIDTH      = 64,
     parameter   ID_WIDTH        = 4,
     parameter   MEM_SIZE        = 64'h10000000,
-    parameter   MAX_INFLIGHT    = 8
+    // Note: Max inflight parameters only decide FIFO depths
+    // Tthe tracker is responsible to throttle requests before the limit is exceeded
+    parameter   MAX_R_INFLIGHT  = 8,
+    parameter   MAX_W_INFLIGHT  = 8
 )(
 
     (* __emu_common_port = "mdl_clk" *)
@@ -32,24 +35,41 @@ module emulib_rammodel_backend #(
 
     input  wire                     rst,
 
-    // AReq Channel
+    // ARReq Channel
 
-    (* __emu_channel_name = "areq" *)
+    (* __emu_channel_name = "arreq" *)
     (* __emu_channel_direction = "in" *)
-    (* __emu_channel_payload = "areq_*" *)
-    (* __emu_channel_valid = "tk_areq_valid" *)
-    (* __emu_channel_ready = "tk_areq_ready" *)
+    (* __emu_channel_payload = "arreq_*" *)
+    (* __emu_channel_valid = "tk_arreq_valid" *)
+    (* __emu_channel_ready = "tk_arreq_ready" *)
 
-    input  wire                     tk_areq_valid,
-    output wire                     tk_areq_ready,
+    input  wire                     tk_arreq_valid,
+    output wire                     tk_arreq_ready,
 
-    input  wire                     areq_valid,
-    input  wire                     areq_write,
-    input  wire [ID_WIDTH-1:0]      areq_id,
-    input  wire [ADDR_WIDTH-1:0]    areq_addr,
-    input  wire [7:0]               areq_len,
-    input  wire [2:0]               areq_size,
-    input  wire [1:0]               areq_burst,
+    input  wire                     arreq_valid,
+    input  wire [ID_WIDTH-1:0]      arreq_id,
+    input  wire [ADDR_WIDTH-1:0]    arreq_addr,
+    input  wire [7:0]               arreq_len,
+    input  wire [2:0]               arreq_size,
+    input  wire [1:0]               arreq_burst,
+
+    // AWReq Channel
+
+    (* __emu_channel_name = "awreq" *)
+    (* __emu_channel_direction = "in" *)
+    (* __emu_channel_payload = "awreq_*" *)
+    (* __emu_channel_valid = "tk_awreq_valid" *)
+    (* __emu_channel_ready = "tk_awreq_ready" *)
+
+    input  wire                     tk_awreq_valid,
+    output wire                     tk_awreq_ready,
+
+    input  wire                     awreq_valid,
+    input  wire [ID_WIDTH-1:0]      awreq_id,
+    input  wire [ADDR_WIDTH-1:0]    awreq_addr,
+    input  wire [7:0]               awreq_len,
+    input  wire [2:0]               awreq_size,
+    input  wire [1:0]               awreq_burst,
 
     // WReq Channel
 
@@ -125,7 +145,7 @@ module emulib_rammodel_backend #(
     (* __emu_axi_name = "host_axi" *)
     (* __emu_axi_type = "axi4" *)
     (* __emu_axi_size = MEM_SIZE *)
-    `AXI4_MASTER_IF                 (host_axi,      ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
+    `AXI4_MASTER_IF_NO_ID           (host_axi,      ADDR_WIDTH, DATA_WIDTH),
 
     (* __emu_common_port = "run_mode" *)
     input  wire                     run_mode,
@@ -136,305 +156,611 @@ module emulib_rammodel_backend #(
 
 );
 
-    localparam  W_FIFO_DEPTH    = 256;
-    localparam  B_FIFO_DEPTH    = 2;
-    localparam  R_FIFO_DEPTH    = 256;
+    localparam  A_PAYLOAD_LEN   = `AXI4_CUSTOM_A_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    localparam  W_PAYLOAD_LEN   = `AXI4_CUSTOM_W_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    localparam  B_PAYLOAD_LEN   = `AXI4_CUSTOM_B_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    localparam  R_PAYLOAD_LEN   = `AXI4_CUSTOM_R_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
 
-    `AXI4_CUSTOM_A_WIRE(frontend, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
-    `AXI4_CUSTOM_W_WIRE(frontend, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
-    `AXI4_CUSTOM_B_WIRE(frontend, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
-    `AXI4_CUSTOM_R_WIRE(frontend, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    localparam  A_ISSUE_Q_DEPTH = MAX_R_INFLIGHT + MAX_W_INFLIGHT;
+    localparam  W_ISSUE_Q_DEPTH = 256 * MAX_W_INFLIGHT;
+    localparam  R_ROQ_DEPTH     = 256 * MAX_R_INFLIGHT;
+    localparam  B_ROQ_DEPTH     = MAX_W_INFLIGHT;
+    localparam  ID_NUM          = 2 ** ID_WIDTH;
 
-    // Channel token handshake logic
+    genvar gen_i;
+    integer loop_i;
 
-    wire tk_rst_fire = tk_rst_valid && tk_rst_ready;
-    wire tk_areq_fire = tk_areq_valid && tk_areq_ready;
-    wire tk_wreq_fire = tk_wreq_valid && tk_wreq_ready;
-    wire tk_breq_fire = tk_breq_valid && tk_breq_ready;
-    wire tk_rreq_fire = tk_rreq_valid && tk_rreq_ready;
-    wire tk_bresp_fire = tk_bresp_valid && tk_bresp_ready;
-    wire tk_rresp_fire = tk_rresp_valid && tk_rresp_ready;
+    wire soft_rst;
+    wire fifo_rst = mdl_rst || soft_rst;
 
-    // areq channel
+    //// ARReq/AWReq arbitration ////
 
-    assign frontend_avalid  = tk_areq_valid && areq_valid;
-    assign frontend_awrite  = areq_write;
-    assign frontend_aaddr   = areq_addr;
-    assign frontend_aid     = areq_id;
-    assign frontend_alen    = areq_len;
-    assign frontend_asize   = areq_size;
-    assign frontend_aburst  = areq_burst;
-    assign tk_areq_ready    = frontend_aready || !areq_valid;
+    `AXI4_CUSTOM_A_WIRE(arb_i_ar,   ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_CUSTOM_A_WIRE(arb_i_aw,   ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+    `AXI4_CUSTOM_A_WIRE(arb_o,      ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
 
-    // wreq channel
+    assign arb_i_ar_avalid  = tk_arreq_valid && arreq_valid;
+    assign arb_i_ar_awrite  = 1'b0;
+    assign arb_i_ar_aaddr   = arreq_addr;
+    assign arb_i_ar_aid     = arreq_id;
+    assign arb_i_ar_alen    = arreq_len;
+    assign arb_i_ar_asize   = arreq_size;
+    assign arb_i_ar_aburst  = arreq_burst;
+    assign tk_arreq_ready   = arb_i_ar_aready || !arreq_valid;
 
-    assign frontend_wvalid  = tk_wreq_valid && wreq_valid;
-    assign frontend_wdata   = wreq_data;
-    assign frontend_wstrb   = wreq_strb;
-    assign frontend_wlast   = wreq_last;
-    assign tk_wreq_ready    = frontend_wready || !wreq_valid;
+    assign arb_i_aw_avalid  = tk_awreq_valid && awreq_valid;
+    assign arb_i_aw_awrite  = 1'b1;
+    assign arb_i_aw_aaddr   = awreq_addr;
+    assign arb_i_aw_aid     = awreq_id;
+    assign arb_i_aw_alen    = awreq_len;
+    assign arb_i_aw_asize   = awreq_size;
+    assign arb_i_aw_aburst  = awreq_burst;
+    assign tk_awreq_ready   = arb_i_aw_aready || !awreq_valid;
 
-    // breq & bresp channel
+    emulib_ready_valid_arbiter #(
+        .NUM_I      (2),
+        .DATA_WIDTH (A_PAYLOAD_LEN)
+    ) aw_ar_arb (
+        .i_valid    ({arb_i_aw_avalid, arb_i_ar_avalid}),
+        .i_ready    ({arb_i_aw_aready, arb_i_ar_aready}),
+        .i_data     ({`AXI4_CUSTOM_A_PAYLOAD(arb_i_aw), `AXI4_CUSTOM_A_PAYLOAD(arb_i_ar)}),
+        .o_valid    (arb_o_avalid),
+        .o_ready    (arb_o_aready),
+        .o_data     (`AXI4_CUSTOM_A_PAYLOAD(arb_o)),
+        .o_sel      ()
+    );
 
-    wire reset_pending = tk_rst_valid && rst;
+`ifdef RAMMODEL_BACKEND_DEBUG
+    always @(posedge mdl_clk) begin
+        if (!mdl_rst) begin
+            if (arb_o_avalid && arb_o_aready) begin
+                $display("[%d ns] AR/AW arbitrated: %s ID %h ADDR %h LEN %h",
+                    $time,
+                    arb_o_awrite ? "WRITE" : "READ",
+                    arb_o_aid,
+                    arb_o_aaddr,
+                    arb_o_alen);
+            end
+        end
+    end
+`endif
 
-    wire bresp_prejoin_valid;
-    wire bresp_prejoin_ready;
+    //// A issue queue ////
 
-    wire b_dequeue = tk_breq_valid && breq_valid && !reset_pending;
-
-    assign bresp_prejoin_valid = frontend_bvalid || !b_dequeue;
-    assign frontend_bready = bresp_prejoin_ready && b_dequeue;
-
-    assign tk_bresp_valid = bresp_prejoin_valid && tk_breq_valid;
-    assign bresp_prejoin_ready = tk_bresp_ready && tk_breq_valid;
-    assign tk_breq_ready = tk_bresp_ready && bresp_prejoin_valid;
-
-    // rreq & rresp channel
-
-    wire rresp_prejoin_valid;
-    wire rresp_prejoin_ready;
-
-    wire r_dequeue = tk_rreq_valid && rreq_valid && !reset_pending;
-
-    assign rresp_prejoin_valid = frontend_rvalid || !r_dequeue;
-    assign frontend_rready = rresp_prejoin_ready && r_dequeue;
-
-    assign tk_rresp_valid = rresp_prejoin_valid && tk_rreq_valid;
-    assign rresp_prejoin_ready = tk_rresp_ready && tk_rreq_valid;
-    assign tk_rreq_ready = tk_rresp_ready && rresp_prejoin_valid;
-
-    assign rresp_data = r_dequeue ? frontend_rdata : {DATA_WIDTH{1'b0}};
-    assign rresp_last = r_dequeue ? frontend_rlast : 1'b0;
-
-    // FIFOs for A, W, B, R
-
-    wire fifo_clear;
-
-    `AXI4_CUSTOM_A_WIRE(sched, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
-    `AXI4_CUSTOM_W_WIRE(sched, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
-    `AXI4_CUSTOM_B_WIRE(sched, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
-    `AXI4_CUSTOM_R_WIRE(sched, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
-
-    wire [$clog2(MAX_INFLIGHT):0] a_fifo_count;
+    `AXI4_CUSTOM_A_WIRE(pre_issue, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
 
     emulib_ready_valid_fifo #(
-        .WIDTH      (`AXI4_CUSTOM_A_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)),
-        .DEPTH      (MAX_INFLIGHT)
-    ) a_fifo (
+        .WIDTH      (A_PAYLOAD_LEN),
+        .DEPTH      (A_ISSUE_Q_DEPTH)
+    ) a_issue_q (
         .clk        (mdl_clk),
-        .rst        (mdl_rst || fifo_clear),
-        .ivalid     (frontend_avalid),
-        .iready     (frontend_aready),
-        .idata      (`AXI4_CUSTOM_A_PAYLOAD(frontend)),
-        .ovalid     (sched_avalid),
-        .oready     (sched_aready),
-        .odata      (`AXI4_CUSTOM_A_PAYLOAD(sched)),
-        .count      (a_fifo_count)
+        .rst        (fifo_rst),
+        .ivalid     (arb_o_avalid),
+        .iready     (arb_o_aready),
+        .idata      (`AXI4_CUSTOM_A_PAYLOAD(arb_o)),
+        .ovalid     (pre_issue_avalid),
+        .oready     (pre_issue_aready),
+        .odata      (`AXI4_CUSTOM_A_PAYLOAD(pre_issue))
     );
 
-    wire [$clog2(W_FIFO_DEPTH):0] w_fifo_count;
+`ifdef RAMMODEL_BACKEND_DEBUG
+    always @(posedge mdl_clk) begin
+        if (!mdl_rst) begin
+            if (pre_issue_avalid && pre_issue_aready) begin
+                $display("[%d ns] A issued: %s ID %h ADDR %h LEN %h",
+                    $time,
+                    pre_issue_awrite ? "WRITE" : "READ",
+                    pre_issue_aid,
+                    pre_issue_aaddr,
+                    pre_issue_alen);
+            end
+        end
+    end
+`endif
+
+    //// W issue queue ////
+
+    `AXI4_CUSTOM_W_WIRE(pre_q, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+
+    assign pre_q_wvalid = tk_wreq_valid && wreq_valid;
+    assign pre_q_wdata  = wreq_data;
+    assign pre_q_wstrb  = wreq_strb;
+    assign pre_q_wlast  = wreq_last;
+    assign tk_wreq_ready = pre_q_wready || !wreq_valid;
+
+    `AXI4_CUSTOM_W_WIRE(pre_issue, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
 
     emulib_ready_valid_fifo #(
-        .WIDTH      (`AXI4_CUSTOM_W_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)),
-        .DEPTH      (W_FIFO_DEPTH)
-    ) w_fifo (
+        .WIDTH      (W_PAYLOAD_LEN),
+        .DEPTH      (W_ISSUE_Q_DEPTH)
+    ) w_issue_q (
         .clk        (mdl_clk),
-        .rst        (mdl_rst || fifo_clear),
-        .ivalid     (frontend_wvalid),
-        .iready     (frontend_wready),
-        .idata      (`AXI4_CUSTOM_W_PAYLOAD(frontend)),
-        .ovalid     (sched_wvalid),
-        .oready     (sched_wready),
-        .odata      (`AXI4_CUSTOM_W_PAYLOAD(sched)),
-        .count      (w_fifo_count)
+        .rst        (fifo_rst),
+        .ivalid     (pre_q_wvalid),
+        .iready     (pre_q_wready),
+        .idata      (`AXI4_CUSTOM_W_PAYLOAD(pre_q)),
+        .ovalid     (pre_issue_wvalid),
+        .oready     (pre_issue_wready),
+        .odata      (`AXI4_CUSTOM_W_PAYLOAD(pre_issue))
     );
 
-    wire [$clog2(B_FIFO_DEPTH):0] b_fifo_count;
+    reg [$clog2(W_ISSUE_Q_DEPTH+1)-1:0] w_stream_count = 0;
+    wire w_stream_count_inc = pre_q_wvalid && pre_q_wready && pre_q_wlast;
+    wire w_stream_count_dec = pre_issue_wvalid && pre_issue_wready && pre_issue_wlast;
 
-    emulib_ready_valid_fifo #(
-        .WIDTH      (`AXI4_CUSTOM_B_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)),
-        .DEPTH      (B_FIFO_DEPTH)
-    ) b_fifo (
+    always @(posedge mdl_clk) begin
+        if (fifo_rst)
+            w_stream_count <= 0;
+        else
+            w_stream_count <= w_stream_count + w_stream_count_inc - w_stream_count_dec;
+    end
+
+`ifdef RAMMODEL_BACKEND_DEBUG
+    reg [7:0] w_issue_seq = 0;
+    always @(posedge mdl_clk) begin
+        if (!mdl_rst) begin
+            if (pre_issue_wvalid && pre_issue_wready) begin
+                $display("[%d ns] W issued: LAST %h Seq %h",
+                    $time,
+                    pre_issue_wlast,
+                    w_issue_seq);
+                w_issue_seq = pre_issue_wlast ? 0 : w_issue_seq + 1;
+            end
+        end
+    end
+`endif
+
+    //// Request guard ////
+
+    wire allow_req;
+
+    // issue AW req to host only when all data in the burst are ready
+    wire wdata_ok = w_stream_count != 0;
+
+    wire host_afire = host_axi_arvalid && host_axi_arready ||
+                      host_axi_awvalid && host_axi_awready;
+
+    wire host_bfire = host_axi_bvalid && host_axi_bready;
+
+    wire host_rfire = host_axi_rvalid && host_axi_rready && host_axi_rlast;
+
+    emulib_rammodel_req_guard #(
+        .ADDR_WIDTH     (ADDR_WIDTH),
+        .ID_WIDTH       (ID_WIDTH)
+    ) guard (
         .clk        (mdl_clk),
-        .rst        (mdl_rst || fifo_clear),
-        .ivalid     (sched_bvalid),
-        .iready     (sched_bready),
-        .idata      (`AXI4_CUSTOM_B_PAYLOAD(sched)),
-        .ovalid     (frontend_bvalid),
-        .oready     (frontend_bready),
-        .odata      (`AXI4_CUSTOM_B_PAYLOAD(frontend)),
-        .count      (b_fifo_count)
+        .rst        (mdl_rst),
+        .awrite     (pre_issue_awrite),
+        .aaddr      (pre_issue_aaddr),
+        .alen       (pre_issue_alen),
+        .asize      (pre_issue_asize),
+        .aburst     (pre_issue_aburst),
+        .afire      (host_afire),
+        .bfire      (host_bfire),
+        .rfire      (host_rfire),
+        .allow_req  (allow_req)
     );
 
-    wire [$clog2(R_FIFO_DEPTH):0] r_fifo_count;
+    //// Issue AR/AW requests to host ////
 
-    emulib_ready_valid_fifo #(
-        .WIDTH      (`AXI4_CUSTOM_R_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)),
-        .DEPTH      (R_FIFO_DEPTH)
-    ) r_fifo (
-        .clk        (mdl_clk),
-        .rst        (mdl_rst || fifo_clear),
-        .ivalid     (sched_rvalid),
-        .iready     (sched_rready),
-        .idata      (`AXI4_CUSTOM_R_PAYLOAD(sched)),
-        .ovalid     (frontend_rvalid),
-        .oready     (frontend_rready),
-        .odata      (`AXI4_CUSTOM_R_PAYLOAD(frontend)),
-        .count      (r_fifo_count)
-    );
+    wire allow_host_ar = allow_req && !scan_mode;
+    wire allow_host_aw = allow_req && wdata_ok && !scan_mode;
 
-    // Gate A & W requests
+    assign host_axi_arvalid     = pre_issue_avalid &&
+                                  !pre_issue_awrite &&
+                                  allow_host_ar;
 
-    wire sched_enable_a, sched_enable_w;
-
-    wire gated_sched_avalid, gated_sched_aready;
-    wire gated_sched_wvalid, gated_sched_wready;
-
-    emulib_ready_valid_gate #(
-        .DECOUPLE_S (1),
-        .DECOUPLE_M (1)
-    ) gate_sched_a (
-        .i_valid    (sched_avalid),
-        .i_ready    (sched_aready),
-        .o_valid    (gated_sched_avalid),
-        .o_ready    (gated_sched_aready),
-        .enable     (sched_enable_a)
-    );
-
-    emulib_ready_valid_gate #(
-        .DECOUPLE_S (1),
-        .DECOUPLE_M (1)
-    ) gate_sched_w (
-        .i_valid    (sched_wvalid),
-        .i_ready    (sched_wready),
-        .o_valid    (gated_sched_wvalid),
-        .o_ready    (gated_sched_wready),
-        .enable     (sched_enable_w)
-    );
-
-    // Route A to AW/AR
-
-    `AXI4_CUSTOM_A_WIRE(routed_aw, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
-    `AXI4_CUSTOM_A_WIRE(routed_ar, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
-
-    emulib_ready_valid_mux #(
-        .NUM_I      (1),
-        .NUM_O      (2),
-        .DATA_WIDTH (`AXI4_CUSTOM_A_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))
-    ) a_router (
-        .i_valid    (gated_sched_avalid),
-        .i_ready    (gated_sched_aready),
-        .i_data     (`AXI4_CUSTOM_A_PAYLOAD(sched)),
-        .i_sel      (1'b1),
-        .o_valid    ({routed_aw_avalid, routed_ar_avalid}),
-        .o_ready    ({routed_aw_aready, routed_ar_aready}),
-        .o_data     ({`AXI4_CUSTOM_A_PAYLOAD(routed_aw), `AXI4_CUSTOM_A_PAYLOAD(routed_ar)}),
-        .o_sel      ({sched_awrite, ~sched_awrite})
-    );
-
-    assign host_axi_awvalid     = routed_aw_avalid && !scan_mode;
-    assign routed_aw_aready     = host_axi_awready && !scan_mode;
-    assign host_axi_awaddr      = routed_aw_aaddr;
-    assign host_axi_awid        = 0; // TODO
-    assign host_axi_awlen       = routed_aw_alen;
-    assign host_axi_awsize      = routed_aw_asize;
-    assign host_axi_awburst     = routed_aw_aburst;
-    assign host_axi_awprot      = 3'b010;
-    assign host_axi_awlock      = 1'b0;
-    assign host_axi_awcache     = 4'd0;
-    assign host_axi_awqos       = 4'd0;
-    assign host_axi_awregion    = 4'd0;
-
-    assign host_axi_wvalid      = gated_sched_wvalid && !scan_mode;
-    assign gated_sched_wready   = host_axi_wready && !scan_mode;
-    assign `AXI4_CUSTOM_W_PAYLOAD(host_axi) = `AXI4_CUSTOM_W_PAYLOAD(sched);
-
-    assign sched_bvalid         = host_axi_bvalid && !scan_mode;
-    assign host_axi_bready      = sched_bready && !scan_mode;
-    assign `AXI4_CUSTOM_B_PAYLOAD(sched) = `AXI4_CUSTOM_B_PAYLOAD(host_axi);
-
-    assign host_axi_arvalid     = routed_ar_avalid && !scan_mode;
-    assign routed_ar_aready     = host_axi_arready && !scan_mode;
-    assign host_axi_araddr      = routed_ar_aaddr;
-    assign host_axi_arid        = 0; // TODO
-    assign host_axi_arlen       = routed_ar_alen;
-    assign host_axi_arsize      = routed_ar_asize;
-    assign host_axi_arburst     = routed_ar_aburst;
+    assign host_axi_araddr      = pre_issue_aaddr;
+    assign host_axi_arlen       = pre_issue_alen;
+    assign host_axi_arsize      = pre_issue_asize;
+    assign host_axi_arburst     = pre_issue_aburst;
     assign host_axi_arprot      = 3'b010;
     assign host_axi_arlock      = 1'b0;
     assign host_axi_arcache     = 4'd0;
     assign host_axi_arqos       = 4'd0;
     assign host_axi_arregion    = 4'd0;
 
-    assign sched_rvalid         = host_axi_rvalid && !scan_mode;
-    assign host_axi_rready      = sched_rready && !scan_mode;
-    assign `AXI4_CUSTOM_R_PAYLOAD(sched) = `AXI4_CUSTOM_R_PAYLOAD(host_axi);
+    assign host_axi_awvalid     = pre_issue_avalid &&
+                                  pre_issue_awrite &&
+                                  allow_host_aw;
 
-    // Scheduler & responser FSMs
+    assign host_axi_awaddr      = pre_issue_aaddr;
+    assign host_axi_awlen       = pre_issue_alen;
+    assign host_axi_awsize      = pre_issue_asize;
+    assign host_axi_awburst     = pre_issue_aburst;
+    assign host_axi_awprot      = 3'b010;
+    assign host_axi_awlock      = 1'b0;
+    assign host_axi_awcache     = 4'd0;
+    assign host_axi_awqos       = 4'd0;
+    assign host_axi_awregion    = 4'd0;
 
-    wire sched_afire    = sched_avalid && sched_aready;
-    wire sched_wfire    = sched_wvalid && sched_wready;
-    wire host_axi_bfire = host_axi_bvalid && host_axi_bready;
-    wire host_axi_rfire = host_axi_rvalid && host_axi_rready;
+    assign pre_issue_aready     = pre_issue_awrite ?
+                                  (host_axi_awready && allow_host_aw) :
+                                  (host_axi_arready && allow_host_ar);
 
-    localparam [2:0]
-        SCHED_IDLE  = 3'd0,
-        SCHED_DO_A  = 3'd1,
-        SCHED_DO_W  = 3'd2,
-        SCHED_DO_R  = 3'd3,
-        SCHED_DO_B  = 3'd4;
+    //// Issue W requests to host ////
 
     (* __emu_no_scanchain *)
-    reg [2:0] sched_state = SCHED_IDLE, sched_state_next;
+    reg [$clog2(W_ISSUE_Q_DEPTH+1)-1:0] w_stream_credit = 0;
+    wire w_stream_credit_inc = host_axi_awvalid && host_axi_awready;
+    wire w_stream_credit_dec = host_axi_wvalid && host_axi_wready && host_axi_wlast;
 
-    wire sched_ok_to_ar = sched_avalid && !sched_awrite && r_fifo_count == 0;
-    wire sched_ok_to_aw = sched_avalid && sched_awrite && w_fifo_count > sched_alen && b_fifo_count == 0;
-    wire sched_ok_to_a = (sched_ok_to_ar || sched_ok_to_aw) && run_mode;
-
-    always @(posedge mdl_clk)
+    always @(posedge mdl_clk) begin
         if (mdl_rst)
-            sched_state <= SCHED_IDLE;
+            w_stream_credit <= 0;
         else
-            sched_state <= sched_state_next;
+            w_stream_credit <= w_stream_credit + w_stream_credit_inc - w_stream_credit_dec;
+    end
 
-    always @*
-        case (sched_state)
-        SCHED_IDLE:
-            if (sched_ok_to_a)
-                sched_state_next = SCHED_DO_A;
-            else
-                sched_state_next = SCHED_IDLE;
-        SCHED_DO_A:
-            if (sched_afire)
-                sched_state_next = sched_awrite ? SCHED_DO_W : SCHED_DO_R;
-            else
-                sched_state_next = SCHED_DO_A;
-        SCHED_DO_R:
-            if (host_axi_rfire && host_axi_rlast)
-                sched_state_next = SCHED_IDLE;
-            else
-                sched_state_next = SCHED_DO_R;
-        SCHED_DO_W:
-            if (sched_wfire && sched_wlast)
-                sched_state_next = SCHED_DO_B;
-            else
-                sched_state_next = SCHED_DO_W;
-        SCHED_DO_B:
-            if (host_axi_bfire)
-                sched_state_next = SCHED_IDLE;
-            else
-                sched_state_next = SCHED_DO_B;
-        default:
-            sched_state_next = SCHED_IDLE;
-        endcase
+    wire allow_host_w = w_stream_credit >= w_stream_count && !scan_mode;
 
-    assign sched_enable_a   = sched_state == SCHED_DO_A;
-    assign sched_enable_w   = sched_state == SCHED_DO_W;
+    assign host_axi_wvalid      = pre_issue_wvalid && allow_host_w;
+    assign pre_issue_wready     = host_axi_wready && allow_host_w;
+    assign `AXI4_CUSTOM_W_PAYLOAD(host_axi) = `AXI4_CUSTOM_W_PAYLOAD(pre_issue);
 
-    assign idle = sched_state == SCHED_IDLE;
+    //// RID/BID queues to track host-side in-flight requests ////
 
-    // Reset handler
+    wire rid_q_i_valid = pre_issue_avalid && pre_issue_aready && !pre_issue_awrite;
+    wire rid_q_i_ready;
+    wire [ID_WIDTH-1:0] rid_q_i_id = pre_issue_aid;
+
+    wire rid_q_o_valid;
+    wire rid_q_o_ready;
+    wire [ID_WIDTH-1:0] rid_q_o_id;
+
+    (* __emu_no_scanchain *)
+    emulib_ready_valid_fifo #(
+        .WIDTH      (ID_WIDTH),
+        .DEPTH      (MAX_R_INFLIGHT),
+        .FAST_READ  (1)
+    ) rid_q (
+        .clk        (mdl_clk),
+        .rst        (fifo_rst),
+        .ivalid     (rid_q_i_valid),
+        .iready     (rid_q_i_ready),
+        .idata      (rid_q_i_id),
+        .ovalid     (rid_q_o_valid),
+        .oready     (rid_q_o_ready),
+        .odata      (rid_q_o_id)
+    );
+
+    wire bid_q_i_valid = pre_issue_avalid && pre_issue_aready && pre_issue_awrite;
+    wire bid_q_i_ready;
+    wire [ID_WIDTH-1:0] bid_q_i_id = pre_issue_aid;
+
+    wire bid_q_o_valid;
+    wire bid_q_o_ready;
+    wire [ID_WIDTH-1:0] bid_q_o_id;
+
+    (* __emu_no_scanchain *)
+    emulib_ready_valid_fifo #(
+        .WIDTH      (ID_WIDTH),
+        .DEPTH      (MAX_W_INFLIGHT),
+        .FAST_READ  (1)
+    ) bid_q (
+        .clk        (mdl_clk),
+        .rst        (fifo_rst),
+        .ivalid     (bid_q_i_valid),
+        .iready     (bid_q_i_ready),
+        .idata      (bid_q_i_id),
+        .ovalid     (bid_q_o_valid),
+        .oready     (bid_q_o_ready),
+        .odata      (bid_q_o_id)
+    );
+
+`ifdef RAMMODEL_BACKEND_DEBUG
+    always @(posedge mdl_clk) begin
+        if (!mdl_rst) begin
+            if (rid_q_i_valid) begin
+                if (!rid_q_i_ready) begin
+                    $display("[%d ns] RID queue overflow", $time);
+                    $fatal;
+                end
+                $display("[%d ns] RID %h queued",
+                    $time,
+                    rid_q_i_id);
+            end
+            if (bid_q_i_valid) begin
+                if (!bid_q_i_ready) begin
+                    $display("[%d ns] BID queue overflow", $time);
+                    $fatal;
+                end
+                $display("[%d ns] BID %h queued",
+                    $time,
+                    bid_q_i_id);
+            end
+        end
+    end
+`endif
+
+    //// R/B reorder queues ////
+
+    wire [ID_NUM-1:0] r_roq_i_valid;
+    wire [ID_NUM-1:0] r_roq_i_ready;
+    wire [ID_NUM*R_PAYLOAD_LEN-1:0] r_roq_i_data;
+
+    wire [ID_NUM-1:0] r_roq_o_valid;
+    wire [ID_NUM-1:0] r_roq_o_ready;
+    wire [ID_NUM*R_PAYLOAD_LEN-1:0] r_roq_o_data;
+
+    for (gen_i=0; gen_i<ID_NUM; gen_i=gen_i+1) begin : r_roq_genblk
+        emulib_ready_valid_fifo #(
+            .WIDTH      (R_PAYLOAD_LEN),
+            .DEPTH      (R_ROQ_DEPTH)
+        ) queue (
+            .clk        (mdl_clk),
+            .rst        (fifo_rst),
+            .ivalid     (r_roq_i_valid[gen_i]),
+            .iready     (r_roq_i_ready[gen_i]),
+            .idata      (r_roq_i_data[gen_i*R_PAYLOAD_LEN+:R_PAYLOAD_LEN]),
+            .ovalid     (r_roq_o_valid[gen_i]),
+            .oready     (r_roq_o_ready[gen_i]),
+            .odata      (r_roq_o_data[gen_i*R_PAYLOAD_LEN+:R_PAYLOAD_LEN])
+        );
+    end
+
+    wire [ID_NUM-1:0] b_roq_i_valid;
+    wire [ID_NUM-1:0] b_roq_i_ready;
+    wire [ID_NUM*B_PAYLOAD_LEN-1:0] b_roq_i_data;
+
+    wire [ID_NUM-1:0] b_roq_o_valid;
+    wire [ID_NUM-1:0] b_roq_o_ready;
+    wire [ID_NUM*B_PAYLOAD_LEN-1:0] b_roq_o_data;
+
+    for (gen_i=0; gen_i<ID_NUM; gen_i=gen_i+1) begin : b_roq_genblk
+        emulib_ready_valid_fifo #(
+            .WIDTH      (B_PAYLOAD_LEN),
+            .DEPTH      (B_ROQ_DEPTH)
+        ) queue (
+            .clk        (mdl_clk),
+            .rst        (fifo_rst),
+            .ivalid     (b_roq_i_valid[gen_i]),
+            .iready     (b_roq_i_ready[gen_i]),
+            .idata      (b_roq_i_data[gen_i*B_PAYLOAD_LEN+:B_PAYLOAD_LEN]),
+            .ovalid     (b_roq_o_valid[gen_i]),
+            .oready     (b_roq_o_ready[gen_i]),
+            .odata      (b_roq_o_data[gen_i*B_PAYLOAD_LEN+:B_PAYLOAD_LEN])
+        );
+    end
+
+    //// Receive R/B responses from host and demux to ROQs ////
+
+    function [ID_NUM-1:0] id2oh (input [ID_WIDTH-1:0] id);
+    begin
+        id2oh = {{ID_NUM-1{1'b0}}, 1'b1} << id;
+    end
+    endfunction
+
+    `AXI4_CUSTOM_R_WIRE(pre_reorder, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+
+    assign pre_reorder_rvalid   = host_axi_rvalid && rid_q_o_valid;
+    assign pre_reorder_rdata    = host_axi_rdata;
+    assign pre_reorder_rid      = rid_q_o_id;
+    assign pre_reorder_rlast    = host_axi_rlast;
+    assign host_axi_rready      = pre_reorder_rready && rid_q_o_valid;
+    assign rid_q_o_ready        = pre_reorder_rvalid &&
+                                  pre_reorder_rready &&
+                                  pre_reorder_rlast;
+
+    emulib_ready_valid_mux #(
+        .NUM_I      (1),
+        .NUM_O      (ID_NUM),
+        .DATA_WIDTH (R_PAYLOAD_LEN)
+    ) r_roq_demux (
+        .i_valid    (pre_reorder_rvalid),
+        .i_ready    (pre_reorder_rready),
+        .i_data     (`AXI4_CUSTOM_R_PAYLOAD(pre_reorder)),
+        .i_sel      (1'b1),
+        .o_valid    (r_roq_i_valid),
+        .o_ready    (r_roq_i_ready),
+        .o_data     (r_roq_i_data),
+        .o_sel      (id2oh(pre_reorder_rid))
+    );
+
+    `AXI4_CUSTOM_B_WIRE(pre_reorder, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+
+    assign pre_reorder_bvalid   = host_axi_bvalid && bid_q_o_valid;
+    assign pre_reorder_bid      = bid_q_o_id;
+    assign host_axi_bready      = pre_reorder_bready && bid_q_o_valid;
+    assign bid_q_o_ready        = pre_reorder_bvalid &&
+                                  pre_reorder_bready;
+
+    emulib_ready_valid_mux #(
+        .NUM_I      (1),
+        .NUM_O      (ID_NUM),
+        .DATA_WIDTH (B_PAYLOAD_LEN)
+    ) b_roq_demux (
+        .i_valid    (pre_reorder_bvalid),
+        .i_ready    (pre_reorder_bready),
+        .i_data     (`AXI4_CUSTOM_B_PAYLOAD(pre_reorder)),
+        .i_sel      (1'b1),
+        .o_valid    (b_roq_i_valid),
+        .o_ready    (b_roq_i_ready),
+        .o_data     (b_roq_i_data),
+        .o_sel      (id2oh(pre_reorder_bid))
+    );
+
+`ifdef RAMMODEL_BACKEND_DEBUG
+    reg [7:0] r_enq_seq [ID_NUM-1:0];
+
+    initial begin
+        for (loop_i=0; loop_i<ID_NUM; loop_i=loop_i+1)
+            r_enq_seq[loop_i] = 0;
+    end
+
+    always @(posedge mdl_clk) begin
+        if (!mdl_rst) begin
+            if (pre_reorder_rvalid && pre_reorder_rready) begin
+                $display("[%d ns] R ROQ enqueue: ID %h LAST %h Seq %h",
+                    $time,
+                    pre_reorder_rid,
+                    pre_reorder_rlast,
+                    r_enq_seq[pre_reorder_rid]);
+                r_enq_seq[pre_reorder_rid] = pre_reorder_rlast ? 0 :
+                    r_enq_seq[pre_reorder_rid] + 1;
+                if (!rid_q_o_valid) begin
+                    $display("[%d ns] RID queue underflow", $time);
+                    $fatal;
+                end
+            end
+            if (pre_reorder_bvalid && pre_reorder_bready) begin
+                $display("[%d ns] B ROQ enqueue: ID %h",
+                    $time,
+                    pre_reorder_bid);
+                if (!bid_q_o_valid) begin
+                    $display("[%d ns] BID queue underflow", $time);
+                    $fatal;
+                end
+            end
+        end
+    end
+`endif
+
+    //// Receive RReq/BReq from frontend and return RResp/BResp ////
+
+    wire reset_pending = tk_rst_valid && rst;
+
+    // RResp
+
+    `AXI4_CUSTOM_R_WIRE(post_reorder, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+
+    emulib_ready_valid_mux #(
+        .NUM_I      (ID_NUM),
+        .NUM_O      (1),
+        .DATA_WIDTH (R_PAYLOAD_LEN)
+    ) r_roq_mux (
+        .i_valid    (r_roq_o_valid),
+        .i_ready    (r_roq_o_ready),
+        .i_data     (r_roq_o_data),
+        .i_sel      (id2oh(rreq_id)),
+        .o_valid    (post_reorder_rvalid),
+        .o_ready    (post_reorder_rready),
+        .o_data     (`AXI4_CUSTOM_R_PAYLOAD(post_reorder)),
+        .o_sel      (1'b1)
+    );
+
+    `AXI4_CUSTOM_R_WIRE(whitehole, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+
+    assign whitehole_rvalid = 1'b1;
+    assign whitehole_rdata  = {DATA_WIDTH{1'b0}};
+    assign whitehole_rid    = {ID_WIDTH{1'b0}};
+    assign whitehole_rlast  = 1'b0;
+
+    wire r_dequeue = rreq_valid && !reset_pending;
+
+    `AXI4_CUSTOM_R_WIRE(prejoin, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+
+    emulib_ready_valid_mux #(
+        .NUM_I      (2),
+        .NUM_O      (1),
+        .DATA_WIDTH (R_PAYLOAD_LEN)
+    ) rresp_mux (
+        .i_valid    ({whitehole_rvalid, post_reorder_rvalid}),
+        .i_ready    ({whitehole_rready, post_reorder_rready}),
+        .i_data     ({`AXI4_CUSTOM_R_PAYLOAD(whitehole), `AXI4_CUSTOM_R_PAYLOAD(post_reorder)}),
+        .i_sel      ({~r_dequeue, r_dequeue}),
+        .o_valid    (prejoin_rvalid),
+        .o_ready    (prejoin_rready),
+        .o_data     (`AXI4_CUSTOM_R_PAYLOAD(prejoin)),
+        .o_sel      (1'b1)
+    );
+
+    emulib_ready_valid_join #(.BRANCHES(2)) r_join (
+        .i_valid    ({prejoin_rvalid, tk_rreq_valid}),
+        .i_ready    ({prejoin_rready, tk_rreq_ready}),
+        .o_valid    (tk_rresp_valid),
+        .o_ready    (tk_rresp_ready)
+    );
+
+    assign rresp_data = prejoin_rdata;
+    assign rresp_last = prejoin_rlast;
+
+`ifdef RAMMODEL_BACKEND_DEBUG
+    reg [7:0] r_deq_seq [ID_NUM-1:0];
+
+    initial begin
+        for (loop_i=0; loop_i<ID_NUM; loop_i=loop_i+1)
+            r_deq_seq[loop_i] = 0;
+    end
+
+    always @(posedge mdl_clk) begin
+        if (!mdl_rst) begin
+            if (post_reorder_rvalid && post_reorder_rready) begin
+                $display("[%d ns] R ROQ dequeue: ID %h LAST %h Seq %h",
+                    $time,
+                    post_reorder_rid,
+                    post_reorder_rlast,
+                    r_deq_seq[post_reorder_rid]);
+                r_deq_seq[post_reorder_rid] = post_reorder_rlast ? 0 :
+                    r_deq_seq[post_reorder_rid] + 1;
+            end
+        end
+    end
+`endif
+
+    // BResp
+
+    `AXI4_CUSTOM_B_WIRE(post_reorder, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+
+    emulib_ready_valid_mux #(
+        .NUM_I      (ID_NUM),
+        .NUM_O      (1),
+        .DATA_WIDTH (B_PAYLOAD_LEN)
+    ) b_roq_mux (
+        .i_valid    (b_roq_o_valid),
+        .i_ready    (b_roq_o_ready),
+        .i_data     (b_roq_o_data),
+        .i_sel      (id2oh(breq_id)),
+        .o_valid    (post_reorder_bvalid),
+        .o_ready    (post_reorder_bready),
+        .o_data     (`AXI4_CUSTOM_B_PAYLOAD(post_reorder)),
+        .o_sel      (1'b1)
+    );
+
+    `AXI4_CUSTOM_B_WIRE(whitehole, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+
+    assign whitehole_bvalid = 1'b1;
+    assign whitehole_bid    = {ID_WIDTH{1'b0}};
+
+    wire b_dequeue = breq_valid && !reset_pending;
+
+    `AXI4_CUSTOM_B_WIRE(prejoin, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH);
+
+    emulib_ready_valid_mux #(
+        .NUM_I      (2),
+        .NUM_O      (1),
+        .DATA_WIDTH (B_PAYLOAD_LEN)
+    ) bresp_mux (
+        .i_valid    ({whitehole_bvalid, post_reorder_bvalid}),
+        .i_ready    ({whitehole_bready, post_reorder_bready}),
+        .i_data     ({`AXI4_CUSTOM_B_PAYLOAD(whitehole), `AXI4_CUSTOM_B_PAYLOAD(post_reorder)}),
+        .i_sel      ({~b_dequeue, b_dequeue}),
+        .o_valid    (prejoin_bvalid),
+        .o_ready    (prejoin_bready),
+        .o_data     (`AXI4_CUSTOM_B_PAYLOAD(prejoin)),
+        .o_sel      (1'b1)
+    );
+
+    emulib_ready_valid_join #(.BRANCHES(2)) b_join (
+        .i_valid    ({prejoin_bvalid, tk_breq_valid}),
+        .i_ready    ({prejoin_bready, tk_breq_ready}),
+        .o_valid    (tk_bresp_valid),
+        .o_ready    (tk_bresp_ready)
+    );
+
+`ifdef RAMMODEL_BACKEND_DEBUG
+    always @(posedge mdl_clk) begin
+        if (!mdl_rst) begin
+            if (post_reorder_bvalid && post_reorder_bready) begin
+                $display("[%d ns] B ROQ dequeue: ID %h",
+                    $time,
+                    post_reorder_bid);
+            end
+        end
+    end
+`endif
+
+    //// Reset handler ////
 
     (* __emu_no_scanchain *)
     reset_token_handler resetter (
@@ -444,34 +770,24 @@ module emulib_rammodel_backend #(
         .tk_rst_ready   (tk_rst_ready),
         .tk_rst         (rst),
         .allow_rst      (idle),
-        .rst_out        (fifo_clear)
+        .rst_out        (soft_rst)
     );
 
-`ifdef SIM_LOG
-
-    function [255:0] sched_state_name(input [2:0] arg_state);
-        begin
-            case (arg_state)
-                SCHED_IDLE:     sched_state_name = "IDLE";
-                SCHED_DO_A:     sched_state_name = "DO_A";
-                SCHED_DO_W:     sched_state_name = "DO_W";
-                SCHED_DO_R:     sched_state_name = "DO_R";
-                SCHED_DO_B:     sched_state_name = "DO_B";
-                default:        sched_state_name = "<UNK>";
-            endcase
-        end
-    endfunction
-
+`ifdef RAMMODEL_BACKEND_DEBUG
     always @(posedge mdl_clk) begin
         if (!mdl_rst) begin
-            if (sched_state != sched_state_next) begin
-                $display("[%0d ns] %m: sched_state %0s -> %0s", $time,
-                    sched_state_name(sched_state),
-                    sched_state_name(sched_state_next));
+            if (tk_rst_valid && tk_rst_ready && rst) begin
+                $display("[%d ns] Reset token active", $time);
             end
         end
     end
-
 `endif
+
+    // The model is idle only if there's no requests ready to be sent or host-side in-flight requests
+
+    assign idle = !host_axi_arvalid &&
+                  !host_axi_awvalid &&
+                  !rid_q_o_valid &&
+                  !bid_q_o_valid;
 
 endmodule

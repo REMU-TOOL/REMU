@@ -3,8 +3,7 @@
 module emulib_fifo #(
     parameter WIDTH     = 32,
     parameter DEPTH     = 8,
-
-    parameter CNTW      = DEPTH > 1 ? $clog2(DEPTH) : 1
+    parameter FAST_READ = 0
 )(
 
     input  wire                 clk,
@@ -19,6 +18,8 @@ module emulib_fifo #(
     output reg  [WIDTH-1:0]     rdata
 
 );
+
+    localparam CNTW = DEPTH > 1 ? $clog2(DEPTH) : 1;
 
     initial begin
         if (WIDTH <= 0) begin
@@ -76,8 +77,14 @@ module emulib_fifo #(
     always @(posedge clk)
         if (wfire) data[wp] <= wdata;
 
-    always @(posedge clk)
-        if (rfire) rdata <= data[rp];
+    if (FAST_READ) begin
+        always @*
+            rdata = data[rp];
+    end
+    else begin
+        always @(posedge clk)
+            if (rfire) rdata <= data[rp];
+    end
 
 `ifdef SIM_LOG_FIFO
 

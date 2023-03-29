@@ -3,8 +3,7 @@
 module emulib_ready_valid_fifo #(
     parameter WIDTH     = 32,
     parameter DEPTH     = 8,
-
-    parameter CNTW      = $clog2(DEPTH+1)
+    parameter FAST_READ = 0
 )(
 
     input  wire                 clk,
@@ -16,18 +15,34 @@ module emulib_ready_valid_fifo #(
 
     output reg                  ovalid = 1'b0,
     input  wire                 oready,
-    output wire [WIDTH-1:0]     odata,
-
-    output reg  [CNTW-1:0]      count = 0
+    output wire [WIDTH-1:0]     odata
 
 );
 
     wire full, empty;
-    wire rinc = oready || !ovalid;
+    wire rinc;
+
+    if (FAST_READ) begin
+        assign rinc = oready;
+        always @*
+            ovalid = !empty;
+    end
+    else begin
+        assign rinc = oready || !ovalid;
+        always @(posedge clk) begin
+            if (rst)
+                ovalid <= 1'b0;
+            else if (rinc)
+                ovalid <= !empty;
+        end
+    end
+
+    assign iready = !full;
 
     emulib_fifo #(
-        .WIDTH  (WIDTH),
-        .DEPTH  (DEPTH-1) // the rdata register provides 1 extra depth
+        .WIDTH      (WIDTH),
+        .DEPTH      (DEPTH),
+        .FAST_READ  (FAST_READ)
     ) fifo (
         .clk        (clk),
         .rst        (rst),
@@ -38,22 +53,6 @@ module emulib_ready_valid_fifo #(
         .rempty     (empty),
         .rdata      (odata)
     );
-
-    always @(posedge clk) begin
-        if (rst)
-            ovalid <= 1'b0;
-        else if (rinc)
-            ovalid <= !empty;
-    end
-
-    always @(posedge clk) begin
-        if (rst)
-            count <= 0;
-        else
-            count <= count + (ivalid && iready) - (ovalid && oready);
-    end
-
-    assign iready = !full;
 
 `ifdef FORMAL
 
@@ -80,7 +79,6 @@ module emulib_ready_valid_fifo #(
         if (!rst) begin
             assert(f_depth <= DEPTH);
             assert(f_depth >= 0);
-            assert(f_depth == count);
             assert(!full || !empty);
         end
     end
