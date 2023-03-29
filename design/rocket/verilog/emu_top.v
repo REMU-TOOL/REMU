@@ -316,8 +316,7 @@ module emu_top(
         .DATA_WIDTH     (64),
         .ID_WIDTH       (1),
         .MEM_SIZE       (64'h10000000),
-        .R_DELAY        (50),
-        .W_DELAY        (50)
+        .TIMING_TYPE    ("fixed")
     )
     u_rammodel (
         .clk            (clk),
