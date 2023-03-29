@@ -89,14 +89,12 @@ void EmulationDatabase::write_loader(std::string file_name)
 
     int addr;
 
-    os << "`define LOAD_FF(__LOAD_DATA, __LOAD_DUT) \\\n";
+    os << "`define LOAD_FF(__LOAD_DATA, EMU_TOP) \\\n";
     addr = 0;
     for (auto &info : scan_ff) {
         if (!info.name.empty()) {
             auto &wire = this->wire.at(info.name);
-            os << "    __LOAD_DUT";
-            for (auto &name : info.name)
-                os << "." << Escape::escape_verilog_id(name);
+            os << "    " << flatten_name(info.name);
             if (info.width != wire.width) {
                 if (info.width == 1)
                     os << stringf("[%d]", wire.start_offset + info.offset);
@@ -114,15 +112,13 @@ void EmulationDatabase::write_loader(std::string file_name)
     os << "\n";
     os << "`define FF_BIT_COUNT " << addr << "\n";
 
-    os << "`define LOAD_MEM(__LOOP_VAR, __LOAD_DATA, __LOAD_DUT) \\\n";
+    os << "`define LOAD_MEM(__LOOP_VAR, __LOAD_DATA, EMU_TOP) \\\n";
     addr = 0;
     for (auto &info : scan_ram) {
         auto &ram = this->ram.at(info.name);
-        os << "    for (__LOOP_VAR=0; __LOOP_VAR<" << ram.depth << "; __LOOP_VAR=__LOOP_VAR+1) __LOAD_DUT";
-        for (auto &name : info.name)
-            os << "." << Escape::escape_verilog_id(name);
-        os << "[__LOOP_VAR+" << ram.start_offset << "] = __LOAD_DATA[";
-        os << addr << "+__LOOP_VAR*" << ram.width << "+:" << ram.width << "]; \\\n";
+        os << "    for (__LOOP_VAR=0; __LOOP_VAR<" << ram.depth << "; __LOOP_VAR=__LOOP_VAR+1) "
+           << flatten_name(info.name) << "[__LOOP_VAR+" << ram.start_offset << "] = __LOAD_DATA["
+           << addr << "+__LOOP_VAR*" << ram.width << "+:" << ram.width << "]; \\\n";
         addr += ram.width * ram.depth;
     }
     os << "\n";
