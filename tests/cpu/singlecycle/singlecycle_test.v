@@ -29,7 +29,7 @@ module sim_top();
         .EMU_RAM_SD         (ram_dir),
         .EMU_RAM_DI         (ram_sdi),
         .EMU_RAM_DO         (ram_sdo),
-        .EMU_PORT_reset_imp_user_rst    (rst)
+        .rst    (rst)
     );
 
     wire ref_clk;
@@ -42,8 +42,8 @@ module sim_top();
 
     emu_top emu_ref();
 
-    assign emu_ref.clock.user_clk = ref_clk;
-    assign emu_ref.reset.user_rst = rst;
+    assign emu_ref.clk = ref_clk;
+    assign emu_ref.rst = rst;
 
     integer i, j;
     reg [`RAM_BIT_COUNT-1:0] mem_scan_save [N_CKPT-1:0];
@@ -51,8 +51,6 @@ module sim_top();
     reg [63:0] cycle_save [N_CKPT-1:0], finish_cycle;
 
     always #5 clk = ~clk;
-
-    `LOAD_DECLARE
 
     reg [63:0] cycle = 0;
     reg finish = 0;

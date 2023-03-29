@@ -88,7 +88,9 @@ $(SIM_BIN): $(SIM_SRCS)
 .PHONY: sim
 sim: $(SIM_BIN)
 	vvp $(VVP_ARGS) $^ $(PLUSARGS)
+ifneq ($(COCOTB_MODULE),)
 	@$(TEST_DIR)/check_cocotb_result.py $(RESULTS_XML)
+endif
 
 .PHONY: clean
 clean:
