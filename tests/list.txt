@@ -1,6 +1,0 @@
-pause
-ff
-mem
-cpu
-rammodel
-system

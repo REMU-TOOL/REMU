@@ -1,5 +1,5 @@
 import random
-import yaml
+import json
 
 import cocotb
 from cocotb.clock import Clock
@@ -8,7 +8,7 @@ from cocotb.triggers import RisingEdge, ClockCycles
 from cocotbext.axi import AxiBus, AxiMaster, AxiRam
 from cocotbext.axi.constants import AxiBurstType
 
-CONFIG_FILE = '.build/scanchain.yml'
+CONFIG_FILE = '.build/sysinfo.json'
 
 class TB:
     def __init__(self, dut):
@@ -20,9 +20,9 @@ class TB:
 
     def load_config(self, path):
         with open(path, 'r') as f:
-            self.config = yaml.load(f, Loader=yaml.Loader)
-        self.ff_size = sum([ff['width'] for ff in self.config['ff']])
-        self.mem_size = sum([mem['width'] * mem['depth'] for mem in self.config['ram']])
+            self.config = json.load(f)
+        self.ff_size = sum([ff['width'] for ff in self.config['scan_ff']])
+        self.mem_size = sum([mem['width'] * mem['depth'] for mem in self.config['scan_ram']])
 
     async def do_reset(self):
         self.dut._log.info("reset asserted")

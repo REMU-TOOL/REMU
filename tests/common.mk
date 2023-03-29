@@ -11,7 +11,7 @@ EMU_INCLUDE := $(EMULIB_DIR)/include
 BUILD_DIR   := .build
 OUTPUT_FILE := $(BUILD_DIR)/output.v
 ELAB_FILE   := $(BUILD_DIR)/elab.v
-SC_YML_FILE := $(BUILD_DIR)/scanchain.yml
+SYSINFO_FILE := $(BUILD_DIR)/sysinfo.json
 LOADER_FILE := $(BUILD_DIR)/loader.vh
 SIM_BIN     := $(BUILD_DIR)/sim
 DUMP_FILE   := $(BUILD_DIR)/dump.fst
@@ -22,17 +22,17 @@ SIMCTRL_V   := $(BUILD_DIR)/simctrl.v
 SIM_SRCS += $(wildcard $(EMULIB_DIR)/common/*.v)
 SIM_SRCS += $(wildcard $(EMULIB_DIR)/model/*.v)
 SIM_SRCS += $(wildcard $(EMULIB_DIR)/fpga/*.v)
-SIM_SRCS += $(wildcard $(EMULIB_DIR)/platform/*.v)
-SIM_SRCS += $(wildcard $(TEST_DIR)/../platform/sim/common/sources/*.v)
+SIM_SRCS += $(wildcard $(EMULIB_DIR)/system/*.v)
+SIM_SRCS += $(wildcard $(EMULIB_DIR)/platform/sim/*.v)
 SIM_SRCS += $(SIMCTRL_V)
 SIM_TOP += _simctrl
 
 TRANSFORM_ARGS += -top $(EMU_TOP)
-TRANSFORM_ARGS += -yaml $(SC_YML_FILE)
+TRANSFORM_ARGS += -sysinfo $(SYSINFO_FILE)
 TRANSFORM_ARGS += -loader $(LOADER_FILE)
 TRANSFORM_ARGS += -elab $(ELAB_FILE)
 ifneq ($(PLAT_MAP),y)
-TRANSFORM_ARGS += -no_plat
+TRANSFORM_ARGS += -nosystem
 endif
 
 ifeq ($(TIMEOUT),)
@@ -88,6 +88,7 @@ $(SIM_BIN): $(SIM_SRCS)
 .PHONY: sim
 sim: $(SIM_BIN)
 	vvp $(VVP_ARGS) $^ $(PLUSARGS)
+	@$(TEST_DIR)/check_cocotb_result.py $(RESULTS_XML)
 
 .PHONY: clean
 clean:
