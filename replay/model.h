@@ -11,10 +11,8 @@
 
 namespace REMU {
 
-struct FifoModel {
-    std::queue<BitVector> fifo;
-    void load(CircuitState &circuit, const CircuitPath &path);
-};
+void load_fifo(std::queue<BitVector> &fifo, CircuitState &circuit, const CircuitPath &path);
+void load_ready_valid_fifo(std::queue<BitVector> &fifo, CircuitState &circuit, const CircuitPath &path);
 
 class RamModel {
 
@@ -60,8 +58,8 @@ private:
 
     std::queue<AChannel> a_queue;
     std::queue<WChannel> w_queue;
-    std::queue<BChannel> b_queue;
-    std::queue<RChannel> r_queue;
+    std::vector<std::queue<BChannel>> b_queue;
+    std::vector<std::queue<RChannel>> r_queue;
 
     void schedule();
 
@@ -70,18 +68,16 @@ public:
     bool a_push(const AChannel &payload);
     bool w_push(const WChannel &payload);
     bool b_front(uint16_t id, BChannel &payload);
-    bool b_pop();
+    bool b_pop(uint16_t id);
     bool r_front(uint16_t id, RChannel &payload);
-    bool r_pop();
+    bool r_pop(uint16_t id);
 
     bool reset();
 
     bool load_data(std::istream &stream);
     void load_state(CircuitState &circuit, const CircuitPath &path);
 
-    RamModel(unsigned int addr_w, unsigned int data_w, unsigned int id_w, uint64_t ram_sz) :
-        addr_width(addr_w), data_width(data_w), id_width(id_w), mem_size(ram_sz),
-        data(ram_sz * 8) {}
+    RamModel(unsigned int addr_width, unsigned int data_width, unsigned int id_width, uint64_t mem_size);
 
 };
 

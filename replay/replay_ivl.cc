@@ -111,9 +111,8 @@ int rammodel_new_tf(char* user_data)
     return 0;
 }
 
-int rammodel_reset_tf(char* user_data)
+int rammodel_reset_tf(char*)
 {
-    static_cast<void>(user_data);
     vpiHandle callh = vpi_handle(vpiSysTfCall, 0);
     auto args = vpiGetTfArgs(callh);
 
@@ -142,13 +141,15 @@ int rammodel_reset_tf(char* user_data)
     return 0;
 }
 
-int rammodel_a_push_tf(char* user_data)
+int rammodel_ar_aw_push_tf(char* user_data)
 {
-    static_cast<void>(user_data);
+    auto arg = reinterpret_cast<size_t>(user_data);
+    bool is_aw = arg != 0;
+
     vpiHandle callh = vpi_handle(vpiSysTfCall, 0);
     auto args = vpiGetTfArgs(callh);
 
-    if (args.size() != 7) {
+    if (args.size() != 6) {
         vpi_printf("%s: wrong number of arguments\n", __func__);
         vpiSetValue(callh, 0);
         return 0;
@@ -168,7 +169,7 @@ int rammodel_a_push_tf(char* user_data)
         .len     = vpiGetValue<uint8_t>(args[3]),
         .size    = vpiGetValue<uint8_t>(args[4]),
         .burst   = vpiGetValue<uint8_t>(args[5]),
-        .write   = vpiGetValue<bool>(args[6])
+        .write   = is_aw
     };
 
     bool res = rammodel.a_push(payload);
@@ -182,9 +183,8 @@ int rammodel_a_push_tf(char* user_data)
     return 0;
 }
 
-int rammodel_w_push_tf(char* user_data)
+int rammodel_w_push_tf(char*)
 {
-    static_cast<void>(user_data);
     vpiHandle callh = vpi_handle(vpiSysTfCall, 0);
     auto args = vpiGetTfArgs(callh);
 
@@ -219,9 +219,8 @@ int rammodel_w_push_tf(char* user_data)
     return 0;
 }
 
-int rammodel_b_front_tf(char* user_data)
+int rammodel_b_front_tf(char*)
 {
-    static_cast<void>(user_data);
     vpiHandle callh = vpi_handle(vpiSysTfCall, 0);
     auto args = vpiGetTfArgs(callh);
 
@@ -251,13 +250,12 @@ int rammodel_b_front_tf(char* user_data)
     return 0;
 }
 
-int rammodel_b_pop_tf(char* user_data)
+int rammodel_b_pop_tf(char*)
 {
-    static_cast<void>(user_data);
     vpiHandle callh = vpi_handle(vpiSysTfCall, 0);
     auto args = vpiGetTfArgs(callh);
 
-    if (args.size() != 1) {
+    if (args.size() != 2) {
         vpi_printf("%s: wrong number of arguments\n", __func__);
         vpiSetValue(callh, 0);
         return 0;
@@ -271,7 +269,7 @@ int rammodel_b_pop_tf(char* user_data)
     }
     auto &rammodel = rammodel_list[index];
 
-    bool res = rammodel.b_pop();
+    bool res = rammodel.b_pop(vpiGetValue<uint16_t>(args[1]));
     if (!res) {
         vpi_printf("%s: B ack failed\n", __func__);
         vpiSetValue(callh, 0);
@@ -282,9 +280,8 @@ int rammodel_b_pop_tf(char* user_data)
     return 0;
 }
 
-int rammodel_r_front_tf(char* user_data)
+int rammodel_r_front_tf(char*)
 {
-    static_cast<void>(user_data);
     vpiHandle callh = vpi_handle(vpiSysTfCall, 0);
     auto args = vpiGetTfArgs(callh);
 
@@ -317,13 +314,12 @@ int rammodel_r_front_tf(char* user_data)
     return 0;
 }
 
-int rammodel_r_pop_tf(char* user_data)
+int rammodel_r_pop_tf(char*)
 {
-    static_cast<void>(user_data);
     vpiHandle callh = vpi_handle(vpiSysTfCall, 0);
     auto args = vpiGetTfArgs(callh);
 
-    if (args.size() != 1) {
+    if (args.size() != 2) {
         vpi_printf("%s: wrong number of arguments\n", __func__);
         vpiSetValue(callh, 0);
         return 0;
@@ -337,7 +333,7 @@ int rammodel_r_pop_tf(char* user_data)
     }
     auto &rammodel = rammodel_list[index];
 
-    bool res = rammodel.r_pop();
+    bool res = rammodel.r_pop(vpiGetValue<uint16_t>(args[1]));
     if (!res) {
         vpi_printf("%s: R ack failed\n", __func__);
         vpiSetValue(callh, 0);
@@ -368,16 +364,25 @@ void REMU::register_tfs(REMU::VPILoader *loader)
     tf_data.calltf      = rammodel_reset_tf;
     tf_data.compiletf   = 0;
     tf_data.sizetf      = 0;
-    tf_data.user_data   = user_data;
+    tf_data.user_data   = 0;
     vpi_register_systf(&tf_data);
 
     tf_data.type        = vpiSysFunc;
     tf_data.sysfunctype = vpiIntFunc;
-    tf_data.tfname      = "$rammodel_a_push";
-    tf_data.calltf      = rammodel_a_push_tf;
+    tf_data.tfname      = "$rammodel_ar_push";
+    tf_data.calltf      = rammodel_ar_aw_push_tf;
     tf_data.compiletf   = 0;
     tf_data.sizetf      = 0;
-    tf_data.user_data   = user_data;
+    tf_data.user_data   = reinterpret_cast<char*>(0);
+    vpi_register_systf(&tf_data);
+
+    tf_data.type        = vpiSysFunc;
+    tf_data.sysfunctype = vpiIntFunc;
+    tf_data.tfname      = "$rammodel_aw_push";
+    tf_data.calltf      = rammodel_ar_aw_push_tf;
+    tf_data.compiletf   = 0;
+    tf_data.sizetf      = 0;
+    tf_data.user_data   = reinterpret_cast<char*>(1);
     vpi_register_systf(&tf_data);
 
     tf_data.type        = vpiSysFunc;
@@ -386,7 +391,7 @@ void REMU::register_tfs(REMU::VPILoader *loader)
     tf_data.calltf      = rammodel_w_push_tf;
     tf_data.compiletf   = 0;
     tf_data.sizetf      = 0;
-    tf_data.user_data   = user_data;
+    tf_data.user_data   = 0;
     vpi_register_systf(&tf_data);
 
     tf_data.type        = vpiSysFunc;
@@ -395,7 +400,7 @@ void REMU::register_tfs(REMU::VPILoader *loader)
     tf_data.calltf      = rammodel_b_front_tf;
     tf_data.compiletf   = 0;
     tf_data.sizetf      = 0;
-    tf_data.user_data   = user_data;
+    tf_data.user_data   = 0;
     vpi_register_systf(&tf_data);
 
     tf_data.type        = vpiSysFunc;
@@ -404,7 +409,7 @@ void REMU::register_tfs(REMU::VPILoader *loader)
     tf_data.calltf      = rammodel_b_pop_tf;
     tf_data.compiletf   = 0;
     tf_data.sizetf      = 0;
-    tf_data.user_data   = user_data;
+    tf_data.user_data   = 0;
     vpi_register_systf(&tf_data);
 
     tf_data.type        = vpiSysFunc;
@@ -413,7 +418,7 @@ void REMU::register_tfs(REMU::VPILoader *loader)
     tf_data.calltf      = rammodel_r_front_tf;
     tf_data.compiletf   = 0;
     tf_data.sizetf      = 0;
-    tf_data.user_data   = user_data;
+    tf_data.user_data   = 0;
     vpi_register_systf(&tf_data);
 
     tf_data.type        = vpiSysFunc;
@@ -422,7 +427,7 @@ void REMU::register_tfs(REMU::VPILoader *loader)
     tf_data.calltf      = rammodel_r_pop_tf;
     tf_data.compiletf   = 0;
     tf_data.sizetf      = 0;
-    tf_data.user_data   = user_data;
+    tf_data.user_data   = 0;
     vpi_register_systf(&tf_data);
 }
 
@@ -468,7 +473,7 @@ void replay_initialize(VPILoader *loader)
 
     static std::vector<vpiHandle> clock_objs;
     for (auto &info : loader->sysinfo.clock) {
-        vpiHandle obj = vpiHandleByPath(info.name, 0);
+        vpiHandle obj = vpi_handle_by_name(flatten_name(info.name).c_str(), 0);
         clock_objs.push_back(obj);
     }
 
@@ -497,7 +502,7 @@ void replay_initialize(VPILoader *loader)
             continue;
 
         std::string name = flatten_name(info.name);
-        vpiHandle obj = vpiHandleByPath(info.name, 0);
+        vpiHandle obj = vpi_handle_by_name(name.c_str(), 0);
 
         auto &trace = loader->ckpt_mgr.signal_trace;
         if (trace.find(name) == trace.end())

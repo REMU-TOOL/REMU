@@ -5,7 +5,8 @@
 
 using namespace REMU;
 
-void RamModel::schedule() {
+void RamModel::schedule()
+{
     if (a_queue.empty())
         return;
 
@@ -70,7 +71,7 @@ void RamModel::schedule() {
                 .id     = a.id,
                 .last   = i == a.len
             };
-            r_queue.push(r);
+            r_queue.at(a.id).push(r);
         }
 
         address += number_bytes;
@@ -83,30 +84,33 @@ void RamModel::schedule() {
         BChannel b = {
             .id = a.id
         };
-        b_queue.push(b);
+        b_queue.at(a.id).push(b);
     }
 
     a_queue.pop();
 }
 
-bool RamModel::a_push(const AChannel &payload) {
+bool RamModel::a_push(const AChannel &payload)
+{
     a_queue.push(payload);
     return true;
 }
 
-bool RamModel::w_push(const WChannel &payload) {
+bool RamModel::w_push(const WChannel &payload)
+{
     w_queue.push(payload);
     return true;
 }
 
-bool RamModel::b_front(uint16_t id, BChannel &payload) {
+bool RamModel::b_front(uint16_t id, BChannel &payload)
+{
     schedule();
 
     // currently unused
     (void)id;
 
-    if (!b_queue.empty())
-        payload = b_queue.front();
+    if (!b_queue.at(id).empty())
+        payload = b_queue.at(id).front();
     else
         payload = {
             .id     = 0,
@@ -115,22 +119,24 @@ bool RamModel::b_front(uint16_t id, BChannel &payload) {
     return true;
 }
 
-bool RamModel::b_pop() {
-    if (b_queue.empty())
+bool RamModel::b_pop(uint16_t id)
+{
+    if (b_queue.at(id).empty())
         return false;
 
-    b_queue.pop();
+    b_queue.at(id).pop();
     return true;
 }
 
-bool RamModel::r_front(uint16_t id, RChannel &payload) {
+bool RamModel::r_front(uint16_t id, RChannel &payload)
+{
     schedule();
 
     // currently unused
     (void)id;
 
-    if (!r_queue.empty())
-        payload = r_queue.front();
+    if (!r_queue.at(id).empty())
+        payload = r_queue.at(id).front();
     else
         payload = {
             .data   = BitVector(data_width),
@@ -141,31 +147,36 @@ bool RamModel::r_front(uint16_t id, RChannel &payload) {
     return true;
 }
 
-bool RamModel::r_pop() {
-    if (r_queue.empty())
+bool RamModel::r_pop(uint16_t id)
+{
+    if (r_queue.at(id).empty())
         return false;
 
-    r_queue.pop();
+    r_queue.at(id).pop();
     return true;
 }
 
-bool RamModel::reset() {
-    while (!a_queue.empty()) a_queue.pop();
-    while (!w_queue.empty()) w_queue.pop();
-    while (!b_queue.empty()) b_queue.pop();
-    while (!r_queue.empty()) r_queue.pop();
+bool RamModel::reset()
+{
+    a_queue = decltype(a_queue)();
+    w_queue = decltype(w_queue)();
+    b_queue = decltype(b_queue)(1U << id_width);
+    r_queue = decltype(r_queue)(1U << id_width);
 
     return true;
 }
 
-bool RamModel::load_data(std::istream &stream) {
+bool RamModel::load_data(std::istream &stream)
+{
     stream.read(reinterpret_cast<char *>(data.to_ptr()), data.blks());
     return !stream.fail();
 }
 
 void RamModel::load_state(CircuitState &circuit, const CircuitPath &path)
 {
-    FifoModel fifo_model;
+    unsigned int id_max = 1U << id_width;
+
+    reset();
 
     /*
     `define AXI4_CUSTOM_A_PAYLOAD(prefix) { \
@@ -177,11 +188,11 @@ void RamModel::load_state(CircuitState &circuit, const CircuitPath &path)
         prefix``_aburst }
     */
 
-    fifo_model.load(circuit, path / "a_fifo");
-    a_queue = decltype(a_queue)();
-    while (!fifo_model.fifo.empty()) {
-        auto &elem = fifo_model.fifo.front();
-        fifo_model.fifo.pop();
+    std::queue<BitVector> a_issue_q;
+    load_ready_valid_fifo(a_issue_q, circuit, path / "a_issue_q");
+    while (!a_issue_q.empty()) {
+        auto &elem = a_issue_q.front();
+        a_issue_q.pop();
         AChannel a;
         a.burst = (uint8_t) elem.getValue(0, 2);
         a.size  = (uint8_t) elem.getValue(2, 3);
@@ -199,11 +210,11 @@ void RamModel::load_state(CircuitState &circuit, const CircuitPath &path)
         prefix``_wlast }
     */
 
-    fifo_model.load(circuit, path / "w_fifo");
-    w_queue = decltype(w_queue)();
-    while (!fifo_model.fifo.empty()) {
-        auto &elem = fifo_model.fifo.front();
-        fifo_model.fifo.pop();
+    std::queue<BitVector> w_issue_q;
+    load_ready_valid_fifo(w_issue_q, circuit, path / "w_issue_q");
+    while (!w_issue_q.empty()) {
+        auto &elem = w_issue_q.front();
+        w_issue_q.pop();
         WChannel w;
         w.last  = (bool)    elem.getValue(0, 1);
         w.strb  =           elem.getValue(1, data_width/8);
@@ -216,14 +227,19 @@ void RamModel::load_state(CircuitState &circuit, const CircuitPath &path)
         prefix``_bid }
     */
 
-    fifo_model.load(circuit, path / "b_fifo");
-    b_queue = decltype(b_queue)();
-    while (!fifo_model.fifo.empty()) {
-        auto &elem = fifo_model.fifo.front();
-        fifo_model.fifo.pop();
-        BChannel b;
-        b.id    = (uint16_t)elem.getValue(0, id_width),
-        b_queue.push(b);
+    for (unsigned int i = 0; i < id_max; i++) {
+        std::queue<BitVector> b_roq;
+        std::ostringstream ss;
+        ss << "b_roq_genblk[" << i << "].queue";
+        load_ready_valid_fifo(b_roq, circuit, path / ss.str());
+        auto &queue = b_queue.at(i);
+        while (!b_roq.empty()) {
+            auto &elem = b_roq.front();
+            b_roq.pop();
+            BChannel b;
+            b.id    = (uint16_t)elem.getValue(0, id_width);
+            queue.push(b);
+        }
     }
 
     /*
@@ -233,15 +249,30 @@ void RamModel::load_state(CircuitState &circuit, const CircuitPath &path)
         prefix``_rlast }
     */
 
-    fifo_model.load(circuit, path / "r_fifo");
-    r_queue = decltype(r_queue)();
-    while (!fifo_model.fifo.empty()) {
-        auto &elem = fifo_model.fifo.front();
-        fifo_model.fifo.pop();
-        RChannel r;
-        r.last  = (bool)    elem.getValue(0, 1),
-        r.id    = (uint16_t)elem.getValue(1, id_width),
-        r.data  =           elem.getValue(1 + id_width, data_width),
-        r_queue.push(r);
+    for (unsigned int i = 0; i < id_max; i++) {
+        std::queue<BitVector> r_roq;
+        std::ostringstream ss;
+        ss << "r_roq_genblk[" << i << "].queue";
+        load_ready_valid_fifo(r_roq, circuit, path / ss.str());
+        auto &queue = r_queue.at(i);
+        while (!r_roq.empty()) {
+            auto &elem = r_roq.front();
+            r_roq.pop();
+            RChannel r;
+            r.last  = (bool)    elem.getValue(0, 1);
+            r.id    = (uint16_t)elem.getValue(1, id_width);
+            r.data  =           elem.getValue(1 + id_width, data_width);
+            queue.push(r);
+        }
     }
+}
+
+RamModel::RamModel(unsigned int addr_width, unsigned int data_width, unsigned int id_width, uint64_t mem_size) :
+    addr_width(addr_width),
+    data_width(data_width),
+    id_width(id_width),
+    mem_size(mem_size),
+    data(mem_size * 8)
+{
+    reset();
 }

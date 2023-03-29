@@ -8,19 +8,26 @@ module emulib_rammodel_backend #(
     parameter   DATA_WIDTH      = 64,
     parameter   ID_WIDTH        = 4,
     parameter   MEM_SIZE        = 64'h10000000,
-    parameter   MAX_INFLIGHT    = 8
+    parameter   MAX_R_INFLIGHT  = 8,
+    parameter   MAX_W_INFLIGHT  = 8
 )(
 
     input  wire                     clk,
     input  wire                     rst,
 
-    input  wire                     areq_valid,
-    input  wire                     areq_write,
-    input  wire [ID_WIDTH-1:0]      areq_id,
-    input  wire [ADDR_WIDTH-1:0]    areq_addr,
-    input  wire [7:0]               areq_len,
-    input  wire [2:0]               areq_size,
-    input  wire [1:0]               areq_burst,
+    input  wire                     arreq_valid,
+    input  wire [ID_WIDTH-1:0]      arreq_id,
+    input  wire [ADDR_WIDTH-1:0]    arreq_addr,
+    input  wire [7:0]               arreq_len,
+    input  wire [2:0]               arreq_size,
+    input  wire [1:0]               arreq_burst,
+
+    input  wire                     awreq_valid,
+    input  wire [ID_WIDTH-1:0]      awreq_id,
+    input  wire [ADDR_WIDTH-1:0]    awreq_addr,
+    input  wire [7:0]               awreq_len,
+    input  wire [2:0]               awreq_size,
+    input  wire [1:0]               awreq_burst,
 
     input  wire                     wreq_valid,
     input  wire [DATA_WIDTH-1:0]    wreq_data,
@@ -57,8 +64,15 @@ module emulib_rammodel_backend #(
             end
         end
         else begin
-            if (areq_valid) begin
-                result = $rammodel_a_push(handle, areq_id, areq_addr, areq_len, areq_size, areq_burst, areq_write);
+            if (arreq_valid) begin
+                result = $rammodel_ar_push(handle, arreq_id, arreq_addr, arreq_len, arreq_size, arreq_burst);
+                if (!result) begin
+                    $display("ERROR: rammodel internal error");
+                    $fatal;
+                end
+            end
+            if (awreq_valid) begin
+                result = $rammodel_aw_push(handle, awreq_id, awreq_addr, awreq_len, awreq_size, awreq_burst);
                 if (!result) begin
                     $display("ERROR: rammodel internal error");
                     $fatal;
@@ -72,14 +86,14 @@ module emulib_rammodel_backend #(
                 end
             end
             if (breq_valid) begin
-                result = $rammodel_b_pop(handle);
+                result = $rammodel_b_pop(handle, breq_id);
                 if (!result) begin
                     $display("ERROR: rammodel internal error");
                     $fatal;
                 end
             end
             if (rreq_valid) begin
-                result = $rammodel_r_pop(handle);
+                result = $rammodel_r_pop(handle, rreq_id);
                 if (!result) begin
                     $display("ERROR: rammodel internal error");
                     $fatal;
