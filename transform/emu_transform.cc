@@ -30,6 +30,8 @@ struct EmuTransformPass : public Pass {
         log("        specify top module name\n");
         log("    -elab <file>\n");
         log("        write elaborated verilog design to the specified file\n");
+        log("    -out <file>\n");
+        log("        write generated emulator system design to the specified file\n");
         log("    -sysinfo <file>\n");
         log("        write system info to the specified file\n");
         log("    -loader <file>\n");
@@ -43,7 +45,7 @@ struct EmuTransformPass : public Pass {
         log("\n");
     }
 
-    std::string top, elab_file, sysinfo_file, loader_file, ckpt_path;
+    std::string top, elab_file, out_file, sysinfo_file, loader_file, ckpt_path;
     bool raw_plat = false;
     bool rewrite_arst = false;
 
@@ -84,8 +86,7 @@ struct EmuTransformPass : public Pass {
             Pass::call(design, "emu_restore_param_cells -mod-attr __emu_model_imp");
             Pass::call(design, "delete =A:blackbox");
             Pass::call(design, "emu_package -top EMU_TOP");
-            Pass::call(design, "emu_remove_attr");
-            Pass::call(design, "write_verilog " + elab_file);
+            Pass::call(design, "write_verilog -noattr " + elab_file);
             Pass::call(design, "design -pop");
         }
 
@@ -101,7 +102,6 @@ struct EmuTransformPass : public Pass {
         Pass::call(design, "submod");
         Pass::call(design, "select -clear");
         Pass::call(design, "opt_clean");
-        Pass::call(design, "emu_remove_attr");
 
         log_pop();
     }
@@ -119,6 +119,10 @@ struct EmuTransformPass : public Pass {
             }
             if (args[argidx] == "-elab" && argidx+1 < args.size()) {
                 elab_file = args[++argidx];
+                continue;
+            }
+            if (args[argidx] == "-out" && argidx+1 < args.size()) {
+                out_file = args[++argidx];
                 continue;
             }
             if (args[argidx] == "-sysinfo" && argidx+1 < args.size()) {
@@ -216,6 +220,9 @@ struct EmuTransformPass : public Pass {
         final_cleanup(design);
 
         log_header(design, "Writing output files.\n");
+
+        if (!out_file.empty())
+            Pass::call(design, {"write_verilog", "-noattr", out_file});
 
         if (!sysinfo_file.empty())
             database.write_sysinfo(sysinfo_file);
