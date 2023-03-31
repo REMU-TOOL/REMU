@@ -34,30 +34,62 @@ struct EmuPreserveTopPass : public Pass {
 
 } EmuPreserveTopPass;
 
-struct EmuRemoveKeepPass : public Pass {
-    EmuRemoveKeepPass() : Pass("emu_remove_keep", "remove all keep attributes") { }
+struct EmuRemoveAttrPass : public Pass {
+    EmuRemoveAttrPass() : Pass("emu_remove_attr", "remove specified or all attributes") { }
 
-    void execute(vector<string> args, Design* design) override {
-        log_header(design, "Executing EMU_REMOVE_KEEP pass.\n");
+    void help() override
+    {
+        //   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+        log("\n");
+        log("    emu_remove_attr [options]\n");
+        log("\n");
+        log("This command remove the specified attributes or all if no attribute specified.\n");
+        log("\n");
+        log("    -a <attr>\n");
+        log("        specify the attribute to propagate. (may be used multiple times)\n");
+        log("\n");
+    }
+
+    void remove_attrs(dict<IdString, Const> &obj_attrs, const pool<IdString> &attrs_to_remove)
+    {
+        if (attrs_to_remove.empty()) {
+            obj_attrs.clear();
+        }
+        else {
+            for (auto attr : attrs_to_remove)
+                obj_attrs.erase(attr);
+        }
+    }
+
+    void execute(vector<string> args, Design* design) override
+    {
+        log_header(design, "Executing EMU_REMOVE_ATTR pass.\n");
+
+        pool<IdString> attrs;
 
         size_t argidx;
-        for (argidx = 1; argidx < args.size(); argidx++) {
+        for (argidx = 1; argidx < args.size(); argidx++)
+        {
+            if (args[argidx] == "-a" && argidx+1 < args.size()) {
+                attrs.insert(RTLIL::escape_id(args[++argidx]));
+                continue;
+            }
             break;
         }
         extra_args(args, argidx, design);
 
         for (auto mod : design->modules()) {
             log("Processing module %s...\n", log_id(mod));
-            mod->set_bool_attribute(ID::keep, false);
+            remove_attrs(mod->attributes, attrs);
 
             for (auto cell : mod->selected_cells())
-                cell->set_bool_attribute(ID::keep, false);
+                remove_attrs(cell->attributes, attrs);
 
             for (auto wire : mod->selected_wires())
-                wire->set_bool_attribute(ID::keep, false);
+                remove_attrs(wire->attributes, attrs);
         }
     }
-} EmuRemoveKeepPass;
+} EmuRemoveAttrPass;
 
 struct EmuPropAttrPass : public Pass {
     EmuPropAttrPass() : Pass("emu_prop_attr", "propagate specified attributes to submodule") { }
