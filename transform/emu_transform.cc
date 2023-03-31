@@ -38,11 +38,14 @@ struct EmuTransformPass : public Pass {
         log("        write initial checkpoint\n");
         log("    -nosystem\n");
         log("        skip system transformation\n");
+        log("    -rewrite_arst\n");
+        log("        rewrite async resets to sync resets\n");
         log("\n");
     }
 
     std::string top, elab_file, sysinfo_file, loader_file, ckpt_path;
     bool raw_plat = false;
+    bool rewrite_arst = false;
 
     EmuLibInfo emulib;
 
@@ -65,6 +68,10 @@ struct EmuTransformPass : public Pass {
         Pass::call(design, "memory_share -nosat -nowiden");
         Pass::call(design, "emu_opt_shallow_memory");
         Pass::call(design, "opt -full */t:$mem* %m");
+
+        if (rewrite_arst) {
+            Pass::call(design, "emu_rewrite_async_reset_ff");
+        }
 
         Pass::call(design, "emu_check");
 
@@ -127,6 +134,10 @@ struct EmuTransformPass : public Pass {
             }
             if (args[argidx] == "-nosystem") {
                 raw_plat = true;
+                continue;
+            }
+            if (args[argidx] == "-rewrite_arst") {
+                rewrite_arst = true;
                 continue;
             }
             break;
