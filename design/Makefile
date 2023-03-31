@@ -109,7 +109,7 @@ endif
 
 $(SYSTEM_V): $(VSRCS)
 	mkdir -p $(BUILD_DIR)
-	$(YOSYS) -m transform -p "read_verilog $^; emu_transform -top $(VTOP) -elab $(ELAB_V) -sysinfo $(SYSINFO_FILE) -ckpt $(CKPT_PATH); write_verilog $@"
+	$(YOSYS) -m transform -p "read_verilog $^; emu_transform -top $(VTOP) -elab $(ELAB_V) -out $@ -sysinfo $(SYSINFO_FILE) -ckpt $(CKPT_PATH)"
 
 $(ELAB_V): $(SYSTEM_V)
 $(SYSINFO_FILE): $(SYSTEM_V)
