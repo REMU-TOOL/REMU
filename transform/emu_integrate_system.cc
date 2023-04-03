@@ -2,7 +2,9 @@
 
 #include "attr.h"
 #include "port.h"
-#include "system.h"
+#include "hier.h"
+#include "database.h"
+#include "emulib.h"
 #include "utils.h"
 
 USING_YOSYS_NAMESPACE
@@ -309,7 +311,17 @@ void add_axi_remap(EmulationDatabase &database, Module *top, CtrlConnBuilder &bu
     log_assert(AXI_REMAP_CFG_BASE + step * i < AXI_REMAP_CFG_LIMIT);
 }
 
-PRIVATE_NAMESPACE_END
+struct SystemTransform
+{
+    Yosys::Design *design;
+    EmulationDatabase &database;
+    EmuLibInfo &emulib;
+
+    void run();
+
+    SystemTransform(Yosys::Design *design, EmulationDatabase &database, EmuLibInfo &emulib)
+        : design(design), database(database), emulib(emulib) {}
+};
 
 void SystemTransform::run()
 {
@@ -464,3 +476,25 @@ void SystemTransform::run()
 
     top->fixup_ports();
 }
+
+struct EmuIntegrateSystem : public Pass
+{
+    EmuIntegrateSystem() : Pass("emu_integrate_system", "(REMU internal)") {}
+
+    void execute(vector<string> args, Design* design) override
+    {
+        extra_args(args, 1, design);
+        log_header(design, "Executing EMU_INTEGRATE_SYSTEM pass.\n");
+        log_push();
+
+        SystemTransform worker(design,
+            EmulationDatabase::get_instance(design),
+            EmuLibInfo::get_instance());
+
+        worker.run();
+
+        log_pop();
+    }
+} EmuIntegrateSystem;
+
+PRIVATE_NAMESPACE_END

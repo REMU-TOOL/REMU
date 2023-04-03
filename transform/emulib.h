@@ -12,6 +12,11 @@ struct EmuLibInfo
     std::vector<std::string> model_sources;
     std::vector<std::string> system_sources;
 
+    static EmuLibInfo& get_instance() { return instance; }
+
+private:
+
+    static EmuLibInfo instance;
     EmuLibInfo();
 };
 

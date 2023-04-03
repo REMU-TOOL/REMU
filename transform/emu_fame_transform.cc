@@ -3,12 +3,26 @@
 #include "attr.h"
 #include "port.h"
 #include "clock.h"
-#include "fame.h"
+#include "hier.h"
+#include "database.h"
 #include "utils.h"
 
 USING_YOSYS_NAMESPACE
 
 using namespace REMU;
+
+PRIVATE_NAMESPACE_BEGIN
+
+struct FAMETransform
+{
+    Yosys::Design *design;
+    EmulationDatabase &database;
+
+    void run();
+
+    FAMETransform(Yosys::Design *design, EmulationDatabase &database)
+        : design(design), database(database) {}
+};
 
 inline Cell* ClockGate(Module *module, IdString name, SigSpec clk, SigSpec en, SigSpec oclk)
 {
@@ -61,8 +75,8 @@ void FAMETransform::run()
 
     for (auto &info : database.clock_ports) {
         Wire *clk = top->wire("\\" + info.port_name);
-        Wire *clk_ff = top->wire(ClockTreeRewriter::to_ff_clk(clk));
-        Wire *clk_ram = top->wire(ClockTreeRewriter::to_ram_clk(clk));
+        Wire *clk_ff = top->wire(to_ff_clk(clk));
+        Wire *clk_ram = top->wire(to_ram_clk(clk));
 
         make_internal(clk);
         make_internal(clk_ff);
@@ -140,3 +154,22 @@ void FAMETransform::run()
 
     top->fixup_ports();
 }
+
+struct EmuFameTransform : public Pass
+{
+    EmuFameTransform() : Pass("emu_fame_transform", "(REMU internal)") {}
+
+    void execute(vector<string> args, Design* design) override
+    {
+        extra_args(args, 1, design);
+        log_header(design, "Executing EMU_FAME_TRANSFORM pass.\n");
+        log_push();
+
+        FAMETransform worker(design, EmulationDatabase::get_instance(design));
+        worker.run();
+
+        log_pop();
+    }
+} EmuFameTransform;
+
+PRIVATE_NAMESPACE_END

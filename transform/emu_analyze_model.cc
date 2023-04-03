@@ -1,12 +1,26 @@
 #include "kernel/yosys.h"
 
 #include "attr.h"
-#include "model.h"
+#include "hier.h"
+#include "database.h"
 #include "utils.h"
 
 using namespace REMU;
 
 USING_YOSYS_NAMESPACE
+
+PRIVATE_NAMESPACE_BEGIN
+
+struct ModelAnalyzer
+{
+    Hierarchy hier;
+    EmulationDatabase &database;
+
+    void run();
+
+    ModelAnalyzer(Yosys::Design *design, EmulationDatabase &database)
+        : hier(design), database(database) {}
+};
 
 void ModelAnalyzer::run()
 {
@@ -62,3 +76,22 @@ void ModelAnalyzer::run()
         database.model.push_back(info);
     }
 }
+
+struct EmuAnalyzeModel : public Pass
+{
+    EmuAnalyzeModel() : Pass("emu_analyze_model", "(REMU internal)") {}
+
+    void execute(vector<string> args, Design* design) override
+    {
+        extra_args(args, 1, design);
+        log_header(design, "Executing EMU_ANALYZE_MODEL pass.\n");
+        log_push();
+
+        ModelAnalyzer worker(design, EmulationDatabase::get_instance(design));
+        worker.run();
+
+        log_pop();
+    }
+} EmuAnalyzeModel;
+
+PRIVATE_NAMESPACE_END

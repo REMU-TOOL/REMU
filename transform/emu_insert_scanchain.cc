@@ -4,12 +4,76 @@
 
 #include "attr.h"
 #include "port.h"
-#include "scanchain.h"
+#include "hier.h"
+#include "database.h"
 #include "utils.h"
 
 USING_YOSYS_NAMESPACE
 
 using namespace REMU;
+
+PRIVATE_NAMESPACE_BEGIN
+
+struct ScanchainWorker
+{
+    Hierarchy hier;
+    EmulationDatabase &database;
+
+    Yosys::dict<Yosys::IdString, Yosys::dict<std::vector<std::string>, SysInfo::WireInfo>> all_wire_infos; // module name -> {wire name -> info}
+    Yosys::dict<Yosys::IdString, Yosys::dict<std::vector<std::string>, SysInfo::RAMInfo>> all_ram_infos; // module name -> {ram name -> info}
+
+    Yosys::dict<Yosys::IdString, std::vector<SysInfo::ScanFFInfo>> ff_lists;
+    Yosys::dict<Yosys::IdString, std::vector<SysInfo::ScanRAMInfo>> ram_lists;
+
+    static Yosys::IdString derived_name(Yosys::IdString orig_name)
+    {
+        return orig_name.str() + "_SCANINST";
+    }
+
+    void handle_ignored_ff(Yosys::Module *module, Yosys::FfInitVals &initvals);
+
+    void instrument_module_ff
+    (
+        Yosys::Module *module,
+        Yosys::SigSpec ff_di,
+        Yosys::SigSpec ff_do,
+        Yosys::SigSpec &ff_sigs,
+        std::vector<SysInfo::ScanFFInfo> &info_list
+    );
+
+    void restore_sync_read_port_ff
+    (
+        Yosys::Module *module,
+        Yosys::SigSpec ff_di,
+        Yosys::SigSpec ff_do,
+        Yosys::SigSpec &ff_sigs,
+        std::vector<SysInfo::ScanFFInfo> &info_list
+    );
+
+    void instrument_module_ram
+    (
+        Yosys::Module *module,
+        Yosys::SigSpec ram_di,
+        Yosys::SigSpec ram_do,
+        Yosys::SigSpec ram_li,
+        Yosys::SigSpec ram_lo,
+        Yosys::dict<std::vector<std::string>, SysInfo::RAMInfo> &ram_infos,
+        std::vector<SysInfo::ScanRAMInfo> &info_list
+    );
+
+    void parse_dissolved_rams
+    (
+        Yosys::Module *module,
+        Yosys::dict<std::vector<std::string>, SysInfo::RAMInfo> &ram_infos
+    );
+
+    void instrument_module(Yosys::Module *module);
+    void tieoff_ram_last(Yosys::Module *module);
+    void run();
+
+    ScanchainWorker(Yosys::Design *design, EmulationDatabase &database)
+        : hier(design), database(database) {}
+};
 
 void ScanchainWorker::handle_ignored_ff(Module *module, FfInitVals &initvals)
 {
@@ -746,22 +810,21 @@ void ScanchainWorker::run()
     }
 }
 
-PRIVATE_NAMESPACE_BEGIN
+struct EmuInsertScanchain : public Pass
+{
+    EmuInsertScanchain() : Pass("emu_insert_scanchain", "(REMU internal)") {}
 
-struct EmuTestScanchain : public Pass {
-    EmuTestScanchain() : Pass("emu_test_scanchain", "test scanchain functionality") { }
-
-    void execute(vector<string> args, Design* design) override {
+    void execute(vector<string> args, Design* design) override
+    {
         extra_args(args, 1, design);
-        log_header(design, "Executing EMU_TEST_SCANCHAIN pass.\n");
+        log_header(design, "Executing EMU_INSERT_SCANCHAIN pass.\n");
+        log_push();
 
-        EmulationDatabase database;
-        PortTransform port(design, database);
-        port.run();
-        ScanchainWorker worker(design, database);
+        ScanchainWorker worker(design, EmulationDatabase::get_instance(design));
         worker.run();
-        database.write_sysinfo("output.json");
+
+        log_pop();
     }
-} EmuTestScanchain;
+} EmuInsertScanchain;
 
 PRIVATE_NAMESPACE_END

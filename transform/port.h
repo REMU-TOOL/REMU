@@ -63,30 +63,6 @@ struct CommonPort
     static void put(Yosys::Module *module, const Info &id, Yosys::SigSpec sig);
 };
 
-struct PortTransform
-{
-    Hierarchy hier;
-    EmulationDatabase &database;
-
-    Yosys::dict<Yosys::IdString, std::vector<ClockPort>> all_clock_ports;
-    Yosys::dict<Yosys::IdString, std::vector<SignalPort>> all_signal_ports;
-    Yosys::dict<Yosys::IdString, std::vector<TriggerPort>> all_trigger_ports;
-    Yosys::dict<Yosys::IdString, std::vector<AXIPort>> all_axi_ports;
-    Yosys::dict<Yosys::IdString, std::vector<ChannelPort>> all_channel_ports;
-
-    void process_common_ports(Yosys::Module *module);
-    void process_clocks(Yosys::Module *module);
-    void process_signals(Yosys::Module *module);
-    void process_triggers(Yosys::Module *module);
-    void process_axi_ports(Yosys::Module *module);
-    void process_channel_ports(Yosys::Module *module);
-
-    void run();
-
-    PortTransform(Yosys::Design *design, EmulationDatabase &database)
-        : hier(design), database(database) {}
-};
-
 };
 
 #endif // #ifndef _EMU_TRANSFORM_PORT_H_

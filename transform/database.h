@@ -75,6 +75,14 @@ struct EmulationDatabase
     void write_checkpoint(std::string ckpt_path);
 
     EmulationDatabase() {}
+
+    // Get or allocate an emulation database for the design
+    // Currently no mechanism to release an instance
+    static EmulationDatabase& get_instance(Yosys::Design *design);
+
+private:
+
+    static std::vector<EmulationDatabase> instances;
 };
 
 } // namespace REMU

@@ -26,7 +26,7 @@
 #include "kernel/ff.h"
 #include "kernel/ffmerge.h"
 
-#include "ram.h"
+#include "database.h"
 #include "utils.h"
 
 USING_YOSYS_NAMESPACE
@@ -662,18 +662,45 @@ struct MemoryDffWorker
     }
 };
 
-PRIVATE_NAMESPACE_END
+struct RAMTransform
+{
+    Yosys::Design *design;
+    EmulationDatabase &database;
 
-void RAMTransform::run() {
-    log_header(design, "Identifying synchronous read ports on RAM.\n");
-    for (auto mod : design->modules()) {
-        std::vector<Mem> memories = Mem::get_all_memories(mod);
-        if (memories.empty()) {
-            log("Skipping module without memory %s\n", log_id(mod));
-            continue;
+    void run()
+    {
+        log_header(design, "Identifying synchronous read ports on RAM.\n");
+        for (auto mod : design->modules()) {
+            std::vector<Mem> memories = Mem::get_all_memories(mod);
+            if (memories.empty()) {
+                log("Skipping module without memory %s\n", log_id(mod));
+                continue;
+            }
+            log("Processing module %s\n", log_id(mod));
+            MemoryDffWorker worker(mod, database);
+            worker.run(memories);
         }
-        log("Processing module %s\n", log_id(mod));
-        MemoryDffWorker worker(mod, database);
-        worker.run(memories);
     }
-}
+
+    RAMTransform(Yosys::Design *design, EmulationDatabase &database)
+        : design(design), database(database) {}
+};
+
+struct EmuOptRam : public Pass
+{
+    EmuOptRam() : Pass("emu_opt_ram", "(REMU internal)") {}
+
+    void execute(vector<string> args, Design* design) override
+    {
+        extra_args(args, 1, design);
+        log_header(design, "Executing EMU_OPT_RAM pass.\n");
+        log_push();
+
+        RAMTransform worker(design, EmulationDatabase::get_instance(design));
+        worker.run();
+
+        log_pop();
+    }
+} EmuOptRam;
+
+PRIVATE_NAMESPACE_END

@@ -5,6 +5,8 @@ USING_YOSYS_NAMESPACE
 
 using namespace REMU;
 
+EmuLibInfo EmuLibInfo::instance;
+
 static void add_source_folder(std::vector<std::string> &sources, const std::string &path)
 {
     if (!check_file_exists(path, true))

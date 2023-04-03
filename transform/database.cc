@@ -13,6 +13,8 @@ using namespace REMU;
 
 USING_YOSYS_NAMESPACE
 
+std::vector<EmulationDatabase> EmulationDatabase::instances;
+
 void EmulationDatabase::generate_sysinfo()
 {
     if (sysinfo_generated)
@@ -153,4 +155,18 @@ void EmulationDatabase::write_checkpoint(std::string ckpt_path)
     }
 
     // ckpt & ckpt_mgr will be flushed on destruction
+}
+
+EmulationDatabase& EmulationDatabase::get_instance(Design *design)
+{
+    const std::string varname = "EMU_DB_IDX";
+    int idx = design->scratchpad_get_int(varname, -1);
+
+    if (idx < 0) {
+        idx = instances.size();
+        instances.emplace_back();
+        design->scratchpad_set_int(varname, idx);
+    }
+
+    return instances.at(idx);
 }

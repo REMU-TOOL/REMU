@@ -93,6 +93,30 @@ void CommonPort::put(Module *module, const Info &info, SigSpec sig)
 
 PRIVATE_NAMESPACE_BEGIN
 
+struct PortTransform
+{
+    Hierarchy hier;
+    EmulationDatabase &database;
+
+    Yosys::dict<Yosys::IdString, std::vector<ClockPort>> all_clock_ports;
+    Yosys::dict<Yosys::IdString, std::vector<SignalPort>> all_signal_ports;
+    Yosys::dict<Yosys::IdString, std::vector<TriggerPort>> all_trigger_ports;
+    Yosys::dict<Yosys::IdString, std::vector<AXIPort>> all_axi_ports;
+    Yosys::dict<Yosys::IdString, std::vector<ChannelPort>> all_channel_ports;
+
+    void process_common_ports(Yosys::Module *module);
+    void process_clocks(Yosys::Module *module);
+    void process_signals(Yosys::Module *module);
+    void process_triggers(Yosys::Module *module);
+    void process_axi_ports(Yosys::Module *module);
+    void process_channel_ports(Yosys::Module *module);
+
+    void run();
+
+    PortTransform(Yosys::Design *design, EmulationDatabase &database)
+        : hier(design), database(database) {}
+};
+
 void promote_port(Cell *sub, IdString port, IdString sub_port)
 {
     Module *module = sub->module;
@@ -129,8 +153,6 @@ void promote_ports
         }
     }
 }
-
-PRIVATE_NAMESPACE_END
 
 void PortTransform::process_common_ports(Module *module)
 {
@@ -288,8 +310,6 @@ void PortTransform::process_triggers(Module *module)
     all_trigger_ports[module->name] = info_list;
 }
 
-PRIVATE_NAMESPACE_BEGIN
-
 void sig_from_wire(AXI::Sig &sig, Wire *wire)
 {
     if (!wire || wire->port_input == wire->port_output) {
@@ -348,8 +368,6 @@ AXI::AXI4 axi4_from_prefix(Module *module, const std::string &prefix)
     FROM_PREFIX(r, last);
     return axi;
 }
-
-PRIVATE_NAMESPACE_END
 
 void PortTransform::process_axi_ports(Module *module)
 {
@@ -533,7 +551,7 @@ void PortTransform::process_channel_ports(Module *module)
 }
 
 template<typename T>
-inline void copy_top_info(std::vector<T> &to, const std::vector<T> &from)
+void copy_top_info(std::vector<T> &to, const std::vector<T> &from)
 {
     to.clear();
     for (auto x : from) {
@@ -572,21 +590,21 @@ void PortTransform::run()
     top_module->fixup_ports();
 }
 
-PRIVATE_NAMESPACE_BEGIN
+struct EmuPortTransform : public Pass
+{
+    EmuPortTransform() : Pass("emu_port_transform", "(REMU internal)") {}
 
-struct EmuTestPort : public Pass {
-    EmuTestPort() : Pass("emu_test_port", "test port functionality") { }
-
-    void execute(vector<string> args, Design* design) override {
+    void execute(vector<string> args, Design* design) override
+    {
         extra_args(args, 1, design);
-        log_header(design, "Executing EMU_TEST_PORT pass.\n");
+        log_header(design, "Executing EMU_PORT_TRANSFORM pass.\n");
+        log_push();
 
-        EmulationDatabase database;
-        PortTransform worker(design, database);
-
+        PortTransform worker(design, EmulationDatabase::get_instance(design));
         worker.run();
-        database.write_sysinfo("output.json");
+
+        log_pop();
     }
-} EmuTestPort;
+} EmuPortTransform;
 
 PRIVATE_NAMESPACE_END

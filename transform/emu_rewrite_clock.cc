@@ -5,6 +5,8 @@
 #include "attr.h"
 #include "port.h"
 #include "clock.h"
+#include "hier.h"
+#include "database.h"
 #include "utils.h"
 #include "walker_cache.h"
 
@@ -13,6 +15,19 @@
 USING_YOSYS_NAMESPACE
 
 using namespace REMU;
+
+PRIVATE_NAMESPACE_BEGIN
+
+struct ClockTreeRewriter
+{
+    Hierarchy hier;
+    EmulationDatabase &database;
+
+    void run();
+
+    ClockTreeRewriter(Yosys::Design *design, EmulationDatabase &database)
+        : hier(design), database(database) {}
+};
 
 void ClockTreeRewriter::run()
 {
@@ -307,21 +322,21 @@ void ClockTreeRewriter::run()
     }
 }
 
-PRIVATE_NAMESPACE_BEGIN
+struct EmuRewriteClock : public Pass
+{
+    EmuRewriteClock() : Pass("emu_rewrite_clock", "(REMU internal)") {}
 
-struct EmuTestClockTree : public Pass {
-    EmuTestClockTree() : Pass("emu_test_clock_tree", "test clock tree helper functionality") { }
-
-    void execute(vector<string> args, Design* design) override {
+    void execute(vector<string> args, Design* design) override
+    {
         extra_args(args, 1, design);
-        log_header(design, "Executing EMU_TEST_CLOCK_TREE pass.\n");
+        log_header(design, "Executing EMU_REWRITE_CLOCK pass.\n");
+        log_push();
 
-        EmulationDatabase database;
-        PortTransform port(design, database);
-        port.run();
-        ClockTreeRewriter helper(design, database);
-        helper.run();
+        ClockTreeRewriter worker(design, EmulationDatabase::get_instance(design));
+        worker.run();
+
+        log_pop();
     }
-} EmuTestClockTree;
+} EmuRewriteClock;
 
 PRIVATE_NAMESPACE_END
