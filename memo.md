@@ -15,14 +15,12 @@
     - Address cross 4KB boundary (signal a trigger)
     - Unsupported AxSIZE/AxBURST (return SLVERR)
     - Invalid AxLEN for WRAP transfer (return SLVERR)
-    - Wrong WLAST position (signal a trigger)
     - Unstable AW/AR/W (signal a trigger)
 - Support for DATA_WIDTH > 64
 - Random-delay timing model
 
 ## Miscellaneous
 
-- Load init data in emulation
 - 4KB boundary check in simple DMA
 
 # Notes
