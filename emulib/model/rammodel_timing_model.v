@@ -69,11 +69,17 @@ module emulib_rammodel_timing_model #(
     .rid        (rid    )
 
     if (TIMING_TYPE == "fixed") begin : fixed
-        emulib_rammodel_timing_model_fixed #(
+        /*emulib_rammodel_timing_model_fixed #(
             .ADDR_WIDTH     (ADDR_WIDTH),
             .ID_WIDTH       (ID_WIDTH),
             .MAX_R_INFLIGHT (MAX_R_INFLIGHT),
             .MAX_W_INFLIGHT (MAX_W_INFLIGHT)
+        ) inst (
+            `CONNECT_INST_PORTS
+        );*/
+        emulib_rammodel_FIFOMAS #(
+            .ADDR_WIDTH     (ADDR_WIDTH),
+            .ID_WIDTH       (ID_WIDTH)
         ) inst (
             `CONNECT_INST_PORTS
         );
