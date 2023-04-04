@@ -35,7 +35,7 @@ module emulib_rammodel_FIFOMAS #(
     output wire [ID_WIDTH-1:0]      rid
 
 );
-parameter mm_relaxFunctionalModel =0,mm_openPagePolicy =1,mm_backendLatency =2,
+parameter mm_relaxFunctionalModel =0,mm_openPagePolicy=1,mm_backendLatency =2,
           mm_dramTimings_tAL =0,mm_dramTimings_tCAS =14,mm_dramTimings_tCMD =1,
           mm_dramTimings_tCWD =10,mm_dramTimings_tCCD =4,mm_dramTimings_tFAW =25,
           mm_dramTimings_tRAS =33,mm_dramTimings_tREFI =7800,mm_dramTimings_tRC =47,
@@ -75,13 +75,36 @@ assign bid = 0;
   wire [31:0] mm_rankPower_3_numCASR;  
   wire [31:0] mm_rankPower_3_numCASW;  
   wire [31:0] mm_rankPower_3_numACT;  
+reg [7:0] beats;
+always @(posedge clk ) begin
+	if(rst)
+		beats <= 0;
+	else if(arvalid && arready)
+		beats <= arlen;
+	else if(rlast)
+		beats <=0;
+end
+reg [7:0] rcnt;
+    always @(posedge clk) begin
+        if (rst) begin
+            rcnt <= 0;
+        end
+        else if (rcnt == beats) begin
+            rcnt <= 0;
+        end
+        else if (rvalid && rready) begin
+            rcnt <= rcnt + 1;
+        end
+    end
+
+wire rlast = rcnt == beats && rvalid && rready;
 
 FIFOMASModel model (  
     .clock(clk),
     .reset(rst),
     .io_tNasti_aw_ready(awready),
     .io_tNasti_aw_valid(awvalid),
-    .io_tNasti_aw_bits_addr({2'b0,awaddr}),
+    .io_tNasti_aw_bits_addr({3'b0,awaddr}),
     .io_tNasti_aw_bits_len(awlen),
     .io_tNasti_aw_bits_burst(awburst),
     .io_tNasti_aw_bits_id(awid),
@@ -93,7 +116,7 @@ FIFOMASModel model (
     //.io_tNasti_b_bits_id(bid),
     .io_tNasti_ar_ready(arready),
     .io_tNasti_ar_valid(arvalid),
-    .io_tNasti_ar_bits_addr({2'b0,araddr}),
+    .io_tNasti_ar_bits_addr({3'b0,araddr}),
     .io_tNasti_ar_bits_len(arlen),
     .io_tNasti_ar_bits_burst(arburst),
     .io_tNasti_ar_bits_id(arid),
@@ -109,7 +132,7 @@ FIFOMASModel model (
     // .io_egressResp_bBits_id(model_io_egressResp_bBits_id),
     // .io_egressResp_bReady(model_io_egressResp_bReady),
     // .io_egressResp_rBits_data(model_io_egressResp_rBits_data),
-    // .io_egressResp_rBits_last(model_io_egressResp_rBits_last),
+    .io_egressResp_rBits_last(rlast),
     // .io_egressResp_rBits_id(model_io_egressResp_rBits_id),
     // .io_egressResp_rReady(model_io_egressResp_rReady),
     .io_mmReg_totalReads(mm_totalReads),
