@@ -36,24 +36,42 @@ static const std::set<std::string> keywords = {
     "wor", "xnor", "xor"
 };
 
-std::string Escape::escape_verilog_id(const std::string &name) {
+inline std::string _escape_id(const std::string &name)
+{
+    return "\\" + name + " ";
+}
+
+std::string Escape::escape_verilog_id(const std::string &name)
+{
     if (name.empty())
-        goto escape;
+        return _escape_id(name);
 
     if (!isalpha(name[0]) && name[0] != '_')
-        goto escape;
+        return _escape_id(name);
 
     for (size_t i = 1; i < name.size(); i++) {
         char c = name[i];
         if (!isalnum(c) && c != '_' && c != '$')
-            goto escape;
+            return _escape_id(name);
     }
 
     if (keywords.count(name) != 0)
-        goto escape;
+        return _escape_id(name);
 
     return name;
+}
 
-escape:
-    return "\\" + name + " ";
+std::string Escape::get_simple_escaped_id(const std::string &name)
+{
+    std::string res;
+    res.reserve(name.size());
+
+    for (auto c : name) {
+        if (isalnum(c))
+            res += c;
+        else
+            res += '_';
+    }
+
+    return res;
 }

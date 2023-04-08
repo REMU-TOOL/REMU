@@ -35,12 +35,15 @@ struct EmuTransformPass : public Pass {
         log("        skip system transformation\n");
         log("    -rewrite_arst\n");
         log("        rewrite async resets to sync resets\n");
+        log("    -flatten\n");
+        log("        flatten design before transformation (experimental)\n");
         log("\n");
     }
 
     std::string top, elab_file, out_file, sysinfo_file, loader_file, ckpt_path;
     bool raw_plat = false;
     bool rewrite_arst = false;
+    bool flatten = false;
 
     void integrate(Design *design)
     {
@@ -141,12 +144,21 @@ struct EmuTransformPass : public Pass {
                 rewrite_arst = true;
                 continue;
             }
+            if (args[argidx] == "-flatten") {
+                flatten = true;
+                continue;
+            }
             break;
         }
         extra_args(args, argidx, design);
 
         if (top.empty())
             log_error("No top module specified\n");
+
+        if (flatten) {
+            Pass::call(design, {"hierarchy", "-top", top});
+            Pass::call(design, "flatten");
+        }
 
         integrate(design);
 

@@ -656,7 +656,7 @@ struct MemoryDffWorker
                 if (!mem.rd_ports[i].clk_enable)
                     handle_rd_port(mem, qcsat, i, false) || handle_rd_port_addr(mem, i, false);
             }
-            mem.set_string_attribute(ID::submod, pretty_name(mem.memid));
+            mem.set_string_attribute(ID::submod, pretty_name(mem.memid, false));
             mem.emit();
         }
     }

@@ -5,6 +5,7 @@
 
 namespace Escape {
     std::string escape_verilog_id(const std::string &name);
+    std::string get_simple_escaped_id(const std::string &name);
 };
 
 #endif // #ifndef _ESCAPE_H_
