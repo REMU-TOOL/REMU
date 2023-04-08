@@ -1,9 +1,9 @@
 [submodule "yosys"]
 	path = yosys
-	url = https://gitlab.agileserve.org.cn:8001/remu/yosys.git
+	url = ../yosys.git
 [submodule "cereal"]
 	path = cereal
-	url = https://gitlab.agileserve.org.cn:8001/remu/cereal.git
+	url = ../cereal.git
 [submodule "yaml-cpp"]
 	path = yaml-cpp
-	url = https://gitlab.agileserve.org.cn:8001/remu/yaml-cpp.git
+	url = ../yaml-cpp.git
