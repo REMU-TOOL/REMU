@@ -49,6 +49,15 @@ struct ChannelPort
     std::vector<std::string> deps; // relative to path
 };
 
+struct TracePort
+{
+    std::vector<std::string> name;
+    std::string port_name;
+    Yosys::IdString port_valid;
+    Yosys::IdString port_ready;
+    Yosys::IdString port_data;
+};
+
 struct EmulationDatabase
 {
     std::map<std::vector<std::string>, SysInfo::WireInfo> wire;
@@ -59,6 +68,7 @@ struct EmulationDatabase
     std::vector<TriggerPort> trigger_ports;
     std::vector<AXIPort> axi_ports;
     std::vector<ChannelPort> channel_ports;
+    std::vector<TracePort> trace_ports;
 
     std::vector<SysInfo::ModelInfo> model;
 

@@ -103,6 +103,7 @@ struct PortTransform
     Yosys::dict<Yosys::IdString, std::vector<TriggerPort>> all_trigger_ports;
     Yosys::dict<Yosys::IdString, std::vector<AXIPort>> all_axi_ports;
     Yosys::dict<Yosys::IdString, std::vector<ChannelPort>> all_channel_ports;
+    Yosys::dict<Yosys::IdString, std::vector<TracePort>> all_trace_ports;
 
     void process_common_ports(Yosys::Module *module);
     void process_clocks(Yosys::Module *module);
@@ -110,6 +111,7 @@ struct PortTransform
     void process_triggers(Yosys::Module *module);
     void process_axi_ports(Yosys::Module *module);
     void process_channel_ports(Yosys::Module *module);
+    void process_trace_ports(Yosys::Module *module);
 
     void run();
 
@@ -215,6 +217,8 @@ void PortTransform::process_clocks(Module *module)
         if (!wire->get_bool_attribute(Attr::REMUClock))
             continue;
 
+        log("Identified clock %s\n", log_id(wire));
+
         if (wire->port_output)
             log_error("clock %s must be an input port\n",
                 log_id(wire));
@@ -254,6 +258,8 @@ void PortTransform::process_signals(Module *module)
         if (!wire->get_bool_attribute(Attr::REMUSignal))
             continue;
 
+        log("Identified signal %s\n", log_id(wire));
+
         if (wire->port_input && wire->port_output)
             log_error("signal %s cannot be an inout port\n",
                 log_id(wire));
@@ -284,6 +290,8 @@ void PortTransform::process_triggers(Module *module)
     for (auto wire : module->wires()) {
         if (!wire->get_bool_attribute(Attr::REMUTrig))
             continue;
+
+        log("Identified trigger %s\n", log_id(wire));
 
         if (wire->width != 1)
             log_error("the width of trigger signal %s must be 1\n",
@@ -457,6 +465,8 @@ void PortTransform::process_channel_ports(Module *module)
         if (name.empty())
             continue;
 
+        log("Identified channel port %s\n", name.c_str());
+
         // Check if channel already exists
 
         if (channel_names.count(name) > 0)
@@ -550,6 +560,106 @@ void PortTransform::process_channel_ports(Module *module)
     all_channel_ports[module->name] = info_list;
 }
 
+void PortTransform::process_trace_ports(Module *module)
+{
+    std::vector<TracePort> info_list;
+    pool<std::string> port_names;
+
+    for (auto portid : module->ports) {
+        Wire *wire = module->wire(portid);
+
+        // Get channel name
+    
+        std::string name = wire->get_string_attribute(Attr::TracePortName);
+        if (name.empty())
+            continue;
+
+        log("Identified trace port %s\n", name.c_str());
+
+        // Check if channel already exists
+
+        if (port_names.count(name) > 0)
+            log_error("%s.%s: trace port %s is already defined\n", 
+                log_id(module), log_id(wire), name.c_str());
+
+        port_names.insert(name);
+
+        TracePort info;
+        info.name = {name};
+        info.port_name = name;
+
+        // Process valid/ready/data ports
+
+        {
+            std::string wire_name = wire->get_string_attribute(Attr::TracePortValid);
+            if (wire_name.empty())
+                log_error("%s.%s: valid port of trace port %s is required\n", 
+                    log_id(module), log_id(wire), name.c_str());
+
+            Wire *wire_valid = module->wire("\\" + wire_name);
+            if (wire_valid == nullptr)
+                log_error("%s.%s: valid port %s of trace port %s does not exist\n", 
+                    log_id(module), log_id(wire), wire_name.c_str(), name.c_str());
+
+            info.port_valid = wire_valid->name;
+        }
+
+        {
+            std::string wire_name = wire->get_string_attribute(Attr::TracePortReady);
+            if (wire_name.empty())
+                log_error("%s.%s: ready port of trace port %s is required\n", 
+                    log_id(module), log_id(wire), name.c_str());
+
+            Wire *wire_ready = module->wire("\\" + wire_name);
+            if (wire_ready == nullptr)
+                log_error("%s.%s: ready port %s of trace port %s does not exist\n", 
+                    log_id(module), log_id(wire), wire_name.c_str(), name.c_str());
+
+            info.port_ready = wire_ready->name;
+        }
+
+        {
+            std::string wire_name = wire->get_string_attribute(Attr::TracePortData);
+            if (wire_name.empty())
+                log_error("%s.%s: data port of trace port %s is required\n", 
+                    log_id(module), log_id(wire), name.c_str());
+
+            Wire *wire_data = module->wire("\\" + wire_name);
+            if (wire_data == nullptr)
+                log_error("%s.%s: data port %s of trace port %s does not exist\n", 
+                    log_id(module), log_id(wire), wire_name.c_str(), name.c_str());
+
+            info.port_data = wire_data->name;
+        }
+
+        info_list.push_back(info);
+    }
+
+    // export submodule ports
+
+    auto &node = hier.dag.findNode(module->name);
+    for (auto &edge : node.outEdges()) {
+        auto &child = edge.toNode();
+        Cell *inst = module->cell(edge.name.second);
+
+        for (auto &info : all_trace_ports.at(child.name)) {
+            auto newinfo = info;
+            newinfo.name.insert(newinfo.name.begin(), id2str(edge.name.second));
+            newinfo.port_name = "EMU_TRACE_" + join_string(newinfo.name, '_');
+            newinfo.port_valid = "\\" + newinfo.port_name + "_valid";
+            newinfo.port_ready = "\\" + newinfo.port_name + "_ready";
+            newinfo.port_data = "\\" + newinfo.port_name + "_data";
+            promote_port(inst, newinfo.port_valid, info.port_valid);
+            promote_port(inst, newinfo.port_ready, info.port_ready);
+            promote_port(inst, newinfo.port_data, info.port_data);
+            info_list.push_back(newinfo);
+        }
+    }
+
+    module->fixup_ports();
+    all_trace_ports[module->name] = info_list;
+}
+
 template<typename T>
 void copy_top_info(std::vector<T> &to, const std::vector<T> &from)
 {
@@ -571,6 +681,7 @@ void PortTransform::run()
         process_triggers(module);
         process_axi_ports(module);
         process_channel_ports(module);
+        process_trace_ports(module);
     }
 
     IdString top = hier.dag.rootNode().name;
@@ -579,6 +690,7 @@ void PortTransform::run()
     copy_top_info(database.trigger_ports, all_trigger_ports.at(top));
     copy_top_info(database.axi_ports, all_axi_ports.at(top));
     copy_top_info(database.channel_ports, all_channel_ports.at(top));
+    copy_top_info(database.trace_ports, all_trace_ports.at(top));
 
     Module *top_module = hier.design->module(top);
     Wire *host_rst  = CommonPort::get(top_module, CommonPort::PORT_HOST_RST);
