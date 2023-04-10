@@ -1,6 +1,8 @@
 module emulib_rammodel_FIFOMAS #(
     parameter   ADDR_WIDTH      = 32,
-    parameter   ID_WIDTH        = 4
+    parameter   ID_WIDTH        = 4,
+    parameter   MAX_R_INFLIGHT  = 8,
+    parameter   MAX_W_INFLIGHT  = 8
 )(
 
     input  wire                     clk,
@@ -45,8 +47,7 @@ parameter mm_relaxFunctionalModel =0,mm_openPagePolicy=1,mm_backendLatency =2,
           mm_rowAddr_mask =65535,mm_rankAddr_offset =16,mm_rankAddr_mask =3,
           mm_bankAddr_offset =13,mm_bankAddr_mask =7;
 wire model_targetFire = 1'b1;
-assign rid = 0;
-assign bid = 0;
+
   wire [31:0] mm_totalReads;  
   wire [31:0] mm_totalWrites;  
   wire [31:0] mm_totalReadBeats;  
@@ -98,7 +99,37 @@ reg [7:0] rcnt;
     end
 
 wire rlast = rcnt == beats && rvalid && rready;
+wire bq_iready,bq_ovalid;
+wire rq_iready,rq_ovalid;
+emulib_ready_valid_fifo #(
+        .WIDTH      (ID_WIDTH),
+        .DEPTH      (MAX_W_INFLIGHT),
+        .FAST_READ  (1)
+    ) bid_q (
+        .clk        (clk),
+        .rst        (rst),
+        .ivalid     (awvalid && awready),
+        .iready     (bq_iready),
+        .idata      (awid),
+        .ovalid     (bq_ovalid),
+        .oready     (bready && bvalid),
+        .odata      (bid)
+    );
 
+emulib_ready_valid_fifo #(
+        .WIDTH      (ID_WIDTH),
+        .DEPTH      (MAX_W_INFLIGHT),
+        .FAST_READ  (1)
+    ) rid_q (
+        .clk        (clk),
+        .rst        (rst),
+        .ivalid     (arvalid && arready),
+        .iready     (rq_iready),
+        .idata      (arid),
+        .ovalid     (rq_ovalid),
+        .oready     (rready && rvalid && rlast),
+        .odata      (rid)
+    );
 FIFOMASModel model (  
     .clock(clk),
     .reset(rst),

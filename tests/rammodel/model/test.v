@@ -23,8 +23,8 @@ module rammodel_test #(
     output                      idle
 );
 
-    assign uut.frontend.timing_model.fixed.inst.cfg.r_delay = R_DELAY;
-    assign uut.frontend.timing_model.fixed.inst.cfg.w_delay = W_DELAY;
+    //assign uut.frontend.timing_model.fixed.inst.cfg.r_delay = R_DELAY;
+    //assign uut.frontend.timing_model.fixed.inst.cfg.w_delay = W_DELAY;
 
     wire finishing;
     wire tick = run_mode && finishing;

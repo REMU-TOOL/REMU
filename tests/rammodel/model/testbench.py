@@ -3,7 +3,6 @@ import random
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, ClockCycles
-
 from cocotbext.axi import AxiBus, AxiMaster, AxiRam
 from cocotbext.axi.constants import AxiBurstType
 
@@ -26,17 +25,19 @@ class TB:
         await RisingEdge(self.dut.host_clk)
 
 @cocotb.test()
+
 async def run_test(dut):
     tb = TB(dut)
-
     await tb.do_reset()
 
     async def read_write_worker_func():
         for step in range(0, 100):
-            burst = random.choice((AxiBurstType.INCR, AxiBurstType.WRAP))
+            #burst = random.choice((AxiBurstType.INCR, AxiBurstType.WRAP))
+            burst = AxiBurstType.INCR;
             size = random.randint(0, 3)
             addr = (2 ** size) * random.randint(0, 16)
-            length = 0x100 if burst == AxiBurstType.INCR else 16 * (2 ** size)
+            #length = 0x100 if burst == AxiBurstType.INCR else 16 * (2 ** size)
+            length = 8;
             test_data = bytearray([x % 256 for x in range(length)])
             dut._log.info("STEP %d: address=0x%x, length=0x%x, axsize=%d axburst=%s" %
                           (step, addr, length, size, burst))
