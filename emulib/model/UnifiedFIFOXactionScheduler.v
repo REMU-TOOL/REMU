@@ -77,6 +77,7 @@ module UnifiedFIFOXactionScheduler(
     .targetFire(transactionQueue_targetFire)
   );
   RRArbiter_0 transactionQueueArb (
+    .rst(reset),
     .clock(transactionQueueArb_clock),
     .io_in_0_ready(transactionQueueArb_io_in_0_ready),
     .io_in_0_valid(transactionQueueArb_io_in_0_valid),
@@ -137,6 +138,7 @@ module UnifiedFIFOXactionScheduler(
 endmodule
 
 module RRArbiter_0(
+  input 	rst,
   input         clock,
   output        io_in_0_ready,
   input         io_in_0_valid,
@@ -157,6 +159,7 @@ module RRArbiter_0(
 `ifdef RANDOMIZE_REG_INIT
   reg [31:0] _RAND_0;
 `endif // RANDOMIZE_REG_INIT
+
   wire  _ctrl_validMask_grantMask_lastGrant_T = io_out_ready & io_out_valid; // @[Decoupled.scala 40:37]
   reg  lastGrant; // @[Reg.scala 15:16]
   wire  grantMask_1 = 1'h1 > lastGrant; // @[Arbiter.scala 67:49]
@@ -173,7 +176,9 @@ module RRArbiter_0(
   assign io_out_bits_addr = io_chosen ? io_in_1_bits_addr : io_in_0_bits_addr; // @[Arbiter.scala 41:16 Arbiter.scala 41:16]
   assign io_chosen = validMask_1 | _GEN_13; // @[Arbiter.scala 79:25 Arbiter.scala 79:34]
   always @(posedge clock) begin
-    if (targetFire) begin
+    if(rst)
+    	lastGrant <= 0;
+    else if (targetFire) begin
       if (_ctrl_validMask_grantMask_lastGrant_T) begin // @[Reg.scala 16:19]
         lastGrant <= io_chosen; // @[Reg.scala 16:23]
       end
