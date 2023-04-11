@@ -10,6 +10,7 @@
 #include "uma_cdma.h"
 #include "uma_cosim.h"
 #include "uma_devmem.h"
+#include "uma_pcie.h"
 #include "regdef.h"
 
 using namespace REMU;
@@ -39,6 +40,15 @@ const std::unordered_map<std::string,
         FROM_NODE(uint64_t, cdma_base)
         return std::make_unique<CDMAUserMem>(base, size, bounce_base, bounce_size, cdma_base);
     }},
+    {"pcie-bar",    [](const YAML::Node &node) {
+        FROM_NODE(uint64_t, base)
+        FROM_NODE(uint64_t, size)
+        FROM_NODE(std::string, mem_bar)
+        FROM_NODE(std::string, ctrl_bar)
+        FROM_NODE(uint64_t, mem_bar_size)
+        FROM_NODE(uint64_t, ctrl_reg_address)
+        return std::make_unique<PCIeBARUserMem>(base, size, mem_bar, ctrl_bar, mem_bar_size, ctrl_reg_address);
+    }},
 };
 
 const std::unordered_map<std::string,
@@ -52,6 +62,12 @@ const std::unordered_map<std::string,
         FROM_NODE(uint64_t, base)
         FROM_NODE(uint64_t, size)
         return std::make_unique<DMUserIO>(base, size);
+    }},
+    {"pcie-bar",    [](const YAML::Node &node) {
+        FROM_NODE(uint64_t, base)
+        FROM_NODE(uint64_t, size)
+        FROM_NODE(std::string, bar)
+        return std::make_unique<DMUserIO>(base, size, bar);
     }},
 };
 

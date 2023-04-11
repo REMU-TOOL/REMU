@@ -23,7 +23,7 @@ public:
 
     void fill(char c, size_t offset, size_t len);
 
-    DevMem(size_t base, size_t size, bool sync);
+    DevMem(size_t base, size_t size, bool sync, std::string dev = "/dev/mem");
     ~DevMem();
 };
 
@@ -52,22 +52,22 @@ public:
     virtual uint64_t size() const override { return dm.size(); }
     virtual uint64_t dmabase() const override { return m_dmabase; }
 
-    DMUserMemBase(uint64_t base, uint64_t size, uint64_t dmabase, bool sync)
-        : dm(base, size, sync), m_dmabase(dmabase) {}
+    DMUserMemBase(uint64_t base, uint64_t size, uint64_t dmabase, bool sync, std::string dev = "/dev/mem")
+        : dm(base, size, sync, dev), m_dmabase(dmabase) {}
 };
 
 class DMUserMem : public DMUserMemBase
 {
 public:
-    DMUserMem(uint64_t base, uint64_t size, uint64_t dmabase)
-        : DMUserMemBase(base, size, dmabase, true) {}
+    DMUserMem(uint64_t base, uint64_t size, uint64_t dmabase, std::string dev = "/dev/mem")
+        : DMUserMemBase(base, size, dmabase, true, dev) {}
 };
 
 class DMUserMemCached : public DMUserMemBase
 {
 public:
-    DMUserMemCached(uint64_t base, uint64_t size, uint64_t dmabase)
-        : DMUserMemBase(base, size, dmabase, false) {}
+    DMUserMemCached(uint64_t base, uint64_t size, uint64_t dmabase, std::string dev = "/dev/mem")
+        : DMUserMemBase(base, size, dmabase, false, dev) {}
 };
 
 class DMUserIO : public UserIO
@@ -86,7 +86,7 @@ public:
         dm.write_u32(offset, value);
     }
 
-    DMUserIO(uint64_t base, uint64_t size) : dm(base, size, true) {}
+    DMUserIO(uint64_t base, uint64_t size, std::string dev = "/dev/mem") : dm(base, size, true, dev) {}
 };
 
 };

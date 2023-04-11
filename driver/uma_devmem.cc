@@ -13,7 +13,7 @@
 
 using namespace REMU;
 
-DevMem::DevMem(size_t base, size_t size, bool sync)
+DevMem::DevMem(size_t base, size_t size, bool sync, std::string dev)
 {
     size_t pg_size = sysconf(_SC_PAGE_SIZE);
     if (base % pg_size != 0)
@@ -22,20 +22,17 @@ DevMem::DevMem(size_t base, size_t size, bool sync)
     m_base = base;
     m_size = size;
 
-    if (geteuid() != 0)
-        throw std::runtime_error("root permission is required") ;
-
     int flag = O_RDWR;
     if (sync)
         flag |= O_SYNC;
-    m_fd = open("/dev/mem", flag);
+    m_fd = open(dev.c_str(), flag);
     if (m_fd < 0)
-        throw std::system_error(errno, std::generic_category(), "failed to open /dev/mem");
+        throw std::system_error(errno, std::generic_category(), "failed to open " + dev);
 
     m_ptr = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, m_fd, base);
     if (m_ptr == MAP_FAILED) {
         close(m_fd);
-        throw std::system_error(errno, std::generic_category(), "failed to mmap /dev/mem");
+        throw std::system_error(errno, std::generic_category(), "failed to mmap " + dev);
     }
 }
 
@@ -57,7 +54,7 @@ void DevMem::write(const char *buf, size_t offset, size_t len)
 
 uint32_t DevMem::read_u32(size_t offset)
 {
-    if (offset & 0x3 != 0)
+    if ((offset & 0x3) != 0)
         throw std::invalid_argument("offset must be a multiple of 4");
 
     return ((volatile uint32_t *)m_ptr)[offset >> 2];
@@ -65,7 +62,7 @@ uint32_t DevMem::read_u32(size_t offset)
 
 void DevMem::write_u32(size_t offset, uint32_t value)
 {
-    if (offset & 0x3 != 0)
+    if ((offset & 0x3) != 0)
         throw std::invalid_argument("offset must be a multiple of 4");
 
     ((volatile uint32_t *)m_ptr)[offset >> 2] = value;
