@@ -93,11 +93,9 @@ module cosim_bfm #(
                         if (mem_axi_rlast) begin
                             mem_r_state <= STATE_AR;
                         end
+                        mem_read_addr = mem_read_addr + 2 ** mem_read_size;
                         if (mem_read_burst == BURST_WRAP && mem_read_addr == mem_read_addr_wrap_ub) begin
                             mem_read_addr = mem_read_addr_wrap_lb;
-                        end
-                        else begin
-                            mem_read_addr = mem_read_addr + 2 ** mem_read_size;
                         end
                         mem_read_len <= mem_read_len - 1;
                     end
@@ -158,11 +156,9 @@ module cosim_bfm #(
                             if (mem_axi_wstrb[i])
                                 temp_w_data[i*8+:8] = mem_axi_wdata[i*8+:8];
                         result = $cosim_mem_write(mem_write_addr, temp_w_data);
+                        mem_write_addr = mem_write_addr + 2 ** mem_write_size;
                         if (mem_write_burst == BURST_WRAP && mem_write_addr == mem_write_addr_wrap_ub) begin
                             mem_write_addr = mem_write_addr_wrap_lb;
-                        end
-                        else begin
-                            mem_write_addr = mem_write_addr + 2 ** mem_write_size;
                         end
                         mem_write_len <= mem_write_len - 1;
                     end
