@@ -1,4 +1,0 @@
-mem:
-  type: cosim
-reg:
-  type: cosim
