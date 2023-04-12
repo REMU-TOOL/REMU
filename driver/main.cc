@@ -13,6 +13,9 @@ void show_help(const char * argv_0)
     //   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
     fprintf(stderr,
         "Usage: %s <sysinfo_file> <platinfo_file> <checkpoint_path> [options] [commands]\n"
+        "\n"
+        "    You can specify \"@cosim\" as <platinfo_file> for co-simulation (if enabled).\n"
+        "\n"
         "Options:\n"
         "    --batch\n"
         "        Exit after commands are finished.\n"
@@ -89,7 +92,11 @@ int main(int argc, const char *argv[])
         sysinfo = SysInfo::fromJson(f);
     }
 
-    {
+    if (platinfo_file == "@cosim") {
+        platinfo["mem"]["type"] = "cosim";
+        platinfo["reg"]["type"] = "cosim";
+    }
+    else {
         std::ifstream f(platinfo_file);
         if (f.fail()) {
             fprintf(stderr, "Can't open file `%s': %s\n", platinfo_file.c_str(), strerror(errno));
