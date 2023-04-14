@@ -118,7 +118,7 @@ emulib_ready_valid_fifo #(
 
 emulib_ready_valid_fifo #(
         .WIDTH      (ID_WIDTH),
-        .DEPTH      (MAX_W_INFLIGHT),
+        .DEPTH      (MAX_R_INFLIGHT),
         .FAST_READ  (1)
     ) rid_q (
         .clk        (clk),
@@ -157,14 +157,14 @@ FIFOMASModel model (
     //.io_tNasti_r_bits_last(),
     //.io_tNasti_r_bits_id(rid),
     // .io_egressReq_b_valid(model_io_egressReq_b_valid),
-    // .io_egressReq_b_bits(model_io_egressReq_b_bits),
+    //.io_egressReq_b_bits(model_io_egressReq_b_bits),
     // .io_egressReq_r_valid(model_io_egressReq_r_valid),
     // .io_egressReq_r_bits(model_io_egressReq_r_bits),
-    // .io_egressResp_bBits_id(model_io_egressResp_bBits_id),
+    .io_egressResp_bBits_id(bid),
     // .io_egressResp_bReady(model_io_egressResp_bReady),
     // .io_egressResp_rBits_data(model_io_egressResp_rBits_data),
     .io_egressResp_rBits_last(rlast),
-    // .io_egressResp_rBits_id(model_io_egressResp_rBits_id),
+    .io_egressResp_rBits_id(rid),
     // .io_egressResp_rReady(model_io_egressResp_rReady),
     .io_mmReg_totalReads(mm_totalReads),
     .io_mmReg_totalWrites(mm_totalWrites),
