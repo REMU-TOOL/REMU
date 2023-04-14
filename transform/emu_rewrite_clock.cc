@@ -114,15 +114,20 @@ void ClockTreeRewriter::run()
         auto &sigmap = sigmaps.at(module->name);
 
         Wire *ff_clk, *ram_clk;
+        SigSpec clk_tick;
         if (clk.wire->name == CommonPort::PORT_MDL_CLK.id) {
             ff_clk = CommonPort::get(module, CommonPort::PORT_MDL_CLK_FF);
             ram_clk = CommonPort::get(module, CommonPort::PORT_MDL_CLK_RAM);
+            clk_tick = State::S1; // unused
         }
         else {
             ff_clk = module->addWire(to_ff_clk(clk));
             ram_clk = module->addWire(to_ram_clk(clk));
             ff_clk->port_input = true;
             ram_clk->port_input = true;
+            Wire *tick = module->addWire(clk_to_tick(clk));
+            tick->port_input = true;
+            clk_tick = tick;
             module->fixup_ports();
         }
         primary_to_ff_ram_clk[clk] = std::make_pair<SigBit, SigBit>(ff_clk, ram_clk);
@@ -151,6 +156,7 @@ void ClockTreeRewriter::run()
                 if (tpl_bit.wire->name != CommonPort::PORT_MDL_CLK.id) {
                     cell->setPort(to_ff_clk(tpl_bit), ff_clk);
                     cell->setPort(to_ram_clk(tpl_bit), ram_clk);
+                    cell->setPort(clk_to_tick(tpl_bit), clk_tick);
                 }
             }
         }

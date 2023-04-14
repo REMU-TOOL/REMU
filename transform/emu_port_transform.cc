@@ -102,7 +102,6 @@ struct PortTransform
     Yosys::dict<Yosys::IdString, std::vector<SignalPort>> all_signal_ports;
     Yosys::dict<Yosys::IdString, std::vector<TriggerPort>> all_trigger_ports;
     Yosys::dict<Yosys::IdString, std::vector<AXIPort>> all_axi_ports;
-    Yosys::dict<Yosys::IdString, std::vector<ChannelPort>> all_channel_ports;
     Yosys::dict<Yosys::IdString, std::vector<TracePort>> all_trace_ports;
 
     void process_common_ports(Yosys::Module *module);
@@ -110,7 +109,6 @@ struct PortTransform
     void process_signals(Yosys::Module *module);
     void process_triggers(Yosys::Module *module);
     void process_axi_ports(Yosys::Module *module);
-    void process_channel_ports(Yosys::Module *module);
     void process_trace_ports(Yosys::Module *module);
 
     void run();
@@ -118,43 +116,6 @@ struct PortTransform
     PortTransform(Yosys::Design *design, EmulationDatabase &database)
         : hier(design), database(database) {}
 };
-
-void promote_port(Cell *sub, IdString port, IdString sub_port)
-{
-    Module *module = sub->module;
-    Wire *sub_wire = module->design->module(sub->type)->wire(sub_port);
-    if (!sub_wire)
-        return;
-    Wire *wire = module->addWire(port, sub_wire);
-    sub->setPort(sub_port, wire);
-}
-
-template<typename T>
-void promote_ports
-(
-    Hierarchy &hier,
-    Module *module,
-    std::vector<T> &ports,
-    const dict<IdString, std::vector<T>> &submodule_ports
-)
-{
-    auto &node = hier.dag.findNode(module->name);
-    for (auto &edge : node.outEdges()) {
-        auto &child = edge.toNode();
-        Cell *sub = module->cell(edge.name.second);
-
-        for (auto &subinfo : submodule_ports.at(child.name)) {
-            auto info = subinfo;
-            std::string sub_name = id2str(sub->name);
-            IdString port = module->uniquify("\\" + sub_name + "_" + subinfo.port_name);
-            IdString sub_port = "\\" + subinfo.port_name;
-            info.name.insert(info.name.begin(), sub_name);
-            info.port_name = id2str(port);
-            promote_port(sub, port, sub_port);
-            ports.push_back(info);
-        }
-    }
-}
 
 void PortTransform::process_common_ports(Module *module)
 {
@@ -451,115 +412,6 @@ void PortTransform::process_axi_ports(Module *module)
     all_axi_ports[module->name] = info_list;
 }
 
-void PortTransform::process_channel_ports(Module *module)
-{
-    std::vector<ChannelPort> info_list;
-    pool<std::string> channel_names;
-
-    for (auto portid : module->ports) {
-        Wire *wire = module->wire(portid);
-
-        // Get channel name
-    
-        std::string name = wire->get_string_attribute(Attr::ChannelName);
-        if (name.empty())
-            continue;
-
-        log("Identified channel port %s\n", name.c_str());
-
-        // Check if channel already exists
-
-        if (channel_names.count(name) > 0)
-            log_error("%s.%s: channel %s is already defined\n", 
-                log_id(module), log_id(wire), name.c_str());
-
-        channel_names.insert(name);
-
-        ChannelPort info;
-        info.name = {name};
-        info.port_name = name;
-
-        // Process channel direction
-
-        std::string direction = wire->get_string_attribute(Attr::ChannelDirection);
-        if (direction.empty())
-            log_error("%s.%s: direction of channel %s is required\n", 
-                log_id(module), log_id(wire), name.c_str());
-
-        if (direction == "in" || direction == "out") {
-            info.dir = direction == "in" ? ChannelPort::IN : ChannelPort::OUT;
-        }
-        else {
-            log_error("%s.%s: invalid channel direction \"%s\"\n", log_id(module), log_id(wire), direction.c_str());
-        }
-
-        // Process channel dependencies
-
-        std::string dependencies = wire->get_string_attribute(Attr::ChannelDependsOn);
-        if (!dependencies.empty()) {
-            std::vector<std::string> dep_list = split_string(dependencies, ' ');
-            for (auto &dep : dep_list)
-                if (!dep.empty())
-                    info.deps.push_back(dep);
-        }
-
-        // Process channel valid/ready port
-
-        std::string valid = wire->get_string_attribute(Attr::ChannelValid);
-        if (valid.empty())
-            log_error("%s.%s: valid port of channel %s is required\n", 
-                log_id(module), log_id(wire), name.c_str());
-
-        Wire *wire_valid = module->wire("\\" + valid);
-        if (wire_valid == nullptr)
-            log_error("%s.%s: valid port %s of channel %s does not exist\n", 
-                log_id(module), log_id(wire), valid.c_str(), name.c_str());
-
-        info.port_valid = wire_valid->name;
-
-        std::string ready = wire->get_string_attribute(Attr::ChannelReady);
-        if (ready.empty())
-            log_error("%s.%s: ready port of channel %s is required\n", 
-                log_id(module), log_id(wire), name.c_str());
-
-        Wire *wire_ready = module->wire("\\" + ready);
-        if (wire_ready == nullptr)
-            log_error("%s.%s: ready port %s of channel %s does not exist\n", 
-                log_id(module), log_id(wire), ready.c_str(), name.c_str());
-
-        info.port_ready = wire_ready->name;
-
-        wire_valid->port_input = info.dir == ChannelPort::IN;
-        wire_valid->port_output = !wire_valid->port_input;
-        wire_ready->port_input = !wire_valid->port_input;
-        wire_ready->port_output = !wire_ready->port_input;
-
-        info_list.push_back(info);
-    }
-
-    // export submodule ports
-
-    auto &node = hier.dag.findNode(module->name);
-    for (auto &edge : node.outEdges()) {
-        auto &child = edge.toNode();
-        Cell *inst = module->cell(edge.name.second);
-
-        for (auto &info : all_channel_ports.at(child.name)) {
-            auto newinfo = info;
-            newinfo.name.insert(newinfo.name.begin(), id2str(edge.name.second));
-            newinfo.port_name = "EMU_CHANNEL_" + join_string(newinfo.name, '_');
-            newinfo.port_valid = "\\" + newinfo.port_name + "_valid";
-            newinfo.port_ready = "\\" + newinfo.port_name + "_ready";
-            promote_port(inst, newinfo.port_valid, info.port_valid);
-            promote_port(inst, newinfo.port_ready, info.port_ready);
-            info_list.push_back(newinfo);
-        }
-    }
-
-    module->fixup_ports();
-    all_channel_ports[module->name] = info_list;
-}
-
 void PortTransform::process_trace_ports(Module *module)
 {
     std::vector<TracePort> info_list;
@@ -680,7 +532,6 @@ void PortTransform::run()
         process_signals(module);
         process_triggers(module);
         process_axi_ports(module);
-        process_channel_ports(module);
         process_trace_ports(module);
     }
 
@@ -689,7 +540,6 @@ void PortTransform::run()
     copy_top_info(database.signal_ports, all_signal_ports.at(top));
     copy_top_info(database.trigger_ports, all_trigger_ports.at(top));
     copy_top_info(database.axi_ports, all_axi_ports.at(top));
-    copy_top_info(database.channel_ports, all_channel_ports.at(top));
     copy_top_info(database.trace_ports, all_trace_ports.at(top));
 
     Module *top_module = hier.design->module(top);

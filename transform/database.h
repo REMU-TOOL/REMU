@@ -39,16 +39,6 @@ struct AXIPort
     uint32_t reg_offset = 0;
 };
 
-struct ChannelPort
-{
-    std::vector<std::string> name;
-    std::string port_name;
-    enum {IN, OUT} dir;
-    Yosys::IdString port_valid;
-    Yosys::IdString port_ready;
-    std::vector<std::string> deps; // relative to path
-};
-
 struct TracePort
 {
     std::vector<std::string> name;
@@ -67,7 +57,6 @@ struct EmulationDatabase
     std::vector<SignalPort> signal_ports;
     std::vector<TriggerPort> trigger_ports;
     std::vector<AXIPort> axi_ports;
-    std::vector<ChannelPort> channel_ports;
     std::vector<TracePort> trace_ports;
 
     std::vector<SysInfo::ModelInfo> model;
