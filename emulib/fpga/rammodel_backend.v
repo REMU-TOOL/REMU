@@ -27,6 +27,7 @@ module emulib_rammodel_backend #(
     (* __emu_channel_name = "rst"*)
     (* __emu_channel_direction = "in" *)
     (* __emu_channel_payload = "rst" *)
+    (* __emu_channel_clock = "clk" *)
     (* __emu_channel_valid = "tk_rst_valid" *)
     (* __emu_channel_ready = "tk_rst_ready" *)
 
@@ -40,6 +41,7 @@ module emulib_rammodel_backend #(
     (* __emu_channel_name = "arreq" *)
     (* __emu_channel_direction = "in" *)
     (* __emu_channel_payload = "arreq_*" *)
+    (* __emu_channel_clock = "clk" *)
     (* __emu_channel_valid = "tk_arreq_valid" *)
     (* __emu_channel_ready = "tk_arreq_ready" *)
 
@@ -58,6 +60,7 @@ module emulib_rammodel_backend #(
     (* __emu_channel_name = "awreq" *)
     (* __emu_channel_direction = "in" *)
     (* __emu_channel_payload = "awreq_*" *)
+    (* __emu_channel_clock = "clk" *)
     (* __emu_channel_valid = "tk_awreq_valid" *)
     (* __emu_channel_ready = "tk_awreq_ready" *)
 
@@ -76,6 +79,7 @@ module emulib_rammodel_backend #(
     (* __emu_channel_name = "wreq" *)
     (* __emu_channel_direction = "in" *)
     (* __emu_channel_payload = "areq_*" *)
+    (* __emu_channel_clock = "clk" *)
     (* __emu_channel_valid = "tk_wreq_valid" *)
     (* __emu_channel_ready = "tk_wreq_ready" *)
 
@@ -92,6 +96,7 @@ module emulib_rammodel_backend #(
     (* __emu_channel_name = "breq" *)
     (* __emu_channel_direction = "in" *)
     (* __emu_channel_payload = "breq_*" *)
+    (* __emu_channel_clock = "clk" *)
     (* __emu_channel_valid = "tk_breq_valid" *)
     (* __emu_channel_ready = "tk_breq_ready" *)
 
@@ -106,6 +111,7 @@ module emulib_rammodel_backend #(
     (* __emu_channel_name = "rreq" *)
     (* __emu_channel_direction = "in" *)
     (* __emu_channel_payload = "rreq_*" *)
+    (* __emu_channel_clock = "clk" *)
     (* __emu_channel_valid = "tk_rreq_valid" *)
     (* __emu_channel_ready = "tk_rreq_ready" *)
 
@@ -121,6 +127,7 @@ module emulib_rammodel_backend #(
     (* __emu_channel_direction = "out" *)
     (* __emu_channel_depends_on = "breq" *)
     (* __emu_channel_payload = "bresp_*" *)
+    (* __emu_channel_clock = "clk" *)
     (* __emu_channel_valid = "tk_bresp_valid" *)
     (* __emu_channel_ready = "tk_bresp_ready" *)
 
@@ -133,6 +140,7 @@ module emulib_rammodel_backend #(
     (* __emu_channel_direction = "out" *)
     (* __emu_channel_depends_on = "rreq" *)
     (* __emu_channel_payload = "rresp_*" *)
+    (* __emu_channel_clock = "clk" *)
     (* __emu_channel_valid = "tk_rresp_valid" *)
     (* __emu_channel_ready = "tk_rresp_ready" *)
 

@@ -13,6 +13,7 @@ module EmuTracePortImp #(
     (* __emu_channel_name = "data"*)
     (* __emu_channel_direction = "in" *)
     (* __emu_channel_payload = "data" *)
+    (* __emu_channel_clock = "clk" *)
     (* __emu_channel_valid = "tk_data_valid" *)
     (* __emu_channel_ready = "tk_data_ready" *)
 
