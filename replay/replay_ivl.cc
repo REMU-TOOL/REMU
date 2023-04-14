@@ -530,12 +530,13 @@ void replay_initialize(VPILoader *loader)
 
     // Stop simulator at end of trace
 
-    static VPICallback eot_cb([](uint64_t) {
-        vpi_printf("[REMU] End of trace\n");
-        vpi_control(vpiFinish);
+    uint64_t last_tick = loader->ckpt_mgr.last_tick();
+    static VPICallback eot_cb([last_tick](uint64_t) {
+        vpi_printf("WARNING: No more signal traces after tick %lu. "
+        "Replay will continue but input signals will remain unchanged\n", last_tick);
         return 0;
     });
-    eot_cb.register_callback((loader->ckpt_mgr.last_tick() - init_tick) * period, cbAtEndOfSimTime);
+    eot_cb.register_callback((last_tick - init_tick) * period, cbAtEndOfSimTime);
 }
 
 void REMU::register_callback(VPILoader *loader)
