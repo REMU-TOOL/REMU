@@ -127,8 +127,9 @@ emulib_ready_valid_fifo #(
     
 wire model_arvalid = arvalid && rq_iready;
 wire model_awvalid = awvalid && bq_iready;
-
-
+//avoid trigger timming model wrap assersion
+wire [1:0] model_arburst = (arburst == 2'b10)? 2'b01 : arburst; 
+wire [1:0] model_awburst = (awburst == 2'b10)? 2'b01 : awburst; 
 
 FIFOMASModel model (  
     .clock(clk),
@@ -137,7 +138,7 @@ FIFOMASModel model (
     .io_tNasti_aw_valid(model_awvalid),
     .io_tNasti_aw_bits_addr({3'b0,awaddr}),
     .io_tNasti_aw_bits_len(awlen),
-    .io_tNasti_aw_bits_burst(awburst),
+    .io_tNasti_aw_bits_burst(model_awburst),
     .io_tNasti_aw_bits_id(awid),
     .io_tNasti_w_ready(wready),
     .io_tNasti_w_valid(wvalid),
@@ -149,7 +150,7 @@ FIFOMASModel model (
     .io_tNasti_ar_valid(model_arvalid),
     .io_tNasti_ar_bits_addr({3'b0,araddr}),
     .io_tNasti_ar_bits_len(arlen),
-    .io_tNasti_ar_bits_burst(arburst),
+    .io_tNasti_ar_bits_burst(model_arburst),
     .io_tNasti_ar_bits_id(arid),
     .io_tNasti_r_ready(rready),
     .io_tNasti_r_valid(rvalid),
