@@ -297,6 +297,7 @@ void FAMETransform::run()
         make_internal(clk);
         make_internal(clk_ff);
         make_internal(clk_ram);
+        make_internal(clk_tick);
 
         top->connect(clk, State::S0);
         ClockGate(top, NEW_ID, host_clk, top->Or(NEW_ID, run_and_tick, ff_se), clk_ff);
