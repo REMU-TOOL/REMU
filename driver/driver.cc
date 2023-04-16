@@ -4,12 +4,45 @@
 #include <cstring>
 #include <stdexcept>
 #include <algorithm>
+#include <chrono>
 
 #include "uart.h"
 #include "emu_utils.h"
 #include "sighandler.h"
 
 using namespace REMU;
+
+namespace {
+
+class Profiler
+{
+    Driver *driver;
+    const char *what;
+    uint64_t prev_tick;
+    std::chrono::steady_clock::time_point prev_time;
+
+public:
+
+    Profiler(Driver *driver, const char *what) :
+        driver(driver),
+        what(what),
+        prev_tick(driver->current_tick()),
+        prev_time(std::chrono::steady_clock::now()) {}
+
+    ~Profiler()
+    {
+        using namespace std::literals;
+
+        auto tick_diff = driver->current_tick() - prev_tick;
+        auto time_diff = std::chrono::steady_clock::now() - prev_time;
+
+        fprintf(stderr, "[REMU] INFO: %s: elasped time %.6lfs, rate %.2lf MHz\n", what,
+            (std::chrono::duration<double, std::micro>(time_diff) / 1s),
+            static_cast<double>(tick_diff) / (time_diff / 1us));
+    }
+};
+
+};
 
 void Driver::init_axi(const SysInfo &sysinfo)
 {
@@ -66,12 +99,6 @@ void Driver::init_model(const SysInfo &sysinfo)
     }
 }
 
-void Driver::init_perf(const std::string &file, uint64_t interval)
-{
-    perfmon = std::make_unique<PerfMon>(file);
-    perf_interval = interval;
-}
-
 BitVector Driver::get_signal_value(RTSignal &signal)
 {
     return ctrl.get_signal_value(signal);
@@ -92,18 +119,15 @@ void Driver::load_checkpoint()
 
     // Reset perfmon time
 
-    if (perfmon)
-        perfmon->reset(cur_tick);
-
-    fprintf(stderr, "[REMU] INFO: Tick %lu: Loading checkpoint\n", cur_tick);
-    if (perfmon)
-        perfmon->log("checkpoint load begin", cur_tick);
+    fprintf(stderr, "[REMU] INFO: Start loading checkpoint @ tick %lu\n", cur_tick);
 
     // Reset meta event queue
 
     meta_event_q = decltype(meta_event_q)();
 
     {
+        Profiler profiler(this, "load checkpoint");
+
         auto ckpt = ckpt_mgr.open(cur_tick);
         ctrl.set_tick_count(cur_tick);
 
@@ -139,26 +163,20 @@ void Driver::load_checkpoint()
 
         // Load memory regions
 
-        if (perfmon)
-            perfmon->log("load memory begin", cur_tick);
-
-        for (auto &axi : axi_db.objects()) {
-            auto stream = ckpt.axi_mems.at(axi.name).read();
-            ctrl.memory()->copy_from_stream(axi.assigned_offset, axi.assigned_size, stream);
+        {
+            Profiler profiler(this, "load memory");
+            for (auto &axi : axi_db.objects()) {
+                auto stream = ckpt.axi_mems.at(axi.name).read();
+                ctrl.memory()->copy_from_stream(axi.assigned_offset, axi.assigned_size, stream);
+            }
         }
-
-        if (perfmon)
-            perfmon->log("load memory end", cur_tick);
 
         // Load design state
 
-        if (perfmon)
-            perfmon->log("scan begin", cur_tick);
-
-        ctrl.do_scan(true);
-
-        if (perfmon)
-            perfmon->log("scan end", cur_tick);
+        {
+            Profiler profiler(this, "load design state");
+            ctrl.do_scan(true);
+        }
     }
 
     if (is_replay_mode()) {
@@ -177,10 +195,6 @@ void Driver::load_checkpoint()
         // Stop at end of trace in replay mode
         meta_event_q.push({ckpt_mgr.last_tick(), Stop});
     }
-
-    fprintf(stderr, "[REMU] INFO: Tick %lu: Loaded checkpoint\n", cur_tick);
-    if (perfmon)
-        perfmon->log("checkpoint load end", cur_tick);
 }
 
 void Driver::save_checkpoint()
@@ -190,35 +204,29 @@ void Driver::save_checkpoint()
         return;
     }
 
-    fprintf(stderr, "[REMU] INFO: Tick %lu: Saving checkpoint\n", cur_tick);
-    if (perfmon)
-        perfmon->log("checkpoint save begin", cur_tick);
+    fprintf(stderr, "[REMU] INFO: Saving checkpoint @ tick %lu\n", cur_tick);
 
     {
+        Profiler profiler(this, "save checkpoint");
+
         auto ckpt = ckpt_mgr.open(cur_tick);
 
         // Save design state
 
-        if (perfmon)
-            perfmon->log("scan begin", cur_tick);
-
-        ctrl.do_scan(false);
-
-        if (perfmon)
-            perfmon->log("scan end", cur_tick);
+        {
+            Profiler profiler(this, "save design state");
+            ctrl.do_scan(false);
+        }
 
         // Save memory regions
 
-        if (perfmon)
-            perfmon->log("save memory begin", cur_tick);
-
-        for (auto &axi : axi_db.objects()) {
-            auto stream = ckpt.axi_mems.at(axi.name).write();
-            ctrl.memory()->copy_to_stream(axi.assigned_offset, axi.assigned_size, stream);
+        {
+            Profiler profiler(this, "save memory");
+            for (auto &axi : axi_db.objects()) {
+                auto stream = ckpt.axi_mems.at(axi.name).write();
+                ctrl.memory()->copy_to_stream(axi.assigned_offset, axi.assigned_size, stream);
+            }
         }
-
-        if (perfmon)
-            perfmon->log("save memory end", cur_tick);
 
         // Save signals
 
@@ -241,13 +249,9 @@ void Driver::save_checkpoint()
         for (auto &x : model_tick_cbs) {
             ckpt.tick_cbs.insert({x.first, x.second->get_name()});
         }
+
+        ckpt_mgr.flush();
     }
-
-    ckpt_mgr.flush();
-
-    fprintf(stderr, "[REMU] INFO: Tick %lu: Saved checkpoint\n", cur_tick);
-    if (perfmon)
-        perfmon->log("checkpoint save end", cur_tick);
 }
 
 bool Driver::handle_event()
@@ -259,9 +263,6 @@ bool Driver::handle_event()
 
         if (!ctrl.get_trigger_enable(trigger) || !ctrl.is_trigger_active(trigger))
             continue;
-
-        if (perfmon)
-            perfmon->incr_triggered_count();
 
         // If the trigger is handled by a callback, ignore it
         auto cb_it = model_trigger_cbs.find(index);
@@ -302,10 +303,6 @@ bool Driver::handle_event()
         switch (event.second) {
             case Stop:
                 stop_requested = true;
-                break;
-            case Perf:
-                if (perfmon)
-                    perfmon->log("periodical monitoring", cur_tick);
                 break;
             case Ckpt:
                 save_checkpoint();
@@ -396,25 +393,29 @@ void Driver::run()
         break_flag = true;
     });
 
-    while (!break_flag) {
-        uint32_t step = calc_next_event_step();
-        if (step > 0) {
-            ctrl.set_step_count(step);
-            ctrl.enter_run_mode();
+    {
+        Profiler profiler(this, "run emulation");
+        while (!break_flag) {
+            uint32_t step = calc_next_event_step();
+            if (step > 0) {
+                ctrl.set_step_count(step);
+                ctrl.enter_run_mode();
+            }
+
+            while (is_running()) {
+                for (auto model : model_realtime_cbs)
+                    model->handle_realtime_callback(*this);
+
+                if (break_flag)
+                    ctrl.exit_run_mode();
+            }
+
+            cur_tick = ctrl.get_tick_count();
+
+            if (handle_event())
+                break;
         }
-
-        while (is_running()) {
-            for (auto model : model_realtime_cbs)
-                model->handle_realtime_callback(*this);
-
-            if (break_flag)
-                ctrl.exit_run_mode();
-        }
-
-        cur_tick = ctrl.get_tick_count();
-
-        if (handle_event())
-            break;
+        fprintf(stderr, "\n");
     }
 }
 
@@ -432,9 +433,6 @@ Driver::Driver(
 {
     init_axi(sysinfo);
     init_model(sysinfo);
-
-    if (options.perf)
-        init_perf(options.perf_file, options.perf_interval);
 }
 
 Driver::~Driver()

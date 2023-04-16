@@ -11,17 +11,12 @@
 #include "runtime_data.h"
 #include "checkpoint.h"
 #include "controller.h"
-#include "perfmon.h"
 
 namespace REMU {
 
 struct DriverParameters
 {
     std::string ckpt_path;
-
-    bool perf = false;
-    std::string perf_file;
-    uint64_t perf_interval = 0;
 };
 
 class Driver;
@@ -61,15 +56,12 @@ class Driver
     std::map<int, EmuModel*> model_trigger_cbs;
     std::multimap<uint64_t, EmuModel*> model_tick_cbs; // serializable
 
-    std::unique_ptr<PerfMon> perfmon;
-
     uint64_t cur_tick = 0;
 
     enum MetaEventType
     {
         // Priority max
         Stop,
-        Perf,
         Ckpt,
         // Priority min
     };
@@ -79,7 +71,6 @@ class Driver
     std::priority_queue<MetaEvent, std::vector<MetaEvent>, std::greater<MetaEvent>> meta_event_q;
 
     uint64_t ckpt_interval = 0;
-    uint64_t perf_interval = 0;
 
     void init_axi(const SysInfo &sysinfo);
     void init_model(const SysInfo &sysinfo);

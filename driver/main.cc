@@ -19,12 +19,6 @@ void show_help(const char * argv_0)
         "Options:\n"
         "    --batch\n"
         "        Exit after commands are finished.\n"
-        "    --perf\n"
-        "        Enable performance monitor.\n"
-        "    --perf-file <file>\n"
-        "        Specify performance monitor log file (STDERR by default).\n"
-        "    --perf-interval <tick>\n"
-        "        Specify performance monitor interval, 0 to disable (0 by default).\n"
         "\n"
         , argv_0);
 }
@@ -49,26 +43,6 @@ int main(int argc, const char *argv[])
     for (; argidx < argc; argidx++) {
         if (!strcmp(argv[argidx], "--batch")) {
             batch = true;
-            continue;
-        }
-        if (!strcmp(argv[argidx], "--perf")) {
-            options.perf = true;
-            continue;
-        }
-        if (!strcmp(argv[argidx], "--perf-file")) {
-            if (argc - argidx <= 1) {
-                fprintf(stderr, "missing arguments for --perf-file\n");
-                return 1;
-            }
-            options.perf_file = argv[++argidx];
-            continue;
-        }
-        if (!strcmp(argv[argidx], "--perf-interval")) {
-            if (argc - argidx <= 1) {
-                fprintf(stderr, "missing arguments for --perf-interval\n");
-                return 1;
-            }
-            options.perf_interval = std::stoul(argv[++argidx]);
             continue;
         }
         if (argv[argidx][0] != '-') {
