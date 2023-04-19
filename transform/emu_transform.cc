@@ -155,8 +155,6 @@ struct EmuTransformPass : public Pass {
         if (top.empty())
             log_error("No top module specified\n");
 
-        Pass::call(design, "emu_fixup_port_conn");
-
         if (flatten) {
             Pass::call(design, {"hierarchy", "-top", top});
             Pass::call(design, "flatten");
@@ -186,8 +184,10 @@ struct EmuTransformPass : public Pass {
 
         auto &database = EmulationDatabase::get_instance(design);
 
-        if (!out_file.empty())
+        if (!out_file.empty()) {
+            Pass::call(design, "emu_fixup_driver");
             Pass::call(design, {"write_verilog", "-noattr", out_file});
+        }
 
         if (!sysinfo_file.empty())
             database.write_sysinfo(sysinfo_file);
