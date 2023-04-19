@@ -155,6 +155,8 @@ struct EmuTransformPass : public Pass {
         if (top.empty())
             log_error("No top module specified\n");
 
+        Pass::call(design, "emu_fixup_port_conn");
+
         if (flatten) {
             Pass::call(design, {"hierarchy", "-top", top});
             Pass::call(design, "flatten");
