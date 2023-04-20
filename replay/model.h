@@ -61,7 +61,7 @@ private:
     std::vector<std::queue<BChannel>> b_queue;
     std::vector<std::queue<RChannel>> r_queue;
 
-    void schedule();
+    bool schedule();
 
 public:
 

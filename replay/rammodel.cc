@@ -1,27 +1,28 @@
 #include "model.h"
 
-#include <stdexcept>
-#include <sstream>
+#include <cstdio>
 
 using namespace REMU;
 
-void RamModel::schedule()
+bool RamModel::schedule()
 {
     if (a_queue.empty())
-        return;
+        return true;
 
     const AChannel &a = a_queue.front();
 
     // skip if there are no enough W bursts for write transfer
     if (a.write && w_queue.size() < a.burst_len())
-        return;
+        return true;
 
     uint64_t start_address = a.addr;
     uint64_t number_bytes = a.burst_size();
     uint64_t burst_length = a.burst_len();
 
     if (number_bytes > data_width / 8) {
-        throw std::invalid_argument("burst size greater than AXI data width");
+        fprintf(stderr, "rammodel: burst size (%luB) greater than AXI data width (%uB)\n",
+            number_bytes, data_width / 8);
+        return false;
     }
 
     if (a.burst == WRAP) {
@@ -30,11 +31,13 @@ void RamModel::schedule()
             if (burst_length == 4) break;
             if (burst_length == 8) break;
             if (burst_length == 16) break;
-            throw std::invalid_argument("invalid burst length for WRAP burst");
+            fprintf(stderr, "rammodel: invalid burst length %lu for WRAP burst\n", burst_length);
+            return false;
         } while(false);
     }
     else if (a.burst != INCR) {
-        throw std::invalid_argument("unsupported burst type " + std::to_string(a.burst));
+        fprintf(stderr, "rammodel: unsupported burst type %u\n", a.burst);
+        return false;
     }
 
     uint64_t aligned_address = start_address & ~(number_bytes - 1);
@@ -46,9 +49,8 @@ void RamModel::schedule()
 
     for (uint64_t i = 0; i < burst_length; i++) {
         if (address >= mem_size) {
-            std::ostringstream ss;
-            ss << "address 0x" << std::hex << address << " out of boundary";
-            throw std::invalid_argument(ss.str());
+            fprintf(stderr, "rammodel: address 0x%lx out of boundary\n", address);
+            return false;
         }
 
         BitVector word = data.getValue(address * 8, data_width);
@@ -88,6 +90,8 @@ void RamModel::schedule()
     }
 
     a_queue.pop();
+
+    return true;
 }
 
 bool RamModel::a_push(const AChannel &payload)
@@ -104,16 +108,14 @@ bool RamModel::w_push(const WChannel &payload)
 
 bool RamModel::b_front(uint16_t id, BChannel &payload)
 {
-    schedule();
-
-    // currently unused
-    (void)id;
+    if (!schedule())
+        return false;
 
     if (!b_queue.at(id).empty())
         payload = b_queue.at(id).front();
     else
         payload = {
-            .id     = 0,
+            .id     = id,
         };
 
     return true;
@@ -130,17 +132,15 @@ bool RamModel::b_pop(uint16_t id)
 
 bool RamModel::r_front(uint16_t id, RChannel &payload)
 {
-    schedule();
-
-    // currently unused
-    (void)id;
+    if (!schedule())
+        return false;
 
     if (!r_queue.at(id).empty())
         payload = r_queue.at(id).front();
     else
         payload = {
             .data   = BitVector(data_width),
-            .id     = 0,
+            .id     = id,
             .last   = false
         };
 
