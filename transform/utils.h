@@ -107,7 +107,7 @@ inline uint64_t const_as_u64(const Const &c)
 	uint64_t ret = 0;
 	for (size_t i = 0; i < c.bits.size() && i < 64; i++)
 		if (c.bits[i] == State::S1)
-			ret |= 1 << i;
+			ret |= 1UL << i;
 	return ret;
 }
 
