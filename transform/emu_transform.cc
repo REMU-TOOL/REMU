@@ -83,6 +83,7 @@ struct EmuTransformPass : public Pass {
             Pass::call(design, "emu_restore_param_cells -mod-attr __emu_model_imp");
             Pass::call(design, "delete =A:blackbox");
             Pass::call(design, "emu_package -top EMU_TOP");
+            Pass::call(design, "emu_fixup_driver");
             Pass::call(design, "write_verilog -noattr " + elab_file);
             Pass::call(design, "design -pop");
         }
