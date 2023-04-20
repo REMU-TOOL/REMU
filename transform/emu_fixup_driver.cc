@@ -6,6 +6,8 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+
+
 struct EmuFixupDriver : public Pass {
     EmuFixupDriver() : Pass("emu_fixup_driver", "fix up undriven wires") { }
 
@@ -43,11 +45,14 @@ struct EmuFixupDriver : public Pass {
                 if (wire->port_input)
                     continue;
 
-                for (auto b : SigSpec(wire)) {
-                    if (modwalker.has_inputs(SigSpec(modwalker.sigmap(b))))
+                for (auto b : modwalker.sigmap(wire)) {
+                    if (!b.is_wire())
                         continue;
 
-                    if (modwalker.has_drivers(SigSpec(modwalker.sigmap(b))))
+                    if (modwalker.has_inputs(SigSpec(b)))
+                        continue;
+
+                    if (modwalker.has_drivers(SigSpec(b)))
                         continue;
 
                     wires_to_fixup.append(b);
