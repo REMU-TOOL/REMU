@@ -60,7 +60,7 @@ void Driver::init_axi(const SysInfo &sysinfo)
     uint64_t dmabase = mem->dmabase();
     uint64_t alloc_size = 0;
     for (auto p : sort_list) {
-        p->assigned_size = 1 << clog2(p->size); // power of 2
+        p->assigned_size = 1UL << clog2(p->size); // power of 2
         p->assigned_offset = alloc_size;
         alloc_size += p->assigned_size;
 
