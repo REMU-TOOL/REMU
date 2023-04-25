@@ -158,6 +158,11 @@ public:
         model_tick_cbs.insert({tick, model});
     }
 
+    bool read_uart_data(char &ch)
+    {
+        return ctrl.read_uart_data(ch);
+    }
+
     int main(const std::vector<std::string> &commands, bool batch);
 
     Driver(

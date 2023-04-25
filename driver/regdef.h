@@ -10,6 +10,7 @@ namespace RegDef
     constexpr int TICK_CNT_LO       = 0x008;
     constexpr int TICK_CNT_HI       = 0x00c;
     constexpr int SCAN_CTRL         = 0x010;
+    constexpr int UART_DATA         = 0x080;
     constexpr int TRIG_STAT_START   = 0x100;
     constexpr int TRIG_STAT_END     = 0x110;
     constexpr int TRIG_EN_START     = 0x110;

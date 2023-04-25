@@ -6,8 +6,6 @@ namespace REMU {
 
 class UartModel : public EmuModel
 {
-    int trig_tx_valid;
-    int sig_tx_ch;
     int sig_rx_valid;
     int sig_rx_ch;
 
@@ -26,7 +24,6 @@ public:
 
     virtual bool handle_realtime_callback(Driver &) override;
     virtual bool handle_tick_callback(Driver &, uint64_t) override;
-    virtual bool handle_trigger_callback(Driver &, int) override;
 
     UartModel(Driver &driver, const std::string &name);
 };

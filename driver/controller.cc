@@ -250,6 +250,13 @@ void Controller::set_trigger_enable(const RTTrigger &trigger, bool enable)
     reg->write(addr, value);
 }
 
+bool Controller::read_uart_data(char &ch)
+{
+    uint32_t value = reg->read(RegDef::UART_DATA);
+    ch = value & 0xff;
+    return value & (1u << 31);
+}
+
 void Controller::configure_axi_range(const RTAXI &axi, uint64_t mem_base)
 {
     uint64_t base = mem_base + axi.assigned_offset;
