@@ -43,9 +43,11 @@ struct TracePort
 {
     std::vector<std::string> name;
     std::string port_name;
+    std::string type;
     Yosys::IdString port_valid;
     Yosys::IdString port_ready;
     Yosys::IdString port_data;
+    uint32_t reg_offset = 0;
 };
 
 struct EmulationDatabase

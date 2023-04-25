@@ -20,6 +20,7 @@ DEF(TracePortName,          "\\__emu_trace_port_name"       )
 DEF(TracePortValid,         "\\__emu_trace_port_valid"      )
 DEF(TracePortReady,         "\\__emu_trace_port_ready"      )
 DEF(TracePortData,          "\\__emu_trace_port_data"       )
+DEF(TracePortType,          "\\__emu_trace_port_type"       )
 
 DEF(REMUClock,              "\\remu_clock"                  )
 DEF(REMUSignal,             "\\remu_signal"                 )

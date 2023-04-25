@@ -56,6 +56,13 @@ struct SysInfo
         uint32_t reg_offset;
     };
 
+    struct TraceInfo
+    {
+        std::vector<std::string> name;
+        std::string type;
+        uint32_t reg_offset;
+    };
+
     struct ModelInfo
     {
         std::vector<std::string> name;

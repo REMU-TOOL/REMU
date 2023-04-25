@@ -75,6 +75,16 @@ void serialize(Archive &archive, SysInfo::AXIInfo &node)
 }
 
 template<class Archive>
+void serialize(Archive &archive, SysInfo::TraceInfo &node)
+{
+    archive(
+        NVP(name),
+        NVP(type),
+        NVP(reg_offset)
+    );
+}
+
+template<class Archive>
 void serialize(Archive &archive, SysInfo::ModelInfo &node)
 {
     archive(

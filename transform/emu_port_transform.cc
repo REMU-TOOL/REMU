@@ -439,6 +439,7 @@ void PortTransform::process_trace_ports(Module *module)
         TracePort info;
         info.name = {name};
         info.port_name = name;
+        info.type = wire->get_string_attribute(Attr::TracePortType);
 
         // Process valid/ready/data ports
 

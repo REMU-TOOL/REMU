@@ -21,8 +21,6 @@ module EmuUart #(
     // 0x08 STAT_REG
     // 0x0C CTRL_REG
 
-    // TODO: interrupt
-
     wire         tx_valid;
     wire [7:0]   tx_ch;
     wire         rx_valid;
@@ -33,12 +31,7 @@ module EmuUart #(
         .tx_valid   (tx_valid),
         .tx_ch      (tx_ch),
         .rx_valid   (rx_valid),
-        .rx_ch      (rx_ch),
-        // the following connections will be rewritten by transformation process
-        ._tx_valid  (),
-        ._tx_ch     (),
-        ._rx_valid  (1'b0),
-        ._rx_ch     (8'd0)
+        .rx_ch      (rx_ch)
     );
 
     // TODO: emulate uart speed

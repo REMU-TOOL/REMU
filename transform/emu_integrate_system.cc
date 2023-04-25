@@ -28,6 +28,9 @@ constexpr uint32_t  SIGNAL_IN_WIDTH         = 12;
 constexpr uint32_t  SIGNAL_OUT_BASE         = 0x3000;
 constexpr uint32_t  SIGNAL_OUT_WIDTH        = 12;
 
+constexpr uint32_t  TRACE_PORT_BASE         = 0x4000;
+constexpr uint32_t  TRACE_PORT_WIDTH        = 12;
+
 struct CtrlSig
 {
     Wire *wen;
@@ -260,6 +263,31 @@ void connect_triggers(EmulationDatabase &database, Module *top, Cell *sys_ctrl)
     sys_ctrl->setPort("\\trig", trigs);
 }
 
+void connect_uart_tx(EmulationDatabase &database, Module *top, Cell *sys_ctrl)
+{
+    int uart_tx_count = 0;
+
+    for (auto &info : database.trace_ports) {
+        if (info.type == "uart_tx") {
+            if (uart_tx_count > 0)
+                log_error("At most 1 EmuUart instance is allowed\n");
+
+            Wire *valid = top->wire(info.port_valid);
+            Wire *ready = top->wire(info.port_ready);
+            Wire *data = top->wire(info.port_data);
+            make_internal(valid);
+            make_internal(ready);
+            make_internal(data);
+
+            sys_ctrl->setPort("\\uart_tx_valid",    valid);
+            sys_ctrl->setPort("\\uart_tx_ready",    ready);
+            sys_ctrl->setPort("\\uart_tx_data",     data);
+
+            uart_tx_count++;
+        }
+    }
+}
+
 void add_axi_remap(EmulationDatabase &database, Module *top, CtrlConnBuilder &builder)
 {
     Wire *host_clk      = CommonPort::get(top, CommonPort::PORT_HOST_CLK);
@@ -465,6 +493,10 @@ void SystemTransform::run()
         }
         database.axi_ports.push_back(std::move(info));
     }
+
+    // Connect UART Tx
+
+    connect_uart_tx(database, top, sys_ctrl);
 
     // Add AXI remap
 

@@ -26,7 +26,11 @@ module EmuSysCtrl #(
 
     output wire         dma_start,
     output reg          dma_direction,
-    input  wire         dma_running
+    input  wire         dma_running,
+
+    input  wire         uart_tx_valid,
+    output wire         uart_tx_ready,
+    input  wire [7:0]   uart_tx_data
 );
 
     genvar i;
@@ -36,6 +40,7 @@ module EmuSysCtrl #(
     localparam  TICK_CNT_LO = 10'b0000_0000_10; // 0x008
     localparam  TICK_CNT_HI = 10'b0000_0000_11; // 0x00c
     localparam  SCAN_CTRL   = 10'b0000_0001_00; // 0x010
+    localparam  UART_DATA   = 10'b0000_1000_00; // 0x080
     localparam  TRIG_STAT   = 10'b0001_0000_??; // 0x100 - 0x10c
     localparam  TRIG_EN     = 10'b0001_0001_??; // 0x110 - 0x11c
 
@@ -63,6 +68,15 @@ module EmuSysCtrl #(
             SCAN_CTRL   :   w_scan_ctrl     = 1'b1;
             TRIG_STAT   :   w_trig_stat     = 1'b1;
             TRIG_EN     :   w_trig_en       = 1'b1;
+        endcase
+    end
+
+    reg r_uart_data;
+
+    always @* begin
+        r_uart_data = 1'b0;
+        casez (ctrl_raddr[11:2])
+            UART_DATA:      r_uart_data     = 1'b1;
         endcase
     end
 
@@ -171,6 +185,13 @@ module EmuSysCtrl #(
 
     wire [31:0] scan_ctrl = {30'd0, dma_direction, dma_running};
 
+    // UART_DATA [RO]
+    //      [7:0]   -> tx_data
+    //      [31]    -> tx_valid
+
+    wire [31:0] uart_data = {uart_tx_valid, 23'd0, uart_tx_data};
+    assign uart_tx_ready = ctrl_ren && r_uart_data;
+
     // TRIG_STAT [RO]
 
     // Register space:
@@ -231,6 +252,7 @@ module EmuSysCtrl #(
             TICK_CNT_LO :   ctrl_rdata = tick_cnt[31:0];
             TICK_CNT_HI :   ctrl_rdata = tick_cnt[63:32];
             SCAN_CTRL   :   ctrl_rdata = scan_ctrl;
+            UART_DATA   :   ctrl_rdata = uart_data;
             TRIG_STAT   :   ctrl_rdata = trig_stat_rdata;
             TRIG_EN     :   ctrl_rdata = trig_en_rdata;
         endcase
