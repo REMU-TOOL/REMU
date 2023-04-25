@@ -60,8 +60,7 @@ struct SysInfo
     {
         std::vector<std::string> name;
         std::string type;
-        std::map<std::string, std::string> str_params;
-        std::map<std::string, int> int_params;
+        std::map<std::string, std::string> params; // bitvector
     };
 
     struct ScanFFInfo

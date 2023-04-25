@@ -80,8 +80,7 @@ void serialize(Archive &archive, SysInfo::ModelInfo &node)
     archive(
         NVP(name),
         NVP(type),
-        NVP(str_params),
-        NVP(int_params)
+        NVP(params)
     );
 }
 

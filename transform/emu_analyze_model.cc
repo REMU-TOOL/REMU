@@ -47,12 +47,7 @@ void ModelAnalyzer::run()
 
             for (auto param : tpl->parameter_default_values) {
                 auto &name = param.first;
-                if (name.begins_with("\\C_S_")) {
-                    info.str_params[id2str(name)] = param.second.decode_string();
-                }
-                else if (name.begins_with("\\C_I_")) {
-                    info.int_params[id2str(name)] = param.second.as_int();
-                }
+                info.params[id2str(name)] = param.second.as_string();
             }
 
             model_infos.push_back(std::move(info));
