@@ -10,7 +10,9 @@ module EmuUart #(
     input  wire         clk,
     input  wire         rst,
 
-    `AXI4LITE_SLAVE_IF  (s_axilite, 4, 32)
+    `AXI4LITE_SLAVE_IF  (s_axilite, 4, 32),
+
+    output wire         intr
 );
 
     // Register Space
@@ -39,13 +41,15 @@ module EmuUart #(
         ._rx_ch     (8'd0)
     );
 
+    // TODO: emulate uart speed
+
     // Rx logic
 
     wire rx_fifo_clear;
     wire rx_fifo_valid;
     wire rx_fifo_ready;
     wire [7:0] rx_fifo_data;
-    wire rx_fifo_not_full;
+    wire rx_ready;
 
     emulib_ready_valid_fifo #(
         .WIDTH  (8),
@@ -54,7 +58,7 @@ module EmuUart #(
         .clk    (clk),
         .rst    (rst || rx_fifo_clear),
         .ivalid (rx_valid),
-        .iready (rx_fifo_not_full),
+        .iready (rx_ready),
         .idata  (rx_ch),
         .ovalid (rx_fifo_valid),
         .oready (rx_fifo_ready),
@@ -82,19 +86,32 @@ module EmuUart #(
         .odata  (tx_ch)
     );
 
+    wire stat_clear;
+    wire enable_intr;
+    wire disable_intr;
+
     // Status bits
 
-    wire stat_clear;
-
     reg overrun_err;
+    reg intr_enabled;
+    wire tx_fifo_full = !tx_fifo_ready;
+    wire tx_fifo_empty = !tx_fifo_valid;
+    wire rx_fifo_full = !rx_ready;
 
     always @(posedge clk) begin
         if (rst)
             overrun_err <= 1'b0;
-        else if (rx_valid && !rx_fifo_not_full)
+        else if (rx_valid && !rx_ready)
             overrun_err <= 1'b1;
         else if (stat_clear)
             overrun_err <= 1'b0;
+    end
+
+    always @(posedge clk) begin
+        if (rst)
+            intr_enabled <= 1'b0;
+        else if (enable_intr || disable_intr)
+            intr_enabled <= enable_intr;
     end
 
     // AXI lite read logic
@@ -134,7 +151,7 @@ module EmuUart #(
         if (r_state == R_STATE_READ) begin
             case (read_addr[3:2])
                 2'd0:   read_data <= {24'd0, rx_fifo_data};
-                2'd2:   read_data <= {26'd0, overrun_err, 1'b0, !tx_fifo_ready, !tx_fifo_valid, !rx_fifo_not_full, rx_fifo_valid};
+                2'd2:   read_data <= {26'd0, overrun_err, intr_enabled, tx_fifo_full, tx_fifo_empty, rx_fifo_full, rx_fifo_valid};
             endcase
         end
     end
@@ -219,10 +236,36 @@ module EmuUart #(
     assign tx_fifo_valid = w_state == W_STATE_WRITE && w_tx_fifo;
     assign tx_fifo_clear = w_state == W_STATE_WRITE && w_ctrl_reg && write_data[0];
     assign rx_fifo_clear = w_state == W_STATE_WRITE && w_ctrl_reg && write_data[1];
+    assign enable_intr      = w_state == W_STATE_WRITE && w_ctrl_reg && write_data[4];
+    assign disable_intr     = w_state == W_STATE_WRITE && w_ctrl_reg && !write_data[4];
 
     assign s_axilite_awready    = w_state == W_STATE_AXI_AW;
     assign s_axilite_wready     = w_state == W_STATE_AXI_W;
     assign s_axilite_bvalid     = w_state == W_STATE_AXI_B;
     assign s_axilite_bresp      = write_resp;
+
+    // Interrupt generation
+
+    reg rx_fifo_valid_pre;
+
+    always @(posedge clk) begin
+        if (rst)
+            rx_fifo_valid_pre <= 1'b0;
+        else
+            rx_fifo_valid_pre <= rx_fifo_valid;
+    end
+
+    reg tx_fifo_empty_pre;
+
+    always @(posedge clk) begin
+        if (rst)
+            tx_fifo_empty_pre <= 1'b0;
+        else
+            tx_fifo_empty_pre <= tx_fifo_empty;
+    end
+
+    assign intr = intr_enabled && (
+        (rx_fifo_valid && !rx_fifo_valid_pre) ||
+        (tx_fifo_empty && !tx_fifo_empty_pre));
 
 endmodule
