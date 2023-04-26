@@ -19,14 +19,6 @@
 namespace cereal {
 
 template<class Archive>
-void serialize(Archive &archive, REMU::Checkpoint &node)
-{
-    archive(
-        NVP(tick_cbs)
-    );
-}
-
-template<class Archive>
 void serialize(Archive &archive, REMU::CheckpointManager &node)
 {
     archive(
@@ -95,31 +87,9 @@ void CheckpointMem::flush()
     fs::resize_file(mem_path, mem_size);
 }
 
-std::ifstream CheckpointModel::load_data()
-{
-    return std::ifstream(fs::path(model_path) / "data.bin", std::ios::binary);
-}
-
-std::ofstream CheckpointModel::save_data()
-{
-    return std::ofstream(fs::path(model_path) / "data.bin", std::ios::binary);
-}
-
 std::string Checkpoint::get_mem_path(std::string name)
 {
     return fs::path(ckpt_path) / "mem" / name;
-}
-
-std::string Checkpoint::get_model_path(std::string name)
-{
-    return fs::path(ckpt_path) / "model" / name;
-}
-
-void Checkpoint::flush()
-{
-    std::ofstream f(fs::path(ckpt_path) / "data.json");
-    cereal::JSONOutputArchive archive(f);
-    cereal::serialize(archive, *this);
 }
 
 Checkpoint::Checkpoint(const CheckpointInfo &info, const std::string &path)
@@ -130,26 +100,10 @@ Checkpoint::Checkpoint(const CheckpointInfo &info, const std::string &path)
     fs::create_directories(fs::path(ckpt_path));
     fs::create_directories(fs::path(ckpt_path) / "mem");
 
-    // Load or Initialize serializable data
-
-    std::ifstream f(fs::path(ckpt_path) / "data.json");
-    if (!f.fail()) {
-        cereal::JSONInputArchive archive(f);
-        cereal::serialize(archive, *this);
-    }
-
     // Create memory objects
 
     for (auto &x : info.axi_size_map) {
         axi_mems.try_emplace(x.first, get_mem_path(x.first), x.second);
-    }
-
-    // Create model objects
-
-    for (auto &x : info.models) {
-        auto path = get_model_path(x);
-        fs::create_directories(path);
-        models.try_emplace(x, path);
     }
 }
 
@@ -197,10 +151,6 @@ CheckpointManager::CheckpointManager(const SysInfo &sysinfo, const std::string &
 
     for (auto &x : sysinfo.axi) {
         info.axi_size_map[flatten_name(x.name)] = x.size;
-    }
-
-    for (auto &x : sysinfo.model) {
-        info.models.insert(flatten_name(x.name));
     }
 
     // Create checkpoint directorires

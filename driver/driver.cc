@@ -83,14 +83,27 @@ void Driver::init_model(const SysInfo &sysinfo)
 {
     for (auto &info : sysinfo.model) {
         auto name = flatten_name(info.name);
+
         if (info.type == "uart") {
-            models[name] = new UartModel(*this, name);
+            uart = std::make_unique<UartModel>(*this, name);
+
             fprintf(stderr, "[REMU] INFO: UART model \"%s\" loaded\n",
                 name.c_str());
         }
-        else if (info.type == "rammodel"){
-            fprintf(stderr, "[REMU] INFO: RAM model \"%s\" loaded\n",
-                name.c_str());
+        else if (info.type == "rammodel") {
+            std::string timing_type = BitVector(info.params.at("TIMING_TYPE")).decode_string();
+
+            if (timing_type == "fixed") {
+                rammodel[name] = std::make_unique<RamModelFixed>(*this, name);
+            }
+            else {
+                fprintf(stderr, "[REMU] WARNING: RAM model \"%s\" with unrecognized timing type \"%s\" is ignored\n",
+                    name.c_str(), timing_type.c_str());
+                continue;
+            }
+
+            fprintf(stderr, "[REMU] INFO: RAM model \"%s\" loaded (timing type: %s)\n",
+                name.c_str(), timing_type.c_str());
         }
         else {
             fprintf(stderr, "[REMU] WARNING: Model \"%s\" of unrecognized type \"%s\" is ignored\n",
@@ -130,20 +143,6 @@ void Driver::load_checkpoint()
 
         auto ckpt = ckpt_mgr.open(cur_tick);
         ctrl.set_tick_count(cur_tick);
-
-        // Restore tick callbacks
-
-        model_tick_cbs.clear();
-        for (auto &x : ckpt.tick_cbs) {
-            register_tick_callback(models.at(x.second), x.first);
-        }
-
-        // Restore models
-
-        for (auto &x : models) {
-            auto stream = ckpt.models.at(x.first).load_data();
-            x.second->load(stream);
-        }
 
         // Restore signals
 
@@ -237,19 +236,6 @@ void Driver::save_checkpoint()
             ckpt_mgr.signal_trace[signal.name] = signal.trace;
         }
 
-        // Save models
-
-        for (auto &x : models) {
-            auto stream = ckpt.models.at(x.first).save_data();
-            x.second->save(stream);
-        }
-
-        // Save tick callbacks
-
-        for (auto &x : model_tick_cbs) {
-            ckpt.tick_cbs.insert({x.first, x.second->get_name()});
-        }
-
         ckpt_mgr.flush();
     }
 }
@@ -264,31 +250,10 @@ bool Driver::handle_event()
         if (!ctrl.get_trigger_enable(trigger) || !ctrl.is_trigger_active(trigger))
             continue;
 
-        // If the trigger is handled by a callback, ignore it
-        auto cb_it = model_trigger_cbs.find(index);
-        if (cb_it != model_trigger_cbs.end()) {
-            if (cb_it->second->handle_trigger_callback(*this, index))
-                continue;
-        }
-
         fprintf(stderr, "[REMU] INFO: Tick %lu: trigger \"%s\" is activated\n",
             cur_tick, trigger.name.c_str());
 
         stop_requested = true;
-    }
-
-    // Process tick callbacks
-
-    while (!model_tick_cbs.empty()) {
-        auto it = model_tick_cbs.begin();
-        auto next_tick = it->first;
-
-        if (next_tick > cur_tick)
-            break;
-
-        it->second->handle_tick_callback(*this, cur_tick);
-
-        model_tick_cbs.erase(it);
     }
 
     // Process meta events
@@ -338,18 +303,6 @@ uint32_t Driver::calc_next_event_step()
 {
     uint64_t step = UINT32_MAX;
 
-    // Process tick callbacks
-
-    if (!model_tick_cbs.empty()) {
-        auto it = model_tick_cbs.begin();
-        auto next_tick = it->first;
-
-        if (next_tick < cur_tick)
-            throw std::runtime_error("executing event behind current tick");
-
-        step = std::min(step, next_tick - cur_tick);
-    }
-
     // Process meta events
 
     if (!meta_event_q.empty()) {
@@ -393,6 +346,9 @@ void Driver::run()
         break_flag = true;
     });
 
+    if (uart)
+        uart->enter_term();
+
     {
         Profiler profiler(this, "run emulation");
         while (!break_flag) {
@@ -403,8 +359,8 @@ void Driver::run()
             }
 
             while (is_running()) {
-                for (auto model : model_realtime_cbs)
-                    model->handle_realtime_callback(*this);
+                if (uart)
+                    uart->poll(*this);
 
                 if (break_flag)
                     ctrl.exit_run_mode();
@@ -417,6 +373,9 @@ void Driver::run()
         }
         fprintf(stderr, "\n");
     }
+
+    if (uart)
+        uart->exit_term();
 }
 
 Driver::Driver(
@@ -433,10 +392,4 @@ Driver::Driver(
 {
     init_axi(sysinfo);
     init_model(sysinfo);
-}
-
-Driver::~Driver()
-{
-    for (auto &x : models)
-        delete x.second;
 }

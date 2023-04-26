@@ -20,6 +20,7 @@ struct SignalPort
     std::string port_name;
     int width = 0;
     bool output = false;
+    std::string init;
     uint32_t reg_offset = 0;
 };
 

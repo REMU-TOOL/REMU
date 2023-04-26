@@ -24,4 +24,5 @@ DEF(TracePortType,          "\\__emu_trace_port_type"       )
 
 DEF(REMUClock,              "\\remu_clock"                  )
 DEF(REMUSignal,             "\\remu_signal"                 )
+DEF(REMUSignalInit,         "\\remu_signal_init"            )
 DEF(REMUTrig,               "\\remu_trigger"                )

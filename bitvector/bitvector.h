@@ -92,6 +92,22 @@ public:
         return res;
     }
 
+    std::string decode_string() const
+    {
+        std::string s;
+        s.reserve(width_/8);
+        for (width_t i = 0; i < width_; i += 8) {
+            char ch = 0;
+            for (width_t j = 0; j < 8 && i+j < width_; j++)
+                if (getBit(i+j))
+                    ch |= 1 << j;
+            if (ch != 0)
+                s += ch;
+        }
+        std::reverse(s.begin(), s.end());
+        return s;
+    }
+
     // This sets all bits to 0
     void clear()
     {

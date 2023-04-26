@@ -1,29 +1,32 @@
 #ifndef _REMU_UART_H_
 #define _REMU_UART_H_
 
-#include "driver.h"
+#include <string>
+#include <termios.h>
+
 namespace REMU {
 
-class UartModel : public EmuModel
+class Driver;
+
+class UartModel
 {
-    int sig_rx_valid;
+    int sig_rx_toggle;
     int sig_rx_ch;
 
-    // serializable data begin
+    bool term_mode;
+    struct termios old_term;
+    int old_fl;
 
-    bool rx_ready;
-
-    // serializable data end
-
-    void init_term();
+    char ch_to_send;
 
 public:
 
-    virtual void save(std::ostream &) const override;
-    virtual void load(std::istream &) override;
+    void enter_term();
+    void exit_term();
 
-    virtual bool handle_realtime_callback(Driver &) override;
-    virtual bool handle_tick_callback(Driver &, uint64_t) override;
+    void poll(Driver &);
+
+    bool send(char ch);
 
     UartModel(Driver &driver, const std::string &name);
 };

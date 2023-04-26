@@ -3,42 +3,51 @@
 #include <cstdio>
 #include <unistd.h>
 #include <fcntl.h>
-#include <termios.h>
+
+#include "driver.h"
 
 using namespace REMU;
 
-void UartModel::init_term()
+void UartModel::enter_term()
 {
-    struct termios t;
-    tcgetattr(0, &t);
+    if (term_mode)
+        return;
+
+    tcgetattr(0, &old_term);
+
+    struct termios t = old_term;
     t.c_lflag &= ~ICANON;
+    t.c_lflag &= ~ECHO;
     tcsetattr(0, TCSANOW, &t);
 
-    fcntl(0, F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK);
+    old_fl = fcntl(0, F_GETFL);
+    fcntl(0, F_SETFL, old_fl | O_NONBLOCK);
+
+    term_mode = true;
 }
 
-void UartModel::save(std::ostream &stream) const
+void UartModel::exit_term()
 {
-    stream << rx_ready;
+    tcsetattr(0, TCSANOW, &old_term);
+    fcntl(0, F_SETFL, old_fl);
+    
+    term_mode = false;
 }
 
-void UartModel::load(std::istream &stream)
+void UartModel::poll(Driver &driver)
 {
-    stream >> rx_ready;
-}
-
-bool UartModel::handle_realtime_callback(Driver &driver)
-{
-    if (!driver.is_replay_mode() && rx_ready) {
-        char ch = 0;
-        read(0, &ch, 1);
+    if (!driver.is_replay_mode()) {
+        char ch = ch_to_send;
+        ch_to_send = 0;
+        if (!ch) {
+            read(0, &ch, 1);
+        }
         if (ch) {
             driver.pause();
             uint64_t tick = driver.current_tick();
-            driver.set_signal_value(sig_rx_valid, BitVector(1, 1));
+            bool toggle = driver.get_signal_value(sig_rx_toggle).getBit(0);
+            driver.set_signal_value(sig_rx_toggle, BitVector(1, !toggle));
             driver.set_signal_value(sig_rx_ch, BitVector(8, ch));
-            driver.register_tick_callback(this, tick + 1);
-            rx_ready = false;
         }
     }
 
@@ -46,25 +55,21 @@ bool UartModel::handle_realtime_callback(Driver &driver)
     while (driver.read_uart_data(ch)) {
         write(1, &ch, 1);
     }
+}
 
+bool UartModel::send(char ch)
+{
+    if (ch_to_send != 0)
+        return false;
+
+    ch_to_send = ch;
     return true;
 }
 
-bool UartModel::handle_tick_callback(Driver &driver, uint64_t /*tick*/)
+UartModel::UartModel(Driver &driver, const std::string &name)
 {
-    driver.set_signal_value(sig_rx_valid, BitVector(1, 0));
-    rx_ready = true;
-    return true;
-}
-
-UartModel::UartModel(Driver &driver, const std::string &name) : EmuModel(name)
-{
-    sig_rx_valid = driver.lookup_signal(name + ".rx_tx_imp._rx_valid");
+    sig_rx_toggle = driver.lookup_signal(name + ".rx_tx_imp._rx_toggle");
     sig_rx_ch = driver.lookup_signal(name + ".rx_tx_imp._rx_ch");
 
-    rx_ready = true;
-
-    driver.register_realtime_callback(this);
-
-    init_term();
+    term_mode = false;
 }

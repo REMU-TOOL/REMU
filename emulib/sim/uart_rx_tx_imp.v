@@ -11,17 +11,22 @@ module EmuUartRxTxImp (
     output wire [7:0]   rx_ch,
 
     (* remu_signal *)
-    input  wire         _rx_valid,
+    input  wire         _rx_toggle,
     (* remu_signal *)
     input  wire [7:0]   _rx_ch
 );
-
-    assign rx_valid = _rx_valid;
-    assign rx_ch = _rx_ch;
 
     always @(posedge clk) begin
         if (tx_valid)
             $write("%c", tx_ch);
     end
+
+    reg _rx_toggle_pre;
+
+    always @(posedge clk)
+        _rx_toggle_pre <= _rx_toggle;
+
+    assign rx_valid = _rx_toggle && !_rx_toggle_pre;
+    assign rx_ch = _rx_ch;
 
 endmodule

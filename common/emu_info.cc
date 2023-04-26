@@ -51,6 +51,7 @@ void serialize(Archive &archive, SysInfo::SignalInfo &node)
         NVP(name),
         NVP(width),
         NVP(output),
+        NVP(init),
         NVP(reg_offset)
     );
 }

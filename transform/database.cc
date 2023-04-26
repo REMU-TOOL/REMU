@@ -35,6 +35,7 @@ void EmulationDatabase::generate_sysinfo()
             .name       = x.name,
             .width      = x.width,
             .output     = x.output,
+            .init       = x.init,
             .reg_offset = x.reg_offset,
         });
     }
@@ -150,8 +151,9 @@ void EmulationDatabase::write_checkpoint(std::string ckpt_path)
             continue;
 
         auto name = flatten_name(signal.name);
-        BitVector value(signal.width);
-        ckpt_mgr.signal_trace[name][0] = value;
+        ckpt_mgr.signal_trace[name][0] = signal.init.empty() ?
+            BitVector(signal.width) :
+            BitVector(signal.init);
     }
 
     // ckpt & ckpt_mgr will be flushed on destruction

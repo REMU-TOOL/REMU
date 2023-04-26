@@ -206,7 +206,6 @@ void PortTransform::process_clocks(Module *module)
 
 void PortTransform::process_signals(Module *module)
 {
-    std::vector<Wire*> wire_list;
     std::vector<SignalPort> info_list;
 
     for (auto portid : module->ports) {
@@ -226,15 +225,23 @@ void PortTransform::process_signals(Module *module)
                 log_id(wire));
 
         wire->set_bool_attribute(Attr::REMUSignal, false);
-        wire_list.push_back(wire);
-    }
 
-    for (auto wire : wire_list) {
+        std::string init;
+        if (wire->port_input && wire->has_attribute(Attr::REMUSignalInit)) {
+            Const initval = wire->attributes.at(Attr::REMUSignalInit);
+            if (wire->is_signed)
+                initval.exts(wire->width);
+            else
+                initval.extu(wire->width);
+            init = initval.as_string();
+        }
+
         SignalPort info;
         info.port_name = id2str(wire->name);
         info.name = {info.port_name};
         info.width = wire->width;
         info.output = wire->port_output;
+        info.init = init;
         info_list.push_back(info);
     }
 

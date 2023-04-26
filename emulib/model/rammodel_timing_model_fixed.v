@@ -1,15 +1,13 @@
 `timescale 1ns / 1ps
 
-module emulib_rammodel_timing_model_fixed_cfg #(
-    parameter DELAY_BITS    = 16
-)(
-    output wire [DELAY_BITS-1:0]    r_delay_conn,
-    output wire [DELAY_BITS-1:0]    w_delay_conn,
+module emulib_rammodel_timing_model_fixed_cfg (
+    output wire [15:0]  r_delay_conn,
+    output wire [15:0]  w_delay_conn,
 
-    (* remu_signal *)
-    input  wire [DELAY_BITS-1:0]    r_delay,
-    (* remu_signal *)
-    input  wire [DELAY_BITS-1:0]    w_delay
+    (* remu_signal, remu_signal_init = 16'd1 *)
+    input  wire [15:0]  r_delay,
+    (* remu_signal, remu_signal_init = 16'd1 *)
+    input  wire [15:0]  w_delay
 );
 
     assign r_delay_conn = r_delay;
@@ -57,22 +55,18 @@ module emulib_rammodel_timing_model_fixed #(
 
 );
 
-    localparam DELAY_BITS = 16;
-
     ///// params /////
 
-    wire [DELAY_BITS-1:0] r_delay, w_delay;
+    wire [15:0] r_delay, w_delay;
 
-    emulib_rammodel_timing_model_fixed_cfg #(
-        .DELAY_BITS     (DELAY_BITS)
-    ) cfg (
+    emulib_rammodel_timing_model_fixed_cfg cfg (
         .r_delay_conn   (r_delay),
         .w_delay_conn   (w_delay)
     );
 
     ///// read timing /////
 
-    localparam R_TS_LEN = $clog2(MAX_R_INFLIGHT)*DELAY_BITS;
+    localparam R_TS_LEN = $clog2(MAX_R_INFLIGHT)*16;
 
     // time stamp register
     reg [R_TS_LEN-1:0] r_ts_reg;
@@ -158,7 +152,7 @@ module emulib_rammodel_timing_model_fixed #(
 
     ///// write timing /////
 
-    localparam W_TS_LEN = $clog2(MAX_W_INFLIGHT)*DELAY_BITS;
+    localparam W_TS_LEN = $clog2(MAX_W_INFLIGHT)*16;
 
     // time stamp register
     reg [W_TS_LEN-1:0] w_ts_reg;

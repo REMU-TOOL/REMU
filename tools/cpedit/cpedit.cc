@@ -38,8 +38,6 @@ void CpEdit::save()
         mem.flush();
     }
     pending_axi_imports.clear();
-
-    ckpt.flush();
 }
 
 bool CpEdit::cmd_help(const std::vector<std::string> &args)

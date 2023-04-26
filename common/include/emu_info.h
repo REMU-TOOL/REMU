@@ -40,6 +40,7 @@ struct SysInfo
         std::vector<std::string> name;
         int width;
         bool output;
+        std::string init; // for input signals
         uint32_t reg_offset;
     };
 

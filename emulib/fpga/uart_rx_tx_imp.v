@@ -28,7 +28,7 @@ module EmuUartRxTxImp (
     output wire [7:0]   rx_ch,
 
     (* remu_signal *)
-    input  wire         _rx_valid,
+    input  wire         _rx_toggle, // _rx_ch is valid when _rx_toggle is flipped
     (* remu_signal *)
     input  wire [7:0]   _rx_ch,
 
@@ -66,7 +66,12 @@ module EmuUartRxTxImp (
     assign tx_fifo_data = tx_ch;
     assign tk_tx_ready = tx_fifo_ready || !tx_valid;
 
-    assign rx_valid = _rx_valid;
+    reg _rx_toggle_pre;
+
+    always @(posedge clk)
+        _rx_toggle_pre <= _rx_toggle;
+
+    assign rx_valid = _rx_toggle ^ _rx_toggle_pre;
     assign rx_ch = _rx_ch;
 
 endmodule

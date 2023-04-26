@@ -37,6 +37,16 @@ bool Driver::cmd_help(const std::vector<std::string> &args)
         "        List signals.\n"
         "    signal <signal> [<value>]\n"
         "        Get/set signal value.\n"
+        "    uart ctrl-c\n"
+        "        Send ctrl-c to uart.\n"
+        "    rammodel\n"
+        "        List RAM models.\n"
+        "    rammodel <name>\n"
+        "        Show RAM model info.\n"
+        "    rammodel <name> r-delay <delay>\n"
+        "        Set read delay for fixed-timing RAM model.\n"
+        "    rammodel <name> w-delay <delay>\n"
+        "        Set write delay for fixed-timing RAM model.\n"
         "\n"
         );
 
@@ -203,6 +213,95 @@ bool Driver::cmd_signal(const std::vector<std::string> &args)
     return false;
 }
 
+bool Driver::cmd_uart(const std::vector<std::string> &args)
+{
+    if (args.size() < 2) {
+        fprintf(stderr, "Incorrect number of arguments for this command\n");
+        return false;
+    }
+
+    auto &action = args[1];
+    if (action == "ctrl-c") {
+        if (uart)
+            uart->send('\x03');
+        return true;
+    }
+
+    fprintf(stderr, "Unknown action %s\n", action.c_str());
+    return false;
+}
+
+bool Driver::cmd_rammodel(const std::vector<std::string> &args)
+{
+    if (args.size() == 1) {
+        for (auto &p : rammodel) {
+            printf("%s\n", p.first.c_str());
+            printf("    timing type: %s\n",
+                RamModel::type_names.at(p.second->get_type()).c_str());
+        }
+        return true;
+    }
+
+    std::string name = args[1];
+    if (rammodel.count(name) == 0) {
+        fprintf(stderr, "RAM model %s is not found\n", name.c_str());
+        return false;
+    }
+    auto &model = *rammodel.at(name);
+
+    if (args.size() == 2) {
+        switch (model.get_type()) {
+            case FIXED:
+            {
+                auto &fixed = dynamic_cast<RamModelFixed&>(model);
+                printf("r_delay: %d\n", fixed.get_r_delay());
+                printf("w_delay: %d\n", fixed.get_w_delay());
+                break;
+            }
+        }
+        return true;
+    }
+
+    std::string action = args[2];
+
+    if (action == "r-delay") {
+        if (model.get_type() != FIXED) {
+            fprintf(stderr, "r-delay is only supported on fixed-timing RAM model\n");
+            return false;
+        }
+
+        if (args.size() != 4) {
+            fprintf(stderr, "Incorrect number of arguments for this command\n");
+            return false;
+        }
+
+        auto &fixed = dynamic_cast<RamModelFixed&>(model);
+        int delay = std::stoi(args[3]);
+        fixed.set_r_delay(delay);
+        return true;
+    }
+
+    if (action == "w-delay") {
+        if (model.get_type() != FIXED) {
+            fprintf(stderr, "w-delay is only supported on fixed-timing RAM model\n");
+            return false;
+        }
+
+        if (args.size() != 4) {
+            fprintf(stderr, "Incorrect number of arguments for this command\n");
+            return false;
+        }
+
+        auto &fixed = dynamic_cast<RamModelFixed&>(model);
+        int delay = std::stoi(args[3]);
+        fixed.set_w_delay(delay);
+        return true;
+    }
+
+    fprintf(stderr, "Incorrect number of arguments for this command\n");
+    return false;
+}
+
 decltype(Driver::cmd_dispatcher) Driver::cmd_dispatcher = {
     {"help",            &Driver::cmd_help},
     {"list",            &Driver::cmd_list},
@@ -213,6 +312,8 @@ decltype(Driver::cmd_dispatcher) Driver::cmd_dispatcher = {
     {"run",             &Driver::cmd_run},
     {"trigger",         &Driver::cmd_trigger},
     {"signal",          &Driver::cmd_signal},
+    {"uart",            &Driver::cmd_uart},
+    {"rammodel",        &Driver::cmd_rammodel},
 };
 
 bool Driver::execute_cmd(const std::string &cmd)
