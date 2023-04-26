@@ -1,6 +1,6 @@
-SIM_TOP := rammodel_test
+SIM_TOP := EmuRamTest
 
-SIM_SRCS += test.v
+SIM_SRCS += rammodel_test.v
 
 COCOTB_MODULE := testbench
 

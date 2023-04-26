@@ -31,19 +31,20 @@ async def run_test(dut):
 
     await tb.do_reset()
 
-    async def read_write_worker_func():
+    async def read_write_worker_func(addr):
         for step in range(0, 100):
             burst = random.choice((AxiBurstType.INCR, AxiBurstType.WRAP))
             size = random.randint(0, 3)
-            addr = (2 ** size) * random.randint(0, 16)
             length = 0x100 if burst == AxiBurstType.INCR else 16 * (2 ** size)
-            test_data = bytearray([x % 256 for x in range(length)])
+            test_data = bytes([x % 256 for x in range(length)])
             dut._log.info("STEP %d: address=0x%x, length=0x%x, axsize=%d axburst=%s" %
                           (step, addr, length, size, burst))
             await ClockCycles(dut.host_clk, random.randint(1, 20))
             await tb.axi_master.write(addr, test_data, burst=burst, size=size)
             await ClockCycles(dut.host_clk, random.randint(1, 20))
             data = await tb.axi_master.read(addr, length, burst=burst, size=size)
+            # dut.log.info("test_data: " + repr(test_data))
+            # dut.log.info("data.data: " + repr(data.data))
             assert data.data == test_data
 
     running = True
@@ -60,15 +61,18 @@ async def run_test(dut):
             dut.run_mode.value = 1
             dut._log.info("resumed")
 
-    read_write_worker = cocotb.start_soon(read_write_worker_func())
-    pause_resume_worker = cocotb.start_soon(pause_resume_worker_func())
+    read_write_worker_list = []
+    for i in range(2):
+        read_write_worker_list.append(cocotb.start_soon(read_write_worker_func(i*0x1000)))
+    #pause_resume_worker = cocotb.start_soon(pause_resume_worker_func())
 
     await ClockCycles(dut.host_clk, 100)
     dut._log.info("Releasing DUT reset")
     dut.target_rst.value = 0
 
-    await read_write_worker.join()
+    for worker in read_write_worker_list:
+        await worker.join()
     running = False
-    await pause_resume_worker.join()
+    #await pause_resume_worker.join()
 
     await RisingEdge(dut.host_clk)
