@@ -47,9 +47,12 @@ module emulib_rammodel_tracker #(
         if (rst)
             w_if_cnt <= 0;
         else
-            w_if_cnt <= w_if_cnt + axi_awfire -axi_bfire;
+            w_if_cnt <= w_if_cnt + axi_awfire - axi_bfire;
 
-    assign axi_arready = r_if_cnt != MAX_R_INFLIGHT;
+    // Workaround: we have to send read when no write in in flight
+    // because the backend may not complete a read request if there is an incomplete write (AW sent but W not completely sent)
+    // sending AR & AW at the same time is OK because AR has higher arbitration priority in the backend
+    assign axi_arready = r_if_cnt != MAX_R_INFLIGHT && w_if_cnt == 0;
     assign axi_awready = w_if_cnt != MAX_W_INFLIGHT;
 
     // AWLEN FIFO

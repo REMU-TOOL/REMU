@@ -205,13 +205,14 @@ module emulib_rammodel_backend #(
     assign arb_i_aw_aburst  = awreq_burst;
     assign tk_awreq_ready   = arb_i_aw_aready || !awreq_valid;
 
+    // AR is prior to AW
     emulib_ready_valid_arbiter #(
         .NUM_I      (2),
         .DATA_WIDTH (A_PAYLOAD_LEN)
     ) aw_ar_arb (
-        .i_valid    ({arb_i_aw_avalid, arb_i_ar_avalid}),
-        .i_ready    ({arb_i_aw_aready, arb_i_ar_aready}),
-        .i_data     ({`AXI4_CUSTOM_A_PAYLOAD(arb_i_aw), `AXI4_CUSTOM_A_PAYLOAD(arb_i_ar)}),
+        .i_valid    ({arb_i_ar_avalid, arb_i_aw_avalid}),
+        .i_ready    ({arb_i_ar_aready, arb_i_aw_aready}),
+        .i_data     ({`AXI4_CUSTOM_A_PAYLOAD(arb_i_ar), `AXI4_CUSTOM_A_PAYLOAD(arb_i_aw)}),
         .o_valid    (arb_o_avalid),
         .o_ready    (arb_o_aready),
         .o_data     (`AXI4_CUSTOM_A_PAYLOAD(arb_o)),
@@ -303,6 +304,18 @@ module emulib_rammodel_backend #(
             w_stream_count <= w_stream_count + w_stream_count_inc - w_stream_count_dec;
     end
 
+    (* __emu_no_scanchain *)
+    reg [$clog2(W_ISSUE_Q_DEPTH+1)-1:0] w_stream_credit = 0;
+    wire w_stream_credit_inc = host_axi_awvalid && host_axi_awready;
+    wire w_stream_credit_dec = host_axi_wvalid && host_axi_wready && host_axi_wlast;
+
+    always @(posedge mdl_clk) begin
+        if (mdl_rst)
+            w_stream_credit <= 0;
+        else
+            w_stream_credit <= w_stream_credit + w_stream_credit_inc - w_stream_credit_dec;
+    end
+
 `ifdef RAMMODEL_BACKEND_DEBUG
     reg [7:0] w_issue_seq = 0;
     always @(posedge mdl_clk) begin
@@ -323,7 +336,7 @@ module emulib_rammodel_backend #(
     wire allow_req;
 
     // issue AW req to host only when all data in the burst are ready
-    wire wdata_ok = w_stream_count != 0;
+    wire wdata_ok = w_stream_count > w_stream_credit;
 
     wire host_afire = host_axi_arvalid && host_axi_arready ||
                       host_axi_awvalid && host_axi_awready;
@@ -388,19 +401,7 @@ module emulib_rammodel_backend #(
 
     //// Issue W requests to host ////
 
-    (* __emu_no_scanchain *)
-    reg [$clog2(W_ISSUE_Q_DEPTH+1)-1:0] w_stream_credit = 0;
-    wire w_stream_credit_inc = host_axi_awvalid && host_axi_awready;
-    wire w_stream_credit_dec = host_axi_wvalid && host_axi_wready && host_axi_wlast;
-
-    always @(posedge mdl_clk) begin
-        if (mdl_rst)
-            w_stream_credit <= 0;
-        else
-            w_stream_credit <= w_stream_credit + w_stream_credit_inc - w_stream_credit_dec;
-    end
-
-    wire allow_host_w = w_stream_credit >= w_stream_count && !scan_mode;
+    wire allow_host_w = w_stream_credit != 0 && !scan_mode;
 
     assign host_axi_wvalid      = pre_issue_wvalid && allow_host_w;
     assign pre_issue_wready     = host_axi_wready && allow_host_w;

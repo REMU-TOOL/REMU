@@ -203,7 +203,7 @@ module emulib_rammodel_timing_model_fixed #(
         .rst        (rst),
         .ivalid     (w_wait_q_i_valid),
         .iready     (w_wait_q_i_ready),
-        .idata      ({next_wresp_ts, awid}),
+        .idata      ({next_wresp_ts, wreq_id}),
         .ovalid     (w_wait_q_o_valid),
         .oready     (w_wait_q_o_ready),
         .odata      ({w_wait_q_o_ts, w_wait_q_o_id})
