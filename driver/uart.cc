@@ -72,4 +72,5 @@ UartModel::UartModel(Driver &driver, const std::string &name)
     sig_rx_ch = driver.lookup_signal(name + ".rx_tx_imp._rx_ch");
 
     term_mode = false;
+    ch_to_send = 0;
 }
