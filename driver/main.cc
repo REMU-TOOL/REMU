@@ -8,6 +8,19 @@
 
 using namespace REMU;
 
+void show_logo()
+{
+    fprintf(stderr,
+        "_______________________  _______  __\n"
+        "___  __ \\__  ____/__   |/  /_  / / /\n"
+        "__  /_/ /_  __/  __  /|_/ /_  / / / \n"
+        "_  _, _/_  /___  _  /  / / / /_/ /  \n"
+        "/_/ |_| /_____/  /_/  /_/  \\____/   \n"
+        "                                    \n"
+        "\n"
+    );
+}
+
 void show_help(const char * argv_0)
 {
     //   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -25,6 +38,8 @@ void show_help(const char * argv_0)
 
 int main(int argc, const char *argv[])
 {
+    show_logo();
+
     if (argc < 4) {
         show_help(argv[0]);
         return 1;
