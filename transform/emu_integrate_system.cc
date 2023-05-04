@@ -519,9 +519,11 @@ struct EmuIntegrateSystem : public Pass
         log_header(design, "Executing EMU_INTEGRATE_SYSTEM pass.\n");
         log_push();
 
+        EmuLibInfo emulib(proc_self_dirname() + "../share/remu/emulib/");
+
         SystemTransform worker(design,
             EmulationDatabase::get_instance(design),
-            EmuLibInfo::get_instance());
+            emulib);
 
         worker.run();
 

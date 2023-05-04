@@ -50,7 +50,7 @@ struct EmuTransformPass : public Pass {
         log_header(design, "Executing design integration.\n");
         log_push();
 
-        auto &emulib = EmuLibInfo::get_instance();
+        EmuLibInfo emulib(proc_self_dirname() + "../share/remu/emulib/");
 
         std::vector<std::string> load_model_cmd({"read_verilog", "-noautowire", "-I", emulib.verilog_include_path});
         load_model_cmd.insert(load_model_cmd.end(), emulib.model_sources.begin(), emulib.model_sources.end());
