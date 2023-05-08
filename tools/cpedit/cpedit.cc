@@ -178,7 +178,7 @@ bool CpEdit::cmd_ff(const std::vector<std::string> &args)
         return false;
     }
 
-    auto &data = circuit.wire.at(ff_name_map.at(ff_name));
+    auto &data = circuit.wire.at(ff_name_map.at(ff_name)).data;
 
     if (args.size() == 2) {
         printf("%s\n", data.bin().c_str());
@@ -215,7 +215,7 @@ bool CpEdit::cmd_ram(const std::vector<std::string> &args)
         return false;
     }
 
-    auto &data = circuit.ram.at(ram_name_map.at(ram_name));
+    auto &data = circuit.ram.at(ram_name_map.at(ram_name)).data;
 
     if (args.size() == 2) {
         printf("Width: %lu\n", data.width());
@@ -251,7 +251,7 @@ bool CpEdit::cmd_ff_dump(const std::vector<std::string> &args)
     for (auto &it : circuit.wire) {
         printf("%s = %lu'h%s\n",
             flatten_name(it.first).c_str(),
-            it.second.width(), it.second.hex().c_str());
+            it.second.data.width(), it.second.data.hex().c_str());
     }
 
     return true;
@@ -259,11 +259,11 @@ bool CpEdit::cmd_ff_dump(const std::vector<std::string> &args)
 
 static void dump_ram(const decltype(*CircuitState::ram.begin()) &it)
 {
-    int width = it.second.width();
-    int depth = it.second.depth();
-    int start_offset = it.second.start_offset();
+    int width = it.second.data.width();
+    int depth = it.second.data.depth();
+    int start_offset = it.second.data.start_offset();
     for (int i = 0; i < depth; i++) {
-        auto word = it.second.get(i);
+        auto word = it.second.data.get(i);
         printf("%s[%d] = %lu'h%s\n",
             flatten_name(it.first).c_str(),
             i + start_offset, word.width(), word.hex().c_str());

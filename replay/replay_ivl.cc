@@ -38,10 +38,12 @@ void VPILoader::load()
                 full_name.c_str());
             continue;
         }
-        vpiSetValue(obj, it.second);
+        vpiSetValue(obj, it.second.data);
     }
 
     for (auto &it : circuit.ram) {
+        if (it.second.dissolved)
+            continue;
         std::string full_name = get_full_name(it.first);
         vpiHandle obj = vpi_handle_by_name(full_name.c_str(), 0);
         if (obj == 0) {
@@ -49,8 +51,8 @@ void VPILoader::load()
                 full_name.c_str());
             continue;
         }
-        int depth = it.second.depth();
-        int start_offset = it.second.start_offset();
+        int depth = it.second.data.depth();
+        int start_offset = it.second.data.start_offset();
         for (int i = 0; i < depth; i++) {
             int index = i + start_offset;
             vpiHandle word_obj = vpi_handle_by_index(obj, index);
@@ -59,7 +61,7 @@ void VPILoader::load()
                     vpi_get_str(vpiFullName, obj), index);
                 continue;
             }
-            vpiSetValue(word_obj, it.second.get(i));
+            vpiSetValue(word_obj, it.second.data.get(i));
         }
     }
 }

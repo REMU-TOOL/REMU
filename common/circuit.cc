@@ -22,17 +22,20 @@ CircuitState::CircuitState(const SysInfo &sysinfo)
     : scan_ff(sysinfo.scan_ff), scan_ram(sysinfo.scan_ram)
 {
     for (auto &it : sysinfo.wire) {
+        BitVector data;
         if (it.second.init_zero)
-            wire[it.first] = BitVector(it.second.width);
+            data = BitVector(it.second.width);
         else
-            wire[it.first] = BitVector(it.second.init_data);
+            data = BitVector(it.second.init_data);
+        wire[it.first].data = data;
     }
 
     for (auto &it : sysinfo.ram) {
-        BitVectorArray array(it.second.width, it.second.depth, it.second.start_offset);
+        BitVectorArray data(it.second.width, it.second.depth, it.second.start_offset);
         if (!it.second.init_zero)
-            array.set_flattened_data(BitVector(it.second.init_data));
-        ram[it.first] = array;
+            data.set_flattened_data(BitVector(it.second.init_data));
+        ram[it.first].data = data;
+        ram[it.first].dissolved = it.second.dissolved;
     }
 }
 
@@ -49,7 +52,7 @@ void CircuitState::load(Checkpoint &checkpoint)
 
     for (auto &info : scan_ff) {
         if (!info.name.empty()) {
-            auto &data = wire.at(info.name);
+            auto &data = wire.at(info.name).data;
             data.setValue(info.offset, ff_data.getValue(ff_offset, info.width));
         }
         ff_offset += info.width;
@@ -63,7 +66,7 @@ void CircuitState::load(Checkpoint &checkpoint)
     data_stream.read(reinterpret_cast<char *>(ram_data.to_ptr()), (mem_size + 63) / 64 * 8);
 
     for (auto &info : scan_ram) {
-        auto &data = ram.at(info.name);
+        auto &data = ram.at(info.name).data;
         for (int i = 0; i < info.depth; i++) {
             data.set(data.start_offset() + i, ram_data.getValue(ram_offset, info.width));
             ram_offset += info.width;
@@ -83,7 +86,7 @@ void CircuitState::save(Checkpoint &checkpoint)
 
     for (auto &info : scan_ff) {
         if (!info.name.empty()) {
-            auto &data = wire.at(info.name);
+            auto &data = wire.at(info.name).data;
             ff_data.setValue(ff_offset, data.getValue(info.offset, info.width));
         }
         ff_offset += info.width;
@@ -97,7 +100,7 @@ void CircuitState::save(Checkpoint &checkpoint)
     BitVector ram_data(mem_size);
 
     for (auto &info : scan_ram) {
-        auto &data = ram.at(info.name);
+        auto &data = ram.at(info.name).data;
         for (int i = 0; i < info.depth; i++) {
             ram_data.setValue(ram_offset, data.get(data.start_offset() + i));
             ram_offset += info.width;

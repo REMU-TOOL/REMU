@@ -19,8 +19,19 @@ class CircuitState
 
 public:
 
-    std::map<std::vector<std::string>, BitVector> wire;
-    std::map<std::vector<std::string>, BitVectorArray> ram;
+    struct WireState
+    {
+        BitVector data;
+    };
+
+    struct RAMState
+    {
+        BitVectorArray data;
+        bool dissolved;
+    };
+
+    std::map<std::vector<std::string>, WireState> wire;
+    std::map<std::vector<std::string>, RAMState> ram;
 
     void load(Checkpoint &checkpoint);
     void save(Checkpoint &checkpoint);

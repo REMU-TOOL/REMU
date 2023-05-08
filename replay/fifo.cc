@@ -8,15 +8,15 @@ void REMU::load_fifo(std::queue<BitVector> &fifo, CircuitState &circuit, const C
 
     // TODO: FAST_READ = 1
 
-    auto &rempty = circuit.wire.at(path / "rempty");
+    auto &rempty = circuit.wire.at(path / "rempty").data;
     if (rempty != 0)
         return;
 
-    int rp = circuit.wire.at(path / "rp");
-    int wp = circuit.wire.at(path / "wp");
+    int rp = circuit.wire.at(path / "rp").data;
+    int wp = circuit.wire.at(path / "wp").data;
 
     // TODO: dissolved RAM
-    auto &data = circuit.ram.at(path / "data");
+    auto &data = circuit.ram.at(path / "data").data;
 
     int depth = data.depth();
     int start_offset = data.start_offset();
@@ -35,9 +35,9 @@ void REMU::load_ready_valid_fifo(std::queue<BitVector> &fifo, CircuitState &circ
 
     // process output reg in emulib_ready_valid_fifo
 
-    auto &ovalid = circuit.wire.at(path / "ovalid");
+    auto &ovalid = circuit.wire.at(path / "ovalid").data;
     if (ovalid != 0)
-        fifo.push(circuit.wire.at(path / "odata"));
+        fifo.push(circuit.wire.at(path / "odata").data);
 
     // process emulib_fifo instance
 
