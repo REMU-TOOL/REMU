@@ -440,7 +440,9 @@ void replay_initialize(VPILoader *loader)
     // loader callback
 
     static VPICallback loader_cb([loader](uint64_t) {
+        vpi_printf("INFO: loading checkpoint\n");
         loader->load();
+        vpi_printf("INFO: checkpoint loaded, continuing simulation\n");
         return 0;
     });
     loader_cb.register_callback(0, cbAtEndOfSimTime);
