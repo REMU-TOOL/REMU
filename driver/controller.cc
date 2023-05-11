@@ -40,6 +40,13 @@ const std::unordered_map<std::string,
         FROM_NODE(uint64_t, cdma_base)
         return std::make_unique<CDMAUserMem>(base, size, bounce_base, bounce_size, cdma_base);
     }},
+    {"pcie-dma",    [](const YAML::Node &node) {
+        FROM_NODE(uint64_t, base)
+        FROM_NODE(uint64_t, size)
+        FROM_NODE(std::string, c2h)
+        FROM_NODE(std::string, h2c)
+        return std::make_unique<PCIeDMAUserMem>(base, size, c2h, h2c);
+    }},
     {"pcie-bar",    [](const YAML::Node &node) {
         FROM_NODE(uint64_t, base)
         FROM_NODE(uint64_t, size)

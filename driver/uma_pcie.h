@@ -6,6 +6,32 @@
 
 namespace REMU {
 
+class PCIeDMAUserMem : public UserMem
+{
+    // Region of device memory
+    uint64_t mem_base, mem_size;
+
+    int c2h_fd, h2c_fd;
+
+public:
+
+    virtual void read(char *buf, uint64_t offset, uint64_t len) override;
+    virtual void write(const char *buf, uint64_t offset, uint64_t len) override;
+    virtual void fill(char c, uint64_t offset, uint64_t len) override;
+
+    virtual uint64_t size() const override
+    {
+        return mem_size;
+    }
+
+    virtual uint64_t dmabase() const override
+    {
+        return mem_base;
+    }
+
+    PCIeDMAUserMem(uint64_t mem_base, uint64_t mem_size, std::string c2h, std::string h2c);
+};
+
 class PCIeBARUserMem : public UserMem
 {
     // Region of device memory
