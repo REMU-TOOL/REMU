@@ -1,5 +1,5 @@
 #include "replay_ivl.h"
-#include "model.h"
+#include "rammodel.h"
 #include "vpi_utils.h"
 #include "escape.h"
 #include "emu_utils.h"

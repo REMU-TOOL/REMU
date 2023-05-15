@@ -11,9 +11,6 @@
 
 namespace REMU {
 
-void load_fifo(std::queue<BitVector> &fifo, CircuitState &circuit, const CircuitPath &path);
-void load_ready_valid_fifo(std::queue<BitVector> &fifo, CircuitState &circuit, const CircuitPath &path);
-
 class RamModel {
 
 public:

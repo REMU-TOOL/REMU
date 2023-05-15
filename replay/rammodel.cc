@@ -1,8 +1,41 @@
-#include "model.h"
+#include "rammodel.h"
 
 #include <cstdio>
 
 using namespace REMU;
+
+static void load_fifo(std::queue<BitVector> &fifo, CircuitState &circuit, const CircuitPath &path)
+{
+    // assuming circuit is an instance of emulib_ready_valid_fifo
+
+    // process output reg in emulib_ready_valid_fifo
+
+    auto &ovalid = circuit.wire.at(path / "ovalid").data;
+    if (ovalid != 0) {
+        // FAST_READ is 0 for all savable FIFOs in rammodel backend
+        fifo.push(circuit.wire.at(path / "fifo" / "rdata").data);
+    }
+
+    // process emulib_fifo instance
+
+    auto &rempty = circuit.wire.at(path / "fifo" / "rempty").data;
+    if (rempty != 0)
+        return;
+
+    int rp = circuit.wire.at(path / "fifo" / "rp").data;
+    int wp = circuit.wire.at(path / "fifo" / "wp").data;
+
+    // TODO: dissolved RAM
+    auto &data = circuit.ram.at(path / "fifo" / "data").data;
+
+    int depth = data.depth();
+    int start_offset = data.start_offset();
+
+    while (rp != wp) {
+        fifo.push(data.get(rp++ - start_offset));
+        if (rp == depth) rp = 0;
+    }
+}
 
 bool RamModel::schedule()
 {
@@ -189,7 +222,7 @@ void RamModel::load_state(CircuitState &circuit, const CircuitPath &path)
     */
 
     std::queue<BitVector> a_issue_q;
-    load_ready_valid_fifo(a_issue_q, circuit, path / "a_issue_q");
+    load_fifo(a_issue_q, circuit, path / "a_issue_q");
     while (!a_issue_q.empty()) {
         auto &elem = a_issue_q.front();
         a_issue_q.pop();
@@ -211,7 +244,7 @@ void RamModel::load_state(CircuitState &circuit, const CircuitPath &path)
     */
 
     std::queue<BitVector> w_issue_q;
-    load_ready_valid_fifo(w_issue_q, circuit, path / "w_issue_q");
+    load_fifo(w_issue_q, circuit, path / "w_issue_q");
     while (!w_issue_q.empty()) {
         auto &elem = w_issue_q.front();
         w_issue_q.pop();
@@ -231,7 +264,7 @@ void RamModel::load_state(CircuitState &circuit, const CircuitPath &path)
         std::queue<BitVector> b_roq;
         std::ostringstream ss;
         ss << "b_roq_genblk[" << i << "].queue";
-        load_ready_valid_fifo(b_roq, circuit, path / ss.str());
+        load_fifo(b_roq, circuit, path / ss.str());
         auto &queue = b_queue.at(i);
         while (!b_roq.empty()) {
             auto &elem = b_roq.front();
@@ -253,7 +286,7 @@ void RamModel::load_state(CircuitState &circuit, const CircuitPath &path)
         std::queue<BitVector> r_roq;
         std::ostringstream ss;
         ss << "r_roq_genblk[" << i << "].queue";
-        load_ready_valid_fifo(r_roq, circuit, path / ss.str());
+        load_fifo(r_roq, circuit, path / ss.str());
         auto &queue = r_queue.at(i);
         while (!r_roq.empty()) {
             auto &elem = r_roq.front();
