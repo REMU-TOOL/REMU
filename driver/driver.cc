@@ -139,7 +139,7 @@ void Driver::load_checkpoint()
     meta_event_q = decltype(meta_event_q)();
 
     {
-        Profiler profiler(this, "load checkpoint");
+        Profiler profiler(this, "load checkpoint total");
 
         auto ckpt = ckpt_mgr.open(cur_tick);
         ctrl.set_tick_count(cur_tick);
@@ -206,7 +206,7 @@ void Driver::save_checkpoint()
     fprintf(stderr, "[REMU] INFO: Saving checkpoint @ tick %lu\n", cur_tick);
 
     {
-        Profiler profiler(this, "save checkpoint");
+        Profiler profiler(this, "save checkpoint total");
 
         auto ckpt = ckpt_mgr.open(cur_tick);
 
