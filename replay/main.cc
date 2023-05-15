@@ -20,6 +20,7 @@ void replay_startup_routine() {
 
     std::string sysinfo_file, checkpoint_path;
     std::optional<uint64_t> tick = 0;
+    bool suppress_warning = false;
 
     for (size_t i = 0; i < args.size(); i++) {
         if (args[i] == "-sysinfo" && i+1 < args.size()) {
@@ -30,6 +31,9 @@ void replay_startup_routine() {
         }
         if (args[i] == "-tick" && i+1 < args.size()) {
             tick = stol(args[++i]);
+        }
+        if (args[i] == "-supp-warn") {
+            suppress_warning = true;
         }
     }
 
@@ -57,6 +61,7 @@ void replay_startup_routine() {
     sysinfo = SysInfo::fromJson(f);
 
     static VPILoader loader(sysinfo, checkpoint_path, tick.value());
+    loader.suppress_warning = suppress_warning;
 
     register_tfs(&loader);
     register_callback(&loader);

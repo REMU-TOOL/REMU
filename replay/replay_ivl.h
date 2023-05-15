@@ -16,9 +16,11 @@ struct VPILoader
     CheckpointManager ckpt_mgr;
     uint64_t tick;
     Checkpoint ckpt;
+    bool suppress_warning;
 
     VPILoader(const SysInfo &sysinfo, std::string ckpt_path, uint64_t tick) :
-        sysinfo(sysinfo), circuit(sysinfo), ckpt_mgr(sysinfo, ckpt_path), tick(tick), ckpt(ckpt_mgr.open(tick))
+        sysinfo(sysinfo), circuit(sysinfo), ckpt_mgr(sysinfo, ckpt_path), tick(tick), ckpt(ckpt_mgr.open(tick)),
+        suppress_warning(false)
     {
         circuit.load(ckpt);
     }

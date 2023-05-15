@@ -34,8 +34,9 @@ void VPILoader::load()
         std::string full_name = get_full_name(it.first);
         vpiHandle obj = vpi_handle_by_name(full_name.c_str(), 0);
         if (obj == 0) {
-            vpi_printf("WARNING: %s cannot be referenced\n",
-                full_name.c_str());
+            if (!suppress_warning)
+                vpi_printf("WARNING: %s cannot be referenced\n",
+                    full_name.c_str());
             continue;
         }
         vpiSetValue(obj, it.second.data);
@@ -47,8 +48,9 @@ void VPILoader::load()
         std::string full_name = get_full_name(it.first);
         vpiHandle obj = vpi_handle_by_name(full_name.c_str(), 0);
         if (obj == 0) {
-            vpi_printf("WARNING: %s cannot be referenced\n",
-                full_name.c_str());
+            if (!suppress_warning)
+                vpi_printf("WARNING: %s cannot be referenced\n",
+                    full_name.c_str());
             continue;
         }
         int depth = it.second.data.depth();
@@ -57,8 +59,9 @@ void VPILoader::load()
             int index = i + start_offset;
             vpiHandle word_obj = vpi_handle_by_index(obj, index);
             if (word_obj == 0) {
-                vpi_printf("WARNING: %s[%d] cannot be referenced\n",
-                    vpi_get_str(vpiFullName, obj), index);
+                if (!suppress_warning)
+                    vpi_printf("WARNING: %s[%d] cannot be referenced\n",
+                        vpi_get_str(vpiFullName, obj), index);
                 continue;
             }
             vpiSetValue(word_obj, it.second.data.get(i));
