@@ -40,11 +40,11 @@ void PCIeDMAUserMem::fill(char c, uint64_t offset, uint64_t len)
     auto buf = new char[bufsz];
     std::fill_n(buf, bufsz, 0);
 
+    ::lseek(h2c_fd, mem_base + offset, SEEK_SET);
+
     while (len > 0) {
         uint64_t slice = std::min(bufsz, len);
-        ::lseek(h2c_fd, mem_base + offset, SEEK_SET);
         ::write(h2c_fd, buf, slice);
-        offset += slice;
         len -= slice;
     }
 
@@ -54,11 +54,11 @@ void PCIeDMAUserMem::fill(char c, uint64_t offset, uint64_t len)
 PCIeDMAUserMem::PCIeDMAUserMem(uint64_t mem_base, uint64_t mem_size, std::string c2h, std::string h2c)
     : mem_base(mem_base), mem_size(mem_size)
 {
-    c2h_fd = ::open(c2h.c_str(), O_RDWR);
+    c2h_fd = ::open(c2h.c_str(), O_RDONLY);
     if (c2h_fd < 0)
         throw std::system_error(errno, std::generic_category(), "failed to open " + c2h);
 
-    h2c_fd = ::open(h2c.c_str(), O_RDWR);
+    h2c_fd = ::open(h2c.c_str(), O_WRONLY);
     if (h2c_fd < 0)
         throw std::system_error(errno, std::generic_category(), "failed to open " + h2c);
 }
