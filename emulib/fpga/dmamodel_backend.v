@@ -5,11 +5,12 @@
 
 module emulib_dmamodel_backend #(
     parameter  MMIO_ADDR_WIDTH   = 32,
-    parameter  MMIO_DATA_WIDTH   = 64,
-    parameter  MMIO_ID_WIDTH     = 4,
-    parameter  DMA_ADDR_WIDTH   = 32,
-    parameter  DMA_DATA_WIDTH   = 64,
-    parameter  DMA_ID_WIDTH     = 4,
+    parameter  MMIO_DATA_WIDTH   = 32,
+    parameter  DMA_ADDR_WIDTH    = 32,
+    parameter  DMA_DATA_WIDTH    = 64,
+    parameter  DMA_ID_WIDTH      = 4,
+    parameter  MAX_R_INFLIGHT    = 1,
+    parameter  MAX_W_INFLIGHT    = 1
 )(
     (* __emu_common_port = "mdl_clk" *)
     input  wire                             mdl_clk,
@@ -43,11 +44,7 @@ module emulib_dmamodel_backend #(
     output wire                            tk_mmio_arreq_ready,
 
     input wire                             mmio_arreq_valid,
-    //input wire [MMIO_ID_WIDTH-1:0]         mmio_arreq_id,
     input wire [MMIO_ADDR_WIDTH-1:0]       mmio_arreq_addr,
-    //input wire [7:0]                       mmio_arreq_len,
-    //input wire [2:0]                       mmio_arreq_size,
-    //input wire [1:0]                       mmio_arreq_burst,
 
     // MMIO AWReq Channel
 
@@ -62,11 +59,8 @@ module emulib_dmamodel_backend #(
     output wire                            tk_mmio_awreq_ready,
 
     input wire                             mmio_awreq_valid,
-    //input wire [MMIO_ID_WIDTH-1:0]         mmio_awreq_id,
     input wire [MMIO_ADDR_WIDTH-1:0]       mmio_awreq_addr,
-    //input wire [7:0]                       mmio_awreq_len,
-    //input wire [2:0]                       mmio_awreq_size,
-    //input wire [1:0]                       mmio_awreq_burst,
+
 
     // MMIO WReq Channel
 
@@ -83,7 +77,6 @@ module emulib_dmamodel_backend #(
     input wire                             mmio_wreq_valid,
     input wire [MMIO_DATA_WIDTH-1:0]       mmio_wreq_data,
     input wire [MMIO_DATA_WIDTH/8-1:0]     mmio_wreq_strb,
-    //input wire                             mmio_wreq_last,
     // MMIO BReq Channel
     (* __emu_channel_name = "mmio_breq" *)
     (* __emu_channel_direction = "in" *)
@@ -96,7 +89,6 @@ module emulib_dmamodel_backend #(
     output wire                            tk_mmio_breq_ready,
 
     input wire                             mmio_breq_valid,
-    //input wire [MMIO_ID_WIDTH-1:0]         mmio_breq_id,
 
     // MMIO RReq Channel
     (* __emu_channel_name = "mmio_rreq" *)
@@ -110,7 +102,6 @@ module emulib_dmamodel_backend #(
     output wire                            tk_mmio_rreq_ready,
 
     input wire                             mmio_rreq_valid,
-    //input wire [MMIO_ID_WIDTH-1:0]         mmio_rreq_id,
 
     // MMIO BResp Channel
 
@@ -139,17 +130,54 @@ module emulib_dmamodel_backend #(
     input  wire                              tk_mmio_rresp_ready,
 
     output  wire [MMIO_DATA_WIDTH-1:0]       mmio_rresp_data,
-    //output  wire                             mmio_rresp_last,
 
-    (* __emu_axi_name = "host_mmio_axi" *)
-    (* __emu_axi_type = "axi4lite" *)
-    `AXI4LITE_MASTER_IF                     (host_mmio_axi,    MMIO_ADDR_WIDTH, MMIO_DATA_WIDTH, MMIO_ID_WIDTH),
-
-    (* __emu_axi_name = "host_dma_axi" *)
-    (* __emu_axi_type = "axi4" *)
+    `AXI4LITE_MASTER_IF                     (host_mmio_axi,    MMIO_ADDR_WIDTH, MMIO_DATA_WIDTH),
     `AXI4_SLAVE_IF                          (host_dma_axi,     DMA_ADDR_WIDTH, DMA_DATA_WIDTH, DMA_ID_WIDTH),
 
-    //TODO: DMA Channels 
+    //DMA Channel
+    (* __emu_channel_name = "dma_port" *)
+    (* __emu_channel_direction = "out" *)
+    (* __emu_channel_payload = "dma_port_*" *)
+    (* __emu_channel_clock = "clk" *)
+    (* __emu_channel_valid = "tk_dma_port_valid" *)
+    (* __emu_channel_ready = "tk_dma_port_ready" *)
+
+    output wire                              tk_dma_port_valid,
+    input  wire                              tk_dma_port_ready,
+
+    output  wire                             dma_port_arvalid,
+    input   wire                             dma_port_arready,
+    output  wire [DMA_ADDR_WIDTH-1:0]        dma_port_araddr,
+    output  wire [DMA_ID_WIDTH-1:0]          dma_port_arid,
+    output  wire [7:0]                       dma_port_arlen,
+    output  wire [2:0]                       dma_port_arsize,
+    output  wire [1:0]                       dma_port_arburst,
+
+    output  wire                             dma_port_awvalid,
+    input   wire                             dma_port_awready,
+    output  wire [DMA_ADDR_WIDTH-1:0]        dma_port_awaddr,
+    output  wire [DMA_ID_WIDTH-1:0]          dma_port_awid,
+    output  wire [7:0]                       dma_port_awlen,
+    output  wire [2:0]                       dma_port_awsize,
+    output  wire [1:0]                       dma_port_awburst,
+
+    output  wire                             dma_port_wvalid,
+    input   wire                             dma_port_wready,
+    output  wire [DMA_DATA_WIDTH-1:0]        dma_port_wdata,
+    output  wire [DMA_DATA_WIDTH/8-1:0]      dma_port_wstrb,
+    output  wire                             dma_port_wlast,
+
+    input   wire                             dma_port_rvalid,
+    output  wire                             dma_port_rready,
+    input   wire [DMA_DATA_WIDTH-1:0]        dma_port_rdata,  
+    input   wire [DMA_ID_WIDTH-1:0]          dma_port_rid,
+    input   wire                             dma_port_rlast,
+
+    input   wire                             dma_port_bvalid,
+    output  wire                             dma_port_bready,
+    input  wire [DMA_ID_WIDTH-1:0]           dma_port_bid,
+    input  wire [1:0]                        dma_port_bresp,
+
 
     (* __emu_common_port = "run_mode" *)
     input  wire                             run_mode,
@@ -246,5 +274,92 @@ end
 wire reset_pending = tk_dma_rst_valid && rst;
 
 assign idle = !host_mmio_axi_arvalid && !host_mmio_axi_awvalid && r_whitehole && b_whitehole;
+
+/* ================================ DMA QUEUE ====================================*/
+
+    localparam  A_PAYLOAD_LEN   = `AXI4_CUSTOM_A_PAYLOAD_LEN(DMA_ADDR_WIDTH, DMA_DATA_WIDTH, DMA_ID_WIDTH);
+    localparam  W_PAYLOAD_LEN   = `AXI4_CUSTOM_W_PAYLOAD_LEN(DMA_ADDR_WIDTH, DMA_DATA_WIDTH, DMA_ID_WIDTH);
+    localparam  B_PAYLOAD_LEN   = `AXI4_CUSTOM_B_PAYLOAD_LEN(DMA_ADDR_WIDTH, DMA_DATA_WIDTH, DMA_ID_WIDTH);
+    localparam  R_PAYLOAD_LEN   = `AXI4_CUSTOM_R_PAYLOAD_LEN(DMA_ADDR_WIDTH, DMA_DATA_WIDTH, DMA_ID_WIDTH);
+
+    localparam  A_ISSUE_Q_DEPTH = MAX_R_INFLIGHT + MAX_W_INFLIGHT;
+    localparam  W_ISSUE_Q_DEPTH = 256 * MAX_W_INFLIGHT;
+    localparam  R_ISSUE_Q_DEPTH = 256 * MAX_R_INFLIGHT;
+    localparam  B_ISSUE_Q_DEPTH = MAX_W_INFLIGHT;
+
+    assign tk_dma_port_valid = 1'b1;
+
+    //AR/AW FIFO
+    wire fifo_rst = soft_rst || mdl_rst;
+    emulib_ready_valid_fifo #(
+        .WIDTH      (A_PAYLOAD_LEN),
+        .DEPTH      (A_ISSUE_Q_DEPTH)
+    ) ar_issue_q (
+        .clk        (mdl_clk),
+        .rst        (fifo_rst),
+        .ivalid     (host_dma_axi_arvalid),
+        .iready     (host_dma_axi_arready),
+        .idata      ({host_dma_axi_araddr,host_dma_axi_arid,host_dma_axi_arlen,host_dma_axi_arsize,host_dma_axi_arburst}),
+        .ovalid     (dma_port_arvalid),
+        .oready     (dma_port_arready),
+        .odata      ({dma_port_araddr,dma_port_arid,dma_port_arlen,dma_port_arsize,dma_port_arburst})
+    );
+
+    emulib_ready_valid_fifo #(
+        .WIDTH      (A_PAYLOAD_LEN),
+        .DEPTH      (A_ISSUE_Q_DEPTH)
+    ) aw_issue_q (
+        .clk        (mdl_clk),
+        .rst        (fifo_rst),
+        .ivalid     (host_dma_axi_awvalid),
+        .iready     (host_dma_axi_awready),
+        .idata      ({host_dma_axi_awaddr,host_dma_axi_awid,host_dma_axi_awlen,host_dma_axi_awsize,host_dma_axi_awburst}),
+        .ovalid     (dma_port_awvalid),
+        .oready     (dma_port_awready),
+        .odata      ({dma_port_awaddr,dma_port_awid,dma_port_awlen,dma_port_awsize,dma_port_awburst})
+    );
+
+    //W FIFO
+    emulib_ready_valid_fifo #(
+        .WIDTH      (W_PAYLOAD_LEN),
+        .DEPTH      (W_ISSUE_Q_DEPTH)
+    ) w_issue_q (
+        .clk        (mdl_clk),
+        .rst        (fifo_rst),
+        .ivalid     (host_dma_axi_wvalid),
+        .iready     (host_dma_axi_wready),
+        .idata      (`AXI4_CUSTOM_W_PAYLOAD(host_dma_axi)),
+        .ovalid     (dma_port_wvalid),
+        .oready     (dma_port_wready),
+        .odata      (`AXI4_CUSTOM_W_PAYLOAD(dma_port))
+    );
+    //R FIFO
+    emulib_ready_valid_fifo #(
+        .WIDTH      (R_PAYLOAD_LEN),
+        .DEPTH      (R_ISSUE_Q_DEPTH)
+    ) r_issue_q (
+        .clk        (mdl_clk),
+        .rst        (fifo_rst),
+        .ivalid     (dma_port_rvalid),
+        .iready     (dma_port_rready),
+        .idata      (`AXI4_CUSTOM_R_PAYLOAD(dma_port)),
+        .ovalid     (host_dma_axi_rvalid),
+        .oready     (host_dma_axi_rready),
+        .odata      (`AXI4_CUSTOM_R_PAYLOAD(host_dma_axi))
+    );
+    //B FIFO
+    emulib_ready_valid_fifo #(
+        .WIDTH      (B_PAYLOAD_LEN),
+        .DEPTH      (B_ISSUE_Q_DEPTH)
+    ) b_issue_q (
+        .clk        (mdl_clk),
+        .rst        (fifo_rst),
+        .ivalid     (dma_port_bvalid),
+        .iready     (dma_port_bready),
+        .idata      (`AXI4_CUSTOM_B_PAYLOAD(dma_port)),
+        .ovalid     (host_dma_axi_bvalid),
+        .oready     (host_dma_axi_bready),
+        .odata      (`AXI4_CUSTOM_B_PAYLOAD(host_dma_axi))
+    );
 
 endmodule
