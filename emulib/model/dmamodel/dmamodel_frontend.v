@@ -8,7 +8,7 @@ module emulib_dmamodel_frontend #(
     parameter  MMIO_DATA_WIDTH   = 32,
     parameter  DMA_ADDR_WIDTH   = 32,
     parameter  DMA_DATA_WIDTH   = 64,
-    parameter  DMA_ID_WIDTH     = 4,
+    parameter  DMA_ID_WIDTH     = 4
 )(
     input  wire                 clk,
     input  wire                 rst,

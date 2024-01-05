@@ -1,5 +1,4 @@
 `timescale 1ns / 1ps
-
 `include "axi.vh"
 
 module test #(
@@ -75,7 +74,7 @@ module test #(
     input                       host_mmio_bvalid,
     output                      host_mmio_bready,
     input   [1:0]               host_mmio_bresp,
-    i
+
     output                      host_mmio_arvalid,
     input                       host_mmio_arready,
     output  [MMIO_ADDR_WIDTH-1:0]    host_mmio_araddr,
@@ -129,28 +128,7 @@ module test #(
     input                            target_dma_rid,
     input                            target_dma_rlast,
 
-    input                           target_mmio_awvalid,
-    output                          target_mmio_awready,
-    input   [MMIO_ADDR_WIDTH-1:0]   target_mmio_awaddr,
-
-    input                           target_mmio_wvalid,
-    output                          target_mmio_wready,
-    input   [MMIO_DATA_WIDTH-1:0]   target_mmio_wdata,
-    input   [MMIO_DATA_WIDTH/8-1:0] target_mmio_wstrb,
-
-    output                          target_mmio_bvalid,
-    input                           target_mmio_bready,
-    output  [1:0]                   target_mmio_bresp,
-
-    input                           target_mmio_arvalid,
-    output                          target_mmio_arready,
-    input   [MMIO_ADDR_WIDTH-1:0]   target_mmio_araddr,
-    
-
-    output                          target_mmio_rvalid,
-    input                           target_mmio_rready,
-    output  [MMIO_DATA_WIDTH-1:0]   target_mmio_rdata,
-    output  [1:0]                   target_mmio_rresp
+    `AXI4LITE_SLAVE_IF          (target_mmio,    MMIO_ADDR_WIDTH, MMIO_DATA_WIDTH),
 
     input                       ff_scan,
     input                       ff_dir,
@@ -188,11 +166,11 @@ module test #(
         .EMU_IDLE           (idle),
         .EMU_TICK           (tick),
 
-        `AXI4_CONNECT (host_dma_axi, host_dma)
-        `AXI4LITE_CONNECT (host_mmio_axi, host_mmio)
+        //`AXI4_CONNECT (host_dma_axi, host_dma),
+        //`AXI4LITE_CONNECT (host_mmio_axi, host_mmio),
 
-        `AXI4_CONNECT (target_dma_axi, target_dma)
-        `AXI4LITE_CONNECT (target_mmio_axi, target_mmio)
+        `AXI4_CONNECT (target_dma, target_dma),
+        `AXI4LITE_CONNECT (target_mmio, target_mmio)
 
     );
 

@@ -2,11 +2,13 @@ TEST_DIR   := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 EMULIB_DIR := $(realpath $(TEST_DIR)/../emulib)
 DESIGN_DIR := $(realpath $(TEST_DIR)/../design)
 
-YOSYS ?= yosys
 
 DUMP ?= n
+YOSYS ?= yosys
 
 EMU_INCLUDE := $(EMULIB_DIR)/include
+EMU_MODEL   := $(EMULIB_DIR)/model
+EMU_FPGA    := $(EMULIB_DIR)/fpga
 
 BUILD_DIR   := .build
 OUTPUT_FILE := $(BUILD_DIR)/output.v
@@ -20,7 +22,7 @@ RESULTS_XML := $(BUILD_DIR)/results.xml
 SIMCTRL_V   := $(BUILD_DIR)/simctrl.v
 
 SIM_SRCS += $(wildcard $(EMULIB_DIR)/common/*.v)
-SIM_SRCS += $(wildcard $(EMULIB_DIR)/model/*.v)
+SIM_SRCS += $(shell find $(EMULIB_DIR)/model -type f -name "*.v")
 SIM_SRCS += $(wildcard $(EMULIB_DIR)/fpga/*.v)
 SIM_SRCS += $(wildcard $(EMULIB_DIR)/system/*.v)
 SIM_SRCS += $(wildcard $(EMULIB_DIR)/platform/sim/*.v)

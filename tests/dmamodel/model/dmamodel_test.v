@@ -2,6 +2,7 @@
 
 `include "axi.vh"
 `include "axi_custom.vh"
+`include "emulib_dmamodel_frontend.v"
 
 module EmuDmaTest #(
     parameter   DMA_ADDR_WIDTH      = 32,

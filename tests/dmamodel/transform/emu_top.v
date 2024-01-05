@@ -63,6 +63,7 @@ module emu_top #(
     input                           target_mmio_awvalid,
     output                          target_mmio_awready,
     input   [MMIO_ADDR_WIDTH-1:0]   target_mmio_awaddr,
+    input   [2:0]                   target_mmio_awprot,
 
     input                           target_mmio_wvalid,
     output                          target_mmio_wready,
@@ -76,7 +77,7 @@ module emu_top #(
     input                           target_mmio_arvalid,
     output                          target_mmio_arready,
     input   [MMIO_ADDR_WIDTH-1:0]   target_mmio_araddr,
-    
+    input   [2:0]                   target_mmio_arprot,
 
     output                          target_mmio_rvalid,
     input                           target_mmio_rready,
