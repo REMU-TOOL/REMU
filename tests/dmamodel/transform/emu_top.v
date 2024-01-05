@@ -1,0 +1,158 @@
+`timescale 1ns / 1ps
+
+module emu_top #(
+    parameter   DMA_ADDR_WIDTH      = 32,
+    parameter   DMA_DATA_WIDTH      = 64,
+    parameter   MMIO_ADDR_WIDTH     = 32,
+    parameter   MMIO_DATA_WIDTH     = 32,
+    parameter   DMA_ID_WIDTH        = 1,
+    parameter   MAX_R_INFLIGHT  = 1,
+    parameter   MAX_W_INFLIGHT  = 1
+)(
+
+    (* remu_clock *)
+    input clk,
+
+    (* remu_signal *)
+    input rst,
+
+    output                           target_dma_awvalid,
+    input                            target_dma_awready,
+    output  [DMA_ADDR_WIDTH-1:0]     target_dma_awaddr,
+    output                           target_dma_awid,
+    output  [7:0]                    target_dma_awlen,
+    output  [2:0]                    target_dma_awsize,
+    output  [1:0]                    target_dma_awburst,
+    output  [0:0]                    target_dma_awlock,
+    output  [3:0]                    target_dma_awcache,
+    output  [2:0]                    target_dma_awprot,
+    output  [3:0]                    target_dma_awqos,
+    output  [3:0]                    target_dma_awregion,
+
+    output                           target_dma_wvalid,
+    input                            target_dma_wready,
+    output  [DMA_DATA_WIDTH-1:0]     target_dma_wdata,
+    output  [DMA_DATA_WIDTH/8-1:0]   target_dma_wstrb,
+    output                           target_dma_wlast,
+
+    input                            target_dma_bvalid,
+    output                           target_dma_bready,
+    input   [1:0]                    target_dma_bresp,
+    input                            target_dma_bid,
+
+    output                           target_dma_arvalid,
+    input                            target_dma_arready,
+    output  [DMA_ADDR_WIDTH-1:0]     target_dma_araddr,
+    output                           target_dma_arid,
+    output  [7:0]                    target_dma_arlen,
+    output  [2:0]                    target_dma_arsize,
+    output  [1:0]                    target_dma_arburst,
+    output  [0:0]                    target_dma_arlock,
+    output  [3:0]                    target_dma_arcache,
+    output  [2:0]                    target_dma_arprot,
+    output  [3:0]                    target_dma_arqos,
+    output  [3:0]                    target_dma_arregion,
+
+    input                            target_dma_rvalid,
+    output                           target_dma_rready,
+    input   [DMA_DATA_WIDTH-1:0]     target_dma_rdata,
+    input   [1:0]                    target_dma_rresp,
+    input                            target_dma_rid,
+    input                            target_dma_rlast,
+
+    input                           target_mmio_awvalid,
+    output                          target_mmio_awready,
+    input   [MMIO_ADDR_WIDTH-1:0]   target_mmio_awaddr,
+
+    input                           target_mmio_wvalid,
+    output                          target_mmio_wready,
+    input   [MMIO_DATA_WIDTH-1:0]   target_mmio_wdata,
+    input   [MMIO_DATA_WIDTH/8-1:0] target_mmio_wstrb,
+
+    output                          target_mmio_bvalid,
+    input                           target_mmio_bready,
+    output  [1:0]                   target_mmio_bresp,
+
+    input                           target_mmio_arvalid,
+    output                          target_mmio_arready,
+    input   [MMIO_ADDR_WIDTH-1:0]   target_mmio_araddr,
+    
+
+    output                          target_mmio_rvalid,
+    input                           target_mmio_rready,
+    output  [MMIO_DATA_WIDTH-1:0]   target_mmio_rdata,
+    output  [1:0]                   target_mmio_rresp
+);
+
+    EmuDMA #(
+        .MMIO_ADDR_WIDTH     (MMIO_ADDR_WIDTH),
+        .MMIO_DATA_WIDTH     (MMIO_DATA_WIDTH),
+        .DMA_ADDR_WIDTH      (DMA_ADDR_WIDTH),
+        .DMA_DATA_WIDTH      (DMA_DATA_WIDTH),
+        .DMA_ID_WIDTH        (DMA_ID_WIDTH),
+    )u_dmamodel(
+        .clk                    (clk),
+        .rst                    (rst),
+
+        .s_mmio_axi_awaddr   (target_mmio_awaddr),
+        .s_mmio_axi_awprot   (target_mmio_awprot),
+        .s_mmio_axi_awvalid  (target_mmio_awvalid),
+        .s_mmio_axi_awready  (target_mmio_awready),
+        .s_mmio_axi_wdata    (target_mmio_wdata),
+        .s_mmio_axi_wstrb    (target_mmio_wstrb),
+        .s_mmio_axi_wvalid   (target_mmio_wvalid),
+        .s_mmio_axi_wready   (target_mmio_wready),
+        .s_mmio_axi_bresp    (target_mmio_bresp),
+        .s_mmio_axi_bvalid   (target_mmio_bvalid),
+        .s_mmio_axi_bready   (target_mmio_bready),
+        .s_mmio_axi_araddr   (target_mmio_araddr),
+        .s_mmio_axi_arprot   (target_mmio_arprot),
+        .s_mmio_axi_arvalid  (target_mmio_arvalid),
+        .s_mmio_axi_arready  (target_mmio_arready),
+        .s_mmio_axi_rdata    (target_mmio_rdata),
+        .s_mmio_axi_rresp    (target_mmio_rresp),
+        .s_mmio_axi_rvalid   (target_mmio_rvalid),
+        .s_mmio_axi_rready   (target_mmio_rready),
+
+        .m_dma_axi_awid         (target_dma_awid),
+        .m_dma_axi_awaddr       (target_dma_awaddr),
+        .m_dma_axi_awlen        (target_dma_awlen),
+        .m_dma_axi_awsize       (target_dma_awsize),
+        .m_dma_axi_awburst      (target_dma_awburst),
+        .m_dma_axi_awlock       (target_dma_awlock),
+        .m_dma_axi_awcache      (target_dma_awcache),
+        .m_dma_axi_awregion     (),
+        .m_dma_axi_awqos        (target_dma_awqos),
+        .m_dma_axi_awprot       (target_dma_awprot),
+        .m_dma_axi_awvalid      (target_dma_awvalid),
+        .m_dma_axi_awready      (target_dma_awready),
+        .m_dma_axi_wdata        (target_dma_wdata),
+        .m_dma_axi_wstrb        (target_dma_wstrb),
+        .m_dma_axi_wlast        (target_dma_wlast),
+        .m_dma_axi_wvalid       (target_dma_wvalid),
+        .m_dma_axi_wready       (target_dma_wready),
+        .m_dma_axi_bid          (target_dma_bid),
+        .m_dma_axi_bresp        (target_dma_bresp),
+        .m_dma_axi_bvalid       (target_dma_bvalid),
+        .m_dma_axi_bready       (target_dma_bready),
+        .m_dma_axi_arid         (target_dma_arid),
+        .m_dma_axi_araddr       (target_dma_araddr),
+        .m_dma_axi_arlen        (target_dma_arlen),
+        .m_dma_axi_arsize       (target_dma_arsize),
+        .m_dma_axi_arburst      (target_dma_arburst),
+        .m_dma_axi_arlock       (target_dma_arlock),
+        .m_dma_axi_arcache      (target_dma_arcache),
+        .m_dma_axi_arregion     (),
+        .m_dma_axi_arqos        (target_dma_arqos),
+        .m_dma_axi_arprot       (target_dma_arprot),
+        .m_dma_axi_arvalid      (target_dma_arvalid),
+        .m_dma_axi_arready      (target_dma_arready),
+        .m_dma_axi_rid          (target_dma_rid),
+        .m_dma_axi_rdata        (target_dma_rdata),
+        .m_dma_axi_rresp        (target_dma_rresp),
+        .m_dma_axi_rlast        (target_dma_rlast),
+        .m_dma_axi_rvalid       (target_dma_rvalid),
+        .m_dma_axi_rready       (target_dma_rready),
+    );
+
+endmodule
