@@ -2,7 +2,6 @@
 
 `include "axi.vh"
 `include "axi_custom.vh"
-`include "emulib_dmamodel_frontend.v"
 
 module EmuDmaTest #(
     parameter   DMA_ADDR_WIDTH      = 32,
@@ -115,16 +114,18 @@ module EmuDmaTest #(
         .DMA_DATA_WIDTH      (DMA_DATA_WIDTH),
         .DMA_ID_WIDTH        (DMA_ID_WIDTH)
     )u_dmamodel_frontend(
-        .clk                    (clk),
-        .rst                    (rst),
+        .clk                    (target_clk),
+        .rst                    (target_rst),
 
         `AXI4LITE_CONNECT       (target_mmio_axi, test_target_mmio_axi),
         `AXI4_CONNECT           (target_dma_axi, test_target_dma_axi),
 
         .mmio_arreq_valid            (mmio_arreq_valid),
+        .mmio_arreq_prot             (mmio_arreq_prot),
         .mmio_arreq_addr             (mmio_arreq_addr),
 
         .mmio_awreq_valid            (mmio_awreq_valid),
+        .mmio_awreq_prot             (mmio_awreq_prot),
         .mmio_awreq_addr             (mmio_awreq_addr),
 
         .mmio_wreq_valid             (mmio_wreq_valid),
@@ -134,6 +135,8 @@ module EmuDmaTest #(
         .mmio_breq_valid             (mmio_breq_valid),
         .mmio_rreq_valid             (mmio_rreq_valid),
         .mmio_rresp_data             (rresp_data_raw),
+        .mmio_rresp_resp             (mmio_rresp_resp),
+        .mmio_bresp_resp             (mmio_bresp_resp),
 
         //// DMA
         .dma_arreq_valid            (dma_arreq_valid),
@@ -270,7 +273,7 @@ module EmuDmaTest #(
     reg tk_dma_port_done;
     wire tk_dma_port_valid;
     wire tk_dma_port_ready = !tk_dma_port_done && run_mode;
-    wire tk_dma_port_fire = tk_dma_rst_valid && tk_dma_port_ready;
+    wire tk_dma_port_fire = tk_dma_port_valid && tk_dma_port_ready;
 
     always @(posedge host_clk)
         if (host_rst || tick)
@@ -300,6 +303,9 @@ module EmuDmaTest #(
     end
 
     assign rresp_data = tk_rresp_done ? rresp_data_r : rresp_data_raw;
+    wire [1:0]                       mmio_rresp_resp;
+    wire [1:0]                       mmio_bresp_resp;
+
 
 emulib_dmamodel_backend #(
         .MMIO_ADDR_WIDTH     (MMIO_ADDR_WIDTH),
@@ -322,12 +328,14 @@ emulib_dmamodel_backend #(
         .tk_mmio_arreq_ready(tk_arreq_ready),
 
         .mmio_arreq_valid            (mmio_arreq_valid),
+        .mmio_arreq_prot             (mmio_arreq_prot),
         .mmio_arreq_addr             (mmio_arreq_addr),
 
         .tk_mmio_awreq_valid(tk_awreq_valid),
         .tk_mmio_awreq_ready(tk_awreq_ready),
 
         .mmio_awreq_valid            (mmio_awreq_valid),
+        .mmio_awreq_prot             (mmio_awreq_prot),
         .mmio_awreq_addr             (mmio_awreq_addr),
 
         .tk_mmio_wreq_valid(tk_wreq_valid),
@@ -344,15 +352,18 @@ emulib_dmamodel_backend #(
 
         .tk_mmio_bresp_valid(tk_bresp_valid),
         .tk_mmio_bresp_ready(tk_bresp_ready),
+        .mmio_bresp_resp             (mmio_bresp_resp),
 
-        .tk_mmio_rreq_valid(tk_arreq_valid),
-        .tk_mmio_rreq_ready(tk_arreq_ready),
+
+        .tk_mmio_rreq_valid(tk_rreq_valid),
+        .tk_mmio_rreq_ready(tk_rreq_ready),
 
         .mmio_rreq_valid             (mmio_rreq_valid),
 
         .tk_mmio_rresp_valid(tk_rresp_valid),
         .tk_mmio_rresp_ready(tk_rresp_ready),
-        .mmio_rresp_data             (rresp_data),
+        .mmio_rresp_resp             (mmio_rresp_resp),
+        .mmio_rresp_data             (rresp_data_raw),
 
         //// DMA
 

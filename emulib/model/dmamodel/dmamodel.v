@@ -52,8 +52,10 @@ module EmuDMA #(
 
     wire                             mmio_arreq_valid;
     wire [MMIO_ADDR_WIDTH-1:0]       mmio_arreq_addr;
+    wire [2:0]                       mmio_arreq_prot;
 
     wire                             mmio_awreq_valid;
+    wire [2:0]                       mmio_awreq_prot;
     wire [MMIO_ADDR_WIDTH-1:0]       mmio_awreq_addr;
 
     wire                             mmio_wreq_valid;
@@ -63,6 +65,8 @@ module EmuDMA #(
     wire                             mmio_breq_valid;
     wire                             mmio_rreq_valid;
     wire [MMIO_DATA_WIDTH-1:0]       mmio_rresp_data;
+    wire [1:0]                       mmio_rresp_resp;
+    wire [1:0]                       mmio_bresp_resp;
 
     //// DMA
     wire                             dma_arreq_valid;
@@ -113,8 +117,10 @@ module EmuDMA #(
 
         .mmio_arreq_valid            (mmio_arreq_valid),
         .mmio_arreq_addr             (mmio_arreq_addr),
+        .mmio_arreq_prot             (mmio_arreq_prot),
 
         .mmio_awreq_valid            (mmio_awreq_valid),
+        .mmio_awreq_prot             (mmio_awreq_prot),
         .mmio_awreq_addr             (mmio_awreq_addr),
 
         .mmio_wreq_valid             (mmio_wreq_valid),
@@ -122,7 +128,9 @@ module EmuDMA #(
         .mmio_wreq_strb              (mmio_wreq_strb),
 
         .mmio_breq_valid             (mmio_breq_valid),
+        .mmio_bresp_resp             (mmio_bresp_resp),
         .mmio_rreq_valid             (mmio_rreq_valid),
+        .mmio_rresp_resp             (mmio_rresp_resp),
         .mmio_rresp_data             (mmio_rresp_data),
 
         //// DMA
@@ -170,9 +178,11 @@ module EmuDMA #(
         .rst                    (rst),
 
         .mmio_arreq_valid            (mmio_arreq_valid),
+        .mmio_arreq_prot             (mmio_arreq_prot),
         .mmio_arreq_addr             (mmio_arreq_addr),
 
         .mmio_awreq_valid            (mmio_awreq_valid),
+        .mmio_awreq_prot             (mmio_awreq_prot),
         .mmio_awreq_addr             (mmio_awreq_addr),
 
         .mmio_wreq_valid             (mmio_wreq_valid),
@@ -180,8 +190,10 @@ module EmuDMA #(
         .mmio_wreq_strb              (mmio_wreq_strb),
 
         .mmio_breq_valid             (mmio_breq_valid),
+        .mmio_bresp_resp             (mmio_bresp_resp),
         .mmio_rreq_valid             (mmio_rreq_valid),
         .mmio_rresp_data             (mmio_rresp_data),
+        .mmio_rresp_resp             (mmio_rresp_resp),
 
         //// DMA
         .dma_port_arvalid            (dma_arreq_valid),

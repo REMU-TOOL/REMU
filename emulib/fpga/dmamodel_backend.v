@@ -45,6 +45,7 @@ module emulib_dmamodel_backend #(
 
     input wire                             mmio_arreq_valid,
     input wire [MMIO_ADDR_WIDTH-1:0]       mmio_arreq_addr,
+    input wire [2:0]                       mmio_arreq_prot,
 
     // MMIO AWReq Channel
 
@@ -60,7 +61,7 @@ module emulib_dmamodel_backend #(
 
     input wire                             mmio_awreq_valid,
     input wire [MMIO_ADDR_WIDTH-1:0]       mmio_awreq_addr,
-
+    input wire [2:0]                       mmio_awreq_prot,
 
     // MMIO WReq Channel
 
@@ -115,6 +116,7 @@ module emulib_dmamodel_backend #(
 
     output wire                             tk_mmio_bresp_valid,
     input  wire                             tk_mmio_bresp_ready,
+    output wire [1:0]                       mmio_bresp_resp,
 
     // MMIO RResp Channel
 
@@ -130,6 +132,7 @@ module emulib_dmamodel_backend #(
     input  wire                              tk_mmio_rresp_ready,
 
     output  wire [MMIO_DATA_WIDTH-1:0]       mmio_rresp_data,
+    output  wire [1:0]                       mmio_rresp_resp,
 
     `AXI4LITE_MASTER_IF                     (host_mmio_axi,    MMIO_ADDR_WIDTH, MMIO_DATA_WIDTH),
     `AXI4_SLAVE_IF                          (host_dma_axi,     DMA_ADDR_WIDTH, DMA_DATA_WIDTH, DMA_ID_WIDTH),
@@ -202,20 +205,26 @@ wire soft_rst;
 assign host_mmio_axi_araddr = mmio_arreq_addr;
 assign host_mmio_axi_arvalid = mmio_arreq_valid && tk_mmio_arreq_valid && !scan_mode;
 assign tk_mmio_arreq_ready = host_mmio_axi_arready || !mmio_arreq_valid;
+assign host_mmio_axi_arprot = mmio_arreq_prot;
 
 assign host_mmio_axi_awaddr = mmio_awreq_addr;
 assign host_mmio_axi_awvalid = mmio_awreq_valid && tk_mmio_awreq_valid && !scan_mode;
 assign tk_mmio_awreq_ready = host_mmio_axi_awready || !mmio_awreq_valid;
+assign host_mmio_axi_awprot = mmio_awreq_prot;
 
 assign host_mmio_axi_wdata = mmio_wreq_data;
 assign host_mmio_axi_wvalid = mmio_wreq_valid && tk_mmio_wreq_valid;
-assign tk_mmio_wreq_ready = host_mmio_axi_wready || !tk_mmio_wreq_ready;
+assign host_mmio_axi_wstrb  = mmio_wreq_strb;
+assign tk_mmio_wreq_ready = host_mmio_axi_wready || !mmio_wreq_valid;
 
+assign mmio_bresp_resp = host_mmio_axi_bresp;
 
 assign host_mmio_axi_rready = 1;
 assign host_mmio_axi_bready = 1;
 
 assign mmio_rresp_data = pre_resp_rdata;
+assign mmio_rresp_resp = pre_resp_rresp;
+
 
 wire r_whitehole = !waiting_backend_rresp;
 wire resp_data_ready = waiting_backend_rresp && !waiting_host_rdata;
@@ -225,13 +234,16 @@ assign tk_mmio_rresp_valid = tk_mmio_rreq_valid && (r_whitehole || resp_data_rea
 
 
 reg [MMIO_DATA_WIDTH-1:0] pre_resp_rdata;
+reg [1:0] pre_resp_rresp;
 reg waiting_host_rdata = 0;
 always @(posedge mdl_clk) begin
     if(mdl_rst) begin
         pre_resp_rdata <= 0;
+        pre_resp_rresp <= 0;
     end
     else if(host_mmio_axi_rready && host_mmio_axi_rvalid && !reset_pending)begin
         pre_resp_rdata <= host_mmio_axi_rdata;
+        pre_resp_rresp <= host_mmio_axi_rresp;
         waiting_host_rdata <= 0;
     end
     else if(host_mmio_axi_arready && host_mmio_axi_arvalid)

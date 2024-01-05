@@ -18,19 +18,22 @@ module emulib_dmamodel_frontend #(
     //MMIO Channels to backend
     output wire                             mmio_arreq_valid,
     output wire [MMIO_ADDR_WIDTH-1:0]       mmio_arreq_addr,
-    output wire [2:0]                       mmio_arreq_size,
+    output wire [2:0]                       mmio_arreq_prot,
 
     output wire                             mmio_awreq_valid,
     output wire [MMIO_ADDR_WIDTH-1:0]       mmio_awreq_addr,
-    output wire [2:0]                       mmio_awreq_size,
+    output wire [2:0]                       mmio_awreq_prot,
+
 
     output wire                             mmio_wreq_valid,
     output wire [MMIO_DATA_WIDTH-1:0]       mmio_wreq_data,
     output wire [MMIO_DATA_WIDTH/8-1:0]     mmio_wreq_strb,
 
     output wire                             mmio_breq_valid,
+    input  wire                             mmio_bresp_resp,
     output wire                             mmio_rreq_valid,
     input  wire [MMIO_DATA_WIDTH-1:0]       mmio_rresp_data,
+    input  wire [1:0]			            mmio_rresp_resp,
 
     //DMA Channels to backend
     input  wire                             dma_arreq_valid,
@@ -69,19 +72,32 @@ module emulib_dmamodel_frontend #(
 /* =========================== MMIO PORT =============================*/
 //AW Channel Payload
 assign mmio_awreq_addr   = target_mmio_axi_awaddr;
-
+assign mmio_awreq_valid  = target_mmio_axi_awvalid && target_mmio_axi_awready;
+assign mmio_awreq_prot   = target_mmio_axi_awprot;
 //W Channel Payload
 assign mmio_wreq_data = target_mmio_axi_wdata;
 assign mmio_wreq_strb = target_mmio_axi_wstrb;
+assign mmio_wreq_valid= target_mmio_axi_wvalid && target_mmio_axi_wready;
 
 //AR Channel Payload
 assign mmio_arreq_addr   = target_mmio_axi_araddr;
+assign mmio_arreq_valid  = target_mmio_axi_arvalid && target_mmio_axi_arready;
+assign mmio_arreq_prot   = target_mmio_axi_arprot;
 
-//TODO MMIO Latency Pipe
+//R Channel
+assign mmio_rreq_valid = target_mmio_axi_rvalid && target_mmio_axi_rready;
+assign target_mmio_axi_rdata = mmio_rresp_data;
+assign target_mmio_axi_rresp = mmio_rresp_resp;
+//B Channel
+assign mmio_breq_valid = target_mmio_axi_bvalid && target_mmio_axi_bready;
+assign target_mmio_axi_bresp = mmio_bresp_resp;
+
+//MMIO Latency Pipe
 latency_pipe #(
     .ADDR_WIDTH(MMIO_ADDR_WIDTH),
     .MAX_R_INFLIGHT(1),
-    .MAX_W_INFLIGHT(1)
+    .MAX_W_INFLIGHT(1),
+    .ID_WIDTH(1)
 ) u_mmio_latency_pipe(
     .clk        (clk    ), 
     .rst        (rst    ), 
