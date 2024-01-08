@@ -313,7 +313,16 @@ module EmuDmaTest #(
     wire [1:0]                       mmio_rresp_resp;
     wire [1:0]                       mmio_bresp_resp;
 
-
+    reg [7:0] dma_write_counter;
+    always @(posedge host_clk) begin
+        if(host_rst)
+            dma_write_counter <= 0;
+        else if(test_host_dma_axi_wvalid && test_host_dma_axi_wready)begin
+            dma_write_counter <= dma_write_counter + 1;
+            if(test_host_dma_axi_wlast)
+                dma_write_counter <= 0;
+        end
+    end
 emulib_dmamodel_backend #(
         .MMIO_ADDR_WIDTH     (MMIO_ADDR_WIDTH),
         .MMIO_DATA_WIDTH     (MMIO_DATA_WIDTH),

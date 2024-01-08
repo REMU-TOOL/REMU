@@ -354,12 +354,12 @@ void PortTransform::process_axi_ports(Module *module)
 
         std::string type = wire->get_string_attribute(Attr::AxiType);
 
-        if (type != "axi4")
+        if (type != "axi4" && type !="axi4-dma")
             continue;
 
         std::string name = wire->get_string_attribute(Attr::AxiName);
 
-        if (!wire->has_attribute(Attr::AxiSize))
+        if (!wire->has_attribute(Attr::AxiSize) && type == "axi4")
             log_error("AXI interface %s does not have size specified\n",
                 name.c_str());
 
@@ -367,7 +367,10 @@ void PortTransform::process_axi_ports(Module *module)
         info.name = {name};
         info.port_name = name;
         info.axi = axi4_from_prefix(module, name);
-        info.size = const_as_u64(wire->attributes.at(Attr::AxiSize));
+        if(type == "axi4")
+            info.size = const_as_u64(wire->attributes.at(Attr::AxiSize));
+        else
+            info.size = 0;
 
         info.axi.check();
 
@@ -390,7 +393,10 @@ void PortTransform::process_axi_ports(Module *module)
         for (auto &info : all_axi_ports.at(child.name)) {
             AXIPort newinfo = info;
             newinfo.name.insert(newinfo.name.begin(), id2str(edge.name.second));
-            newinfo.port_name = "EMU_AXI_" + join_string(newinfo.name, '_');
+            if(newinfo.size != 0)
+                newinfo.port_name = "EMU_AXI_" + join_string(newinfo.name, '_');
+            else
+                newinfo.port_name = "EMU_DMA_AXI_" + join_string(newinfo.name, '_');
             newinfo.axi.setPrefix(newinfo.port_name);
 
             auto sub_sigs = info.axi.signals();

@@ -103,6 +103,8 @@ Checkpoint::Checkpoint(const CheckpointInfo &info, const std::string &path)
     // Create memory objects
 
     for (auto &x : info.axi_size_map) {
+        if(x.second == 0)
+            continue;
         axi_mems.try_emplace(x.first, get_mem_path(x.first), x.second);
     }
 }

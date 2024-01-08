@@ -60,8 +60,13 @@ void Driver::init_axi(const SysInfo &sysinfo)
     uint64_t dmabase = mem->dmabase();
     uint64_t alloc_size = 0;
     for (auto p : sort_list) {
-        p->assigned_size = 1UL << clog2(p->size); // power of 2
-        p->assigned_offset = alloc_size;
+        if(p->size != 0){
+            p->assigned_size = 1UL << clog2(p->size); // power of 2
+            p->assigned_offset = alloc_size;
+        }else{
+            p->assigned_size = 0;
+            p->assigned_offset = 0;
+        }
         alloc_size += p->assigned_size;
 
         fprintf(stderr, "[REMU] INFO: Allocated memory (offset 0x%08lx - 0x%08lx) for AXI port \"%s\"\n",
@@ -165,6 +170,8 @@ void Driver::load_checkpoint()
         {
             Profiler profiler(this, "load memory");
             for (auto &axi : axi_db.objects()) {
+                if(axi.size == 0)
+                    continue;
                 auto stream = ckpt.axi_mems.at(axi.name).read();
                 ctrl.memory()->copy_from_stream(axi.assigned_offset, axi.assigned_size, stream);
             }
@@ -222,6 +229,8 @@ void Driver::save_checkpoint()
         {
             Profiler profiler(this, "save memory");
             for (auto &axi : axi_db.objects()) {
+                if(axi.size == 0)
+                    continue;
                 auto stream = ckpt.axi_mems.at(axi.name).write();
                 ctrl.memory()->copy_to_stream(axi.assigned_offset, axi.assigned_size, stream);
             }

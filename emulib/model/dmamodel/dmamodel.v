@@ -230,7 +230,7 @@ module EmuDMA #(
         .dma_port_bready             (dma_breq_ready),
         .dma_port_bvalid             (dma_breq_valid),
         .dma_port_bid                (dma_breq_id),
-        .dma_port_bresp              (dma_breq_resp),
+        .dma_port_bresp              (dma_breq_bresp),
 
         .dma_port_rready             (dma_rreq_ready),
         .dma_port_rvalid             (dma_rreq_valid),

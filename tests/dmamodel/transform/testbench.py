@@ -5,7 +5,7 @@ import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, ClockCycles
 
-from cocotbext.axi import AxiBus, AxiMaster, AxiRam
+from cocotbext.axi import AxiBus, AxiMaster, AxiRam, AxiLiteMaster, AxiLiteRam, AxiLiteBus
 from cocotbext.axi.constants import AxiBurstType
 
 CONFIG_FILE = '.build/sysinfo.json'
@@ -18,7 +18,7 @@ class TB:
         self.axi_master = AxiMaster(AxiBus.from_prefix(dut, 'host_dma'), dut.host_clk, dut.host_rst)
         self.axilite_master = AxiLiteMaster(AxiLiteBus.from_prefix(dut, 'target_mmio'), dut.target_clk, dut.target_rst)
         self.axi_ram = AxiRam(AxiBus.from_prefix(dut, 'target_dma'), dut.target_clk, dut.target_rst, size=0x1000)
-        self.axilite_ram = AxiLitRam(AxiLiteBus.from_prefix(dut, 'host_mmio'), dut.host_clk, dut.host_rst, size=0x1000)
+        self.axilite_ram = AxiLiteRam(AxiLiteBus.from_prefix(dut, 'host_mmio'), dut.host_clk, dut.host_rst, size=0x1000)
 
 
     def load_config(self, path):
@@ -126,17 +126,17 @@ async def run_test(dut):
             addr = (2 ** size) * random.randint(0, 16)
             length = 0x100 if burst == AxiBurstType.INCR else 16 * (2 ** size)
             axi_data = bytearray([x % 256 for x in range(length)])
-            axilite_data = 123
+            axilite_data = bytearray(1)
             dut._log.info("STEP %d: address=0x%x, length=0x%x, axsize=%d axburst=%s" % (step, addr, length, size, burst))
             await ClockCycles(dut.host_clk, random.randint(1, 20))
-            await tb.axilite_master.write(addr, axilite_data, size=size)
+            await tb.axilite_master.write(addr, axilite_data)
             await ClockCycles(dut.host_clk, random.randint(1, 20))
             await tb.axi_master.write(addr, axi_data, burst=burst, size=size, awid=0)
             await ClockCycles(dut.host_clk, random.randint(1, 20))
             data_arr = await tb.axi_master.read(addr, length, burst=burst, size=size, arid=0)
-            data_lite = await tb.axilite_master.read(addr,size=size)
+            data_lite = await tb.axilite_master.read(addr,length=1)
             assert data_arr.data == axi_data
-            assert data_lite == axilite_data
+            assert data_lite.data == axilite_data
 
     running = True
 

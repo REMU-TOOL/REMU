@@ -83,8 +83,13 @@ async def run_test(dut):
     read_write_worker_list = []
     for i in range(2):
         read_write_worker_list.append(cocotb.start_soon(axi_read_write_worker_func(i*0x1000)))
-        #read_write_worker_list.append(cocotb.start_soon(axilite_read_write_worker_func(i*0x100)))
+    #   read_write_worker_list.append(cocotb.start_soon(axilite_read_write_worker_func(i*0x100)))
     #pause_resume_worker = cocotb.start_soon(pause_resume_worker_func())
+
+
+    for i in range(2):
+    #    read_write_worker_list.append(cocotb.start_soon(axi_read_write_worker_func(i*0x1000)))
+        read_write_worker_list.append(cocotb.start_soon(axilite_read_write_worker_func(i*0x100)))
 
     await ClockCycles(dut.host_clk, 100)
     dut._log.info("Releasing DUT reset")

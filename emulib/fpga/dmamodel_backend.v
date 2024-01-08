@@ -134,7 +134,12 @@ module emulib_dmamodel_backend #(
     output  wire [MMIO_DATA_WIDTH-1:0]       mmio_rresp_data,
     output  wire [1:0]                       mmio_rresp_resp,
 
+    (* __emu_axi_name = "host_mmio_axi" *)
+    (* __emu_axi_type = "axi4-dma" *)
     `AXI4LITE_MASTER_IF                     (host_mmio_axi,    MMIO_ADDR_WIDTH, MMIO_DATA_WIDTH),
+
+    (* __emu_axi_name = "host_dma_axi" *)
+    (* __emu_axi_type = "axi4-dma" *)
     `AXI4_SLAVE_IF                          (host_dma_axi,     DMA_ADDR_WIDTH, DMA_DATA_WIDTH, DMA_ID_WIDTH),
 
     //DMA Channel
