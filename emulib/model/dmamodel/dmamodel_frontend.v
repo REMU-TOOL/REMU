@@ -43,6 +43,7 @@ module emulib_dmamodel_frontend #(
     input  wire [7:0]                       dma_arreq_len,
     input  wire [2:0]                       dma_arreq_size,
     input  wire [1:0]                       dma_arreq_burst,
+    input  wire [2:0]                       dma_arreq_prot,
 
     input  wire                             dma_awreq_valid,
     output wire                             dma_awreq_ready,
@@ -50,6 +51,7 @@ module emulib_dmamodel_frontend #(
     input  wire [DMA_ID_WIDTH-1:0]          dma_awreq_id,
     input  wire [7:0]                       dma_awreq_len,
     input  wire [2:0]                       dma_awreq_size,
+    input  wire [2:0]                       dma_awreq_prot,
     input  wire [1:0]                       dma_awreq_burst,
 
     input  wire                             dma_wreq_valid,
@@ -63,11 +65,12 @@ module emulib_dmamodel_frontend #(
     output wire [DMA_DATA_WIDTH-1:0]        dma_rreq_data,  
     output wire [DMA_ID_WIDTH-1:0]          dma_rreq_id,
     output wire                             dma_rreq_last,
+    output wire [1:0]                       dma_rreq_rresp,
 
     output wire                             dma_breq_valid,
     input  wire                             dma_breq_ready,
-    output  wire [DMA_ID_WIDTH-1:0]          dma_breq_id,
-    output  wire [1:0]                       dma_breq_bresp
+    output  wire [DMA_ID_WIDTH-1:0]         dma_breq_id,
+    output  wire [1:0]                      dma_breq_bresp
 );
 /* =========================== MMIO PORT =============================*/
 //AW Channel Payload
@@ -136,6 +139,7 @@ assign target_dma_axi_awsize   = dma_awreq_size;
 assign target_dma_axi_awburst  = dma_awreq_burst;
 assign target_dma_axi_awvalid  = dma_awreq_valid;
 assign dma_awreq_ready         = target_dma_axi_awready;
+assign target_dma_axi_awprot   = dma_awreq_prot;
 
 //W Channel Payload
 assign target_dma_axi_wdata    = dma_wreq_data;
@@ -151,6 +155,7 @@ assign target_dma_axi_arlen    = dma_arreq_len;
 assign target_dma_axi_arsize   = dma_arreq_size;
 assign target_dma_axi_arburst  = dma_arreq_burst;
 assign target_dma_axi_arvalid  = dma_arreq_valid;
+assign target_dma_axi_arprot   = dma_arreq_prot;
 assign dma_arreq_ready         = target_dma_axi_arready;
 
 //R Channel Payload
@@ -158,6 +163,7 @@ assign dma_rreq_data = target_dma_axi_rdata;
 assign dma_rreq_id = target_dma_axi_rid;
 assign dma_rreq_last = target_dma_axi_rlast;
 assign dma_rreq_valid = target_dma_axi_rvalid;
+assign dma_rreq_rresp = target_dma_axi_rresp;
 assign target_dma_axi_rready = dma_rreq_ready;
 
 //B Channel Payload

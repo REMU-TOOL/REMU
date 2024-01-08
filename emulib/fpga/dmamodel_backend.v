@@ -155,6 +155,7 @@ module emulib_dmamodel_backend #(
     output  wire [7:0]                       dma_port_arlen,
     output  wire [2:0]                       dma_port_arsize,
     output  wire [1:0]                       dma_port_arburst,
+    output  wire [2:0]                       dma_port_arprot,
 
     output  wire                             dma_port_awvalid,
     input   wire                             dma_port_awready,
@@ -163,6 +164,7 @@ module emulib_dmamodel_backend #(
     output  wire [7:0]                       dma_port_awlen,
     output  wire [2:0]                       dma_port_awsize,
     output  wire [1:0]                       dma_port_awburst,
+    output  wire [2:0]                       dma_port_awprot,
 
     output  wire                             dma_port_wvalid,
     input   wire                             dma_port_wready,
@@ -175,6 +177,7 @@ module emulib_dmamodel_backend #(
     input   wire [DMA_DATA_WIDTH-1:0]        dma_port_rdata,  
     input   wire [DMA_ID_WIDTH-1:0]          dma_port_rid,
     input   wire                             dma_port_rlast,
+    input   wire [1:0]                       dma_port_rresp,
 
     input   wire                             dma_port_bvalid,
     output  wire                             dma_port_bready,
@@ -311,10 +314,10 @@ assign idle = !host_mmio_axi_arvalid && !host_mmio_axi_awvalid && r_whitehole &&
         .rst        (fifo_rst),
         .ivalid     (host_dma_axi_arvalid),
         .iready     (host_dma_axi_arready),
-        .idata      ({host_dma_axi_araddr,host_dma_axi_arid,host_dma_axi_arlen,host_dma_axi_arsize,host_dma_axi_arburst}),
+        .idata      ({host_dma_axi_araddr,host_dma_axi_arid,host_dma_axi_arlen,host_dma_axi_arsize,host_dma_axi_arburst,host_dma_axi_arprot}),
         .ovalid     (dma_port_arvalid),
         .oready     (dma_port_arready),
-        .odata      ({dma_port_araddr,dma_port_arid,dma_port_arlen,dma_port_arsize,dma_port_arburst})
+        .odata      ({dma_port_araddr,dma_port_arid,dma_port_arlen,dma_port_arsize,dma_port_arburst,dma_port_arprot})
     );
 
     emulib_ready_valid_fifo #(
@@ -325,10 +328,10 @@ assign idle = !host_mmio_axi_arvalid && !host_mmio_axi_awvalid && r_whitehole &&
         .rst        (fifo_rst),
         .ivalid     (host_dma_axi_awvalid),
         .iready     (host_dma_axi_awready),
-        .idata      ({host_dma_axi_awaddr,host_dma_axi_awid,host_dma_axi_awlen,host_dma_axi_awsize,host_dma_axi_awburst}),
+        .idata      ({host_dma_axi_awaddr,host_dma_axi_awid,host_dma_axi_awlen,host_dma_axi_awsize,host_dma_axi_awburst,host_dma_axi_awprot}),
         .ovalid     (dma_port_awvalid),
         .oready     (dma_port_awready),
-        .odata      ({dma_port_awaddr,dma_port_awid,dma_port_awlen,dma_port_awsize,dma_port_awburst})
+        .odata      ({dma_port_awaddr,dma_port_awid,dma_port_awlen,dma_port_awsize,dma_port_awburst,dma_port_awprot})
     );
 
     //W FIFO
@@ -373,5 +376,7 @@ assign idle = !host_mmio_axi_arvalid && !host_mmio_axi_awvalid && r_whitehole &&
         .oready     (host_dma_axi_bready),
         .odata      (`AXI4_CUSTOM_B_PAYLOAD(host_dma_axi))
     );
+    assign host_dma_axi_bresp = 2'b00;
+    assign host_dma_axi_rresp = 2'b00;
 
 endmodule

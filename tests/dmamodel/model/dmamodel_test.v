@@ -80,6 +80,7 @@ module EmuDmaTest #(
     wire [DMA_ADDR_WIDTH-1:0]        dma_arreq_addr;
     wire [7:0]                       dma_arreq_len;
     wire [2:0]                       dma_arreq_size;
+    wire [2:0]                       dma_arreq_prot;
     wire [1:0]                       dma_arreq_burst;
 
     wire                             dma_awreq_valid;
@@ -89,6 +90,7 @@ module EmuDmaTest #(
     wire [7:0]                       dma_awreq_len;
     wire [2:0]                       dma_awreq_size;
     wire [1:0]                       dma_awreq_burst;
+    wire [2:0]                       dma_awreq_prot;
 
     wire                             dma_wreq_valid;
     wire                             dma_wreq_ready;
@@ -105,6 +107,7 @@ module EmuDmaTest #(
     wire                             dma_rreq_ready;
     wire [DMA_ID_WIDTH-1:0]          dma_rreq_id;
     wire [DMA_DATA_WIDTH-1:0]        dma_rreq_data;
+    wire [1:0]                       dma_rreq_rresp;
     wire                             dma_rreq_last;
     
     emulib_dmamodel_frontend #(
@@ -146,6 +149,7 @@ module EmuDmaTest #(
         .dma_arreq_len              (dma_arreq_len),
         .dma_arreq_size             (dma_arreq_size),
         .dma_arreq_burst            (dma_arreq_burst),
+        .dma_arreq_prot             (dma_arreq_prot),
 
         .dma_awreq_ready            (dma_awreq_ready),
         .dma_awreq_valid            (dma_awreq_valid),
@@ -154,6 +158,7 @@ module EmuDmaTest #(
         .dma_awreq_len              (dma_awreq_len),
         .dma_awreq_size             (dma_awreq_size),
         .dma_awreq_burst            (dma_awreq_burst),
+        .dma_awreq_prot             (dma_awreq_prot),
 
         .dma_wreq_ready             (dma_wreq_ready),
         .dma_wreq_valid             (dma_wreq_valid),
@@ -164,12 +169,14 @@ module EmuDmaTest #(
         .dma_breq_ready             (dma_breq_ready),
         .dma_breq_valid             (dma_breq_valid),
         .dma_breq_id                (dma_breq_id),
+        .dma_breq_bresp             (dma_breq_bresp),
 
         .dma_rreq_ready             (dma_rreq_ready),
         .dma_rreq_valid             (dma_rreq_valid),
         .dma_rreq_id                (dma_rreq_id),
         .dma_rreq_data              (dma_rreq_data),
-        .dma_rreq_last              (dma_rreq_last)
+        .dma_rreq_last              (dma_rreq_last),
+        .dma_rreq_rresp             (dma_rreq_rresp)
     );
 
     wire finishing;
@@ -377,6 +384,7 @@ emulib_dmamodel_backend #(
         .dma_port_arlen              (dma_arreq_len),
         .dma_port_arsize             (dma_arreq_size),
         .dma_port_arburst            (dma_arreq_burst),
+        .dma_port_arprot             (dma_arreq_prot),
 
         .dma_port_awready            (dma_awreq_ready),
         .dma_port_awvalid            (dma_awreq_valid),
@@ -384,6 +392,7 @@ emulib_dmamodel_backend #(
         .dma_port_awaddr             (dma_awreq_addr),
         .dma_port_awlen              (dma_awreq_len),
         .dma_port_awsize             (dma_awreq_size),
+        .dma_port_awprot             (dma_awreq_prot),
         .dma_port_awburst            (dma_awreq_burst),
 
         .dma_port_wready             (dma_wreq_ready),
@@ -395,11 +404,13 @@ emulib_dmamodel_backend #(
         .dma_port_bready             (dma_breq_ready),
         .dma_port_bvalid             (dma_breq_valid),
         .dma_port_bid                (dma_breq_id),
+        .dma_port_bresp              (dma_breq_resp),
 
         .dma_port_rready             (dma_rreq_ready),
         .dma_port_rvalid             (dma_rreq_valid),
         .dma_port_rid                (dma_rreq_id),
         .dma_port_rdata              (dma_rreq_data),
+        .dma_port_rresp              (dma_rreq_rresp),
         .dma_port_rlast              (dma_rreq_last),
 
         `AXI4_CONNECT     (host_dma_axi, test_host_dma_axi),
