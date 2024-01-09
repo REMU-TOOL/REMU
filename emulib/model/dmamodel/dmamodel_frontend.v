@@ -93,7 +93,7 @@ assign target_mmio_axi_rdata = mmio_rresp_data;
 assign target_mmio_axi_rresp = mmio_rresp_resp;
 //B Channel
 assign mmio_breq_valid = target_mmio_axi_bvalid && target_mmio_axi_bready;
-assign target_mmio_axi_bresp = mmio_bresp_resp;
+assign target_mmio_axi_bresp = 2'b00;
 
 //MMIO Latency Pipe
 latency_pipe #(
@@ -143,7 +143,7 @@ assign target_dma_axi_awprot   = dma_awreq_prot;
 
 //W Channel Payload
 assign target_dma_axi_wdata    = dma_wreq_data;
-assign target_dma_axi_wlast    = dma_wreq_last;
+assign target_dma_axi_wlast    = dma_wreq_last && dma_wreq_ready && dma_wreq_valid;
 assign target_dma_axi_wstrb    = dma_wreq_strb;
 assign target_dma_axi_wvalid   = dma_wreq_valid;
 assign dma_wreq_ready          = target_dma_axi_wready;

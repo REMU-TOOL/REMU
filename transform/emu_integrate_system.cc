@@ -355,20 +355,22 @@ void SystemTransform::run()
 {
     Module *top = design->top_module();
 
-    Wire *host_clk  = CommonPort::get(top, CommonPort::PORT_HOST_CLK);
-    Wire *host_rst  = CommonPort::get(top, CommonPort::PORT_HOST_RST);
-    Wire *run_mode  = CommonPort::get(top, CommonPort::PORT_RUN_MODE);
-    Wire *scan_mode = CommonPort::get(top, CommonPort::PORT_SCAN_MODE);
-    Wire *idle      = CommonPort::get(top, CommonPort::PORT_IDLE);
-    Wire *ff_se     = CommonPort::get(top, CommonPort::PORT_FF_SE);
-    Wire *ff_di     = CommonPort::get(top, CommonPort::PORT_FF_DI);
-    Wire *ff_do     = CommonPort::get(top, CommonPort::PORT_FF_DO);
-    Wire *ram_sr    = CommonPort::get(top, CommonPort::PORT_RAM_SR);
-    Wire *ram_se    = CommonPort::get(top, CommonPort::PORT_RAM_SE);
-    Wire *ram_sd    = CommonPort::get(top, CommonPort::PORT_RAM_SD);
-    Wire *ram_di    = CommonPort::get(top, CommonPort::PORT_RAM_DI);
-    Wire *ram_do    = CommonPort::get(top, CommonPort::PORT_RAM_DO);
+    Wire *host_clk      = CommonPort::get(top, CommonPort::PORT_HOST_CLK);
+    Wire *host_rst      = CommonPort::get(top, CommonPort::PORT_HOST_RST);
+    Wire *run_mode      = CommonPort::get(top, CommonPort::PORT_RUN_MODE);
+    Wire *scan_mode     = CommonPort::get(top, CommonPort::PORT_SCAN_MODE);
+    Wire *idle          = CommonPort::get(top, CommonPort::PORT_IDLE);
+    Wire *ff_se         = CommonPort::get(top, CommonPort::PORT_FF_SE);
+    Wire *ff_di         = CommonPort::get(top, CommonPort::PORT_FF_DI);
+    Wire *ff_do         = CommonPort::get(top, CommonPort::PORT_FF_DO);
+    Wire *ram_sr        = CommonPort::get(top, CommonPort::PORT_RAM_SR);
+    Wire *ram_se        = CommonPort::get(top, CommonPort::PORT_RAM_SE);
+    Wire *ram_sd        = CommonPort::get(top, CommonPort::PORT_RAM_SD);
+    Wire *ram_di        = CommonPort::get(top, CommonPort::PORT_RAM_DI);
+    Wire *ram_do        = CommonPort::get(top, CommonPort::PORT_RAM_DO);
+    Wire *pause_pending = CommonPort::get(top, CommonPort::PORT_PAUSE_PENDING);
 
+    make_internal(pause_pending);
     make_internal(run_mode);
     make_internal(scan_mode);
     make_internal(idle);
@@ -425,6 +427,7 @@ void SystemTransform::run()
     sys_ctrl->setPort("\\tick",         tick);
     sys_ctrl->setPort("\\model_busy",   top->Not(NEW_ID, idle));
     sys_ctrl->setPort("\\run_mode",     run_mode);
+    sys_ctrl->setPort("\\pause_pending",pause_pending);
     sys_ctrl->setPort("\\scan_mode",    scan_mode);
 
     sys_ctrl->setPort("\\ctrl_wen",     sys_ctrl_sig.wen);

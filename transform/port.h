@@ -38,6 +38,7 @@ struct CommonPort
     static const Info PORT_MDL_CLK_FF;
     static const Info PORT_MDL_CLK_RAM;
     static const Info PORT_MDL_RST;
+    static const Info PORT_PAUSE_PENDING;
     static const Info PORT_RUN_MODE;
     static const Info PORT_SCAN_MODE;
     static const Info PORT_IDLE;

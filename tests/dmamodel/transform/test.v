@@ -166,9 +166,6 @@ module test #(
         .EMU_IDLE           (idle),
         .EMU_TICK           (tick),
 
-        //`AXI4_CONNECT (host_dma_axi, host_dma),
-        //`AXI4LITE_CONNECT (host_mmio_axi, host_mmio),
-
         `AXI4_CONNECT (target_dma, target_dma),
         `AXI4LITE_CONNECT (target_mmio, target_mmio)
 

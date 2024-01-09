@@ -12,32 +12,34 @@ USING_YOSYS_NAMESPACE
 
 std::vector<CommonPort::Info*> CommonPort::Info::list;
 
-const CommonPort::Info CommonPort::PORT_HOST_CLK    ("\\EMU_HOST_CLK",      true,   PT_INPUT);
-const CommonPort::Info CommonPort::PORT_HOST_RST    ("\\EMU_HOST_RST",      true,   PT_INPUT);
-const CommonPort::Info CommonPort::PORT_MDL_CLK     ("\\EMU_MDL_CLK",       true,   PT_INPUT);
-const CommonPort::Info CommonPort::PORT_MDL_CLK_FF  ("\\EMU_MDL_CLK_FF",    true,   PT_INPUT);
-const CommonPort::Info CommonPort::PORT_MDL_CLK_RAM ("\\EMU_MDL_CLK_RAM",   true,   PT_INPUT);
-const CommonPort::Info CommonPort::PORT_MDL_RST     ("\\EMU_MDL_RST",       true,   PT_INPUT);
-const CommonPort::Info CommonPort::PORT_RUN_MODE    ("\\EMU_RUN_MODE",      true,   PT_INPUT);
-const CommonPort::Info CommonPort::PORT_SCAN_MODE   ("\\EMU_SCAN_MODE",     true,   PT_INPUT);
-const CommonPort::Info CommonPort::PORT_IDLE        ("\\EMU_IDLE",          true,   PT_OUTPUT_AND);
-const CommonPort::Info CommonPort::PORT_FF_SE       ("\\EMU_FF_SE",         false,  PT_INPUT);
-const CommonPort::Info CommonPort::PORT_FF_DI       ("\\EMU_FF_DI",         false,  PT_INPUT);
-const CommonPort::Info CommonPort::PORT_FF_DO       ("\\EMU_FF_DO",         false,  PT_OUTPUT);
-const CommonPort::Info CommonPort::PORT_RAM_SR      ("\\EMU_RAM_SR",        false,  PT_INPUT);
-const CommonPort::Info CommonPort::PORT_RAM_SE      ("\\EMU_RAM_SE",        false,  PT_INPUT);
-const CommonPort::Info CommonPort::PORT_RAM_SD      ("\\EMU_RAM_SD",        false,  PT_INPUT);
-const CommonPort::Info CommonPort::PORT_RAM_DI      ("\\EMU_RAM_DI",        false,  PT_INPUT);
-const CommonPort::Info CommonPort::PORT_RAM_DO      ("\\EMU_RAM_DO",        false,  PT_OUTPUT);
-const CommonPort::Info CommonPort::PORT_RAM_LI      ("\\EMU_RAM_LI",        false,  PT_INPUT);
-const CommonPort::Info CommonPort::PORT_RAM_LO      ("\\EMU_RAM_LO",        false,  PT_OUTPUT);
+const CommonPort::Info CommonPort::PORT_HOST_CLK      ("\\EMU_HOST_CLK",      true,   PT_INPUT);
+const CommonPort::Info CommonPort::PORT_HOST_RST      ("\\EMU_HOST_RST",      true,   PT_INPUT);
+const CommonPort::Info CommonPort::PORT_MDL_CLK       ("\\EMU_MDL_CLK",       true,   PT_INPUT);
+const CommonPort::Info CommonPort::PORT_MDL_CLK_FF    ("\\EMU_MDL_CLK_FF",    true,   PT_INPUT);
+const CommonPort::Info CommonPort::PORT_MDL_CLK_RAM   ("\\EMU_MDL_CLK_RAM",   true,   PT_INPUT);
+const CommonPort::Info CommonPort::PORT_MDL_RST       ("\\EMU_MDL_RST",       true,   PT_INPUT);
+const CommonPort::Info CommonPort::PORT_PAUSE_PENDING ("\\EMU_PAUSE_PENDING", true,   PT_OUTPUT_OR);
+const CommonPort::Info CommonPort::PORT_RUN_MODE      ("\\EMU_RUN_MODE",      true,   PT_INPUT);
+const CommonPort::Info CommonPort::PORT_SCAN_MODE     ("\\EMU_SCAN_MODE",     true,   PT_INPUT);
+const CommonPort::Info CommonPort::PORT_IDLE          ("\\EMU_IDLE",          true,   PT_OUTPUT_AND);
+const CommonPort::Info CommonPort::PORT_FF_SE         ("\\EMU_FF_SE",         false,  PT_INPUT);
+const CommonPort::Info CommonPort::PORT_FF_DI         ("\\EMU_FF_DI",         false,  PT_INPUT);
+const CommonPort::Info CommonPort::PORT_FF_DO         ("\\EMU_FF_DO",         false,  PT_OUTPUT);
+const CommonPort::Info CommonPort::PORT_RAM_SR        ("\\EMU_RAM_SR",        false,  PT_INPUT);
+const CommonPort::Info CommonPort::PORT_RAM_SE        ("\\EMU_RAM_SE",        false,  PT_INPUT);
+const CommonPort::Info CommonPort::PORT_RAM_SD        ("\\EMU_RAM_SD",        false,  PT_INPUT);
+const CommonPort::Info CommonPort::PORT_RAM_DI        ("\\EMU_RAM_DI",        false,  PT_INPUT);
+const CommonPort::Info CommonPort::PORT_RAM_DO        ("\\EMU_RAM_DO",        false,  PT_OUTPUT);
+const CommonPort::Info CommonPort::PORT_RAM_LI        ("\\EMU_RAM_LI",        false,  PT_INPUT);
+const CommonPort::Info CommonPort::PORT_RAM_LO        ("\\EMU_RAM_LO",        false,  PT_OUTPUT);
 
 const Yosys::dict<std::string, const CommonPort::Info*> CommonPort::name_dict = {
-    {"mdl_clk",     &CommonPort::PORT_MDL_CLK},
-    {"mdl_rst",     &CommonPort::PORT_MDL_RST},
-    {"run_mode",    &CommonPort::PORT_RUN_MODE},
-    {"scan_mode",   &CommonPort::PORT_SCAN_MODE},
-    {"idle",        &CommonPort::PORT_IDLE},
+    {"mdl_clk",      &CommonPort::PORT_MDL_CLK},
+    {"mdl_rst",      &CommonPort::PORT_MDL_RST},
+    {"pause_pending",&CommonPort::PORT_PAUSE_PENDING},
+    {"run_mode",     &CommonPort::PORT_RUN_MODE},
+    {"scan_mode",    &CommonPort::PORT_SCAN_MODE},
+    {"idle",         &CommonPort::PORT_IDLE},
     // other ports are not allowed in verilog source code
 };
 

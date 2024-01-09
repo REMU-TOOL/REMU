@@ -13,6 +13,7 @@ module EmuSysCtrl #(
     input  wire         model_busy,
 
     output reg          run_mode,
+    input  wire         pause_pending,
     output reg          scan_mode,
 
     input  wire [__TRIG_COUNT-1:0]    trig,
@@ -87,6 +88,7 @@ module EmuSysCtrl #(
     //      [1]     -> SCAN_MODE [RW]
     //      [2]     -> PAUSE_BUSY [RO]
     //      [3]     -> MODEL_BUSY [RO]
+    //      [4]     -> PAUSE_PENDING [RO]
 
     reg pause_busy;
 
@@ -123,7 +125,7 @@ module EmuSysCtrl #(
         end
     end
 
-    wire [31:0] mode_ctrl = {28'd0, model_busy, pause_busy, scan_mode, run_mode};
+    wire [31:0] mode_ctrl = {27'd0, pause_pending, model_busy, pause_busy, scan_mode, run_mode};
 
     // STEP_CNT
     //      [31:0]  -> STEP [RW]
@@ -134,10 +136,10 @@ module EmuSysCtrl #(
         if (host_rst) begin
             step_cnt <= 32'd0;
         end
-        else if (run_mode && tick) begin
+        else if ((run_mode || pause_pending) && tick) begin
             step_cnt <= step_cnt == 32'd0 ? 32'd0 : step_cnt - 32'd1;
         end
-        else if (!run_mode && ctrl_wen && w_step_cnt) begin
+        else if (!(run_mode || pause_pending) && ctrl_wen && w_step_cnt) begin
             step_cnt <= ctrl_wdata;
         end
     end
@@ -155,14 +157,14 @@ module EmuSysCtrl #(
         if (host_rst) begin
             tick_cnt <= 64'd0;
         end
-        else if (run_mode && tick) begin
+        else if ((run_mode || pause_pending) && tick) begin
             tick_cnt <= tick_cnt + 64'd1;
         end
         else begin
-            if (!run_mode && ctrl_wen && w_tick_cnt_lo) begin
+            if (!(run_mode || pause_pending) && ctrl_wen && w_tick_cnt_lo) begin
                 tick_cnt[31:0] <= ctrl_wdata;
             end
-            if (!run_mode && ctrl_wen && w_tick_cnt_hi) begin
+            if (!(run_mode || pause_pending) && ctrl_wen && w_tick_cnt_hi) begin
                 tick_cnt[63:32] <= ctrl_wdata;
             end
         end
@@ -207,7 +209,7 @@ module EmuSysCtrl #(
         if (host_rst) begin
             trig_stat <= {__TRIG_COUNT{1'b0}};
         end
-        else if (run_mode) begin
+        else if (run_mode || pause_pending) begin
             trig_stat <= trig;
         end
     end

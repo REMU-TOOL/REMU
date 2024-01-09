@@ -51,8 +51,8 @@ module EmuDMA #(
     end
 
     wire                             mmio_arreq_valid;
-    wire [MMIO_ADDR_WIDTH-1:0]       mmio_arreq_addr;
     wire [2:0]                       mmio_arreq_prot;
+    wire [MMIO_ADDR_WIDTH-1:0]       mmio_arreq_addr;
 
     wire                             mmio_awreq_valid;
     wire [2:0]                       mmio_awreq_prot;
@@ -96,15 +96,15 @@ module EmuDMA #(
     wire                             dma_breq_valid;
     wire                             dma_breq_ready;
     wire [DMA_ID_WIDTH-1:0]          dma_breq_id;
-    wire [1:0]                       dma_breq_bresp;
+    wire [1:0]                       dma_breq_resp;
 
     wire                             dma_rreq_valid;
     wire                             dma_rreq_ready;
     wire [DMA_ID_WIDTH-1:0]          dma_rreq_id;
     wire [DMA_DATA_WIDTH-1:0]        dma_rreq_data;
-    wire                             dma_rreq_last;
     wire [1:0]                       dma_rreq_rresp;
-    
+    wire                             dma_rreq_last;
+
     emulib_dmamodel_frontend #(
         .MMIO_ADDR_WIDTH     (MMIO_ADDR_WIDTH),
         .MMIO_DATA_WIDTH     (MMIO_DATA_WIDTH),
@@ -119,8 +119,8 @@ module EmuDMA #(
         `AXI4_CONNECT           (target_dma_axi, m_dma_axi),
 
         .mmio_arreq_valid            (mmio_arreq_valid),
-        .mmio_arreq_addr             (mmio_arreq_addr),
         .mmio_arreq_prot             (mmio_arreq_prot),
+        .mmio_arreq_addr             (mmio_arreq_addr),
 
         .mmio_awreq_valid            (mmio_awreq_valid),
         .mmio_awreq_prot             (mmio_awreq_prot),
@@ -131,10 +131,10 @@ module EmuDMA #(
         .mmio_wreq_strb              (mmio_wreq_strb),
 
         .mmio_breq_valid             (mmio_breq_valid),
-        .mmio_bresp_resp             (mmio_bresp_resp),
         .mmio_rreq_valid             (mmio_rreq_valid),
-        .mmio_rresp_resp             (mmio_rresp_resp),
         .mmio_rresp_data             (mmio_rresp_data),
+        .mmio_rresp_resp             (mmio_rresp_resp),
+        .mmio_bresp_resp             (mmio_bresp_resp),
 
         //// DMA
         .dma_arreq_valid            (dma_arreq_valid),
@@ -152,8 +152,8 @@ module EmuDMA #(
         .dma_awreq_addr             (dma_awreq_addr),
         .dma_awreq_len              (dma_awreq_len),
         .dma_awreq_size             (dma_awreq_size),
-        .dma_awreq_prot             (dma_awreq_prot),
         .dma_awreq_burst            (dma_awreq_burst),
+        .dma_awreq_prot             (dma_awreq_prot),
 
         .dma_wreq_ready             (dma_wreq_ready),
         .dma_wreq_valid             (dma_wreq_valid),
@@ -164,7 +164,7 @@ module EmuDMA #(
         .dma_breq_ready             (dma_breq_ready),
         .dma_breq_valid             (dma_breq_valid),
         .dma_breq_id                (dma_breq_id),
-        .dma_breq_bresp             (dma_breq_bresp),
+        .dma_breq_bresp             (dma_breq_resp),
 
         .dma_rreq_ready             (dma_rreq_ready),
         .dma_rreq_valid             (dma_rreq_valid),
@@ -197,47 +197,51 @@ module EmuDMA #(
         .mmio_wreq_strb              (mmio_wreq_strb),
 
         .mmio_breq_valid             (mmio_breq_valid),
+
         .mmio_bresp_resp             (mmio_bresp_resp),
+
         .mmio_rreq_valid             (mmio_rreq_valid),
-        .mmio_rresp_data             (mmio_rresp_data),
+
         .mmio_rresp_resp             (mmio_rresp_resp),
+        .mmio_rresp_data             (mmio_rresp_data),
 
         //// DMA
-        .dma_port_arvalid            (dma_arreq_valid),
-        .dma_port_arready            (dma_arreq_ready),
-        .dma_port_arid               (dma_arreq_id),
-        .dma_port_araddr             (dma_arreq_addr),
-        .dma_port_arlen              (dma_arreq_len),
-        .dma_port_arsize             (dma_arreq_size),
-        .dma_port_arburst            (dma_arreq_burst),
-        .dma_port_arprot             (dma_arreq_prot),
 
-        .dma_port_awready            (dma_awreq_ready),
-        .dma_port_awvalid            (dma_awreq_valid),
-        .dma_port_awid               (dma_awreq_id),
-        .dma_port_awaddr             (dma_awreq_addr),
-        .dma_port_awlen              (dma_awreq_len),
-        .dma_port_awsize             (dma_awreq_size),
-        .dma_port_awprot             (dma_awreq_prot),
-        .dma_port_awburst            (dma_awreq_burst),
+        .dma_port_out_arvalid            (dma_arreq_valid),
+        .dma_port_in_arready             (dma_arreq_ready),
+        .dma_port_out_arid               (dma_arreq_id),
+        .dma_port_out_araddr             (dma_arreq_addr),
+        .dma_port_out_arlen              (dma_arreq_len),
+        .dma_port_out_arsize             (dma_arreq_size),
+        .dma_port_out_arburst            (dma_arreq_burst),
+        .dma_port_out_arprot             (dma_arreq_prot),
 
-        .dma_port_wready             (dma_wreq_ready),
-        .dma_port_wvalid             (dma_wreq_valid),
-        .dma_port_wdata              (dma_wreq_data),
-        .dma_port_wstrb              (dma_wreq_strb),
-        .dma_port_wlast              (dma_wreq_last),
+        .dma_port_in_awready            (dma_awreq_ready),
+        .dma_port_out_awvalid            (dma_awreq_valid),
+        .dma_port_out_awid               (dma_awreq_id),
+        .dma_port_out_awaddr             (dma_awreq_addr),
+        .dma_port_out_awlen              (dma_awreq_len),
+        .dma_port_out_awsize             (dma_awreq_size),
+        .dma_port_out_awprot             (dma_awreq_prot),
+        .dma_port_out_awburst            (dma_awreq_burst),
 
-        .dma_port_bready             (dma_breq_ready),
-        .dma_port_bvalid             (dma_breq_valid),
-        .dma_port_bid                (dma_breq_id),
-        .dma_port_bresp              (dma_breq_bresp),
+        .dma_port_in_wready             (dma_wreq_ready),
+        .dma_port_out_wvalid             (dma_wreq_valid),
+        .dma_port_out_wdata              (dma_wreq_data),
+        .dma_port_out_wstrb              (dma_wreq_strb),
+        .dma_port_out_wlast              (dma_wreq_last),
 
-        .dma_port_rready             (dma_rreq_ready),
-        .dma_port_rvalid             (dma_rreq_valid),
-        .dma_port_rid                (dma_rreq_id),
-        .dma_port_rdata              (dma_rreq_data),
-        .dma_port_rlast              (dma_rreq_last),
-        .dma_port_rresp              (dma_rreq_rresp)
+        .dma_port_out_bready             (dma_breq_ready),
+        .dma_port_in_bvalid             (dma_breq_valid),
+        .dma_port_in_bid                (dma_breq_id),
+        .dma_port_in_bresp              (dma_breq_resp),
+
+        .dma_port_out_rready             (dma_rreq_ready),
+        .dma_port_in_rvalid             (dma_rreq_valid),
+        .dma_port_in_rid                (dma_rreq_id),
+        .dma_port_in_rdata              (dma_rreq_data),
+        .dma_port_in_rresp              (dma_rreq_rresp),
+        .dma_port_in_rlast              (dma_rreq_last)
     );
 
 endmodule

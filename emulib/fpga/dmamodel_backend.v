@@ -143,55 +143,67 @@ module emulib_dmamodel_backend #(
     `AXI4_SLAVE_IF                          (host_dma_axi,     DMA_ADDR_WIDTH, DMA_DATA_WIDTH, DMA_ID_WIDTH),
 
     //DMA Channel
-    (* __emu_channel_name = "dma_port" *)
+    (* __emu_channel_name = "dma_port_out" *)
     (* __emu_channel_direction = "out" *)
+    (* __emu_channel_payload = "dma_port_out*" *)
+    (* __emu_channel_clock = "clk" *)
+    (* __emu_channel_valid = "tk_dma_port_out_valid" *)
+    (* __emu_channel_ready = "tk_dma_port_out_ready" *)
+
+    output wire                              tk_dma_port_out_valid,
+    input  wire                              tk_dma_port_out_ready,
+
+    output  wire                             dma_port_out_arvalid,
+    output  wire [DMA_ADDR_WIDTH-1:0]        dma_port_out_araddr,
+    output  wire [DMA_ID_WIDTH-1:0]          dma_port_out_arid,
+    output  wire [7:0]                       dma_port_out_arlen,
+    output  wire [2:0]                       dma_port_out_arsize,
+    output  wire [1:0]                       dma_port_out_arburst,
+    output  wire [2:0]                       dma_port_out_arprot,
+
+    output  wire                             dma_port_out_awvalid,
+    output  wire [DMA_ADDR_WIDTH-1:0]        dma_port_out_awaddr,
+    output  wire [DMA_ID_WIDTH-1:0]          dma_port_out_awid,
+    output  wire [7:0]                       dma_port_out_awlen,
+    output  wire [2:0]                       dma_port_out_awsize,
+    output  wire [1:0]                       dma_port_out_awburst,
+    output  wire [2:0]                       dma_port_out_awprot,
+
+    output  wire                             dma_port_out_wvalid,
+    output  wire [DMA_DATA_WIDTH-1:0]        dma_port_out_wdata,
+    output  wire [DMA_DATA_WIDTH/8-1:0]      dma_port_out_wstrb,
+    output  wire                             dma_port_out_wlast,
+    output  wire                             dma_port_out_rready,
+    output  wire                             dma_port_out_bready,
+
+//DMA Channel
+    (* __emu_channel_name = "dma_port_in" *)
+    (* __emu_channel_direction = "in" *)
     (* __emu_channel_payload = "dma_port_*" *)
     (* __emu_channel_clock = "clk" *)
-    (* __emu_channel_valid = "tk_dma_port_valid" *)
-    (* __emu_channel_ready = "tk_dma_port_ready" *)
+    (* __emu_channel_valid = "tk_dma_port_in_valid" *)
+    (* __emu_channel_ready = "tk_dma_port_in_ready" *)
 
-    output wire                              tk_dma_port_valid,
-    input  wire                              tk_dma_port_ready,
+    input wire                               tk_dma_port_in_valid,
+    output  wire                             tk_dma_port_in_ready,
 
-    output  wire                             dma_port_arvalid,
-    input   wire                             dma_port_arready,
-    output  wire [DMA_ADDR_WIDTH-1:0]        dma_port_araddr,
-    output  wire [DMA_ID_WIDTH-1:0]          dma_port_arid,
-    output  wire [7:0]                       dma_port_arlen,
-    output  wire [2:0]                       dma_port_arsize,
-    output  wire [1:0]                       dma_port_arburst,
-    output  wire [2:0]                       dma_port_arprot,
-
-    output  wire                             dma_port_awvalid,
-    input   wire                             dma_port_awready,
-    output  wire [DMA_ADDR_WIDTH-1:0]        dma_port_awaddr,
-    output  wire [DMA_ID_WIDTH-1:0]          dma_port_awid,
-    output  wire [7:0]                       dma_port_awlen,
-    output  wire [2:0]                       dma_port_awsize,
-    output  wire [1:0]                       dma_port_awburst,
-    output  wire [2:0]                       dma_port_awprot,
-
-    output  wire                             dma_port_wvalid,
-    input   wire                             dma_port_wready,
-    output  wire [DMA_DATA_WIDTH-1:0]        dma_port_wdata,
-    output  wire [DMA_DATA_WIDTH/8-1:0]      dma_port_wstrb,
-    output  wire                             dma_port_wlast,
-
-    input   wire                             dma_port_rvalid,
-    output  wire                             dma_port_rready,
-    input   wire [DMA_DATA_WIDTH-1:0]        dma_port_rdata,  
-    input   wire [DMA_ID_WIDTH-1:0]          dma_port_rid,
-    input   wire                             dma_port_rlast,
-    input   wire [1:0]                       dma_port_rresp,
-
-    input   wire                             dma_port_bvalid,
-    output  wire                             dma_port_bready,
-    input  wire [DMA_ID_WIDTH-1:0]           dma_port_bid,
-    input  wire [1:0]                        dma_port_bresp,
+    input  wire [DMA_ID_WIDTH-1:0]           dma_port_in_bid,
+    input   wire                             dma_port_in_bvalid,
+    input  wire [1:0]                        dma_port_in_bresp,
+    input   wire [DMA_DATA_WIDTH-1:0]        dma_port_in_rdata,  
+    input   wire [DMA_ID_WIDTH-1:0]          dma_port_in_rid,
+    input   wire                             dma_port_in_rlast,
+    input   wire [1:0]                       dma_port_in_rresp,
+    input   wire                             dma_port_in_rvalid,
+    input   wire                             dma_port_in_awready,
+    input   wire                             dma_port_in_wready,
+    input   wire                             dma_port_in_arready,
 
 
     (* __emu_common_port = "run_mode" *)
     input  wire                             run_mode,
+    (* __emu_common_port = "pause_pending" *)
+    output wire                             pause_pending,
     (* __emu_common_port = "scan_mode" *)
     input  wire                             scan_mode,
     (* __emu_common_port = "idle" *)
@@ -293,8 +305,10 @@ end
 
 wire reset_pending = tk_dma_rst_valid && rst;
 
-assign idle = !host_mmio_axi_arvalid && !host_mmio_axi_awvalid && r_whitehole && b_whitehole;
-
+wire mmio_idle = !host_mmio_axi_arvalid && !host_mmio_axi_awvalid && r_whitehole && b_whitehole;
+wire dma_idle = !waiting_dma_bresp && !waiting_dma_rresp;
+assign pause_pending = !dma_idle;
+assign idle = mmio_idle && dma_idle;
 /* ================================ DMA QUEUE ====================================*/
 
     localparam  A_PAYLOAD_LEN   = `AXI4_CUSTOM_A_PAYLOAD_LEN(DMA_ADDR_WIDTH, DMA_DATA_WIDTH, DMA_ID_WIDTH);
@@ -307,10 +321,31 @@ assign idle = !host_mmio_axi_arvalid && !host_mmio_axi_awvalid && r_whitehole &&
     localparam  R_ISSUE_Q_DEPTH = 256 * MAX_R_INFLIGHT;
     localparam  B_ISSUE_Q_DEPTH = MAX_W_INFLIGHT;
 
-    assign tk_dma_port_valid = 1'b1;
+    assign tk_dma_port_out_valid = 1'b1;
+    assign tk_dma_port_in_ready = 1'b1;
+
+    reg waiting_dma_rresp = 0;
+    always @(posedge mdl_clk) begin
+        if(host_dma_axi_arvalid && host_dma_axi_arready && !reset_pending)begin
+            waiting_dma_rresp <= 1;
+        end
+        else if (host_dma_axi_rvalid && host_dma_axi_rready&& host_dma_axi_rlast)
+            waiting_dma_rresp <= 0;
+    end
+
+    reg waiting_dma_bresp = 0;
+    always @(posedge mdl_clk) begin
+        if(host_dma_axi_awvalid && host_dma_axi_awready && !reset_pending)begin
+            waiting_dma_bresp <= 1;
+        end
+        else if (host_dma_axi_bvalid && host_dma_axi_bready)
+            waiting_dma_bresp <= 0;
+    end
 
     //AR/AW FIFO
     wire fifo_rst = soft_rst || mdl_rst;
+    wire ar_issue_ready;
+    assign host_dma_axi_arready = ar_issue_ready && run_mode;
     emulib_ready_valid_fifo #(
         .WIDTH      (A_PAYLOAD_LEN),
         .DEPTH      (A_ISSUE_Q_DEPTH)
@@ -318,13 +353,15 @@ assign idle = !host_mmio_axi_arvalid && !host_mmio_axi_awvalid && r_whitehole &&
         .clk        (mdl_clk),
         .rst        (fifo_rst),
         .ivalid     (host_dma_axi_arvalid),
-        .iready     (host_dma_axi_arready),
+        .iready     (ar_issue_ready),
         .idata      ({host_dma_axi_araddr,host_dma_axi_arid,host_dma_axi_arlen,host_dma_axi_arsize,host_dma_axi_arburst,host_dma_axi_arprot}),
-        .ovalid     (dma_port_arvalid),
-        .oready     (dma_port_arready),
-        .odata      ({dma_port_araddr,dma_port_arid,dma_port_arlen,dma_port_arsize,dma_port_arburst,dma_port_arprot})
+        .ovalid     (dma_port_out_arvalid),
+        .oready     (dma_port_in_arready),
+        .odata      ({dma_port_out_araddr,dma_port_out_arid,dma_port_out_arlen,dma_port_out_arsize,dma_port_out_arburst,dma_port_out_arprot})
     );
 
+    wire aw_issue_ready;
+    assign host_dma_axi_awready = aw_issue_ready && run_mode;
     emulib_ready_valid_fifo #(
         .WIDTH      (A_PAYLOAD_LEN),
         .DEPTH      (A_ISSUE_Q_DEPTH)
@@ -332,11 +369,11 @@ assign idle = !host_mmio_axi_arvalid && !host_mmio_axi_awvalid && r_whitehole &&
         .clk        (mdl_clk),
         .rst        (fifo_rst),
         .ivalid     (host_dma_axi_awvalid),
-        .iready     (host_dma_axi_awready),
+        .iready     (aw_issue_ready),
         .idata      ({host_dma_axi_awaddr,host_dma_axi_awid,host_dma_axi_awlen,host_dma_axi_awsize,host_dma_axi_awburst,host_dma_axi_awprot}),
-        .ovalid     (dma_port_awvalid),
-        .oready     (dma_port_awready),
-        .odata      ({dma_port_awaddr,dma_port_awid,dma_port_awlen,dma_port_awsize,dma_port_awburst,dma_port_awprot})
+        .ovalid     (dma_port_out_awvalid),
+        .oready     (dma_port_in_awready),
+        .odata      ({dma_port_out_awaddr,dma_port_out_awid,dma_port_out_awlen,dma_port_out_awsize,dma_port_out_awburst,dma_port_out_awprot})
     );
 
     //W FIFO
@@ -349,9 +386,9 @@ assign idle = !host_mmio_axi_arvalid && !host_mmio_axi_awvalid && r_whitehole &&
         .ivalid     (host_dma_axi_wvalid),
         .iready     (host_dma_axi_wready),
         .idata      (`AXI4_CUSTOM_W_PAYLOAD(host_dma_axi)),
-        .ovalid     (dma_port_wvalid),
-        .oready     (dma_port_wready),
-        .odata      (`AXI4_CUSTOM_W_PAYLOAD(dma_port))
+        .ovalid     (dma_port_out_wvalid),
+        .oready     (dma_port_in_wready),
+        .odata      (`AXI4_CUSTOM_W_PAYLOAD(dma_port_out))
     );
     //R FIFO
     emulib_ready_valid_fifo #(
@@ -360,9 +397,9 @@ assign idle = !host_mmio_axi_arvalid && !host_mmio_axi_awvalid && r_whitehole &&
     ) r_issue_q (
         .clk        (mdl_clk),
         .rst        (fifo_rst),
-        .ivalid     (dma_port_rvalid),
-        .iready     (dma_port_rready),
-        .idata      (`AXI4_CUSTOM_R_PAYLOAD(dma_port)),
+        .ivalid     (dma_port_in_rvalid),
+        .iready     (dma_port_out_rready),
+        .idata      (`AXI4_CUSTOM_R_PAYLOAD(dma_port_in)),
         .ovalid     (host_dma_axi_rvalid),
         .oready     (host_dma_axi_rready),
         .odata      (`AXI4_CUSTOM_R_PAYLOAD(host_dma_axi))
@@ -374,9 +411,9 @@ assign idle = !host_mmio_axi_arvalid && !host_mmio_axi_awvalid && r_whitehole &&
     ) b_issue_q (
         .clk        (mdl_clk),
         .rst        (fifo_rst),
-        .ivalid     (dma_port_bvalid),
-        .iready     (dma_port_bready),
-        .idata      (`AXI4_CUSTOM_B_PAYLOAD(dma_port)),
+        .ivalid     (dma_port_in_bvalid),
+        .iready     (dma_port_out_bready),
+        .idata      (`AXI4_CUSTOM_B_PAYLOAD(dma_port_in)),
         .ovalid     (host_dma_axi_bvalid),
         .oready     (host_dma_axi_bready),
         .odata      (`AXI4_CUSTOM_B_PAYLOAD(host_dma_axi))

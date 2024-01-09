@@ -18,10 +18,11 @@ namespace RegDef
     constexpr int RESET_CTRL_START  = 0x120;
     constexpr int RESET_CTRL_END    = 0x130;
 
-    constexpr int MODE_CTRL_RUN_MODE    = (1 << 0);
-    constexpr int MODE_CTRL_SCAN_MODE   = (1 << 1);
-    constexpr int MODE_CTRL_PAUSE_BUSY  = (1 << 2);
-    constexpr int MODE_CTRL_MODEL_BUSY  = (1 << 3);
+    constexpr int MODE_CTRL_RUN_MODE      = (1 << 0);
+    constexpr int MODE_CTRL_SCAN_MODE     = (1 << 1);
+    constexpr int MODE_CTRL_PAUSE_BUSY    = (1 << 2);
+    constexpr int MODE_CTRL_MODEL_BUSY    = (1 << 3);
+    constexpr int MODE_CTRL_PAUSE_PENDING = (1 << 4);
 
     constexpr int SCAN_CTRL_RUNNING     = (1 << 0);
     constexpr int SCAN_CTRL_START       = (1 << 0);

@@ -55,6 +55,7 @@ void rewrite_channel(Module *module, ChannelPort &channel)
     Wire *mdl_clk       = CommonPort::get(module, CommonPort::PORT_MDL_CLK);
     Wire *mdl_rst       = CommonPort::get(module, CommonPort::PORT_MDL_RST);
     Wire *run_mode      = CommonPort::get(module, CommonPort::PORT_RUN_MODE);
+    Wire *pause_pending = CommonPort::get(module, CommonPort::PORT_PAUSE_PENDING);
 
     Wire *tick = module->wire(clk_to_tick(channel.clock));
 
@@ -80,14 +81,14 @@ void rewrite_channel(Module *module, ChannelPort &channel)
 
     // Note: direction is in model module's view
     if (channel.dir == ChannelPort::IN) {
-        // assign valid = !done && run_mode;
-        module->connect(channel.valid, module->And(NEW_ID, module->Not(NEW_ID, done), run_mode));
+        // assign valid = !done && (run_mode || pause_penging);
+        module->connect(channel.valid, module->And(NEW_ID, module->Not(NEW_ID, done), module->Or(NEW_ID, run_mode, pause_pending)));
         // connect payload signals
         module->connect(channel.old_payload, channel.new_payload);
     }
     else {
-        // assign ready = !done && run_mode;
-        module->connect(channel.ready, module->And(NEW_ID, module->Not(NEW_ID, done), run_mode));
+        // assign ready = !done && (run_mode || pause_pending);
+        module->connect(channel.ready, module->And(NEW_ID, module->Not(NEW_ID, done), module->Or(NEW_ID, run_mode, pause_pending)));
         // insert buffers for payload signals
         // always @(posedge clk)
         //   if (fire)
@@ -272,9 +273,10 @@ void FAMETransform::run()
     Wire *scan_mode     = CommonPort::get(top, CommonPort::PORT_SCAN_MODE);
     Wire *ff_se         = CommonPort::get(top, CommonPort::PORT_FF_SE);
     Wire *ram_se        = CommonPort::get(top, CommonPort::PORT_RAM_SE);
+    Wire *pause_pending = CommonPort::get(top, CommonPort::PORT_PAUSE_PENDING);
 
     SigSpec not_scan_mode = top->Not(NEW_ID, scan_mode);
-    SigSpec run_and_tick = top->And(NEW_ID, run_mode, tick);
+    SigSpec run_and_tick = top->And(NEW_ID, top->Or(NEW_ID, run_mode, pause_pending), tick);
 
     make_internal(mdl_clk);
     make_internal(mdl_clk_ff);
