@@ -306,8 +306,10 @@ void add_axi_remap(EmulationDatabase &database, Module *top, CtrlConnBuilder &bu
         top->rename(awaddr, NEW_ID);
         Wire *new_araddr = top->addWire(araddr_name, remap_addr_width);
         Wire *new_awaddr = top->addWire(awaddr_name, remap_addr_width);
-        new_araddr->port_output = true;
-        new_awaddr->port_output = true;
+        new_araddr->port_output = info.axi.isMaster();
+        new_awaddr->port_output = info.axi.isMaster();
+        new_araddr->port_input = !info.axi.isMaster();
+        new_awaddr->port_input = !info.axi.isMaster();
         make_internal(araddr);
         make_internal(awaddr);
 
