@@ -207,9 +207,11 @@ module emulib_dmamodel_backend #(
     (* __emu_common_port = "scan_mode" *)
     input  wire                             scan_mode,
     (* __emu_common_port = "idle" *)
-    output wire                             idle
+    output wire                             idle,
+    input  wire [2:0]                       in_intr,
+    output wire [2:0]                       out_intr
 );
-
+assign out_intr = in_intr;
 (* __emu_no_scanchain *)
 reset_token_handler resetter (
     .mdl_clk        (mdl_clk),

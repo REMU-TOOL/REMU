@@ -16,7 +16,9 @@ module EmuDMA #(
     input  wire             clk,
     input  wire             rst,
     `AXI4LITE_SLAVE_IF          (s_mmio_axi,    MMIO_ADDR_WIDTH, MMIO_DATA_WIDTH),
-    `AXI4_MASTER_IF             (m_dma_axi,     DMA_ADDR_WIDTH, DMA_DATA_WIDTH, DMA_ID_WIDTH)
+    `AXI4_MASTER_IF             (m_dma_axi,     DMA_ADDR_WIDTH, DMA_DATA_WIDTH, DMA_ID_WIDTH),
+    output wire [2:0]       out_intr,
+    input  wire [2:0]       in_intr
 );
 
 
@@ -216,7 +218,7 @@ module EmuDMA #(
         .dma_port_out_arburst            (dma_arreq_burst),
         .dma_port_out_arprot             (dma_arreq_prot),
 
-        .dma_port_in_awready            (dma_awreq_ready),
+        .dma_port_in_awready             (dma_awreq_ready),
         .dma_port_out_awvalid            (dma_awreq_valid),
         .dma_port_out_awid               (dma_awreq_id),
         .dma_port_out_awaddr             (dma_awreq_addr),
@@ -225,23 +227,25 @@ module EmuDMA #(
         .dma_port_out_awprot             (dma_awreq_prot),
         .dma_port_out_awburst            (dma_awreq_burst),
 
-        .dma_port_in_wready             (dma_wreq_ready),
+        .dma_port_in_wready              (dma_wreq_ready),
         .dma_port_out_wvalid             (dma_wreq_valid),
         .dma_port_out_wdata              (dma_wreq_data),
         .dma_port_out_wstrb              (dma_wreq_strb),
         .dma_port_out_wlast              (dma_wreq_last),
 
         .dma_port_out_bready             (dma_breq_ready),
-        .dma_port_in_bvalid             (dma_breq_valid),
-        .dma_port_in_bid                (dma_breq_id),
-        .dma_port_in_bresp              (dma_breq_resp),
+        .dma_port_in_bvalid              (dma_breq_valid),
+        .dma_port_in_bid                 (dma_breq_id),
+        .dma_port_in_bresp               (dma_breq_resp),
 
         .dma_port_out_rready             (dma_rreq_ready),
-        .dma_port_in_rvalid             (dma_rreq_valid),
-        .dma_port_in_rid                (dma_rreq_id),
-        .dma_port_in_rdata              (dma_rreq_data),
-        .dma_port_in_rresp              (dma_rreq_rresp),
-        .dma_port_in_rlast              (dma_rreq_last)
+        .dma_port_in_rvalid              (dma_rreq_valid),
+        .dma_port_in_rid                 (dma_rreq_id),
+        .dma_port_in_rdata               (dma_rreq_data),
+        .dma_port_in_rresp               (dma_rreq_rresp),
+        .dma_port_in_rlast               (dma_rreq_last),
+        .out_intr                        (out_intr),
+        .in_intr                         (in_intr)
     );
 
 endmodule

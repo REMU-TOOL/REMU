@@ -325,11 +325,17 @@ void add_axi_remap(EmulationDatabase &database, Module *top, CtrlConnBuilder &bu
         cell->setPort("\\ctrl_ren", ctrl.ren);
         cell->setPort("\\ctrl_raddr", ctrl.raddr);
         cell->setPort("\\ctrl_rdata", ctrl.rdata);
-        cell->setPort("\\araddr_i", araddr);
-        cell->setPort("\\araddr_o", new_araddr);
-        cell->setPort("\\awaddr_i", awaddr);
-        cell->setPort("\\awaddr_o", new_awaddr);
-
+        if(info.axi.isMaster()){
+            cell->setPort("\\araddr_i", araddr);
+            cell->setPort("\\araddr_o", new_araddr);
+            cell->setPort("\\awaddr_i", awaddr);
+            cell->setPort("\\awaddr_o", new_awaddr);
+        }else{
+            cell->setPort("\\araddr_i", new_araddr);
+            cell->setPort("\\araddr_o", araddr);
+            cell->setPort("\\awaddr_i", new_awaddr);
+            cell->setPort("\\awaddr_o", awaddr);
+        }
         info.reg_offset = AXI_REMAP_CFG_BASE + step * i;
         if (info.reg_offset >= AXI_REMAP_CFG_LIMIT)
             log_error("too many AXI interfaces\n");
@@ -450,6 +456,9 @@ void SystemTransform::run()
     connect_signals(database, top, builder);
     connect_triggers(database, top, sys_ctrl);
 
+    Wire *pcie_intr = top->wire("\\pcie_intr"); 
+    pcie_intr->port_input = true;
+    pcie_intr->port_output = false;
     // Add EmuScanCtrl
 
     Cell *scan_ctrl = top->addCell(top->uniquify("\\emu_scan_ctrl"), "\\EmuScanCtrl");
