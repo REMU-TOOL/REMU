@@ -173,6 +173,7 @@ void Driver::load_checkpoint()
                 if(axi.size == 0)
                     continue;
                 auto stream = ckpt.axi_mems.at(axi.name).read();
+                fprintf(stderr, "[REMU] INFO: Start loading memory at %lx size = %lx\n", axi.assigned_offset, axi.assigned_size);
                 ctrl.memory()->copy_from_stream(axi.assigned_offset, axi.assigned_size, stream);
             }
         }

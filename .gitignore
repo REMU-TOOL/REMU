@@ -24,3 +24,7 @@ design/build/
 tests/log/
 
 .vscode/
+
+.cache/
+
+compile_commands.json

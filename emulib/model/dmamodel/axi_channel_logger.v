@@ -33,60 +33,15 @@ module axi_channel_logger #(
     input  logging_rready,
     output [R_PAYLOAD_FORMANTTED_WIDTH-1:0] logging_r_payload
 );
-    localparam AR_LOG_EVENT = 4'd1;
-    localparam AW_LOG_EVENT = 4'd2;
-    localparam R_LOG_EVENT = 4'd3;
-    localparam W_LOG_EVENT = 4'd4;
-    localparam B_LOG_EVENT = 4'd5;
+    localparam AR_EVENT = 4'd1;
+    localparam AW_EVENT = 4'd2;
+    localparam R_EVENT = 4'd3;
+    localparam W_EVENT = 4'd4;
+    localparam B_EVENT = 4'd5;
 
-    reg [63:0] target_cycles, ar_log_cycle, aw_log_cycle, r_log_cycle, w_log_cycle, b_log_cycle;
-
-    always @(posedge clk ) begin
-        if(rst)
-            target_cycles <= 0;
-        else
-            target_cycles <= target_cycles + 1;
-    end
-
-    always @(posedge clk ) begin
-        if(rst) 
-            ar_log_cycle <= 0;
-        else if(logging_arvalid && logging_arready)
-            ar_log_cycle <= target_cycles + 1;
-    end
-
-    always @(posedge clk ) begin
-        if(rst) 
-            aw_log_cycle <= 0;
-        else if(logging_awvalid && logging_awready)
-            aw_log_cycle <= target_cycles + 1;
-    end
-
-    always @(posedge clk ) begin
-        if(rst) 
-            r_log_cycle <= 0;
-        else if(logging_rvalid && logging_rready)
-            r_log_cycle <= target_cycles + 1;
-    end
-
-    always @(posedge clk ) begin
-        if(rst) 
-            w_log_cycle <= 0;
-        else if(logging_wvalid && logging_wready)
-            w_log_cycle <= target_cycles + 1;
-    end
-
-    always @(posedge clk ) begin
-        if(rst) 
-            b_log_cycle <= 0;
-        else if(logging_bvalid && logging_bready)
-            b_log_cycle <= target_cycles + 1;
-    end
-
-    twoway_valid_ready_logger ar_logger #(
-        .DATA_WIDTH(A_PAYLOAD_FORMANTTED_WIDTH),
-        .LOG_EVENT(AR_LOG_EVENT))
-    (
+    twoway_valid_ready_logger #(
+        .DATA_WIDTH(A_PAYLOAD_FORMANTTED_WIDTH)
+    )ar_logger(
         .clk(clk),
         .rst(rst),
         .in_valid(s_axi_arvalid),
@@ -97,14 +52,12 @@ module axi_channel_logger #(
         .out_data(`AXI4_AR_PAYLOAD(m_axi)),
         .log_valid(logging_arvalid),
         .log_ready(logging_arready),
-        .log_data(logging_ar_payload[A_PAYLOAD_FORMANTTED_WIDTH-1:64])
+        .log_data(logging_ar_payload)
     );
-    assign logging_ar_payload[63:0] = ar_log_cycle;
 
-        twoway_valid_ready_logger aw_logger #(
-        .DATA_WIDTH(A_PAYLOAD_FORMANTTED_WIDTH),
-        .LOG_EVENT(AW_LOG_EVENT))
-    (
+    twoway_valid_ready_logger  #(
+        .DATA_WIDTH(A_PAYLOAD_FORMANTTED_WIDTH))
+    aw_logger(
         .clk(clk),
         .rst(rst),
         .in_valid(s_axi_awvalid),
@@ -115,14 +68,12 @@ module axi_channel_logger #(
         .out_data(`AXI4_AW_PAYLOAD(m_axi)),
         .log_valid(logging_awvalid),
         .log_ready(logging_awready),
-        .log_data(logging_aw_payload[A_PAYLOAD_FORMANTTED_WIDTH-1:64])
+        .log_data(logging_aw_payload)
     );
-    assign logging_aw_payload[63:0] = aw_log_cycle;
 
-    twoway_valid_ready_logger w_logger #(
-        .DATA_WIDTH(W_PAYLOAD_FORMANTTED_WIDTH),
-        .LOG_EVENT(W_LOG_EVENT))
-    (
+    twoway_valid_ready_logger  #(
+        .DATA_WIDTH(W_PAYLOAD_FORMANTTED_WIDTH))
+    w_logger(
         .clk(clk),
         .rst(rst),
         .in_valid(s_axi_wvalid),
@@ -135,12 +86,10 @@ module axi_channel_logger #(
         .log_ready(logging_wready),
         .log_data(logging_w_payload[W_PAYLOAD_FORMANTTED_WIDTH-1:64])
     );
-    assign logging_w_payload[63:0] = w_log_cycle;
 
-    twoway_valid_ready_logger r_logger #(
-        .DATA_WIDTH(R_PAYLOAD_FORMANTTED_WIDTH),
-        .LOG_EVENT(R_LOG_EVENT))
-    (
+    twoway_valid_ready_logger  #(
+        .DATA_WIDTH(R_PAYLOAD_FORMANTTED_WIDTH))
+    r_logger(
         .clk(clk),
         .rst(rst),
         .in_valid(m_axi_rvalid),
@@ -151,14 +100,12 @@ module axi_channel_logger #(
         .out_data(`AXI4_R_PAYLOAD(s_axi)),
         .log_valid(logging_rvalid),
         .log_ready(logging_rready),
-        .log_data(logging_r_payload[R_PAYLOAD_FORMANTTED_WIDTH-1:64])
+        .log_data(logging_r_payload)
     );
-    assign logging_r_payload[63:0] = r_log_cycle;
 
-    twoway_valid_ready_logger b_logger #(
-        .DATA_WIDTH(B_PAYLOAD_FORMANTTED_WIDTH),
-        .LOG_EVENT(B_LOG_EVENT))
-    (
+    twoway_valid_ready_logger  #(
+        .DATA_WIDTH(B_PAYLOAD_FORMANTTED_WIDTH))
+    b_logger(
         .clk(clk),
         .rst(rst),
         .in_valid(m_axi_bvalid),
@@ -169,9 +116,7 @@ module axi_channel_logger #(
         .out_data(`AXI4_B_PAYLOAD(s_axi)),
         .log_valid(logging_bvalid),
         .log_ready(logging_bready),
-        .log_data(logging_b_payload[B_PAYLOAD_FORMANTTED_WIDTH-1:64])
+        .log_data(logging_b_payload)
     );
-    assign logging_b_payload[63:0] = b_log_cycle;
-
 
 endmodule

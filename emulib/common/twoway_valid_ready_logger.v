@@ -4,8 +4,7 @@
 `include "axi_custom.vh"
 
 module twoway_valid_ready_logger #(
-    parameter DATA_WIDTH = 64,
-    parameter LOG_EVENT = 0
+    parameter DATA_WIDTH = 64
 )(
     input  clk,
     input  rst,

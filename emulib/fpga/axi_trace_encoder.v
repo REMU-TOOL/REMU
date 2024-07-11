@@ -17,7 +17,7 @@ module axi_trace_encoder #(
     input wire  clk,
 
     // Reset Channel
-
+    input wire [71:0] logging_header,
     (* __emu_channel_name = "rst"*)
     (* __emu_channel_direction = "in" *)
     (* __emu_channel_payload = "rst" *)
@@ -96,13 +96,9 @@ module axi_trace_encoder #(
     output wire  logging_rready,
     input  wire  [R_PAYLOAD_FORMANTTED_WIDTH-1:0] logging_r_payload,
 
-    output wire                             o_valid,
-    input  wire                             o_ready,
-    output wire [512/8-1:0]                 o_keep,
-    output wire [512-1:0]                   o_data,
-    output wire                             o_last
+    `AXI4_MASTER_IF (encoder_m_axi, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)
 );
-    localparam PACKAGE_LEN = A_PAYLOAD_FORMANTTED_WIDTH*2 + R_PAYLOAD_FORMANTTED_WIDTH + W_PAYLOAD_FORMANTTED_WIDTH + B_PAYLOAD_FORMANTTED_WIDTH;
+    localparam PACKAGE_LEN = A_PAYLOAD_FORMANTTED_WIDTH*2 + R_PAYLOAD_FORMANTTED_WIDTH + W_PAYLOAD_FORMANTTED_WIDTH + B_PAYLOAD_FORMANTTED_WIDTH + 72;
     
     reg [A_PAYLOAD_FORMANTTED_WIDTH-1:0] ar_log_data;
     reg [A_PAYLOAD_FORMANTTED_WIDTH-1:0] aw_log_data;
@@ -116,6 +112,9 @@ module axi_trace_encoder #(
     wire trace_disable = 0;
     wire [PACKAGE_LEN-1:0] pkg_data;
     reg [4:0] sel_o_valid;
+
+    reg [31:0] addr_base;
+    reg [31:0] addr_offset;
 
     assign pkg_i_valid = |{logging_wvalid&&logging_wready, logging_arready && logging_arvalid, 
             logging_awvalid && logging_awready, logging_rready && logging_rvalid, logging_bready && logging_bvalid};
@@ -202,7 +201,7 @@ module axi_trace_encoder #(
     assign o_last = trace_disable;
     assign o_data = (package_counter != 0) ? pkg_data[(package_counter-1)*512+:512] : 0;
 
-    assign pkg_data = { {A_PAYLOAD_FORMANTTED_WIDTH{sel_o_valid[0]}} & ar_log_data, {A_PAYLOAD_FORMANTTED_WIDTH{sel_o_valid[1]}} & aw_log_data, 
+    assign pkg_data = {logging_header, {A_PAYLOAD_FORMANTTED_WIDTH{sel_o_valid[0]}} & ar_log_data, {A_PAYLOAD_FORMANTTED_WIDTH{sel_o_valid[1]}} & aw_log_data, 
                         {R_PAYLOAD_FORMANTTED_WIDTH{sel_o_valid[2]}} & r_log_data, {W_PAYLOAD_FORMANTTED_WIDTH{sel_o_valid[3]}} & w_log_data, 
                         {B_PAYLOAD_FORMANTTED_WIDTH{sel_o_valid[4]}} & b_log_data};
     

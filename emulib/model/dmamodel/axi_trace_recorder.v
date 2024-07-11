@@ -19,11 +19,17 @@ module axi4_trace_recorder #(
     output wire [512-1:0]           o_data,
     output wire                     o_last
 );
+    /*
+     * Cycle == 64 BIT
+     * Channel Num == 3 BIT
+     * Event Sel == 5 BIT
+     * AR AW R W B -- 8 BIT aligned
+     */
     // formanted payload length + timestamp width
-    localparam A_PAYLOAD_FORMANTTED_WIDTH = (`AXI4_CUSTOM_A_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))/64*64+64+64;
-    localparam R_PAYLOAD_FORMANTTED_WIDTH = (`AXI4_CUSTOM_R_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))/64*64+64+64;
-    localparam W_PAYLOAD_FORMANTTED_WIDTH = (`AXI4_CUSTOM_W_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))/64*64+64+64;
-    localparam B_PAYLOAD_FORMANTTED_WIDTH = (`AXI4_CUSTOM_B_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))/64*64+64+64;
+    localparam A_PAYLOAD_FORMANTTED_WIDTH = ((`AXI4_CUSTOM_A_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))/8*8)+8;
+    localparam R_PAYLOAD_FORMANTTED_WIDTH = ((`AXI4_CUSTOM_R_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))/8*8)+8;
+    localparam W_PAYLOAD_FORMANTTED_WIDTH = ((`AXI4_CUSTOM_W_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))/8*8)+8;
+    localparam B_PAYLOAD_FORMANTTED_WIDTH = ((`AXI4_CUSTOM_B_PAYLOAD_LEN(ADDR_WIDTH, DATA_WIDTH, ID_WIDTH))/8*8)+8;
     
     wire logging_arvalid;
     wire logging_arready;
@@ -41,36 +47,26 @@ module axi4_trace_recorder #(
     wire logging_bready;
     wire [B_PAYLOAD_FORMANTTED_WIDTH-1:0] logging_b_payload;
 
-    axi_trace_encoder #(
-        .A_PAYLOAD_FORMANTTED_WIDTH(A_PAYLOAD_FORMANTTED_WIDTH),
-        .R_PAYLOAD_FORMANTTED_WIDTH(R_PAYLOAD_FORMANTTED_WIDTH),
-        .W_PAYLOAD_FORMANTTED_WIDTH(W_PAYLOAD_FORMANTTED_WIDTH),
-        .B_PAYLOAD_FORMANTTED_WIDTH(B_PAYLOAD_FORMANTTED_WIDTH),
-        .CHANNEL_SEQ(CHANNEL_SEQ)
-    )axi4_trace_encoder (
-        .logging_arvalid(logging_arvalid),
-        .logging_arready(logging_arready),
-        .logging_ar_payload(logging_ar_payload),
-        .logging_awvalid(logging_awvalid),
-        .logging_awready(logging_awready),
-        .logging_aw_payload(logging_aw_payload),
-        .logging_rvalid(logging_rvalid),
-        .logging_rready(logging_rready),
-        .logging_r_payload(logging_r_payload),
-        .logging_wvalid(logging_wvalid),
-        .logging_wready(logging_wready),
-        .logging_w_payload(logging_w_payload),
-        .logging_bvalid(logging_bvalid),
-        .logging_bready(logging_bready),
-        .logging_b_payload(logging_b_payload),
-        .o_valid(o_valid),
-        .o_ready(o_ready),
-        .o_keep(o_keep),
-        .o_data(o_data),
-        .o_last(o_last)
-    );
+    reg [63:0] target_cycles;
+    wire [4:0] event_sel;
+    assign event_sel = {m_axi_arvalid && m_axi_arready, m_axi_awvalid && m_axi_awready, m_axi_rvalid && m_axi_rready, m_axi_wvalid && m_axi_wready, m_axi_bvalid && m_axi_bready};
+    always @(posedge clk ) begin
+        if(rst)
+            target_cycles <= 0;
+        else
+            target_cycles <= target_cycles + 1;
+    end
+    wire [71:0] logging_header = {CHANNEL_SEQ, event_sel[4:0],target_cycles[63:0]};
 
-    axi4_channel_logger #(
+    
+    EmuTracePort #(.DATA_WIDTH(A_PAYLOAD_FORMANTTED_WIDTH)) CSRState (
+    .clk(clk),
+    .data(logging_ar_payload),
+    .enable(logging_arvalid)
+  );
+
+
+    axi_channel_logger #(
         .A_PAYLOAD_FORMANTTED_WIDTH(A_PAYLOAD_FORMANTTED_WIDTH),
         .R_PAYLOAD_FORMANTTED_WIDTH(R_PAYLOAD_FORMANTTED_WIDTH),
         .W_PAYLOAD_FORMANTTED_WIDTH(W_PAYLOAD_FORMANTTED_WIDTH),
@@ -78,7 +74,9 @@ module axi4_trace_recorder #(
         .ADDR_WIDTH(ADDR_WIDTH),
         .DATA_WIDTH(DATA_WIDTH),
         .ID_WIDTH(ID_WIDTH)
-    )axi4_channel_logger (
+    )axi_channel_logger (
+        .clk(clk),
+        .rst(rst),
         .logging_arvalid(logging_arvalid),
         .logging_arready(logging_arready),
         .logging_ar_payload(logging_ar_payload),

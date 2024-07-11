@@ -18,8 +18,7 @@ void PCIeDMAUserMem::read(char *buf, uint64_t offset, uint64_t len)
     if (offset + len > mem_size)
         throw std::invalid_argument("memory access out of range");
 
-    ::lseek(c2h_fd, mem_base + offset, SEEK_SET);
-    ::read(c2h_fd, buf, len);
+    ::pread(c2h_fd, buf, len, mem_base + offset);
 }
 
 void PCIeDMAUserMem::write(const char *buf, uint64_t offset, uint64_t len)
@@ -27,8 +26,7 @@ void PCIeDMAUserMem::write(const char *buf, uint64_t offset, uint64_t len)
     if (offset + len > mem_size)
         throw std::invalid_argument("memory access out of range");
 
-    ::lseek(h2c_fd, mem_base + offset, SEEK_SET);
-    ::write(h2c_fd, buf, len);
+    ::pwrite(h2c_fd, buf, len, mem_base + offset);
 }
 
 void PCIeDMAUserMem::fill(char c, uint64_t offset, uint64_t len)
