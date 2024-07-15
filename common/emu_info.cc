@@ -76,11 +76,13 @@ void serialize(Archive &archive, SysInfo::AXIInfo &node)
 }
 
 template<class Archive>
-void serialize(Archive &archive, SysInfo::TraceInfo &node)
+void serialize(Archive &archive, SysInfo::TracePortInfo &node)
 {
     archive(
         NVP(name),
         NVP(type),
+        NVP(port_name),
+        NVP(port_width),
         NVP(reg_offset)
     );
 }
@@ -127,7 +129,8 @@ void serialize(Archive &archive, SysInfo &node)
         NVP(axi),
         NVP(model),
         NVP(scan_ff),
-        NVP(scan_ram)
+        NVP(scan_ram),
+        NVP(trace)
     );
 }
 

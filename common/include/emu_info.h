@@ -57,10 +57,12 @@ struct SysInfo
         uint32_t reg_offset;
     };
 
-    struct TraceInfo
+    struct TracePortInfo
     {
         std::vector<std::string> name;
         std::string type;
+        std::string port_name;
+        uint32_t port_width;
         uint32_t reg_offset;
     };
 
@@ -91,6 +93,7 @@ struct SysInfo
     std::vector<SignalInfo> signal;
     std::vector<TriggerInfo> trigger;
     std::vector<AXIInfo> axi;
+    std::vector<TracePortInfo> trace;
     std::vector<ModelInfo> model;
     std::vector<ScanFFInfo> scan_ff;
     std::vector<ScanRAMInfo> scan_ram;

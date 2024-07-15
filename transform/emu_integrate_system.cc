@@ -31,6 +31,9 @@ constexpr uint32_t  SIGNAL_OUT_WIDTH        = 12;
 constexpr uint32_t  TRACE_PORT_BASE         = 0x4000;
 constexpr uint32_t  TRACE_PORT_WIDTH        = 12;
 
+constexpr uint32_t  TRACE_BACKEND_CFG_BASE  = 0x5000;
+constexpr uint32_t  TRACE_BACKEND_CFG_WIDTH = 12;
+
 struct CtrlSig
 {
     Wire *wen;
@@ -263,11 +266,42 @@ void connect_triggers(EmulationDatabase &database, Module *top, Cell *sys_ctrl)
     sys_ctrl->setPort("\\trig", trigs);
 }
 
+void add_emutrace_backend(EmulationDatabase &database, Module *top, CtrlConnBuilder &builder){
+    //TODO: modulize emu_trace_backend
+    Wire *host_clk      = CommonPort::get(top, CommonPort::PORT_HOST_CLK);
+    Wire *host_rst      = CommonPort::get(top, CommonPort::PORT_HOST_RST);
+
+    /*Cell *trace_backend = top->addCell(top->uniquify("\\emu_trace_backend"), "\\EmuTraceBackend");
+    auto ctrl = CtrlSig::create(top, "emu_trace_ctrl_", 12, 32);
+    builder.add(ctrl, TRACE_BACKEND_CFG_BASE, TRACE_BACKEND_CFG_WIDTH);
+
+    trace_backend->setParam("\\CTRL_ADDR_WIDTH", TRACE_BACKEND_CFG_WIDTH);
+
+    //trace_backend->setParam("\\AXI_ADDR_WIDTH", info.axi.addrWidth());
+    trace_backend->setPort("\\clk", host_clk);
+    trace_backend->setPort("\\rst", host_rst);
+    trace_backend->setPort("\\ctrl_wen", ctrl.wen);
+    trace_backend->setPort("\\ctrl_waddr", ctrl.waddr);
+    trace_backend->setPort("\\ctrl_wdata", ctrl.wdata);
+    trace_backend->setPort("\\ctrl_ren", ctrl.ren);
+    trace_backend->setPort("\\ctrl_raddr", ctrl.raddr);
+    trace_backend->setPort("\\ctrl_rdata", ctrl.rdata);*/
+    for (auto &info : database.trace_ports) {
+        Wire *valid = top->wire(info.port_valid);
+        Wire *ready = top->wire(info.port_ready);
+        Wire *data = top->wire(info.port_data);
+        make_internal(valid);
+        make_internal(ready);
+        make_internal(data);
+    }
+}
+
 void connect_uart_tx(EmulationDatabase &database, Module *top, Cell *sys_ctrl)
 {
     int uart_tx_count = 0;
 
     for (auto &info : database.trace_ports) {
+        log("[DEBUG TRACE] info name=%s, info width=%d\n",info.port_name.c_str(), info.port_width);
         if (info.type == "uart_tx") {
             if (uart_tx_count > 0)
                 log_error("At most 1 EmuUart instance is allowed\n");
@@ -511,6 +545,10 @@ void SystemTransform::run()
     // Connect UART Tx
 
     connect_uart_tx(database, top, sys_ctrl);
+
+    // Add Emu Trace Backend
+
+    add_emutrace_backend(database, top, builder);
 
     // Add AXI remap
 

@@ -55,6 +55,17 @@ void EmulationDatabase::generate_sysinfo()
         });
     }
 
+    for (auto &x : trace_ports) {
+        sysinfo.trace.push_back({
+            .name = x.name,
+            .type = x.type,
+            .port_name = x.port_name,
+            .port_width = x.port_width,
+            .reg_offset = x.reg_offset,
+        });
+        log("[DEBUG TRACE] sysinfo_trace_port_name = %s, width = %d\n", x.port_name.c_str(), x.port_width);
+    }
+
     sysinfo.model = model;
     sysinfo.scan_ff = scan_ff;
     sysinfo.scan_ram = scan_ram;

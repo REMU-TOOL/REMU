@@ -2,7 +2,7 @@
 
 `include "axi.vh"
 `include "axi_custom.vh"
-
+/*
 module axi_trace_encoder #(
     parameter   A_PAYLOAD_FORMANTTED_WIDTH      = 64,
     parameter   R_PAYLOAD_FORMANTTED_WIDTH      = 64,
@@ -96,7 +96,7 @@ module axi_trace_encoder #(
     output wire  logging_rready,
     input  wire  [R_PAYLOAD_FORMANTTED_WIDTH-1:0] logging_r_payload,
 
-    `AXI4_MASTER_IF (encoder_m_axi, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)
+    //`AXI4_MASTER_IF (encoder_m_axi, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)
 );
     localparam PACKAGE_LEN = A_PAYLOAD_FORMANTTED_WIDTH*2 + R_PAYLOAD_FORMANTTED_WIDTH + W_PAYLOAD_FORMANTTED_WIDTH + B_PAYLOAD_FORMANTTED_WIDTH + 72;
     
@@ -207,3 +207,4 @@ module axi_trace_encoder #(
     
     assign {tk_arlog_ready, tk_awlog_ready, tk_rlog_ready, tk_wlog_ready, tk_blog_ready} = {5{pkg_i_ready | !pkg_i_valid}};
 endmodule
+*/

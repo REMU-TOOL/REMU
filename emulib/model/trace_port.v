@@ -7,15 +7,16 @@ module EmuTracePort #(
     parameter   DATA_WIDTH  = 1
 )(
     input  wire                     clk,
-    input  wire [DATA_WIDTH-1:0]    data
+    input  wire [DATA_WIDTH-1:0]    data,
+    input  wire                     enable  
 );
 
     (* keep *)
     EmuTracePortImp #(
-        .DATA_WIDTH (DATA_WIDTH)
+        .DATA_WIDTH (DATA_WIDTH+1)
     ) imp (
         .clk        (clk),
-        .data       (data)
+        .data       ({enable, data})
     );
 
 endmodule

@@ -29,7 +29,7 @@ module EmuTracePortImp #(
 
     output wire                     trace_valid,
     input  wire                     trace_ready,
-    output wire [DATA_WIDTH-1:0]    trace_data
+    output wire [DATA_WIDTH-1:0]      trace_data
 );
 
     assign trace_valid = tk_data_valid;

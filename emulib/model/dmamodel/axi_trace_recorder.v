@@ -6,18 +6,12 @@
 module axi4_trace_recorder #(
     parameter   ADDR_WIDTH      = 32,
     parameter   DATA_WIDTH      = 64,
-    parameter   ID_WIDTH        = 4,
-    parameter   CHANNEL_SEQ     = 0
+    parameter   ID_WIDTH        = 4
 ) (
     input clk,
     input rst,
     `AXI4_SLAVE_IF                  (s_axi, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
-    `AXI4_MASTER_IF                 (m_axi, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH),
-    output wire                     o_valid,
-    input  wire                     o_ready,
-    output wire [512/8-1:0]         o_keep,
-    output wire [512-1:0]           o_data,
-    output wire                     o_last
+    `AXI4_MASTER_IF                 (m_axi, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH)
 );
     /*
      * Cycle == 64 BIT
@@ -48,23 +42,44 @@ module axi4_trace_recorder #(
     wire [B_PAYLOAD_FORMANTTED_WIDTH-1:0] logging_b_payload;
 
     reg [63:0] target_cycles;
-    wire [4:0] event_sel;
-    assign event_sel = {m_axi_arvalid && m_axi_arready, m_axi_awvalid && m_axi_awready, m_axi_rvalid && m_axi_rready, m_axi_wvalid && m_axi_wready, m_axi_bvalid && m_axi_bready};
     always @(posedge clk ) begin
         if(rst)
             target_cycles <= 0;
         else
             target_cycles <= target_cycles + 1;
     end
-    wire [71:0] logging_header = {CHANNEL_SEQ, event_sel[4:0],target_cycles[63:0]};
 
     
-    EmuTracePort #(.DATA_WIDTH(A_PAYLOAD_FORMANTTED_WIDTH)) CSRState (
-    .clk(clk),
-    .data(logging_ar_payload),
-    .enable(logging_arvalid)
-  );
+    EmuTracePort #(.DATA_WIDTH(A_PAYLOAD_FORMANTTED_WIDTH)) AR_Channel (
+        .clk(clk),
+        .data(logging_ar_payload),
+        .enable(logging_arvalid)
+    );
 
+    EmuTracePort #(.DATA_WIDTH(A_PAYLOAD_FORMANTTED_WIDTH)) AW_Channel (
+        .clk(clk),
+        .data(logging_aw_payload),
+        .enable(logging_awvalid)
+    );
+
+    EmuTracePort #(.DATA_WIDTH(R_PAYLOAD_FORMANTTED_WIDTH)) R_Channel (
+        .clk(clk),
+        .data(logging_r_payload),
+        .enable(logging_rvalid)
+    );
+
+
+    EmuTracePort #(.DATA_WIDTH(W_PAYLOAD_FORMANTTED_WIDTH)) W_Channel (
+        .clk(clk),
+        .data(logging_w_payload),
+        .enable(logging_wvalid)
+    );
+
+    EmuTracePort #(.DATA_WIDTH(B_PAYLOAD_FORMANTTED_WIDTH)) B_Channel (
+        .clk(clk),
+        .data(logging_b_payload),
+        .enable(logging_bvalid)
+    );
 
     axi_channel_logger #(
         .A_PAYLOAD_FORMANTTED_WIDTH(A_PAYLOAD_FORMANTTED_WIDTH),
@@ -78,19 +93,19 @@ module axi4_trace_recorder #(
         .clk(clk),
         .rst(rst),
         .logging_arvalid(logging_arvalid),
-        .logging_arready(logging_arready),
+        .logging_arready(1),
         .logging_ar_payload(logging_ar_payload),
         .logging_awvalid(logging_awvalid),
-        .logging_awready(logging_awready),
+        .logging_awready(1),
         .logging_aw_payload(logging_aw_payload),
         .logging_rvalid(logging_rvalid),
-        .logging_rready(logging_rready),
+        .logging_rready(1),
         .logging_r_payload(logging_r_payload),
         .logging_wvalid(logging_wvalid),
-        .logging_wready(logging_wready),
+        .logging_wready(1),
         .logging_w_payload(logging_w_payload),
         .logging_bvalid(logging_bvalid),
-        .logging_bready(logging_bready),
+        .logging_bready(1),
         .logging_b_payload(logging_b_payload),
         `AXI4_CONNECT           (s_axi, s_axi),
         `AXI4_CONNECT           (m_axi, m_axi)

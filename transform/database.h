@@ -48,6 +48,7 @@ struct TracePort
     Yosys::IdString port_valid;
     Yosys::IdString port_ready;
     Yosys::IdString port_data;
+    uint32_t port_width = 0;
     uint32_t reg_offset = 0;
 };
 

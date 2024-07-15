@@ -498,13 +498,14 @@ void PortTransform::process_trace_ports(Module *module)
                     log_id(module), log_id(wire), wire_name.c_str(), name.c_str());
 
             info.port_data = wire_data->name;
+            info.port_width = wire_data->width;
         }
 
         info_list.push_back(info);
     }
 
     // export submodule ports
-
+    // TODO: not promoting ports to Top, instead connecting to EmuTraceBackend
     auto &node = hier.dag.findNode(module->name);
     for (auto &edge : node.outEdges()) {
         auto &child = edge.toNode();
