@@ -60,7 +60,7 @@ void EmulationDatabase::generate_sysinfo()
             .name = x.name,
             .type = x.type,
             .port_name = x.port_name,
-            .port_width = x.port_width,
+            .port_width = x.port_width - 1,
             .reg_offset = x.reg_offset,
         });
         log("[DEBUG TRACE] sysinfo_trace_port_name = %s, width = %d\n", x.port_name.c_str(), x.port_width);
