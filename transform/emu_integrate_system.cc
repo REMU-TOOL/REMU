@@ -413,7 +413,8 @@ void SystemTransform::run()
     Wire *ram_do        = CommonPort::get(top, CommonPort::PORT_RAM_DO);
     Wire *pause_pending = CommonPort::get(top, CommonPort::PORT_PAUSE_PENDING);
 
-    make_internal(pause_pending);
+    if(pause_pending)
+        make_internal(pause_pending);
     make_internal(run_mode);
     make_internal(scan_mode);
     make_internal(idle);
@@ -470,8 +471,9 @@ void SystemTransform::run()
     sys_ctrl->setPort("\\tick",         tick);
     sys_ctrl->setPort("\\model_busy",   top->Not(NEW_ID, idle));
     sys_ctrl->setPort("\\run_mode",     run_mode);
-    sys_ctrl->setPort("\\pause_pending",pause_pending);
     sys_ctrl->setPort("\\scan_mode",    scan_mode);
+    if(pause_pending)
+            sys_ctrl->setPort("\\pause_pending",pause_pending);
 
     sys_ctrl->setPort("\\ctrl_wen",     sys_ctrl_sig.wen);
     sys_ctrl->setPort("\\ctrl_waddr",   sys_ctrl_sig.waddr);
@@ -492,8 +494,10 @@ void SystemTransform::run()
     connect_triggers(database, top, sys_ctrl);
 
     Wire *pcie_intr = top->wire("\\pcie_intr"); 
-    pcie_intr->port_input = true;
-    pcie_intr->port_output = false;
+    if(pcie_intr){
+        pcie_intr->port_input = true;
+        pcie_intr->port_output = false;
+    }
     // Add EmuScanCtrl
 
     Cell *scan_ctrl = top->addCell(top->uniquify("\\emu_scan_ctrl"), "\\EmuScanCtrl");
