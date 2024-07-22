@@ -68,6 +68,6 @@ module {moduleName} (
     wire [{endDataWidth}-1:0] endData = 'd0;
     assign pipeReady[{traceNR}] = oready;
     assign ovalid = hasData[{traceNR}-1];
-    assign odata = {pipeDataOut} || ({{endData, {infoWidth}'d{endInfoValue}}} <<  {packSumWidth});
-    assign olen  = widthVec[3] + ({endDataWidth} + {infoWidth})/8;
+    assign odata = {pipeDataOut};
+    assign olen  = {pipeLenOut};
 endmodule

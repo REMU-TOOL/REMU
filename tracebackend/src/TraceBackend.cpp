@@ -24,7 +24,7 @@ public:
         ;
   }
 
-  string emitVerilog() {
+  string emitVerilog() override {
     auto fifoTrans =
 #include "vtemplate/FIFOTrans.inc"
         ;

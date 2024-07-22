@@ -60,8 +60,9 @@ input   wire [{portWidth}-1:0] tk{index}_data,
         strVec[j] = fmt::format("{}'d0", elems[j]);
       }
       auto emptyWidth = packWidth[i] - portWidth[i] - 8;
-      strVec[i] = fmt::format("{}'d0, tk{}_data, {}'d{}", emptyWidth, i,
-                              infoWidth(), i);
+      auto headZero = emptyWidth == 0 ? "" : fmt::format("{}'d0,", emptyWidth);
+      strVec[i] =
+          fmt::format("{} tk{}_data, {}'d{}", headZero, i, infoWidth(), i);
       packVecAssign[i] = mkString(
           strVec, ", ", fmt::format("pack{}Vec[0] <= {{", i), "};\n", true);
     }
@@ -131,7 +132,8 @@ input   wire [{portWidth}-1:0] tk{index}_data,
     auto emptyWidth =
         outDataWidth - infoWidth() - endDataWidth() - pipeWidth[traceNR - 1];
     assert(emptyWidth % 8 == 0);
-    auto endPack = fmt::format("{{ {}'d0, endData, {}'d{} }}", emptyWidth,
+    auto headZero = emptyWidth == 0 ? "" : fmt::format("{}'d0,", emptyWidth);
+    auto endPack = fmt::format("{{ {} endData, {}'d{} }}", headZero,
                                infoWidth(), endInfoValue());
     auto tracePacks = mkString(lastLvData, " | ", "(", ")");
     return fmt::format("{{ {}, {} }}", endPack, tracePacks);
