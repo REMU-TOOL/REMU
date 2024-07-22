@@ -13,6 +13,17 @@
 
 namespace REMU {
 
+namespace BitVectorUtils {
+uint64_t uint64_rand();
+uint8_t uint8_rand();
+size_t size_rand();
+
+template <typename T> constexpr T bitmask(size_t onecount) {
+  return static_cast<T>(-(onecount != 0)) &
+         (static_cast<T>(-1) >> (sizeof(T) * 8 - onecount));
+}
+} // namespace BitVectorUtils
+
 class BitVector
 {
 
@@ -47,6 +58,8 @@ public:
     size_t blks() const { return (width_ + 63) / 64; }
 
     width_t width() const { return width_; }
+
+    [[nodiscard]] size_t n_bytes() const { return (width() + 8 - 1) % 8; }
 
     operator uint64_t() const
     {
@@ -259,6 +272,18 @@ public:
                 return false;
 
         return true;
+    }
+
+    void rand() {
+      auto foo = std::rand();
+      if (use_ptr()) {
+        for (size_t i = 0; i < blks(); i++) {
+          u.data[i] = BitVectorUtils::uint64_rand();
+        }
+        u.data[blks() - 1] &= BitVectorUtils::bitmask<uint64_t>(width() % 64);
+      } else {
+        u.value = BitVectorUtils::uint64_rand();
+      }
     }
 
     // cereal serialization functions

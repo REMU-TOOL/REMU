@@ -39,7 +39,8 @@ sudo apt-get install -y \
     libboost-filesystem-dev \
     libboost-python-dev \
     libboost-system-dev \
-    zlib1g-dev
+    zlib1g-dev \
+    libfmt-dev
 ```
 
 This project also requires `iverilog` (>= 11.0). This can be built from source code with the following commands:

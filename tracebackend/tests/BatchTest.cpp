@@ -1,10 +1,8 @@
 #include "batch/Vbatch.h"
 #include "bitvector.h"
 #include "verilated.h"
-#include <cstddef>
+#include <array>
 #include <cstdint>
-#include <functional>
-#include <string>
 #include <vector>
 #define VM_TRACE 1
 #define VM_TRACE_FST 1
@@ -12,46 +10,47 @@
 #include "Waver.h"
 
 #define TK_TRACE_NR 5
-#define TK_TRACE(_) _(0, 6) _(1, 34) _(2, 26) _(3, 74) _(4, 93)
+#define FOR_EACH_TRACE_PORT(_) _(0, 6) _(1, 34) _(2, 26) _(3, 74) _(4, 93)
+#define AXI_DATA_WIDTH 64
 
-class BitVec {
-public:
-  BitVec(uint8_t data, size_t width);
-  BitVec(size_t value, size_t width = SIZE_MAX);
-  template <std::size_t T_Words>
-  BitVec(VlWide<T_Words> value, size_t width = SIZE_MAX);
-  template <std::size_t T_Words>
-  void assign(VlWide<T_Words> &value, size_t width = SIZE_MAX);
-  template <typename T> void pass_to(T &value, size_t width = SIZE_MAX) const {
-    value = 12;
-  }
-  template <std::size_t T_Words>
-  void pass_to(VlWide<T_Words> &value, size_t width = SIZE_MAX) const {
-    auto foo = value.data();
-  }
+using REMU::BitVector;
+using std::array;
+using std::string;
 
-  size_t width();
-  bool asBool(size_t pos = 0);
-  size_t asUInt(size_t msb = sizeof(size_t) * 8, size_t lsb = 0);
-  BitVec slice(size_t lsb, size_t msb);
-  static BitVec cat(BitVec lhs, BitVec rhs);
-  static BitVec cat(std::vector<BitVec> list);
-};
 class TracePortRef {
 public:
-  CData &valid;
-  CData &ready;
-  CData &enable;
-  REMU::BitVector data;
-  std::function<size_t(std::string)> update;
+  CData &ref_valid;
+  CData &ref_ready;
+  CData &ref_enable;
+  BitVector var_data;
+  std::function<void()> assign_data;
+  bool var_valid;
+  bool var_enable;
+
   template <std::size_t T_Words>
   TracePortRef(CData &tk_valid, CData &tk_ready, CData &tk_enable, size_t width,
                VlWide<T_Words> &tk_data)
-      : valid(tk_valid), ready(tk_ready), enable(tk_enable),
-        data(REMU::BitVector(width)) {
-    update = [tk_data](int a) { tk_data.data()[0] = 12; };
+      : ref_valid(tk_valid), ref_ready(tk_ready), ref_enable(tk_enable),
+        var_data(BitVector(width)) {
+    assign_data = [&tk_data, this]() {
+      var_data.getValue(0, var_data.width(), (uint64_t *)tk_data.data());
+    };
+  }
+  template <typename T>
+  TracePortRef(CData &tk_valid, CData &tk_ready, CData &tk_enable, size_t width,
+               T &tk_data)
+      : ref_valid(tk_valid), ref_ready(tk_ready), ref_enable(tk_enable),
+        var_data(BitVector(width)) {
+    assign_data = [&tk_data, this]() { tk_data = var_data; };
+  }
+  void poke() {
+    ref_valid = var_valid;
+    ref_enable = var_enable;
+    assign_data();
   }
 };
+
+using TracePortArr = array<TracePortRef, TK_TRACE_NR>;
 
 int main(int argc, char *argv[]) {
   /* should not be unique_ptr, becasue pass to lambda */
@@ -75,16 +74,11 @@ int main(int argc, char *argv[]) {
   /* second param must be  "", could remove TOP. prefix in scope */
   auto top = std::make_unique<VM_PREFIX>(context, "");
 
-  auto assign0 = [&top](bool valid, bool enable, BitVec &data, size_t width) {
-    top->tk0_valid = valid;
-    top->tk0_enable = enable;
-    data.pass_to(top->tk0_data, width);
-  };
-  auto assign4 = [&top](bool valid, bool enable, BitVec &data, size_t width) {
-    top->tk4_valid = valid;
-    top->tk4_enable = enable;
-    data.pass_to(top->tk4_data, width);
-  };
+#define PORT_DEF(index, portWidth)                                             \
+  TracePortRef(top->tk##index##_valid, top->tk##index##_ready,                 \
+               top->tk##index##_enable, portWidth, top->tk##index##_data),
+  TracePortArr trace_port_arr = {FOR_EACH_TRACE_PORT(PORT_DEF)};
+#undef PORT_DEF
 
   auto waver = Waver(true, top.get(), wave_file);
   top->clk = false;
@@ -100,4 +94,35 @@ int main(int argc, char *argv[]) {
   printf("quit sim with total %lu cycle num\n", context->time());
   top->final();
   return 0;
+}
+
+void generate_inputs(TracePortArr &arr) {
+  auto ret = std::array<BitVector, TK_TRACE_NR>();
+  for (auto &port : arr) {
+    port.var_data.rand();
+    port.var_enable = std::rand() % 2;
+  }
+}
+
+void calculate_outputs(const TracePortArr &arr, std::vector<uint8_t> &ret) {
+  ret.clear();
+  for (size_t i = 0; i < arr.size(); i++) {
+    /* skip disable port */
+    if (!arr[i].var_enable)
+      continue;
+    /* info byte */
+    ret.push_back(i);
+    /* data byte */
+    for (size_t byte = 0; byte < arr[i].var_data.n_bytes(); byte++)
+      ret.push_back(((uint8_t *)arr[i].var_data.to_ptr())[byte]);
+  }
+  /* end info byte */
+  ret.push_back(128);
+  /* end data byte */
+  for (size_t i = 0; i < 8; i++)
+    ret.push_back(0);
+  /* align for AXI4 */
+  size_t empty_bytes = AXI_DATA_WIDTH - ret.size() % AXI_DATA_WIDTH;
+  for (size_t i = 0; i < empty_bytes; i++)
+    ret.push_back(0);
 }
