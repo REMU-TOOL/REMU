@@ -1,6 +1,5 @@
 #include "kernel/yosys.h"
 
-#include "TraceBackend/Top.hpp"
 #include "attr.h"
 #include "database.h"
 #include "emulib.h"
@@ -34,6 +33,11 @@ constexpr uint32_t  TRACE_PORT_WIDTH        = 12;
 
 constexpr uint32_t  TRACE_BACKEND_CFG_BASE  = 0x5000;
 constexpr uint32_t  TRACE_BACKEND_CFG_WIDTH = 12;
+
+constexpr uint32_t  TRACE_BACKEND_AXI_DATA_WIDTH = 64;
+constexpr uint32_t  TRACE_BACKEND_AXI_ADDR_WIDTH = 40;
+constexpr uint32_t  TRACE_BACKEND_AXI_ID_WIDTH = 4;
+constexpr uint32_t  TRACE_BACKEND_AXI_STRB_WIDTH = TRACE_BACKEND_AXI_DATA_WIDTH/8;
 
 struct CtrlSig
 {
@@ -268,17 +272,18 @@ void connect_triggers(EmulationDatabase &database, Module *top, Cell *sys_ctrl)
 }
 
 void add_emutrace_backend(EmulationDatabase &database, Module *top, CtrlConnBuilder &builder){
-    //TODO: modulize emu_trace_backend
     Wire *host_clk      = CommonPort::get(top, CommonPort::PORT_HOST_CLK);
     Wire *host_rst      = CommonPort::get(top, CommonPort::PORT_HOST_RST);
 
-    /*Cell *trace_backend = top->addCell(top->uniquify("\\emu_trace_backend"), "\\EmuTraceBackend");
+    Cell *trace_backend = top->addCell(top->uniquify("\\emu_trace_backend"), "\\TraceBackend");
     auto ctrl = CtrlSig::create(top, "emu_trace_ctrl_", 12, 32);
     builder.add(ctrl, TRACE_BACKEND_CFG_BASE, TRACE_BACKEND_CFG_WIDTH);
 
     trace_backend->setParam("\\CTRL_ADDR_WIDTH", TRACE_BACKEND_CFG_WIDTH);
+    trace_backend->setParam("\\AXI_ADDR_WIDTH", TRACE_BACKEND_AXI_ADDR_WIDTH);
+    trace_backend->setParam("\\AXI_DATA_WIDTH", TRACE_BACKEND_AXI_DATA_WIDTH);
+    trace_backend->setParam("\\AXI_ID_WIDTH", TRACE_BACKEND_AXI_ID_WIDTH);
 
-    //trace_backend->setParam("\\AXI_ADDR_WIDTH", info.axi.addrWidth());
     trace_backend->setPort("\\clk", host_clk);
     trace_backend->setPort("\\rst", host_rst);
     trace_backend->setPort("\\ctrl_wen", ctrl.wen);
@@ -286,14 +291,68 @@ void add_emutrace_backend(EmulationDatabase &database, Module *top, CtrlConnBuil
     trace_backend->setPort("\\ctrl_wdata", ctrl.wdata);
     trace_backend->setPort("\\ctrl_ren", ctrl.ren);
     trace_backend->setPort("\\ctrl_raddr", ctrl.raddr);
-    trace_backend->setPort("\\ctrl_rdata", ctrl.rdata);*/
+    trace_backend->setPort("\\ctrl_rdata", ctrl.rdata);
+
+    size_t i = 0;
     for (auto &info : database.trace_ports) {
         Wire *valid = top->wire(info.port_valid);
         Wire *ready = top->wire(info.port_ready);
-        Wire *data = top->wire(info.port_data);
+        Wire *payload = top->wire(info.port_data);
         make_internal(valid);
         make_internal(ready);
-        make_internal(data);
+        make_internal(payload);
+        auto enable = SigSpec(payload, info.port_width);
+        auto data = SigSpec(payload, 0, info.port_width);
+        trace_backend->setPort("\\tk" + std::to_string(i) + "_valid", valid);
+        trace_backend->setPort("\\tk" + std::to_string(i) + "_ready", ready);
+        trace_backend->setPort("\\tk" + std::to_string(i) + "_data", data);
+        trace_backend->setPort("\\tk" + std::to_string(i) + "_enable", enable.as_wire());
+        i++;
+    }
+
+    std::string prefix = "EMU_TRACE_DMA";
+    std::vector<std::pair<std::string, std::size_t>> axi4_sig_name = {{"awvalid", 1},
+        {"awready", 1},
+        {"awaddr", TRACE_BACKEND_AXI_ADDR_WIDTH},
+        {"awprot", 3},
+        {"awid", TRACE_BACKEND_AXI_ID_WIDTH},
+        {"awlen", 8},
+        {"awsize", 3},
+        {"awburst", 2},
+        {"awlock", 1},
+        {"awcache", 4},
+        {"awqos", 4},
+        {"awregion", 4},
+        {"wvalid", 1},
+        {"wready", 1},
+        {"wdata", TRACE_BACKEND_AXI_DATA_WIDTH},
+        {"wstrb", TRACE_BACKEND_AXI_STRB_WIDTH},
+        {"wlast", 1},
+        {"bvalid", 1},
+        {"bready", 1},
+        {"bresp", 2},
+        {"bid", TRACE_BACKEND_AXI_ID_WIDTH},
+        {"arvalid", 1},
+        {"arready", 1},
+        {"araddr", TRACE_BACKEND_AXI_ADDR_WIDTH},
+        {"arprot", 3},
+        {"arid", TRACE_BACKEND_AXI_ID_WIDTH},
+        {"arlen", 8},
+        {"arsize", 3},
+        {"arburst", 2},
+        {"arlock", 1},
+        {"arcache", 4},
+        {"arqos", 4},
+        {"arregion", 4},
+        {"rvalid", 1},
+        {"rready", 1},
+        {"rdata", TRACE_BACKEND_AXI_DATA_WIDTH},
+        {"rresp", 2},
+        {"rid", TRACE_BACKEND_AXI_ID_WIDTH},
+        {"rlast", 1},};
+    for(auto &sig: axi4_sig_name){
+        auto *wire = top->addWire("\\" + prefix + "_" + sig.first, sig.second);
+        trace_backend->setPort("\\m_axi_" + sig.first, wire);
     }
 }
 

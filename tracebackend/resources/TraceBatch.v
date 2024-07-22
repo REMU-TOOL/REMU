@@ -45,8 +45,9 @@ module {moduleName} (
     // assign tk1_ready = !bufferValid || pipeReady[0];
     // assign tkn_ready = !bufferValid || pipeReady[0];
     {asisgnTraceReady}
+    genvar index;
     generate
-        for (genvar index = 0; index < {traceNR}; index ++) begin
+        for (index = 0; index < {traceNR}; index ++) begin
             always @(posedge clk ) begin
                 if (!rst) begin
                     hasData[index] <= 0;

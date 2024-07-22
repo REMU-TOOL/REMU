@@ -3,8 +3,11 @@
 #include "attr.h"
 #include "port.h"
 #include "utils.h"
-
+#include "TraceBackend/Top.hpp"
+#include <cstddef>
+#include <fstream>
 #include <sstream>
+#include <string>
 
 using namespace REMU;
 
@@ -99,6 +102,7 @@ struct PortTransform
 {
     Hierarchy hier;
     EmulationDatabase &database;
+    std::string trace_backend;
 
     Yosys::dict<Yosys::IdString, std::vector<ClockPort>> all_clock_ports;
     Yosys::dict<Yosys::IdString, std::vector<SignalPort>> all_signal_ports;
@@ -113,7 +117,7 @@ struct PortTransform
     void process_axi_ports(Yosys::Module *module);
     void process_trace_ports(Yosys::Module *module);
 
-    void run();
+    void run(std::string trace_backend);
 
     PortTransform(Yosys::Design *design, EmulationDatabase &database)
         : hier(design), database(database) {}
@@ -504,8 +508,6 @@ void PortTransform::process_trace_ports(Module *module)
         info_list.push_back(info);
     }
 
-    // export submodule ports
-    // TODO: not promoting ports to Top, instead connecting to EmuTraceBackend
     auto &node = hier.dag.findNode(module->name);
     for (auto &edge : node.outEdges()) {
         auto &child = edge.toNode();
@@ -539,7 +541,7 @@ void copy_top_info(std::vector<T> &to, const std::vector<T> &from)
     }
 }
 
-void PortTransform::run()
+void PortTransform::run(std::string trace_backend)
 {
     for (auto &node : hier.dag.topoSort(true)) {
         Module *module = hier.design->module(node.name);
@@ -551,7 +553,7 @@ void PortTransform::run()
         process_axi_ports(module);
         process_trace_ports(module);
     }
-
+    PortTransform::trace_backend = trace_backend;
     IdString top = hier.dag.rootNode().name;
     copy_top_info(database.clock_ports, all_clock_ports.at(top));
     copy_top_info(database.signal_ports, all_signal_ports.at(top));
@@ -567,20 +569,42 @@ void PortTransform::run()
     top_module->connect(mdl_rst, host_rst);
 
     top_module->fixup_ports();
+    std::vector<size_t> traceport_width;
+    for (auto &info : database.trace_ports) {
+        if(info.type != "uart_tx"){
+            traceport_width.push_back(info.port_width);
+            std::cout<< info.port_width << std::endl;
+        }
+    }
+    std::ofstream out_file(trace_backend);
+    if (!out_file.is_open()) {
+        log_error("Cannot open file: %s\n", trace_backend.c_str());
+    }
+    auto backend = TraceBackend(traceport_width);
+    out_file << backend.emitVerilog() << std::endl;
 }
 
 struct EmuPortTransform : public Pass
 {
     EmuPortTransform() : Pass("emu_port_transform", "(REMU internal)") {}
 
+    std::string trace_backend;
     void execute(vector<string> args, Design* design) override
     {
-        extra_args(args, 1, design);
+        size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-tracebackend") {
+				trace_backend = args[++argidx];
+				continue;
+			}
+			break;
+		}
+		extra_args(args, argidx, design);
         log_header(design, "Executing EMU_PORT_TRANSFORM pass.\n");
         log_push();
 
         PortTransform worker(design, EmulationDatabase::get_instance(design));
-        worker.run();
+        worker.run(trace_backend);
 
         log_pop();
     }
