@@ -1,10 +1,11 @@
 #include "kernel/yosys.h"
 
+#include "TraceBackend/Top.hpp"
 #include "attr.h"
-#include "port.h"
-#include "hier.h"
 #include "database.h"
 #include "emulib.h"
+#include "hier.h"
+#include "port.h"
 #include "utils.h"
 
 USING_YOSYS_NAMESPACE

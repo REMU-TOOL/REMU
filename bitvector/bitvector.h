@@ -1,13 +1,15 @@
 #ifndef _BITVECTOR_H_
 #define _BITVECTOR_H_
 
+#include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
-#include <sstream>
 #include <iomanip>
+#include <sstream>
 #include <stdexcept>
-#include <algorithm>
 #include <utility>
+#include <vector>
 
 namespace REMU {
 
