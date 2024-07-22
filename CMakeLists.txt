@@ -61,6 +61,7 @@ add_subdirectory(tokenizer)
 add_subdirectory(tools)
 add_subdirectory(transform)
 add_subdirectory(vpi_utils)
+add_subdirectory(tracebackend)
 
 if(${ENABLE_REMU_COSIM})
     add_subdirectory(cosim)

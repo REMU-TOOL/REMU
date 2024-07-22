@@ -10,7 +10,7 @@ set_target_properties(transform PROPERTIES PREFIX "")
 
 include_directories(${YOSYS_INCLUDE_DIR})
 
-target_link_libraries(transform PRIVATE common)
+target_link_libraries(transform PRIVATE common TraceBackend)
 
 target_compile_options(transform PRIVATE
     -Wall -Wextra -Os
