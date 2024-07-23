@@ -16,6 +16,6 @@ batch: build
 	$(BUILD_DIR)/tests/TraceBatchTest
 
 clean:
-	rm -rf ./$(BUILD_DIR)
+	rm -rf ./$(BUILD_DIR) src/vtemplate tests/design
 
 .PHONY: config build backend batch clean

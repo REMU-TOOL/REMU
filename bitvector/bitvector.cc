@@ -4,8 +4,9 @@
 
 namespace REMU::BitVectorUtils {
 
-std::mt19937_64
-    gen(std::random_device()); // Mersenne Twister 19937 64-bit generator
+std::random_device rd;
+
+std::mt19937_64 gen(rd()); // Mersenne Twister 19937 64-bit generator
 
 std::uniform_int_distribution<uint64_t> uint64_dist(0, UINT64_MAX);
 uint64_t uint64_rand() { return uint64_dist(gen); }

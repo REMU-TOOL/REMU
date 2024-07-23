@@ -20,6 +20,7 @@ public:
     infoBytes = 1;
   }
   virtual std::string emitVerilog() = 0;
+  std::string emitCHeader();
 };
 
 class TraceBackend : public TraceConfig {

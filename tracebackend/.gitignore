@@ -1,3 +1,5 @@
-obj_dir/
-
+# verilog src file wrapped with c string
 src/vtemplate
+
+# generated verilog, c header, verilator compile outputs
+test/design

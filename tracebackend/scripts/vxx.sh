@@ -1,22 +1,22 @@
 #!/bin/sh
 
 # Check the number of arguments
-if [ "$#" -ne 3 ]; then
-    echo "Usage: $0 <name> <generator> <target>"
+if [ "$#" -ne 2 ]; then
+    echo "Usage: $0 <generator> <target directory>"
     exit 1
 fi
 
-top_name="$1"
-gen="$2"
-target="$3"
+gen="$1"
+target_dir="$2"
+num_proc="$3"
 
-mkdir $(dirname $target)
+mkdir -p $target_dir
 
-$gen > $target
+$gen $target_dir/top.v $target_dir/TracePortDef.h
 
 script_dir="$(dirname "$(readlink -f "$0")")"
 
-TOP_NAME=$top_name BUILD_DIR=$(dirname $target) make -f $script_dir/verilator.mk 
+TOP_NAME=top BUILD_DIR=$target_dir make -f $script_dir/verilator.mk -j $num_proc
 
 
 

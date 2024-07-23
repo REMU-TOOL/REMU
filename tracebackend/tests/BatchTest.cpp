@@ -1,17 +1,14 @@
-#include "batch/Vbatch.h"
+#define VM_TRACE 1
+#define VM_TRACE_FST 1
+#define VM_PREFIX Vtop
 #include "bitvector.h"
-#include "verilated.h"
+#include "design/batch/TracePortDef.h"
+#include "design/batch/Vtop.h"
+
+#include "Waver.h"
 #include <array>
 #include <cstdint>
 #include <vector>
-#define VM_TRACE 1
-#define VM_TRACE_FST 1
-#define VM_PREFIX Vbatch
-#include "Waver.h"
-
-#define TK_TRACE_NR 5
-#define FOR_EACH_TRACE_PORT(_) _(0, 6) _(1, 34) _(2, 26) _(3, 74) _(4, 93)
-#define AXI_DATA_WIDTH 64
 
 using REMU::BitVector;
 using std::array;

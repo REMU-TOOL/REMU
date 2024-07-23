@@ -1,10 +1,6 @@
 #include "TraceBackend/Top.hpp"
 #include "include/TraceBase.hpp"
-#include "include/utils.hpp"
 #include <cassert>
-#include <cstddef>
-#include <fmt/core.h>
-#include <vector>
 
 using namespace utils;
 using std::string;

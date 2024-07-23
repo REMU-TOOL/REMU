@@ -1,5 +1,5 @@
-#ifndef __UTILS_HPP__
-#define __UTILS_HPP__
+#ifndef __TRACE_BACKEND_UTILS_HPP__
+#define __TRACE_BACKEND_UTILS_HPP__
 
 #include <cstddef>
 #include <filesystem>
@@ -118,4 +118,4 @@ inline bool writeFile(std::filesystem::path fileName, std::string content) {
 
 } // namespace utils
 
-#endif // __UTILS_HPP__
+#endif // __TRACE_BACKEND_UTILS_HPP__
