@@ -2,4 +2,4 @@
 src/vtemplate
 
 # generated verilog, c header, verilator compile outputs
-test/design
+tests/design
