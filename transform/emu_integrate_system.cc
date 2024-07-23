@@ -276,7 +276,7 @@ void add_emutrace_backend(EmulationDatabase &database, Module *top, CtrlConnBuil
     Wire *host_rst      = CommonPort::get(top, CommonPort::PORT_HOST_RST);
 
     Cell *trace_backend = top->addCell(top->uniquify("\\emu_trace_backend"), "\\TraceBackend");
-    auto ctrl = CtrlSig::create(top, "emu_trace_ctrl_", 12, 32);
+    auto ctrl = CtrlSig::create(top, "emu_trace_ctrl", 12, 32);
     builder.add(ctrl, TRACE_BACKEND_CFG_BASE, TRACE_BACKEND_CFG_WIDTH);
 
     trace_backend->setParam("\\CTRL_ADDR_WIDTH", TRACE_BACKEND_CFG_WIDTH);
@@ -301,12 +301,12 @@ void add_emutrace_backend(EmulationDatabase &database, Module *top, CtrlConnBuil
         make_internal(valid);
         make_internal(ready);
         make_internal(payload);
-        auto enable = SigSpec(payload, info.port_width);
-        auto data = SigSpec(payload, 0, info.port_width);
+        auto enable = SigSpec(payload, info.port_width - 1, 1);
+        auto data = SigSpec(payload, 0, info.port_width - 1);
         trace_backend->setPort("\\tk" + std::to_string(i) + "_valid", valid);
         trace_backend->setPort("\\tk" + std::to_string(i) + "_ready", ready);
         trace_backend->setPort("\\tk" + std::to_string(i) + "_data", data);
-        trace_backend->setPort("\\tk" + std::to_string(i) + "_enable", enable.as_wire());
+        trace_backend->setPort("\\tk" + std::to_string(i) + "_enable", enable);
         i++;
     }
 
