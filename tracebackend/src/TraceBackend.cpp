@@ -43,8 +43,8 @@ public:
     ,fmt::arg("packSumWidth", packSumWidth)
     ,fmt::arg("outDataWidth", outDataWidth)
     ,fmt::arg("outLenWidth", outLenWidth)
-    ,fmt::arg("endInfoValue", endInfoValue())
-    ,fmt::arg("endDataWidth", endDataWidth())
+    ,fmt::arg("markInfoValue", markInfoValue())
+    ,fmt::arg("markDataWidth", markDataWidth())
     ,fmt::arg("infoWidth", infoWidth())
     ,fmt::arg("tracePortDefine", tracePortDefine())
     ,fmt::arg("tracePortInstance", tracePortInstance())
@@ -56,4 +56,7 @@ public:
 
 string TraceBackend::emitVerilog() {
   return TraceBackendImpl(this).emitVerilog();
+}
+string TraceBackend::emitCHeader() {
+  return TraceBackendImpl(this).emitCHeader();
 }

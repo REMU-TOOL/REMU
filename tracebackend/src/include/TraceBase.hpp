@@ -14,8 +14,8 @@ public:
   std::vector<size_t> packWidth;
   std::vector<size_t> pipeWidth;
   size_t traceNR;
-  size_t endInfoValue() { return config->endInfoValue; }
-  size_t endDataWidth() { return config->endDataWidth; }
+  size_t markInfoValue() { return config->markInfoValue; }
+  size_t markDataWidth() { return config->markDataWidth; }
   size_t infoBytes() { return config->infoBytes; }
   size_t AXI4DataWidth() { return config->AXI4DataWidth; }
   size_t infoWidth() { return infoBytes() * 8; }
@@ -69,10 +69,11 @@ input   wire [{portWidth}-1:0] tk{index}_data,
       assert(packWidth[i] % 8 == 0);
     }
     packSumWidth = std::accumulate(packWidth.begin(), packWidth.end(), 0);
-    outDataWidth = utils::intCeil(packSumWidth + infoWidth() + endDataWidth(),
+    outDataWidth = utils::intCeil(packSumWidth + infoWidth() + markDataWidth(),
                                   AXI4DataWidth());
     outLenWidth = std::ceil(std::log2(outDataWidth / 8));
   }
 
   virtual std::string emitVerilog() = 0;
+  std::string emitCHeader();
 };

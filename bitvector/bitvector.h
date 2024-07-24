@@ -59,7 +59,7 @@ public:
 
     width_t width() const { return width_; }
 
-    [[nodiscard]] size_t n_bytes() const { return (width() + 8 - 1) % 8; }
+    [[nodiscard]] size_t n_bytes() const { return (width() + 8 - 1) / 8; }
 
     operator uint64_t() const
     {
@@ -275,14 +275,14 @@ public:
     }
 
     void rand() {
-      auto foo = std::rand();
       if (use_ptr()) {
         for (size_t i = 0; i < blks(); i++) {
           u.data[i] = BitVectorUtils::uint64_rand();
         }
         u.data[blks() - 1] &= BitVectorUtils::bitmask<uint64_t>(width() % 64);
       } else {
-        u.value = BitVectorUtils::uint64_rand();
+        u.value = BitVectorUtils::uint64_rand() &
+                  BitVectorUtils::bitmask<uint64_t>(width() % 64);
       }
     }
 

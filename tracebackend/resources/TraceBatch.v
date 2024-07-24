@@ -17,6 +17,11 @@ module {moduleName} (
     reg [{outLenWidth}-1:0]     widthVec        [{traceNR}:0];
     reg [{traceNR}-1:0]         enableVec       [{traceNR}:0];
     reg                         bufferValid;
+    wire    [{traceNR}:0]       pipeValid; 
+    wire    [{traceNR}:0]       pipeReady;
+    reg     [{traceNR}-1:0]     hasData;
+
+    assign pipeValid[0] = bufferValid;
 
     {packVecDefine}
 
@@ -33,14 +38,13 @@ module {moduleName} (
             widthVec[0] <= 0;
             bufferValid <= {bufferValidInit};
         end
+        else if (pipeValid[0] && pipeReady[0]) begin
+            bufferValid <= 0;
+        end
     end
     // ===========================================
     // ========== compress pipeline ==============
     // ===========================================
-    wire    [{traceNR}:0]     pipeValid; 
-    wire    [{traceNR}:0]     pipeReady;
-    reg     [{traceNR}-1:0]   hasData;
-    assign pipeValid[0] = bufferValid;
     // assign tk0_ready = !bufferValid || pipeReady[0];
     // assign tk1_ready = !bufferValid || pipeReady[0];
     // assign tkn_ready = !bufferValid || pipeReady[0];
@@ -66,7 +70,7 @@ module {moduleName} (
 
     {pipeline}
 
-    wire [{endDataWidth}-1:0] endData = 'd0;
+    wire [{markDataWidth}-1:0] markData = 'd0;
     assign pipeReady[{traceNR}] = oready;
     assign ovalid = hasData[{traceNR}-1];
     assign odata = {pipeDataOut};

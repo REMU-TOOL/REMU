@@ -174,9 +174,9 @@ ovalid, odata, olen, oready
     output wire [$clog2(ALIGN_TOTAL_PACK_WIDTH)-1:0]olen;
     input  wire oready;
     assign pipeReady[3] = oready;
-    wire [INFO_WIDTH-1:0]  endInfo = END_INFO_VALUE;
-    wire [END_DATA_WIDTH-1:0] endData = 'd0;
-    assign odata = pack0Vec[3] || pack1Vec[3] || packnVec[3] || ({endData, endInfo} <<  TOTAL_PACK_WIDTH);
+    wire [INFO_WIDTH-1:0]  markInfo = END_INFO_VALUE;
+    wire [END_DATA_WIDTH-1:0] markData = 'd0;
+    assign odata = pack0Vec[3] || pack1Vec[3] || packnVec[3] || ({markData, markInfo} <<  TOTAL_PACK_WIDTH);
     assign olen = widthVec[3] + 2; // end info and end data
     
 endmodule

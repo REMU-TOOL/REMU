@@ -66,8 +66,7 @@ input   wire [{portWidth}-1:0] tk{index}_data,
   }
 
   string asisgnTraceReady() {
-    return formatv(
-        "assign tk{index}_ready = !bufferValid || pipeReady[{index}];");
+    return formatv("assign tk{index}_ready = !bufferValid || pipeReady[0];");
   }
 
   string pipeline() {
@@ -77,16 +76,16 @@ input   wire [{portWidth}-1:0] tk{index}_data,
       auto disableAssign = vector<string>(traceNR);
       for (size_t i = 0; i < traceNR; i++) {
         enableAssign[i] = fmt::format("pack{}Vec[{}] <= pack{}Vec[{}];", i,
-                                      pipeLv, i, pipeLv + 1);
+                                      pipeLv + 1, i, pipeLv);
         if (i < pipeLv) {
           disableAssign[i] = fmt::format("pack{}Vec[{}] <= pack{}Vec[{}];", i,
-                                         pipeLv, i, pipeLv + 1);
+                                         pipeLv + 1, i, pipeLv);
         } else if (i == pipeLv) {
-          disableAssign[i] = fmt::format("pack{}Vec[{}] <= 0;", i, pipeLv);
+          disableAssign[i] = fmt::format("pack{}Vec[{}] <= 0;", i, pipeLv + 1);
         } else {
           disableAssign[i] =
-              fmt::format("pack{}Vec[{}] <= pack{}Vec[{}] >> {};", i, pipeLv, i,
-                          pipeLv + 1, packWidth[pipeLv]);
+              fmt::format("pack{}Vec[{}] <= pack{}Vec[{}] >> {};", i,
+                          pipeLv + 1, i, pipeLv, packWidth[pipeLv]);
         }
       }
 
@@ -117,7 +116,7 @@ input   wire [{portWidth}-1:0] tk{index}_data,
 
   string pipeDataOut() {
     auto lastLvData = vector<string>(traceNR);
-    // {{'d0 endData, 8'd128}, ({'d0, pack0Vec[3]} | {'d0, packnVec[3]})};
+    // {{'d0 markData, 8'd128}, ({'d0, pack0Vec[3]} | {'d0, packnVec[3]})};
     for (size_t i = 0; i < traceNR - 1; i++) {
       lastLvData[i] =
           fmt::format("{{{}'d0, pack{}Vec[{}]}}",
@@ -126,17 +125,17 @@ input   wire [{portWidth}-1:0] tk{index}_data,
     lastLvData[traceNR - 1] =
         fmt::format("pack{}Vec[{}]", traceNR - 1, traceNR);
     auto emptyWidth =
-        outDataWidth - infoWidth() - endDataWidth() - pipeWidth[traceNR - 1];
+        outDataWidth - infoWidth() - markDataWidth() - pipeWidth[traceNR - 1];
     assert(emptyWidth % 8 == 0);
     auto headZero = emptyWidth == 0 ? "" : fmt::format("{}'d0,", emptyWidth);
-    auto endPack = fmt::format("{{ {} endData, {}'d{} }}", headZero,
-                               infoWidth(), endInfoValue());
+    auto markPack =
+        fmt::format("{{ markData, {}'d{} }}", infoWidth(), markInfoValue());
     auto tracePacks = mkString(lastLvData, " | ", "(", ")");
-    return fmt::format("{{ {}, {} }}", endPack, tracePacks);
+    return fmt::format("{{ {} {}, {} }}", headZero, tracePacks, markPack);
   }
   string pipeLenOut() {
     return fmt::format("widthVec[{}] + {}'d{}", traceNR, outLenWidth,
-                       (endDataWidth() + infoWidth()) / 8);
+                       (markDataWidth() + infoWidth()) / 8);
   }
 
 public:
@@ -150,8 +149,8 @@ public:
     ,fmt::arg("packSumWidth", packSumWidth)
     ,fmt::arg("outDataWidth", outDataWidth)
     ,fmt::arg("outLenWidth", outLenWidth)
-    ,fmt::arg("endInfoValue", endInfoValue())
-    ,fmt::arg("endDataWidth", endDataWidth())
+    ,fmt::arg("markInfoValue", markInfoValue())
+    ,fmt::arg("markDataWidth", markDataWidth())
     ,fmt::arg("infoWidth", infoWidth())
     ,fmt::arg("tracePortDefine", tracePortDefine())
     ,fmt::arg("traceWidthParams", traceWidthParams())
@@ -172,3 +171,4 @@ public:
 };
 
 string TraceBatch::emitVerilog() { return TraceBatchImpl(this).emitVerilog(); }
+string TraceBatch::emitCHeader() { return TraceBatchImpl(this).emitCHeader(); }

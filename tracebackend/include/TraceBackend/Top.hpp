@@ -9,23 +9,24 @@ class TraceConfig {
 public:
   std::vector<size_t> tracePortsWidth;
   size_t AXI4DataWidth;
-  size_t endInfoValue;
-  size_t endDataWidth;
+  size_t markInfoValue;
+  size_t markDataWidth;
   size_t infoBytes;
   TraceConfig(std::vector<size_t> tracePortsWidth)
       : tracePortsWidth(tracePortsWidth) {
     AXI4DataWidth = 64;
-    endInfoValue = 128;
-    endDataWidth = 64;
+    markInfoValue = 128;
+    markDataWidth = 64;
     infoBytes = 1;
   }
   virtual std::string emitVerilog() = 0;
-  std::string emitCHeader();
+  virtual std::string emitCHeader() = 0;
 };
 
 class TraceBackend : public TraceConfig {
 public:
   std::string emitVerilog() override;
+  std::string emitCHeader() override;
   TraceBackend(std::vector<size_t> tracePortsWidth)
       : TraceConfig(tracePortsWidth) {}
   TraceBackend(const TraceConfig *that) : TraceConfig(*that) {}
@@ -34,6 +35,7 @@ public:
 class TraceBatch : public TraceConfig {
 public:
   std::string emitVerilog() override;
+  std::string emitCHeader() override;
   TraceBatch(std::vector<size_t> tracePortsWidth)
       : TraceConfig(tracePortsWidth) {}
   TraceBatch(const TraceConfig *that) : TraceConfig(*that) {}
