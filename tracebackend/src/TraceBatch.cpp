@@ -1,6 +1,7 @@
 #include "TraceBackend/Top.hpp"
 #include "include/TraceBase.hpp"
 #include <cassert>
+#include <fmt/core.h>
 
 using namespace utils;
 using std::string;
@@ -91,7 +92,7 @@ input   wire [{portWidth}-1:0] tk{index}_data,
 
       alwaysBlocks[pipeLv] = fmt::format(
           R"(
-    always @(posedge clk) begin
+    always @(posedge host_clk) begin
         if (pipeValid[{pipeLv}] && pipeReady[{pipeLv}]) begin
             enableVec[{nextPipeLv}] <= enableVec[{pipeLv}];
             if (enableVec[{pipeLv}][{pipeLv}]) begin
@@ -128,8 +129,23 @@ input   wire [{portWidth}-1:0] tk{index}_data,
         outDataWidth - infoWidth() - markDataWidth() - pipeWidth[traceNR - 1];
     assert(emptyWidth % 8 == 0);
     auto headZero = emptyWidth == 0 ? "" : fmt::format("{}'d0,", emptyWidth);
+
+    auto markLenBytes = ({
+      if (outLenWidth > 16) {
+        fmt::print("trace are too width, len bits width is over 16\n");
+        assert(false);
+      }
+      (outLenWidth == 16) ? "olen" : ({
+        auto emptyWidth = 16 - outLenWidth;
+        auto headZero =
+            emptyWidth == 0 ? "" : fmt::format("{}'d0,", emptyWidth);
+        fmt::format("{{ {} olen }} ", headZero);
+      });
+    });
+
     auto markPack =
-        fmt::format("{{ markData, {}'d{} }}", infoWidth(), markInfoValue());
+        fmt::format("{{ tickDelta[{}], {}, 8'd0, {}'d{} }}", traceNR,
+                    markLenBytes, infoWidth(), markInfoValue());
     auto tracePacks = mkString(lastLvData, " | ", "(", ")");
     return fmt::format("{{ {} {}, {} }}", headZero, tracePacks, markPack);
   }

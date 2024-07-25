@@ -5,8 +5,8 @@
 #define VM_TRACE_FST 1
 #define VM_PREFIX Vtop
 #include "bitvector.h"
-#include "design/batch/TracePortDef.h"
-#include "design/batch/Vtop.h"
+#include "design/Batch/TracePortDef.h"
+#include "design/Batch/Vtop.h"
 
 #include "Waver.h"
 #include <array>
@@ -176,17 +176,17 @@ int main(int argc, char *argv[]) {
 #undef PORT_DEF
 
   auto waver = Waver(true, top.get(), wave_file);
-  top->clk = false;
-  top->rst = false;
+  top->host_clk = false;
+  top->host_rst = false;
 
   // reset state
   while (!context->gotFinish() && context->time() < 32) {
     context->timeInc(1);
-    top->clk = !top->clk;
+    top->host_clk = !top->host_clk;
     top->eval();
     waver.dump();
   }
-  top->rst = true;
+  top->host_rst = true;
 
   auto expected = std::queue<std::vector<uint8_t>>();
 
@@ -239,7 +239,7 @@ int main(int argc, char *argv[]) {
   while (!context->gotFinish() && duration >= context->time()) {
     // posedge
     context->timeInc(1);
-    top->clk = !top->clk;
+    top->host_clk = !top->host_clk;
     top->eval();
     waver.dump();
     checkodata();
@@ -247,7 +247,7 @@ int main(int argc, char *argv[]) {
     // negedge
     context->timeInc(1);
     set_inputs();
-    top->clk = !top->clk;
+    top->host_clk = !top->host_clk;
     top->eval();
     waver.dump();
     checkodata();
