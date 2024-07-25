@@ -23,8 +23,3 @@ Data Flow
 ---------
 ![hierarchy](docs/dataflow.drawio.png)
 
-
-TODO
-----
-- [] Test by verilator
-- [] Finish FIFOAXICtrl

@@ -16,7 +16,7 @@ public:
       : tracePortsWidth(tracePortsWidth) {
     AXI4DataWidth = 64;
     markInfoValue = 128;
-    markDataWidth = 64;
+    markDataWidth = 56;
     infoBytes = 1;
   }
   virtual std::string emitVerilog() = 0;

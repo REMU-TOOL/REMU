@@ -1,6 +1,7 @@
 module {moduleName} (
-    input   wire                clk,
-    input   wire                rst,
+    input   wire                host_clk,
+    input   wire                host_rst,
+    input   wire    [63:0]      tick_cnt,
     {tracePortDefine}
     output  wire                            ovalid, 
     output  wire    [{outDataWidth}-1:0]    odata, 
@@ -16,6 +17,7 @@ module {moduleName} (
 
     reg [{outLenWidth}-1:0]     widthVec        [{traceNR}:0];
     reg [{traceNR}-1:0]         enableVec       [{traceNR}:0];
+    reg [31:0]                  tickDelta       [{traceNR}:0];
     reg                         bufferValid;
     wire    [{traceNR}:0]       pipeValid; 
     wire    [{traceNR}:0]       pipeReady;
@@ -25,18 +27,29 @@ module {moduleName} (
 
     {packVecDefine}
 
+    reg [63:0] last_tick_cnt;
+    localparam TICK_MAX_INTERVAL = 32'hffff;
+    wire is_max_interval = last_tick_cnt + TICK_MAX_INTERVAL == tick_cnt;
     // ===========================================
     // ========= state assign logic ==============
     // ===========================================
-    always @(posedge clk) begin
-        if (!rst) begin
+    always @(posedge host_clk) begin
+        if (host_rst) begin
             bufferValid <= 0;
+            last_tick_cnt <= 0;
         end
         if (|inputFires) begin
             enableVec[0] <= {enableVecInit};
             {packVecInit}
             widthVec[0] <= 0;
             bufferValid <= {bufferValidInit};
+            tickDelta[0] <= tick_cnt - last_tick_cnt;
+        end
+        else if (last_tick_cnt + TICK_MAX_INTERVAL == tick_cnt) begin
+            enableVec[0] <= 'd0;
+            widthVec[0]  <= 'd0;
+            bufferValid  <= 'd1;
+            tickDelta[0] <= TICK_MAX_INTERVAL;
         end
         else if (pipeValid[0] && pipeReady[0]) begin
             bufferValid <= 0;
@@ -52,12 +65,13 @@ module {moduleName} (
     genvar index;
     generate
         for (index = 0; index < {traceNR}; index ++) begin
-            always @(posedge clk ) begin
-                if (!rst) begin
+            always @(posedge host_clk) begin
+                if (host_rst) begin
                     hasData[index] <= 0;
                 end
                 else if (pipeValid[index] && pipeReady[index]) begin
                     hasData[index] <= 1;
+                    tickDelta[index+1] <= tickDelta[index];
                 end
                 else if (pipeValid[index+1] && pipeReady[index+1]) begin
                     hasData[index] <= 0;
@@ -70,7 +84,6 @@ module {moduleName} (
 
     {pipeline}
 
-    wire [{markDataWidth}-1:0] markData = 'd0;
     assign pipeReady[{traceNR}] = oready;
     assign ovalid = hasData[{traceNR}-1];
     assign odata = {pipeDataOut};
