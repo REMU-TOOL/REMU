@@ -10,8 +10,8 @@ module TraceBackend #(
     parameter AXI_ARUSER_WIDTH = 0,
     parameter AXI_RUSER_WIDTH = 0
 )(
-    input   wire                clk,
-    input   wire                rst,
+    input   wire                host_clk,
+    input   wire                host_rst,
     input  wire                  ctrl_wen,
     input  wire [CTRL_ADDR_WIDTH-1:0] ctrl_waddr,
     input  wire [          31:0] ctrl_wdata,
@@ -73,8 +73,8 @@ module TraceBackend #(
     wire                            tb_oready;
 
     TraceBatch traceBatch (
-        .clk(clk),
-        .rst(rst),
+        .host_clk(host_clk),
+        .host_rst(host_rst),
         {tracePortInstance}
         .ovalid(tb_ovalid), 
         .odata(tb_odata), 
@@ -90,8 +90,8 @@ module TraceBackend #(
         .IN_WIDTH({outDataWidth}),
         .OUT_WIDTH(AXI_DATA_WIDTH)
     ) fifoTrans (
-        .clk(clk),
-        .rst(rst),
+        .clk(host_clk),
+        .rst(host_rst),
         .ivalid(tb_ovalid),
         .iready(tb_oready),
         .idata(tb_odata),
@@ -111,8 +111,8 @@ module TraceBackend #(
         .AXI_WUSER_WIDTH (AXI_WUSER_WIDTH ),
         .AXI_AWUSER_WIDTH(AXI_AWUSER_WIDTH)
     ) ctrl (
-        .clk(clk),
-        .rst(rst),
+        .clk(host_clk),
+        .rst(host_rst),
         .ctrl_wen(ctrl_wen),
         .ctrl_waddr(ctrl_waddr),
         .ctrl_wdata(ctrl_wdata),

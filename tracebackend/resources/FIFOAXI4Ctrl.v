@@ -1,4 +1,7 @@
 module FIFOAXI4Ctrl #(
+    parameter REGADDR_WRITEMODE = 0,
+    parameter REGADDR_BASEADDR_L = 4,
+    parameter REGADDR_BASEADDR_H = 8,
     parameter CTRL_ADDR_WIDTH = 16,
     parameter AXI_ADDR_WIDTH  = 36,
     parameter AXI_DATA_WIDTH  = 64,
@@ -54,9 +57,6 @@ module FIFOAXI4Ctrl #(
   localparam WRITE_MODE_STOP = 'd0;
   localparam WRITE_MODE_RST = 'd0;
   localparam BASE_ADDR_DEFAULT = 'd0;
-  localparam REGADDR_WRITEMODE = 'd0;
-  localparam REGADDR_BASEADDR_L = 'd4;
-  localparam REGADDR_BASEADDR_H = 'd8;
   reg [1:0] writeMode;
   reg [AXI_ADDR_WIDTH-1:0] baseAddr;
   // ==============================================
@@ -99,7 +99,7 @@ module FIFOAXI4Ctrl #(
   localparam WRITE_OFFSET_MAX = 1024 * 1024 * 1024;
   reg [AXI_ADDR_WIDTH-1:0] writeOffset;
   always @(posedge clk) begin
-    if (!rst) begin
+    if (rst) begin
       writeOffset <= 'd0;
     end else if (m_axi_awvalid && m_axi_awready) begin
       // wrap mode and stop mode will not write other place
@@ -125,7 +125,7 @@ module FIFOAXI4Ctrl #(
   reg awFire;
   reg wFire;
   always @(posedge clk) begin
-    if (!rst) begin
+    if (rst) begin
       bufferBusy <= 0;
     end
     if (ivalid && iready) begin

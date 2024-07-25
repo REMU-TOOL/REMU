@@ -17,7 +17,7 @@ module FIFOTrans #(
   reg [$clog2(IN_WIDTH/8)-1:0] count;
   reg busy;
   always @(posedge clk) begin
-    if (!rst) begin
+    if (rst) begin
       busy <= 'b0;
     end else if (ivalid && iready) begin
       busy <= 'b1;
