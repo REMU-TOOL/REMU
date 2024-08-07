@@ -29,6 +29,6 @@ add_custom_target(
 
 add_dependencies(TraceBackend generate_files_target)
 
-target_link_libraries(TraceBackend fmt::fmt)
+target_link_libraries(TraceBackend fmt::fmt common bitvector)
 
 target_include_directories(TraceBackend PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../include)

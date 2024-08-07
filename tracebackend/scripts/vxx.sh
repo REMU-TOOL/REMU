@@ -12,7 +12,7 @@ num_proc="$3"
 
 mkdir -p $target_dir
 
-$gen $target_dir/top.v $target_dir/TracePortDef.h
+$gen $target_dir/top.v $target_dir/TracePortMacro.h
 
 script_dir="$(dirname "$(readlink -f "$0")")"
 
