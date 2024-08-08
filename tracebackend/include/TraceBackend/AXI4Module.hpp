@@ -259,6 +259,8 @@ public:
         }
       }
     }
+    next_state.awready = {REMU::BitVectorUtils::uint8_rand() % 2};
+    next_state.wready = {REMU::BitVectorUtils::uint8_rand() % 2};
   }
 
   std::function<void(BRecord &record)> b_fire_visitor;

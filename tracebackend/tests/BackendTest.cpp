@@ -121,6 +121,12 @@ int main(int argc, char *argv[]) {
       if (trace_port_arr.has_enable()) {
         trace_port_arr.calculate_outputs(
             [&expected_data](uint8_t x) { expected_data.push(x); });
+        // fmt::print("ref push data: ");
+        // size_t cnt = 0;
+        // trace_port_arr.calculate_outputs([&expected_data, &cnt](uint8_t x) {
+        //   fmt::print("[{}] = {:02x} ", cnt++, x);
+        //   expected_data.push(x);
+        // });
       }
     }
     axi.check_inputs(context->time());

@@ -16,6 +16,7 @@
 #define TK_TRACE_ALIGN_WIDTH 64
 #endif
 
+#define TK_TRACE_ALIGN_NBYTE (TK_TRACE_ALIGN_WIDTH / 8)
 class TracePortRef {
 public:
   CData &ref_valid;
@@ -102,7 +103,7 @@ public:
       pack_len += arr[i].var_data.n_bytes();
     }
 
-    uint16_t align_len = utils::intCeil(pack_len, TK_TRACE_ALIGN_WIDTH / 8);
+    uint16_t align_len = utils::intCeil(pack_len, TK_TRACE_ALIGN_NBYTE);
 
     /* mark info byte */
     push(128);
@@ -125,10 +126,9 @@ public:
     }
 
     /* align */
-    size_t empty_bytes =
-        TK_TRACE_ALIGN_WIDTH / 8 - (pack_len % TK_TRACE_ALIGN_WIDTH / 8);
-    for (size_t i = 0; i < empty_bytes; i++)
+    for (size_t i = 0; i < align_len - pack_len; i++)
       push(0);
+    // fmt::print("\ngenerate {} bytes outputs\n", align_len);
   }
 
   bool all_fire() {
