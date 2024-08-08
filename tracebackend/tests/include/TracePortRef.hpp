@@ -1,17 +1,19 @@
 #ifndef __TRACE_PORT_RRF_HPP__
 #define __TRACE_PORT_RRF_HPP__
 
+#include "TraceBackend/utils.hpp"
 #include "bitvector.h"
 #include "verilated.h"
 #include <cstdint>
 #include <fmt/core.h>
 #include <functional>
+#include <queue>
 
 #ifndef __TRACE_PORT_MACRO_HPP__
 #define TK_TRACE_NR 3
 #define FOR_EACH_TRACE_PORT(_) _(0, 6) _(1, 34) _(2, 26)
 #define TK_TRACE_OUT_WIDTH 192
-#define AXI_DATA_WIDTH 64
+#define TK_TRACE_ALIGN_WIDTH 64
 #endif
 
 class TracePortRef {
@@ -84,55 +86,47 @@ public:
     }
   }
 
-  void calculate_outputs(std::vector<uint8_t> &ret) {
-    /* mark info byte */
-    ret.push_back(128);
-    /* mark data byte */
-    for (size_t i = 0; i < 8; i++)
-      ret.push_back(0);
-
+  void calculate_outputs(const std::function<void(uint8_t)> &push) {
+    uint16_t pack_len = 8;
+    std::queue<uint8_t> data_buf;
     for (size_t i = 0; i < arr.size(); i++) {
       /* skip disable port */
       if (!arr[i].var_enable)
         continue;
       /* info byte */
-      ret.push_back(i);
+      data_buf.push(i);
+      pack_len++;
       /* data byte */
       for (size_t byte = 0; byte < arr[i].var_data.n_bytes(); byte++)
-        ret.push_back(((uint8_t *)arr[i].var_data.to_ptr())[byte]);
+        data_buf.push(((uint8_t *)arr[i].var_data.to_ptr())[byte]);
+      pack_len += arr[i].var_data.n_bytes();
     }
 
-    /* align for AXI4 */
-    size_t empty_bytes = AXI_DATA_WIDTH / 8 - (ret.size() % AXI_DATA_WIDTH / 8);
-    for (size_t i = 0; i < empty_bytes; i++)
-      ret.push_back(0);
-  }
+    uint16_t align_len = utils::intCeil(pack_len, TK_TRACE_ALIGN_WIDTH / 8);
 
-  void calculate_outputs(const std::function<void(uint8_t)> &push) {
-    size_t cnt = 0;
     /* mark info byte */
     push(128);
-    cnt++;
-    /* mark data byte */
-    for (size_t i = 0; i < 8; i++)
-      push(0);
-    cnt += 8;
 
-    for (size_t i = 0; i < arr.size(); i++) {
-      /* skip disable port */
-      if (!arr[i].var_enable)
-        continue;
-      /* info byte */
-      push(i);
-      cnt++;
-      /* data byte */
-      for (size_t byte = 0; byte < arr[i].var_data.n_bytes(); byte++)
-        push(((uint8_t *)arr[i].var_data.to_ptr())[byte]);
-      cnt += arr[i].var_data.n_bytes();
+    /* reserve */
+    push(0);
+
+    /* length */
+    push(align_len & 0xff);
+    push(align_len >> 8);
+
+    /* clock delta */
+    for (size_t i = 0; i < 4; i++)
+      push(0);
+
+    /* pack data */
+    while (!data_buf.empty()) {
+      push(data_buf.front());
+      data_buf.pop();
     }
 
-    /* align for AXI4 */
-    size_t empty_bytes = AXI_DATA_WIDTH / 8 - (cnt % AXI_DATA_WIDTH / 8);
+    /* align */
+    size_t empty_bytes =
+        TK_TRACE_ALIGN_WIDTH / 8 - (pack_len % TK_TRACE_ALIGN_WIDTH / 8);
     for (size_t i = 0; i < empty_bytes; i++)
       push(0);
   }

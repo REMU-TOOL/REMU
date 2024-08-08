@@ -25,7 +25,8 @@ string BaseImpl::emitCHeader() {
       mkString(port_infos, " ", "#define FOR_EACH_TRACE_PORT(_) ", "\n");
   auto tk_trace_out_width =
       fmt::format("#define TK_TRACE_OUT_WIDTH {}\n", outDataWidth);
-  auto axi_data_width = format("#define AXI_DATA_WIDTH {}\n", AXI4DataWidth());
+  auto axi_data_width =
+      format("#define TK_TRACE_ALIGN_WIDTH {}\n", outAlignWidth());
   auto buffer = vector<string>({ifndef, tk_trace_nr, foreach_trace_port,
                                 tk_trace_out_width, axi_data_width, endif});
   return mkString(buffer);

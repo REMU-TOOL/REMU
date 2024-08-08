@@ -54,7 +54,7 @@ int main(int argc, char *argv[]) {
 
   auto waver = Waver(true, top.get(), wave_file);
   top->host_clk = false;
-  top->host_rst = false;
+  top->host_rst = true;
 
   // reset state
   while (!context->gotFinish() && context->time() < 32) {
@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
     top->eval();
     waver.dump();
   }
-  top->host_rst = true;
+  top->host_rst = false;
 
   auto expected = std::queue<std::vector<uint8_t>>();
 
@@ -83,13 +83,16 @@ int main(int argc, char *argv[]) {
       }
     }
     top->oready = uint8_rand() % 2;
+    top->tick_cnt = 0;
   };
   auto check_outputs = [&]() {
     if (trace_port_arr.all_fire()) {
       fmt::print("[{}] inputs fire {}: ", context->time(), in_fire_cnt++);
       trace_port_arr.print_inputs();
       if (trace_port_arr.has_enable()) {
-        trace_port_arr.calculate_outputs(expected.emplace());
+        auto &ref = expected.emplace();
+        trace_port_arr.calculate_outputs(
+            [&ref](uint8_t x) { ref.push_back(x); });
       }
     }
     if (top->ovalid && top->oready) {

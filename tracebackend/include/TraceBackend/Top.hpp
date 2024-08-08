@@ -8,13 +8,13 @@
 class TraceConfig {
 public:
   std::vector<size_t> tracePortsWidth;
-  size_t AXI4DataWidth;
+  size_t outAlignWidth;
   size_t markInfoValue;
   size_t markDataWidth;
   size_t infoBytes;
   TraceConfig(std::vector<size_t> tracePortsWidth)
       : tracePortsWidth(tracePortsWidth) {
-    AXI4DataWidth = 64;
+    outAlignWidth = 64;
     markInfoValue = 128;
     markDataWidth = 56;
     infoBytes = 1;

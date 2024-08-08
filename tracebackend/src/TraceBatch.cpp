@@ -135,11 +135,14 @@ input   wire [{portWidth}-1:0] tk{index}_data,
         fmt::print("trace are too width, len bits width is over 16\n");
         assert(false);
       }
-      (outLenWidth == 16) ? "olen" : ({
+      auto align_len = fmt::format("((olen + {}'d{}) & ~({}'d{}))", outLenWidth,
+                                   outAlignWidth() / 8 - 1, outLenWidth,
+                                   outAlignWidth() / 8 - 1);
+      (outLenWidth == 16) ? align_len : ({
         auto emptyWidth = 16 - outLenWidth;
         auto headZero =
             emptyWidth == 0 ? "" : fmt::format("{}'d0,", emptyWidth);
-        fmt::format("{{ {} olen }} ", headZero);
+        fmt::format("{{ {} {} }} ", headZero, align_len);
       });
     });
 

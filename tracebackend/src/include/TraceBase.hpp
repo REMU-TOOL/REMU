@@ -17,7 +17,7 @@ public:
   size_t markInfoValue() { return config->markInfoValue; }
   size_t markDataWidth() { return config->markDataWidth; }
   size_t infoBytes() { return config->infoBytes; }
-  size_t AXI4DataWidth() { return config->AXI4DataWidth; }
+  size_t outAlignWidth() { return config->outAlignWidth; }
   size_t infoWidth() { return infoBytes() * 8; }
   size_t packSumWidth;
   size_t outDataWidth;
@@ -70,7 +70,7 @@ input   wire [{portWidth}-1:0] tk{index}_data,
     }
     packSumWidth = std::accumulate(packWidth.begin(), packWidth.end(), 0);
     outDataWidth = utils::intCeil(packSumWidth + infoWidth() + markDataWidth(),
-                                  AXI4DataWidth());
+                                  outAlignWidth());
     outLenWidth = std::ceil(std::log2(outDataWidth / 8));
   }
 

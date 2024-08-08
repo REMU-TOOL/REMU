@@ -9,7 +9,6 @@ module {moduleName} (
     input   wire                            oready
 );
 
-    localparam AXI_DATA_WDITH = 64;
     {traceWidthParams}
     wire [{traceNR}-1:0] inputValids = {inputValids};
     wire [{traceNR}-1:0] inputReadys = {inputReadys};
