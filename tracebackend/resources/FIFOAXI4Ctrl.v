@@ -110,7 +110,7 @@ module FIFOAXI4Ctrl #(
   assign m_axi_awid = 0;
   assign m_axi_awlen = 0;
   assign m_axi_awburst = 1;  //INCR
-  assign m_axi_awsize = $clog2(AXI_DATA_WIDTH);
+  assign m_axi_awsize = $clog2(AXI_DATA_WIDTH / 8);
   assign m_axi_awlock = 0;
   assign m_axi_awprot = 0;
   assign m_axi_awuser = 0;
@@ -137,17 +137,21 @@ module FIFOAXI4Ctrl #(
   end
   always @(posedge clk) begin
     if (ivalid && iready) begin
-      awFire <= 0;
       wFire  <= 0;
-    end else if (m_axi_awvalid && m_axi_awready) begin
-      awFire <= 1;
     end else if (m_axi_wvalid && m_axi_wready) begin
       wFire <= 1;
     end
   end
+  always @(posedge clk) begin
+    if (ivalid && iready) begin
+      awFire <= 0;
+    end else if (m_axi_awvalid && m_axi_awready) begin
+      awFire <= 1;
+    end
+  end
   assign m_axi_wdata   = bufferData;
-  assign m_axi_awvalid = bufferBusy;
-  assign m_axi_wvalid  = bufferBusy;
+  assign m_axi_awvalid = bufferBusy && !awFire;
+  assign m_axi_wvalid  = bufferBusy && !wFire;
   wire writeOffsetMax = (writeOffset == WRITE_OFFSET_MAX) && writeMode == WRITE_MODE_STOP;
   assign iready = !bufferBusy && !writeOffsetMax;
 endmodule
