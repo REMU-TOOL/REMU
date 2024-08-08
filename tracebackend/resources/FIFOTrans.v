@@ -25,14 +25,12 @@ module FIFOTrans #(
       dataBuffer <= idata;
       lenBuffer <= ilen;
     end else if (ovalid && oready) begin
-      if (count < lenBuffer) begin
-        dataBuffer <= dataBuffer >> OUT_WIDTH;
-        count <= count + (OUT_WIDTH/8);
-      end else begin
-        busy <= 'b0;
-      end
+      dataBuffer <= dataBuffer >> OUT_WIDTH;
+      count <= count + (OUT_WIDTH/8);
+      busy <= (count + (OUT_WIDTH/8)) < lenBuffer;
     end
   end
+  assign iready = !busy;
   assign ovalid = busy;
   assign odata  = dataBuffer[OUT_WIDTH-1:0];
 endmodule
