@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
   auto trace_port_arr = TracePortArr(inputs_port_arr);
 #undef PORT_DEF
 
-  auto axi_deleg = AXI4::SlaveWriteModule(36, AXI_DATA_WIDTH, 4);
+  auto axi_deleg = AXI4::SlaveWriteModule(36, 64, 4);
 
   auto axi =
       AXI4SlaveRef<4, decltype(top->m_axi_wdata), decltype(top->m_axi_awaddr)>(
@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
 
   auto waver = Waver(true, top.get(), wave_file);
   top->host_clk = false;
-  top->host_rst = false;
+  top->host_rst = true;
 
   // reset state
   while (!context->gotFinish() && context->time() < 32) {
@@ -70,22 +70,34 @@ int main(int argc, char *argv[]) {
     top->eval();
     waver.dump();
   }
-  top->host_rst = true;
+  top->host_rst = false;
 
   auto expected_data = std::queue<uint8_t>();
-  AXI4::addr_t expected_addr = 0x10000000;
+  AXI4::addr_t expected_addr = 0x0;
 
-  axi_deleg.visitor = [&expected_data, &expected_addr,
-                       &context](AXI4::BRecord &brecord) {
+  axi_deleg.b_valid_visitor = [](AXI4::BRecord &brecord) {
+    brecord.resp = AXI4::RESP_OKEY;
+  };
+  axi_deleg.b_fire_visitor = [&expected_data, &expected_addr,
+                              &context](AXI4::BRecord &brecord) {
     auto dut = std::vector<uint8_t>();
+    auto ref = std::vector<uint8_t>();
 
     auto nbytes = brecord.to_vec(dut, expected_addr);
     bool cmp_res = true;
     for (size_t i = 0; i < nbytes; i++) {
       cmp_res &= expected_data.front() == dut[i];
+      ref.push_back(expected_data.front());
+      expected_data.pop();
     }
-    if (nbytes <= 0 || cmp_res != 0) {
+    if (nbytes <= 0 || !cmp_res) {
       context->gotFinish(true);
+      fmt::print("compare diff, quit!!!\n");
+      fmt::print("dut = {:02x}\n", fmt::join(dut, " "));
+      fmt::print("ref = {:02x}\n", fmt::join(ref, " "));
+    } else {
+      fmt::print("compare same, pass!!!\n");
+      fmt::print("dut = {:02x}\n", fmt::join(dut, " "));
     }
     expected_addr += nbytes;
   };
@@ -110,8 +122,8 @@ int main(int argc, char *argv[]) {
         trace_port_arr.calculate_outputs(
             [&expected_data](uint8_t x) { expected_data.push(x); });
       }
-      axi.check_inputs();
     }
+    axi.check_inputs(context->time());
   };
 
   while (!context->gotFinish() && duration >= context->time()) {

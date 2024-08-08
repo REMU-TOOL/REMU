@@ -52,44 +52,44 @@ class AXI4SlaveRef {
   }
 
   template <std::size_t T_Words, typename D>
-  static void set_ref_addr(VlWide<T_Words> &src, D dest) {
+  static void set_ref(VlWide<T_Words> &src, D dest) {
     return memcpy(src.data(), &dest, sizeof(dest));
   }
 
   template <typename S>
-  static void set_ref_addr(S &src, const REMU::BitVector &dest) {
+  static void set_ref(S src, const REMU::BitVector &dest) {
     assert(sizeof(std::remove_reference<decltype(src)>) == dest.width() / 8);
-    dest.getValue(&src, sizeof(src));
+    dest.getValue(0, dest.width(), (uint64_t *)&src);
   }
 
   template <std::size_t T_Words>
-  static void set_ref_addr(VlWide<T_Words> &src, REMU::BitVector dest) {
+  static void set_ref_addr(VlWide<T_Words> &src, const REMU::BitVector &dest) {
     // TODO: assert
-    dest.getValue(src.data(), dest.width());
+    dest.getValue(0, dest.width(), (uint64_t *)src.data());
   }
 
 public:
   // check fire in every cycle, if fire call callback function
-  void check_inputs() {
+  void check_inputs(uint64_t tick) {
     if (awvalid && awready) {
       deleg.aw_fire_cb(awaddr, awid, awburst, awlen, awsize);
     }
     if (wvalid && wready) {
-      deleg.w_fire_cb(wstrb, wlast, wdata);
+      deleg.w_fire_cb(get_ref_addr(wstrb), wlast, get_ref_addr(wdata));
     }
     if (bvalid && bready) {
       deleg.b_fire_cb();
     }
-    deleg.tick_cb();
+    deleg.tick_cb(tick);
   }
 
   // call every cycle, check if slave module want update
   void update_outputs() {
     if (deleg.next_state.b.has_value()) {
       bvalid = deleg.next_state.b->valid;
-      set_ref_addr(bid, deleg.next_state.b->id);
-      set_ref_addr(bresp, deleg.next_state.b->resp);
-      set_ref_addr(buser, deleg.next_state.b->user);
+      bid = deleg.next_state.b->id;
+      bresp = deleg.next_state.b->resp;
+      buser = deleg.next_state.b->user;
       deleg.next_state.b.reset();
     }
     if (deleg.next_state.awready.has_value()) {
@@ -97,7 +97,7 @@ public:
       deleg.next_state.awready.reset();
     }
     if (deleg.next_state.wready.has_value()) {
-      awready = deleg.next_state.wready.value();
+      wready = deleg.next_state.wready.value();
       deleg.next_state.wready.reset();
     }
   }

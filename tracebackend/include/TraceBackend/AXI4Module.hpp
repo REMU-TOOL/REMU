@@ -1,11 +1,12 @@
+#include "TraceBackend/utils.hpp"
 #include "bitvector.h"
 #include <cstddef>
-#include <cstdint>
 #include <fmt/core.h>
+#include <fmt/ranges.h>
 #include <functional>
 #include <optional>
 #include <queue>
-#include <sys/types.h>
+#include <string>
 #include <vector>
 
 namespace AXI4 {
@@ -40,11 +41,23 @@ struct AWField {
   burst_t burst;
   uint8_t len;
   uint8_t size;
+  AWField(addr_t addr, uint8_t id, uint8_t burst, uint8_t len, uint8_t size)
+      : addr(addr), id(id), burst((burst_t)burst), len(len), size(size) {}
+  [[nodiscard]] std::string to_string() const {
+    return fmt::format("addr = {}, id = {}, burst = {}, len = {}, size = {}",
+                       addr, id, burst, len, size);
+  }
 };
 
 struct WField {
+  WField(REMU::BitVector strb, std::vector<uint8_t> data)
+      : strb(std::move(strb)), data(std::move(data)) {}
   REMU::BitVector strb;
   std::vector<uint8_t> data;
+  [[nodiscard]] std::string to_string() const {
+    return fmt::format("strb = {}, data = {:02x}", strb.hex(),
+                       fmt::join(data, " "));
+  }
 };
 
 struct BRecord {
@@ -53,8 +66,10 @@ struct BRecord {
   std::string err_msg;
   bool could_valid() { return true; }
   bool not_set_port() {
+    if (has_set_port)
+      return false;
     has_set_port = true;
-    return !has_set_port;
+    return true;
   }
 
   addr_t start_addr; // aw.addr
@@ -62,14 +77,19 @@ struct BRecord {
   uint8_t burst_nr;  // aw.len + 1
   uint8_t id;        // aw.id
   burst_t burst_type;
+  resp_t resp;
 
-  BRecord(AWField &aw, WField &w) {
+  BRecord(AWField &aw, std::vector<WField> w) : w(std::move(w)) {
     start_addr = aw.addr;
     nbytes = 1 << aw.size;
     burst_nr = aw.len + 1;
     id = aw.id;
     burst_type = aw.burst;
     has_set_port = false;
+  }
+
+  [[nodiscard]] std::string to_string() {
+    return fmt::format("id = {}, resp = {}", id, resp);
   }
 
   bool check_req_legal() {
@@ -115,12 +135,12 @@ struct BRecord {
 
     ASSERT(burst_type != BURST_FIXED, "burst type fix can not to mem");
 
-    size_t total_cap = start_addr + ((size_t)burst_type * nbytes) - base_addr;
+    size_t total_cap = start_addr + ((size_t)burst_nr * nbytes) - base_addr;
     if (mem.capacity() < total_cap) {
       mem.resize(total_cap);
     }
 
-    addr_t wrap_off_mask = (burst_nr * nbytes) - 1;
+    addr_t wrap_off_mask = ((addr_t)burst_nr * nbytes) - 1;
     addr_t wrap_bound = start_addr & ~wrap_off_mask;
     addr_t strb_mask = w[0].data.size() - 1;
     for (size_t i = 0; i < burst_nr; i++) {
@@ -169,21 +189,32 @@ public:
       uint8_t id;
       resp_t resp;
       REMU::BitVector user;
-      BPort(const BRecord &brecord);
-      BPort() : valid(false){};
+      BPort(const BRecord &brecord) {
+        valid = true;
+        id = brecord.id;
+        resp = brecord.resp;
+        user = REMU::BitVector(0);
+      }
+      BPort() : valid(false) { user = REMU::BitVector(0); };
     };
 
     std::optional<BPort> b;
   } next_state;
+  uint64_t tick;
 
   SlaveWriteModule(size_t addr_width, size_t data_width, size_t id_width,
                    size_t user_width = 0)
-      : addr_width(user_width), data_width(id_width), id_width(data_width),
-        user_width(addr_width) {}
+      : addr_width(addr_width), data_width(data_width), id_width(id_width),
+        user_width(user_width) {
+    next_state.b = {};
+    next_state.awready = {true};
+    next_state.wready = {true};
+    tick = 0;
+  }
 
   void schedule() {
     while (!aw_queue.empty() && !w_queue.empty()) {
-      b_queue.emplace(aw_queue.front(), w_queue.front(), false);
+      b_queue.emplace(aw_queue.front(), w_queue.front());
       aw_queue.pop();
       w_queue.pop();
     }
@@ -192,37 +223,46 @@ public:
   void aw_fire_cb(uint64_t addr, uint8_t id, uint8_t burst, uint8_t len,
                   uint8_t size) {
     aw_queue.emplace(addr, id, burst, len, size);
+    fmt::print("[{}] AW fire: {}\n", tick, aw_queue.back().to_string());
     schedule();
   }
 
   void w_fire_cb(uint8_t *strb, bool last, uint8_t *data) {
-    auto data_vec = std::vector<uint8_t>(data, data + data_width);
-    auto strb_vec = REMU::BitVector();
+    auto data_vec = std::vector<uint8_t>(data, data + data_width / 8);
+    auto strb_vec = REMU::BitVector(data_width / 8);
     strb_vec.setValue(0, data_width / 8, (uint64_t *)strb);
-    w_curr_hs.emplace_back(data_vec, strb_vec);
+    w_curr_hs.emplace_back(strb_vec, data_vec);
+    fmt::print("[{}] W fire: {}\n", tick, w_curr_hs.back().to_string());
     if (last) {
-      w_queue.emplace(w_curr_hs);
+      w_queue.push(w_curr_hs);
       w_curr_hs.clear();
       schedule();
     }
   }
   // try to check and pop
   void b_fire_cb() {
-    visitor(b_queue.front());
+    b_fire_visitor(b_queue.front());
     next_state.b.emplace();
+    fmt::print("[{}] B fire: {}\n", tick, b_queue.front().to_string());
     b_queue.pop();
   }
 
-  void tick_cb() {
+  void tick_cb(uint64_t out_tick) {
+    tick = out_tick;
     if (!b_queue.empty()) {
       auto bhead = b_queue.front();
-      if (bhead.could_valid() && bhead.not_set_port()) {
-        next_state.b.emplace(bhead);
+      if (bhead.could_valid()) {
+        auto not_set_port = bhead.not_set_port();
+        if (not_set_port) {
+          b_valid_visitor(b_queue.front());
+          next_state.b.emplace(bhead);
+        }
       }
     }
   }
 
-  std::function<void(BRecord &record)> visitor;
+  std::function<void(BRecord &record)> b_fire_visitor;
+  std::function<void(BRecord &record)> b_valid_visitor;
 };
 
 } // namespace AXI4
