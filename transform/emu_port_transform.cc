@@ -576,12 +576,14 @@ void PortTransform::run(std::string trace_backend)
             std::cout<< info.port_width << std::endl;
         }
     }
-    std::ofstream out_file(trace_backend);
-    if (!out_file.is_open()) {
+    if (!traceport_width.empty()) {
+      std::ofstream out_file(trace_backend);
+      if (!out_file.is_open()) {
         log_error("Cannot open file: %s\n", trace_backend.c_str());
+      }
+      auto backend = TraceBackend(traceport_width);
+      out_file << backend.emitVerilog() << std::endl;
     }
-    auto backend = TraceBackend(traceport_width);
-    out_file << backend.emitVerilog() << std::endl;
 }
 
 struct EmuPortTransform : public Pass
