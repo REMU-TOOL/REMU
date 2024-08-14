@@ -292,14 +292,16 @@ void add_emutrace_backend(EmulationDatabase &database, Module *top, CtrlConnBuil
     trace_backend->setParam("\\AXI_DATA_WIDTH", TRACE_BACKEND_AXI_DATA_WIDTH);
     trace_backend->setParam("\\AXI_ID_WIDTH", TRACE_BACKEND_AXI_ID_WIDTH);
 
-    trace_backend->setPort("\\clk", host_clk);
-    trace_backend->setPort("\\rst", host_rst);
+    trace_backend->setPort("\\host_clk", host_clk);
+    trace_backend->setPort("\\host_rst", host_rst);
+    trace_backend->setPort("\\tick_cnt", host_rst);
     trace_backend->setPort("\\ctrl_wen", ctrl.wen);
     trace_backend->setPort("\\ctrl_waddr", ctrl.waddr);
     trace_backend->setPort("\\ctrl_wdata", ctrl.wdata);
     trace_backend->setPort("\\ctrl_ren", ctrl.ren);
     trace_backend->setPort("\\ctrl_raddr", ctrl.raddr);
     trace_backend->setPort("\\ctrl_rdata", ctrl.rdata);
+    trace_backend->setPort("\\tick_cnt", top->wire("\\tick_cnt"));
 
     size_t i = 0;
     for (auto &info : database.trace_ports) {
@@ -521,6 +523,8 @@ void SystemTransform::run()
     sys_ctrl->setPort("\\ctrl_ren",     sys_ctrl_sig.ren);
     sys_ctrl->setPort("\\ctrl_raddr",   sys_ctrl_sig.raddr);
     sys_ctrl->setPort("\\ctrl_rdata",   sys_ctrl_sig.rdata);
+    Wire *tick_cnt = top->addWire("\\tick_cnt", 64);
+    sys_ctrl->setPort("\\tick_cnt", tick_cnt);
 
     Wire *dma_start = top->addWire(NEW_ID);
     Wire *dma_direction = top->addWire(NEW_ID);

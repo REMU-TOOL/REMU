@@ -12,6 +12,7 @@ module TraceBackend #(
 )(
     input   wire                host_clk,
     input   wire                host_rst,
+    input   wire [63:0]         tick_cnt,
     input  wire                  ctrl_wen,
     input  wire [CTRL_ADDR_WIDTH-1:0] ctrl_waddr,
     input  wire [          31:0] ctrl_wdata,
@@ -75,6 +76,7 @@ module TraceBackend #(
     TraceBatch traceBatch (
         .host_clk(host_clk),
         .host_rst(host_rst),
+        .tick_cnt(tick_cnt),
         {tracePortInstance}
         .ovalid(tb_ovalid), 
         .odata(tb_odata), 

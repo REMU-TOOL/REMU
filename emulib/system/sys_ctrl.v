@@ -10,6 +10,7 @@ module EmuSysCtrl #(
     input  wire         host_rst,
 
     input  wire         tick,
+    output reg [63:0] 	tick_cnt;
     input  wire         model_busy,
 
     output reg          run_mode,
@@ -151,7 +152,6 @@ module EmuSysCtrl #(
     // TICK_CNT_HI
     //      [31:0]  -> COUNT_HI [RW]
 
-    reg [63:0] tick_cnt;
 
     always @(posedge host_clk) begin
         if (host_rst) begin
