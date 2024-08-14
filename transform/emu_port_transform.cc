@@ -581,7 +581,16 @@ void PortTransform::run(std::string trace_backend)
       if (!out_file.is_open()) {
         log_error("Cannot open file: %s\n", trace_backend.c_str());
       }
-      auto backend = TraceBackend(traceport_width);
+      auto tk_width = vector<size_t>(traceport_width.size());
+      for (size_t i = 0; i < traceport_width.size(); i++) {
+        if (traceport_width[i] < 2)
+          log_error("width of trace_port[%lu] less than 2 \n", i);
+        else {
+          tk_width[i] = traceport_width[i] - 1;
+        }
+      }
+      auto backend = TraceBackend(tk_width);
+      backend.outAlignWidth = 64; // TODO: use TRACE_BACKEND_AXI_DATA_WIDTH
       out_file << backend.emitVerilog() << std::endl;
     }
 }
