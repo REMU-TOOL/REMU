@@ -1,7 +1,7 @@
 `timescale 1ns / 1ps
 
 module emulib_deserializer #(
-    parameter   DATA_WIDTH  = 1
+    parameter   DATA_WIDTH  = 2
 )(
     input   wire                    clk,
     input   wire                    rst,
@@ -13,6 +13,12 @@ module emulib_deserializer #(
     output  reg  [DATA_WIDTH-1:0]   o_data,
     input   wire                    o_ready
 );
+    initial begin
+        if (DATA_WIDTH <= 1) begin
+            $display("ERROR: DATA_WIDTH(%d) should be greater than 1", DATA_WIDTH);
+            $finish;
+        end
+    end
 
     localparam CNT_BITS = $clog2(DATA_WIDTH + 1);
     reg [CNT_BITS-1:0] cnt = 0;

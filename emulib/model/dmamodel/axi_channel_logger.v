@@ -84,7 +84,7 @@ module axi_channel_logger #(
         .out_data(`AXI4_W_PAYLOAD(m_axi)),
         .log_valid(logging_wvalid),
         .log_ready(logging_wready),
-        .log_data(logging_w_payload[W_PAYLOAD_FORMANTTED_WIDTH-1:64])
+        .log_data(logging_w_payload)
     );
 
     twoway_valid_ready_logger  #(

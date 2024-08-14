@@ -1,7 +1,7 @@
 `timescale 1ns / 1ps
 
 module emulib_axis_width_downsizer #(
-    parameter   S_TDATA_BYTES   = 1,
+    parameter   S_TDATA_BYTES   = 4,
     parameter   M_TDATA_BYTES   = 1,
     parameter   BYTE_WIDTH      = 8
 )(
@@ -27,6 +27,11 @@ module emulib_axis_width_downsizer #(
                 S_TDATA_BYTES, M_TDATA_BYTES);
             $finish;
         end
+        if (S_TDATA_BYTES <= M_TDATA_BYTES) begin
+            $display("ERROR: S_TDATA_BYTES(%d) should be greater than M_TDATA_BYTES(%d)",
+                S_TDATA_BYTES, M_TDATA_BYTES);
+            $finish;
+        end
     end
 
     localparam RATIO = S_TDATA_BYTES / M_TDATA_BYTES;
@@ -39,7 +44,7 @@ module emulib_axis_width_downsizer #(
 
     reg [0:0] state = STATE_XFER_S, state_next;
 
-    reg [$clog2(RATIO)-1:0] slice_cnt = RATIO - 1;
+    reg [$clog2(RATIO):0] slice_cnt;
     reg [S_TDATA_WIDTH-1:0] buf_tdata;
     reg [S_TDATA_BYTES-1:0] buf_tkeep;
     reg buf_tlast;
@@ -92,8 +97,8 @@ module emulib_axis_width_downsizer #(
 
     assign s_tready = state == STATE_XFER_S;
     assign m_tvalid = state == STATE_XFER_M;
-    assign m_tdata  = buf_tdata;
-    assign m_tkeep  = buf_tkeep;
+    assign m_tdata  = buf_tdata[M_TDATA_WIDTH-1:0];
+    assign m_tkeep  = buf_tkeep[0];
     assign m_tlast  = buf_tlast && buf_tkeep_going_empty;
 
 endmodule
