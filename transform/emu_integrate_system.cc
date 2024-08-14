@@ -1,3 +1,4 @@
+#include "axi.h"
 #include "kernel/yosys.h"
 
 #include "attr.h"
@@ -318,49 +319,22 @@ void add_emutrace_backend(EmulationDatabase &database, Module *top, CtrlConnBuil
     }
 
     std::string prefix = "EMU_TRACE_DMA";
-    std::vector<std::pair<std::string, std::size_t>> axi4_sig_name = {{"awvalid", 1},
-        {"awready", 1},
-        {"awaddr", TRACE_BACKEND_AXI_ADDR_WIDTH},
-        {"awprot", 3},
-        {"awid", TRACE_BACKEND_AXI_ID_WIDTH},
-        {"awlen", 8},
-        {"awsize", 3},
-        {"awburst", 2},
-        {"awlock", 1},
-        {"awcache", 4},
-        {"awqos", 4},
-        {"awregion", 4},
-        {"wvalid", 1},
-        {"wready", 1},
-        {"wdata", TRACE_BACKEND_AXI_DATA_WIDTH},
-        {"wstrb", TRACE_BACKEND_AXI_STRB_WIDTH},
-        {"wlast", 1},
-        {"bvalid", 1},
-        {"bready", 1},
-        {"bresp", 2},
-        {"bid", TRACE_BACKEND_AXI_ID_WIDTH},
-        {"arvalid", 1},
-        {"arready", 1},
-        {"araddr", TRACE_BACKEND_AXI_ADDR_WIDTH},
-        {"arprot", 3},
-        {"arid", TRACE_BACKEND_AXI_ID_WIDTH},
-        {"arlen", 8},
-        {"arsize", 3},
-        {"arburst", 2},
-        {"arlock", 1},
-        {"arcache", 4},
-        {"arqos", 4},
-        {"arregion", 4},
-        {"rvalid", 1},
-        {"rready", 1},
-        {"rdata", TRACE_BACKEND_AXI_DATA_WIDTH},
-        {"rresp", 2},
-        {"rid", TRACE_BACKEND_AXI_ID_WIDTH},
-        {"rlast", 1},};
-    for(auto &sig: axi4_sig_name){
-        auto *wire = top->addWire("\\" + prefix + "_" + sig.first, sig.second);
-        trace_backend->setPort("\\m_axi_" + sig.first, wire);
+    auto trace_dma_axi =
+        AXI::AXI4(prefix, AXI::Info(TRACE_BACKEND_AXI_ADDR_WIDTH,
+                                    TRACE_BACKEND_AXI_DATA_WIDTH, true, true,
+                                    TRACE_BACKEND_AXI_ID_WIDTH));
+    trace_dma_axi.foreach (
+        [&top, &trace_backend, &prefix](const AXI::Sig &sig) {
+          if (sig.present()) {
+            auto wire_name = "\\" + sig.name;
+            auto port_name = sig.name;
+            port_name.replace(0, prefix.length(), "\\m_axi");
+            auto *wire = top->addWire(wire_name, (int)sig.width);
+            trace_backend->setPort(port_name, wire);
+            wire->port_input = !sig.output;
+            wire->port_output = sig.output;
     }
+        });
 }
 
 void connect_uart_tx(EmulationDatabase &database, Module *top, Cell *sys_ctrl)

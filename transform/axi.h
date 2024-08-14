@@ -1,6 +1,7 @@
 #ifndef _AXI_H_
 #define _AXI_H_
 
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -319,6 +320,20 @@ struct AChannel : public ChannelBase
         ChannelBase::constructRange(range);
         range.append({&addr, &prot, &id, &len, &size, &burst, &lock, &cache, &qos, &region, &user});
     }
+
+    void foreach (const std::function<void(Sig)> &cb) const {
+      cb(addr);
+      cb(prot);
+      cb(id);
+      cb(len);
+      cb(size);
+      cb(burst);
+      cb(lock);
+      cb(cache);
+      cb(qos);
+      cb(region);
+      cb(user);
+    }
 };
 
 struct WChannel : public ChannelBase
@@ -370,6 +385,12 @@ struct WChannel : public ChannelBase
         ChannelBase::constructRange(range);
         range.append({&data, &strb, &last});
     }
+
+    void foreach (const std::function<void(Sig)> &cb) const {
+      cb(data);
+      cb(strb);
+      cb(last);
+    }
 };
 
 struct BChannel : public ChannelBase
@@ -411,6 +432,11 @@ struct BChannel : public ChannelBase
     {
         ChannelBase::constructRange(range);
         range.append({&resp, &id});
+    }
+
+    void foreach (const std::function<void(Sig)> &cb) const {
+      cb(resp);
+      cb(id);
     }
 };
 
@@ -469,6 +495,12 @@ struct RChannel : public ChannelBase
         range.append({&data, &resp});
         range.append({&id, &last});
     }
+    void foreach (const std::function<void(Sig)> &cb) const {
+      cb(data);
+      cb(resp);
+      cb(id);
+      cb(last);
+    }
 };
 
 
@@ -481,6 +513,14 @@ struct AXI4
     RChannel r;
 
     AXI4() = default;
+
+    void foreach (const std::function<void(Sig)> &cb) const {
+      aw.foreach (cb);
+      w.foreach (cb);
+      b.foreach (cb);
+      ar.foreach (cb);
+      r.foreach (cb);
+    }
 
     AXI4(const std::string &prefix, const Info &info) :
         aw(prefix + "_aw", info),
