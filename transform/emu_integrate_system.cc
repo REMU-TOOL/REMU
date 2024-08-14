@@ -335,7 +335,7 @@ void add_emutrace_backend(EmulationDatabase &database, Module *top, CtrlConnBuil
             trace_backend->setPort(port_name, wire);
             wire->port_input = !sig.output;
             wire->port_output = sig.output;
-    }
+          }
         });
 }
 
