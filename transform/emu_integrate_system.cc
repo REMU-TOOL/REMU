@@ -272,6 +272,13 @@ void connect_triggers(EmulationDatabase &database, Module *top, Cell *sys_ctrl)
 }
 
 void add_emutrace_backend(EmulationDatabase &database, Module *top, CtrlConnBuilder &builder){
+    int count = 0;
+    for (auto &info : database.trace_ports) {
+        if(info.type != "uart_tx")
+            count += 1;
+    }
+    if(count == 0)
+        return;
     Wire *host_clk      = CommonPort::get(top, CommonPort::PORT_HOST_CLK);
     Wire *host_rst      = CommonPort::get(top, CommonPort::PORT_HOST_RST);
 
