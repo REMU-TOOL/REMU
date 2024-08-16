@@ -3,7 +3,6 @@
 #include "attr.h"
 #include "port.h"
 #include "utils.h"
-#include "TraceBackend/Top.hpp"
 #include <cstddef>
 #include <fstream>
 #include <sstream>
@@ -117,7 +116,7 @@ struct PortTransform
     void process_axi_ports(Yosys::Module *module);
     void process_trace_ports(Yosys::Module *module);
 
-    void run(std::string trace_backend);
+    void run();
 
     PortTransform(Yosys::Design *design, EmulationDatabase &database)
         : hier(design), database(database) {}
@@ -541,84 +540,49 @@ void copy_top_info(std::vector<T> &to, const std::vector<T> &from)
     }
 }
 
-void PortTransform::run(std::string trace_backend)
-{
-    for (auto &node : hier.dag.topoSort(true)) {
-        Module *module = hier.design->module(node.name);
-        log("Processing module %s...\n", log_id(module));
-        process_common_ports(module);
-        process_clocks(module);
-        process_signals(module);
-        process_triggers(module);
-        process_axi_ports(module);
-        process_trace_ports(module);
-    }
-    PortTransform::trace_backend = trace_backend;
-    IdString top = hier.dag.rootNode().name;
-    copy_top_info(database.clock_ports, all_clock_ports.at(top));
-    copy_top_info(database.signal_ports, all_signal_ports.at(top));
-    copy_top_info(database.trigger_ports, all_trigger_ports.at(top));
-    copy_top_info(database.axi_ports, all_axi_ports.at(top));
-    copy_top_info(database.trace_ports, all_trace_ports.at(top));
+void PortTransform::run() {
+  for (auto &node : hier.dag.topoSort(true)) {
+    Module *module = hier.design->module(node.name);
+    log("Processing module %s...\n", log_id(module));
+    process_common_ports(module);
+    process_clocks(module);
+    process_signals(module);
+    process_triggers(module);
+    process_axi_ports(module);
+    process_trace_ports(module);
+  }
+  PortTransform::trace_backend = trace_backend;
+  IdString top = hier.dag.rootNode().name;
+  copy_top_info(database.clock_ports, all_clock_ports.at(top));
+  copy_top_info(database.signal_ports, all_signal_ports.at(top));
+  copy_top_info(database.trigger_ports, all_trigger_ports.at(top));
+  copy_top_info(database.axi_ports, all_axi_ports.at(top));
+  copy_top_info(database.trace_ports, all_trace_ports.at(top));
 
-    Module *top_module = hier.design->module(top);
-    Wire *host_rst  = CommonPort::get(top_module, CommonPort::PORT_HOST_RST);
-    Wire *mdl_rst   = CommonPort::get(top_module, CommonPort::PORT_MDL_RST);
+  Module *top_module = hier.design->module(top);
+  Wire *host_rst = CommonPort::get(top_module, CommonPort::PORT_HOST_RST);
+  Wire *mdl_rst = CommonPort::get(top_module, CommonPort::PORT_MDL_RST);
 
-    make_internal(mdl_rst);
-    top_module->connect(mdl_rst, host_rst);
+  make_internal(mdl_rst);
+  top_module->connect(mdl_rst, host_rst);
 
-    top_module->fixup_ports();
-    std::vector<size_t> traceport_width;
-    for (auto &info : database.trace_ports) {
-        if(info.type != "uart_tx"){
-            traceport_width.push_back(info.port_width);
-            std::cout<< info.port_width << std::endl;
-        }
-    }
-    if (!traceport_width.empty()) {
-      std::ofstream out_file(trace_backend);
-      if (!out_file.is_open()) {
-        log_error("Cannot open file: %s\n", trace_backend.c_str());
-      }
-      auto tk_width = vector<size_t>(traceport_width.size());
-      for (size_t i = 0; i < traceport_width.size(); i++) {
-        if (traceport_width[i] < 2)
-          log_error("width of trace_port[%lu] less than 2 \n", i);
-        else {
-          tk_width[i] = traceport_width[i] - 1;
-        }
-      }
-      auto backend = TraceBackend(tk_width);
-      backend.outAlignWidth = 64; // TODO: use TRACE_BACKEND_AXI_DATA_WIDTH
-      out_file << backend.emitVerilog() << std::endl;
-    }
+  top_module->fixup_ports();
 }
 
 struct EmuPortTransform : public Pass
 {
     EmuPortTransform() : Pass("emu_port_transform", "(REMU internal)") {}
 
-    std::string trace_backend;
     void execute(vector<string> args, Design* design) override
     {
-        size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++) {
-			if (args[argidx] == "-tracebackend") {
-				trace_backend = args[++argidx];
-				continue;
-			}
-			break;
-		}
-		extra_args(args, argidx, design);
-        log_header(design, "Executing EMU_PORT_TRANSFORM pass.\n");
-        log_push();
+      extra_args(args, 1, design);
+      log_header(design, "Executing EMU_PORT_TRANSFORM pass.\n");
+      log_push();
+      PortTransform worker(design, EmulationDatabase::get_instance(design));
+      worker.run();
 
-        PortTransform worker(design, EmulationDatabase::get_instance(design));
-        worker.run(trace_backend);
-
-        log_pop();
+      log_pop();
     }
-} EmuPortTransform;
+} emu_port_transform;
 
 PRIVATE_NAMESPACE_END

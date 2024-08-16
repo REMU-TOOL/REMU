@@ -1,6 +1,7 @@
 #include "axi.h"
 #include "kernel/yosys.h"
 
+#include "TraceBackend/Top.hpp"
 #include "attr.h"
 #include "database.h"
 #include "emulib.h"
@@ -272,71 +273,89 @@ void connect_triggers(EmulationDatabase &database, Module *top, Cell *sys_ctrl)
     sys_ctrl->setPort("\\trig", trigs);
 }
 
-void add_emutrace_backend(EmulationDatabase &database, Module *top, CtrlConnBuilder &builder){
-    int count = 0;
-    for (auto &info : database.trace_ports) {
-        if(info.type != "uart_tx")
-            count += 1;
+void add_emutrace_backend(EmulationDatabase &database, Module *top,
+                          CtrlConnBuilder &builder, const string &trace_file) {
+  auto trace_port_idx = vector<size_t>();
+  auto trace_port_wid = vector<size_t>();
+  for (size_t idx = 0; idx < database.trace_ports.size(); idx++) {
+    auto &info = database.trace_ports[idx];
+    if (info.type == "uart_tx")
+      continue;
+    trace_port_idx.push_back(idx);
+    if (info.port_width <= 1)
+      log_error("width of trace_port %s less than 2 \n",
+                info.port_name.c_str());
+    else
+      trace_port_wid.push_back(info.port_width - 1); // enable is i bit
+  }
+
+  if (trace_port_idx.empty())
+    return;
+  std::ofstream out_file(trace_file);
+  if (!out_file.is_open()) {
+    log_error("Cannot open file: %s\n", trace_file.c_str());
+  }
+  auto backend = TraceBackend(trace_port_wid);
+  backend.outAlignWidth = TRACE_BACKEND_AXI_DATA_WIDTH;
+  out_file << backend.emitVerilog() << std::endl;
+
+  Wire *host_clk = CommonPort::get(top, CommonPort::PORT_HOST_CLK);
+  Wire *host_rst = CommonPort::get(top, CommonPort::PORT_HOST_RST);
+
+  Cell *trace_backend =
+      top->addCell(top->uniquify("\\emu_trace_backend"), "\\TraceBackend");
+  auto ctrl = CtrlSig::create(top, "emu_trace_ctrl", 12, 32);
+  builder.add(ctrl, TRACE_BACKEND_CFG_BASE, TRACE_BACKEND_CFG_WIDTH);
+
+  trace_backend->setParam("\\CTRL_ADDR_WIDTH", TRACE_BACKEND_CFG_WIDTH);
+  trace_backend->setParam("\\AXI_ADDR_WIDTH", TRACE_BACKEND_AXI_ADDR_WIDTH);
+  trace_backend->setParam("\\AXI_DATA_WIDTH", TRACE_BACKEND_AXI_DATA_WIDTH);
+  trace_backend->setParam("\\AXI_ID_WIDTH", TRACE_BACKEND_AXI_ID_WIDTH);
+
+  trace_backend->setPort("\\host_clk", host_clk);
+  trace_backend->setPort("\\host_rst", host_rst);
+  trace_backend->setPort("\\tick_cnt", host_rst);
+  trace_backend->setPort("\\ctrl_wen", ctrl.wen);
+  trace_backend->setPort("\\ctrl_waddr", ctrl.waddr);
+  trace_backend->setPort("\\ctrl_wdata", ctrl.wdata);
+  trace_backend->setPort("\\ctrl_ren", ctrl.ren);
+  trace_backend->setPort("\\ctrl_raddr", ctrl.raddr);
+  trace_backend->setPort("\\ctrl_rdata", ctrl.rdata);
+  trace_backend->setPort("\\tick_cnt", top->wire("\\tick_cnt"));
+
+  for (size_t tk_idx = 0; tk_idx < trace_port_idx.size(); tk_idx++) {
+    auto idx = trace_port_idx[tk_idx];
+    auto &info = database.trace_ports[idx];
+    Wire *valid = top->wire(info.port_valid);
+    Wire *ready = top->wire(info.port_ready);
+    Wire *payload = top->wire(info.port_data);
+    make_internal(valid);
+    make_internal(ready);
+    make_internal(payload);
+    auto enable = SigSpec(payload, info.port_width - 1, 1);
+    auto data = SigSpec(payload, 0, info.port_width - 1);
+    trace_backend->setPort("\\tk" + std::to_string(tk_idx) + "_valid", valid);
+    trace_backend->setPort("\\tk" + std::to_string(tk_idx) + "_ready", ready);
+    trace_backend->setPort("\\tk" + std::to_string(tk_idx) + "_data", data);
+    trace_backend->setPort("\\tk" + std::to_string(tk_idx) + "_enable", enable);
+  }
+
+  std::string prefix = "EMU_TRACE_DMA";
+  auto trace_dma_axi =
+      AXI::AXI4(prefix, AXI::Info(TRACE_BACKEND_AXI_ADDR_WIDTH,
+                                  TRACE_BACKEND_AXI_DATA_WIDTH, true, true,
+                                  TRACE_BACKEND_AXI_ID_WIDTH));
+  trace_dma_axi.foreach ([&top, &trace_backend, &prefix](const AXI::Sig &sig) {
+    if (sig.present()) {
+      auto wire_name = "\\" + sig.name;
+      auto port_name = sig.name;
+      port_name.replace(0, prefix.length(), "\\m_axi");
+      auto *wire = top->addWire(wire_name, (int)sig.width);
+      trace_backend->setPort(port_name, wire);
+      wire->port_input = !sig.output;
+      wire->port_output = sig.output;
     }
-    if(count == 0)
-        return;
-    Wire *host_clk      = CommonPort::get(top, CommonPort::PORT_HOST_CLK);
-    Wire *host_rst      = CommonPort::get(top, CommonPort::PORT_HOST_RST);
-
-    Cell *trace_backend = top->addCell(top->uniquify("\\emu_trace_backend"), "\\TraceBackend");
-    auto ctrl = CtrlSig::create(top, "emu_trace_ctrl", 12, 32);
-    builder.add(ctrl, TRACE_BACKEND_CFG_BASE, TRACE_BACKEND_CFG_WIDTH);
-
-    trace_backend->setParam("\\CTRL_ADDR_WIDTH", TRACE_BACKEND_CFG_WIDTH);
-    trace_backend->setParam("\\AXI_ADDR_WIDTH", TRACE_BACKEND_AXI_ADDR_WIDTH);
-    trace_backend->setParam("\\AXI_DATA_WIDTH", TRACE_BACKEND_AXI_DATA_WIDTH);
-    trace_backend->setParam("\\AXI_ID_WIDTH", TRACE_BACKEND_AXI_ID_WIDTH);
-
-    trace_backend->setPort("\\host_clk", host_clk);
-    trace_backend->setPort("\\host_rst", host_rst);
-    trace_backend->setPort("\\tick_cnt", host_rst);
-    trace_backend->setPort("\\ctrl_wen", ctrl.wen);
-    trace_backend->setPort("\\ctrl_waddr", ctrl.waddr);
-    trace_backend->setPort("\\ctrl_wdata", ctrl.wdata);
-    trace_backend->setPort("\\ctrl_ren", ctrl.ren);
-    trace_backend->setPort("\\ctrl_raddr", ctrl.raddr);
-    trace_backend->setPort("\\ctrl_rdata", ctrl.rdata);
-    trace_backend->setPort("\\tick_cnt", top->wire("\\tick_cnt"));
-
-    size_t i = 0;
-    for (auto &info : database.trace_ports) {
-        Wire *valid = top->wire(info.port_valid);
-        Wire *ready = top->wire(info.port_ready);
-        Wire *payload = top->wire(info.port_data);
-        make_internal(valid);
-        make_internal(ready);
-        make_internal(payload);
-        auto enable = SigSpec(payload, info.port_width - 1, 1);
-        auto data = SigSpec(payload, 0, info.port_width - 1);
-        trace_backend->setPort("\\tk" + std::to_string(i) + "_valid", valid);
-        trace_backend->setPort("\\tk" + std::to_string(i) + "_ready", ready);
-        trace_backend->setPort("\\tk" + std::to_string(i) + "_data", data);
-        trace_backend->setPort("\\tk" + std::to_string(i) + "_enable", enable);
-        i++;
-    }
-
-    std::string prefix = "EMU_TRACE_DMA";
-    auto trace_dma_axi =
-        AXI::AXI4(prefix, AXI::Info(TRACE_BACKEND_AXI_ADDR_WIDTH,
-                                    TRACE_BACKEND_AXI_DATA_WIDTH, true, true,
-                                    TRACE_BACKEND_AXI_ID_WIDTH));
-    trace_dma_axi.foreach (
-        [&top, &trace_backend, &prefix](const AXI::Sig &sig) {
-          if (sig.present()) {
-            auto wire_name = "\\" + sig.name;
-            auto port_name = sig.name;
-            port_name.replace(0, prefix.length(), "\\m_axi");
-            auto *wire = top->addWire(wire_name, (int)sig.width);
-            trace_backend->setPort(port_name, wire);
-            wire->port_input = !sig.output;
-            wire->port_output = sig.output;
-          }
-        });
+  });
 }
 
 void connect_uart_tx(EmulationDatabase &database, Module *top, Cell *sys_ctrl)
@@ -430,206 +449,216 @@ struct SystemTransform
     EmulationDatabase &database;
     EmuLibInfo &emulib;
 
-    void run();
+    void run(const std::string &trace_backend);
 
     SystemTransform(Yosys::Design *design, EmulationDatabase &database, EmuLibInfo &emulib)
         : design(design), database(database), emulib(emulib) {}
 };
 
-void SystemTransform::run()
-{
-    Module *top = design->top_module();
+void SystemTransform::run(const std::string &trace_backend) {
+  Module *top = design->top_module();
 
-    Wire *host_clk      = CommonPort::get(top, CommonPort::PORT_HOST_CLK);
-    Wire *host_rst      = CommonPort::get(top, CommonPort::PORT_HOST_RST);
-    Wire *run_mode      = CommonPort::get(top, CommonPort::PORT_RUN_MODE);
-    Wire *scan_mode     = CommonPort::get(top, CommonPort::PORT_SCAN_MODE);
-    Wire *idle          = CommonPort::get(top, CommonPort::PORT_IDLE);
-    Wire *ff_se         = CommonPort::get(top, CommonPort::PORT_FF_SE);
-    Wire *ff_di         = CommonPort::get(top, CommonPort::PORT_FF_DI);
-    Wire *ff_do         = CommonPort::get(top, CommonPort::PORT_FF_DO);
-    Wire *ram_sr        = CommonPort::get(top, CommonPort::PORT_RAM_SR);
-    Wire *ram_se        = CommonPort::get(top, CommonPort::PORT_RAM_SE);
-    Wire *ram_sd        = CommonPort::get(top, CommonPort::PORT_RAM_SD);
-    Wire *ram_di        = CommonPort::get(top, CommonPort::PORT_RAM_DI);
-    Wire *ram_do        = CommonPort::get(top, CommonPort::PORT_RAM_DO);
-    Wire *pause_pending = CommonPort::get(top, CommonPort::PORT_PAUSE_PENDING);
+  Wire *host_clk = CommonPort::get(top, CommonPort::PORT_HOST_CLK);
+  Wire *host_rst = CommonPort::get(top, CommonPort::PORT_HOST_RST);
+  Wire *run_mode = CommonPort::get(top, CommonPort::PORT_RUN_MODE);
+  Wire *scan_mode = CommonPort::get(top, CommonPort::PORT_SCAN_MODE);
+  Wire *idle = CommonPort::get(top, CommonPort::PORT_IDLE);
+  Wire *ff_se = CommonPort::get(top, CommonPort::PORT_FF_SE);
+  Wire *ff_di = CommonPort::get(top, CommonPort::PORT_FF_DI);
+  Wire *ff_do = CommonPort::get(top, CommonPort::PORT_FF_DO);
+  Wire *ram_sr = CommonPort::get(top, CommonPort::PORT_RAM_SR);
+  Wire *ram_se = CommonPort::get(top, CommonPort::PORT_RAM_SE);
+  Wire *ram_sd = CommonPort::get(top, CommonPort::PORT_RAM_SD);
+  Wire *ram_di = CommonPort::get(top, CommonPort::PORT_RAM_DI);
+  Wire *ram_do = CommonPort::get(top, CommonPort::PORT_RAM_DO);
+  Wire *pause_pending = CommonPort::get(top, CommonPort::PORT_PAUSE_PENDING);
 
-    if(pause_pending)
-        make_internal(pause_pending);
-    make_internal(run_mode);
-    make_internal(scan_mode);
-    make_internal(idle);
-    make_internal(ff_se);
-    make_internal(ff_di);
-    make_internal(ff_do);
-    make_internal(ram_sr);
-    make_internal(ram_se);
-    make_internal(ram_sd);
-    make_internal(ram_di);
-    make_internal(ram_do);
+  if (pause_pending)
+    make_internal(pause_pending);
+  make_internal(run_mode);
+  make_internal(scan_mode);
+  make_internal(idle);
+  make_internal(ff_se);
+  make_internal(ff_di);
+  make_internal(ff_do);
+  make_internal(ram_sr);
+  make_internal(ram_se);
+  make_internal(ram_sd);
+  make_internal(ram_di);
+  make_internal(ram_do);
 
-    Wire *tick = top->wire("\\EMU_TICK"); // created in FAMETransform
-    make_internal(tick);
+  Wire *tick = top->wire("\\EMU_TICK"); // created in FAMETransform
+  make_internal(tick);
 
-    // Create AXI lite adapter & interfaces
+  // Create AXI lite adapter & interfaces
 
-    Cell *axil_adapter = top->addCell(top->uniquify("\\emu_axil_adapter"), "\\AXILiteToCtrl");
-    axil_adapter->setParam("\\ADDR_WIDTH", CTRL_ADDR_WIDTH);
-    axil_adapter->setParam("\\DATA_WIDTH", 32);
-    axil_adapter->setPort("\\clk", host_clk);
-    axil_adapter->setPort("\\rst", host_rst);
+  Cell *axil_adapter =
+      top->addCell(top->uniquify("\\emu_axil_adapter"), "\\AXILiteToCtrl");
+  axil_adapter->setParam("\\ADDR_WIDTH", CTRL_ADDR_WIDTH);
+  axil_adapter->setParam("\\DATA_WIDTH", 32);
+  axil_adapter->setPort("\\clk", host_clk);
+  axil_adapter->setPort("\\rst", host_rst);
 
-    const std::string axil_name = "EMU_CTRL";
-    AXI::AXI4 axil(axil_name, AXI::Info(CTRL_ADDR_WIDTH, 32, false, false));
-    for (auto &sig : axil.signals()) {
-        if (!sig.present())
-            continue;
-        Wire *wire = top->addWire("\\" + sig.name, sig.width);
-        wire->port_input = !sig.output;
-        wire->port_output = sig.output;
-        std::string postfix = sig.name.substr(axil_name.size());
-        axil_adapter->setPort("\\s_axilite" + postfix, wire);
+  const std::string axil_name = "EMU_CTRL";
+  AXI::AXI4 axil(axil_name, AXI::Info(CTRL_ADDR_WIDTH, 32, false, false));
+  for (auto &sig : axil.signals()) {
+    if (!sig.present())
+      continue;
+    Wire *wire = top->addWire("\\" + sig.name, sig.width);
+    wire->port_input = !sig.output;
+    wire->port_output = sig.output;
+    std::string postfix = sig.name.substr(axil_name.size());
+    axil_adapter->setPort("\\s_axilite" + postfix, wire);
+  }
+
+  auto m_ctrl = CtrlSig::create(top, "emu_m_ctrl", CTRL_ADDR_WIDTH, 32);
+  axil_adapter->setPort("\\ctrl_wen", m_ctrl.wen);
+  axil_adapter->setPort("\\ctrl_waddr", m_ctrl.waddr);
+  axil_adapter->setPort("\\ctrl_wdata", m_ctrl.wdata);
+  axil_adapter->setPort("\\ctrl_ren", m_ctrl.ren);
+  axil_adapter->setPort("\\ctrl_raddr", m_ctrl.raddr);
+  axil_adapter->setPort("\\ctrl_rdata", m_ctrl.rdata);
+
+  CtrlConnBuilder builder(top, m_ctrl);
+
+  // Add EmuSysCtrl
+
+  Cell *sys_ctrl =
+      top->addCell(top->uniquify("\\emu_sys_ctrl"), "\\EmuSysCtrl");
+  auto sys_ctrl_sig = CtrlSig::create(top, "emu_s_ctrl_sys", 12, 32);
+  builder.add(sys_ctrl_sig, SYS_CTRL_BASE, SYS_CTRL_WIDTH);
+
+  sys_ctrl->setPort("\\host_clk", host_clk);
+  sys_ctrl->setPort("\\host_rst", host_rst);
+  sys_ctrl->setPort("\\tick", tick);
+  sys_ctrl->setPort("\\model_busy", top->Not(NEW_ID, idle));
+  sys_ctrl->setPort("\\run_mode", run_mode);
+  sys_ctrl->setPort("\\scan_mode", scan_mode);
+  if (pause_pending)
+    sys_ctrl->setPort("\\pause_pending", pause_pending);
+
+  sys_ctrl->setPort("\\ctrl_wen", sys_ctrl_sig.wen);
+  sys_ctrl->setPort("\\ctrl_waddr", sys_ctrl_sig.waddr);
+  sys_ctrl->setPort("\\ctrl_wdata", sys_ctrl_sig.wdata);
+  sys_ctrl->setPort("\\ctrl_ren", sys_ctrl_sig.ren);
+  sys_ctrl->setPort("\\ctrl_raddr", sys_ctrl_sig.raddr);
+  sys_ctrl->setPort("\\ctrl_rdata", sys_ctrl_sig.rdata);
+  Wire *tick_cnt = top->addWire("\\tick_cnt", 64);
+  sys_ctrl->setPort("\\tick_cnt", tick_cnt);
+
+  Wire *dma_start = top->addWire(NEW_ID);
+  Wire *dma_direction = top->addWire(NEW_ID);
+  Wire *dma_running = top->addWire(NEW_ID);
+
+  sys_ctrl->setPort("\\dma_start", dma_start);
+  sys_ctrl->setPort("\\dma_direction", dma_direction);
+  sys_ctrl->setPort("\\dma_running", dma_running);
+
+  connect_signals(database, top, builder);
+  connect_triggers(database, top, sys_ctrl);
+
+  Wire *pcie_intr = top->wire("\\pcie_intr");
+  if (pcie_intr) {
+    pcie_intr->port_input = true;
+    pcie_intr->port_output = false;
+  }
+  // Add EmuScanCtrl
+
+  Cell *scan_ctrl =
+      top->addCell(top->uniquify("\\emu_scan_ctrl"), "\\EmuScanCtrl");
+
+  uint64_t ff_count = 0;
+  for (auto &ff : database.scan_ff)
+    ff_count += ff.width;
+  scan_ctrl->setParam("\\FF_COUNT", Const(ff_count, 64));
+
+  uint64_t mem_count = 0;
+  for (auto &mem : database.scan_ram)
+    mem_count += mem.width * mem.depth;
+  scan_ctrl->setParam("\\MEM_COUNT", Const(mem_count, 64));
+
+  scan_ctrl->setPort("\\host_clk", host_clk);
+  scan_ctrl->setPort("\\host_rst", host_rst);
+  scan_ctrl->setPort("\\ff_se", ff_se);
+  scan_ctrl->setPort("\\ff_di", ff_di);
+  scan_ctrl->setPort("\\ff_do", ff_do);
+  scan_ctrl->setPort("\\ram_sr", ram_sr);
+  scan_ctrl->setPort("\\ram_se", ram_se);
+  scan_ctrl->setPort("\\ram_sd", ram_sd);
+  scan_ctrl->setPort("\\ram_di", ram_di);
+  scan_ctrl->setPort("\\ram_do", ram_do);
+  scan_ctrl->setPort("\\dma_start", dma_start);
+  scan_ctrl->setPort("\\dma_direction", dma_direction);
+  scan_ctrl->setPort("\\dma_running", dma_running);
+
+  uint64_t scan_words = (ff_count + 63) / 64 + (mem_count + 63) / 64;
+  uint64_t scan_pages = (scan_words * 8 + 0xfff) / 0x1000;
+
+  {
+    AXIPort info;
+    info.name = {"scanchain"};
+    info.port_name = "EMU_SCAN_DMA_AXI";
+    info.axi = AXI::AXI4(info.port_name, AXI::Info(40, 64, true, true));
+    info.size = scan_pages * 0x1000;
+    for (auto &sig : info.axi.signals()) {
+      if (!sig.present())
+        continue;
+      Wire *wire = top->addWire("\\" + sig.name, sig.width);
+      wire->port_input = !sig.output;
+      wire->port_output = sig.output;
+      std::string postfix = sig.name.substr(info.port_name.size());
+      scan_ctrl->setPort("\\dma_axi" + postfix, wire);
     }
+    database.axi_ports.push_back(std::move(info));
+  }
 
-    auto m_ctrl = CtrlSig::create(top, "emu_m_ctrl", CTRL_ADDR_WIDTH, 32);
-    axil_adapter->setPort("\\ctrl_wen", m_ctrl.wen);
-    axil_adapter->setPort("\\ctrl_waddr", m_ctrl.waddr);
-    axil_adapter->setPort("\\ctrl_wdata", m_ctrl.wdata);
-    axil_adapter->setPort("\\ctrl_ren", m_ctrl.ren);
-    axil_adapter->setPort("\\ctrl_raddr", m_ctrl.raddr);
-    axil_adapter->setPort("\\ctrl_rdata", m_ctrl.rdata);
+  // Connect UART Tx
 
-    CtrlConnBuilder builder(top, m_ctrl);
+  connect_uart_tx(database, top, sys_ctrl);
 
-    // Add EmuSysCtrl
+  // Add Emu Trace Backend
 
-    Cell *sys_ctrl = top->addCell(top->uniquify("\\emu_sys_ctrl"), "\\EmuSysCtrl");
-    auto sys_ctrl_sig = CtrlSig::create(top, "emu_s_ctrl_sys", 12, 32);
-    builder.add(sys_ctrl_sig, SYS_CTRL_BASE, SYS_CTRL_WIDTH);
+  add_emutrace_backend(database, top, builder, trace_backend);
 
-    sys_ctrl->setPort("\\host_clk",     host_clk);
-    sys_ctrl->setPort("\\host_rst",     host_rst);
-    sys_ctrl->setPort("\\tick",         tick);
-    sys_ctrl->setPort("\\model_busy",   top->Not(NEW_ID, idle));
-    sys_ctrl->setPort("\\run_mode",     run_mode);
-    sys_ctrl->setPort("\\scan_mode",    scan_mode);
-    if(pause_pending)
-            sys_ctrl->setPort("\\pause_pending",pause_pending);
+  // Add AXI remap
 
-    sys_ctrl->setPort("\\ctrl_wen",     sys_ctrl_sig.wen);
-    sys_ctrl->setPort("\\ctrl_waddr",   sys_ctrl_sig.waddr);
-    sys_ctrl->setPort("\\ctrl_wdata",   sys_ctrl_sig.wdata);
-    sys_ctrl->setPort("\\ctrl_ren",     sys_ctrl_sig.ren);
-    sys_ctrl->setPort("\\ctrl_raddr",   sys_ctrl_sig.raddr);
-    sys_ctrl->setPort("\\ctrl_rdata",   sys_ctrl_sig.rdata);
-    Wire *tick_cnt = top->addWire("\\tick_cnt", 64);
-    sys_ctrl->setPort("\\tick_cnt", tick_cnt);
+  add_axi_remap(database, top, builder);
 
-    Wire *dma_start = top->addWire(NEW_ID);
-    Wire *dma_direction = top->addWire(NEW_ID);
-    Wire *dma_running = top->addWire(NEW_ID);
+  // Finalize
 
-    sys_ctrl->setPort("\\dma_start",        dma_start);
-    sys_ctrl->setPort("\\dma_direction",    dma_direction);
-    sys_ctrl->setPort("\\dma_running",      dma_running);
+  builder.emit(top->uniquify("\\emu_ctrl_bridge"));
 
-    connect_signals(database, top, builder);
-    connect_triggers(database, top, sys_ctrl);
-
-    Wire *pcie_intr = top->wire("\\pcie_intr"); 
-    if(pcie_intr){
-        pcie_intr->port_input = true;
-        pcie_intr->port_output = false;
-    }
-    // Add EmuScanCtrl
-
-    Cell *scan_ctrl = top->addCell(top->uniquify("\\emu_scan_ctrl"), "\\EmuScanCtrl");
-
-    uint64_t ff_count = 0;
-    for (auto &ff : database.scan_ff)
-        ff_count += ff.width;
-    scan_ctrl->setParam("\\FF_COUNT", Const(ff_count, 64));
-
-    uint64_t mem_count = 0;
-    for (auto &mem : database.scan_ram)
-        mem_count += mem.width * mem.depth;
-    scan_ctrl->setParam("\\MEM_COUNT", Const(mem_count, 64));
-
-    scan_ctrl->setPort("\\host_clk",        host_clk);
-    scan_ctrl->setPort("\\host_rst",        host_rst);
-    scan_ctrl->setPort("\\ff_se",           ff_se);
-    scan_ctrl->setPort("\\ff_di",           ff_di);
-    scan_ctrl->setPort("\\ff_do",           ff_do);
-    scan_ctrl->setPort("\\ram_sr",          ram_sr);
-    scan_ctrl->setPort("\\ram_se",          ram_se);
-    scan_ctrl->setPort("\\ram_sd",          ram_sd);
-    scan_ctrl->setPort("\\ram_di",          ram_di);
-    scan_ctrl->setPort("\\ram_do",          ram_do);
-    scan_ctrl->setPort("\\dma_start",       dma_start);
-    scan_ctrl->setPort("\\dma_direction",   dma_direction);
-    scan_ctrl->setPort("\\dma_running",     dma_running);
-
-    uint64_t scan_words = (ff_count + 63) / 64 + (mem_count + 63) / 64;
-    uint64_t scan_pages = (scan_words * 8 + 0xfff) / 0x1000;
-
-    {
-        AXIPort info;
-        info.name = {"scanchain"};
-        info.port_name = "EMU_SCAN_DMA_AXI";
-        info.axi = AXI::AXI4(info.port_name, AXI::Info(40, 64, true, true));
-        info.size = scan_pages * 0x1000;
-        for (auto &sig : info.axi.signals()) {
-            if (!sig.present())
-                continue;
-            Wire *wire = top->addWire("\\" + sig.name, sig.width);
-            wire->port_input = !sig.output;
-            wire->port_output = sig.output;
-            std::string postfix = sig.name.substr(info.port_name.size());
-            scan_ctrl->setPort("\\dma_axi" + postfix, wire);
-        }
-        database.axi_ports.push_back(std::move(info));
-    }
-
-    // Connect UART Tx
-
-    connect_uart_tx(database, top, sys_ctrl);
-
-    // Add Emu Trace Backend
-
-    add_emutrace_backend(database, top, builder);
-
-    // Add AXI remap
-
-    add_axi_remap(database, top, builder);
-
-    // Finalize
-
-    builder.emit(top->uniquify("\\emu_ctrl_bridge"));
-
-    top->fixup_ports();
+  top->fixup_ports();
 }
 
 struct EmuIntegrateSystem : public Pass
 {
     EmuIntegrateSystem() : Pass("emu_integrate_system", "(REMU internal)") {}
 
+    std::string trace_backend_file;
     void execute(vector<string> args, Design* design) override
     {
-        extra_args(args, 1, design);
-        log_header(design, "Executing EMU_INTEGRATE_SYSTEM pass.\n");
-        log_push();
+      size_t argidx;
+      for (argidx = 1; argidx < args.size(); argidx++) {
+        if (args[argidx] == "-tracebackend") {
+          trace_backend_file = args[++argidx];
+          continue;
+        }
+        break;
+      }
+      extra_args(args, argidx, design);
+      log_header(design, "Executing EMU_INTEGRATE_SYSTEM pass.\n");
+      log_push();
 
-        EmuLibInfo emulib(proc_self_dirname() + "../share/remu/emulib/");
+      EmuLibInfo emulib(proc_self_dirname() + "../share/remu/emulib/");
 
-        SystemTransform worker(design,
-            EmulationDatabase::get_instance(design),
-            emulib);
+      SystemTransform worker(design, EmulationDatabase::get_instance(design),
+                             emulib);
 
-        worker.run();
+      worker.run(trace_backend_file);
 
-        log_pop();
+      log_pop();
     }
-} EmuIntegrateSystem;
+} emu_integrate_system;
 
 PRIVATE_NAMESPACE_END
