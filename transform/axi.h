@@ -227,6 +227,10 @@ struct ChannelBase
     {
         range.append({&valid, &ready});
     }
+    void foreach (const std::function<void(Sig)> &cb) const {
+      cb(valid);
+      cb(ready);
+    }
 };
 
 struct AChannel : public ChannelBase
@@ -322,6 +326,7 @@ struct AChannel : public ChannelBase
     }
 
     void foreach (const std::function<void(Sig)> &cb) const {
+      ChannelBase::foreach(cb);
       cb(addr);
       cb(prot);
       cb(id);
@@ -387,6 +392,7 @@ struct WChannel : public ChannelBase
     }
 
     void foreach (const std::function<void(Sig)> &cb) const {
+      ChannelBase::foreach(cb);
       cb(data);
       cb(strb);
       cb(last);
@@ -435,6 +441,7 @@ struct BChannel : public ChannelBase
     }
 
     void foreach (const std::function<void(Sig)> &cb) const {
+      ChannelBase::foreach(cb);
       cb(resp);
       cb(id);
     }
@@ -496,6 +503,7 @@ struct RChannel : public ChannelBase
         range.append({&id, &last});
     }
     void foreach (const std::function<void(Sig)> &cb) const {
+      ChannelBase::foreach(cb);
       cb(data);
       cb(resp);
       cb(id);
