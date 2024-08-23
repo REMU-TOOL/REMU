@@ -3,6 +3,7 @@
 
 #include "emu_info.h"
 #include <cstddef>
+#include <cstdint>
 #include <fstream>
 #include <string>
 
@@ -10,11 +11,11 @@ namespace REMU {
 
     class TParser
     {
-        std::map<size_t, std::pair<std::string, size_t>> trace_info;// seq -> <port_name, port_width> 
+        std::vector<std::pair<std::string, size_t>> trace_info;// seq -> <port_name, port_width> 
         uint64_t current_tick;
-        std::string raw_trace;
-        std::string read_trace();
+        uint32_t cycle_flag = 0x00100080;
         std::string trace_file;
+        bool trace_end(size_t offset);
         size_t parsing_channel(size_t offset, size_t align_size);
 
     public:
