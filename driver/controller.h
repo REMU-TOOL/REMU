@@ -1,6 +1,7 @@
 #ifndef _REMU_CONTROLLER_H_
 #define _REMU_CONTROLLER_H_
 
+#include <cstdint>
 #include <memory>
 #include <vector>
 #include <unordered_map>
@@ -45,11 +46,15 @@ public:
 
     bool is_trigger_active(const RTTrigger &trigger);
     bool get_trigger_enable(const RTTrigger &trigger);
+    bool get_trace_full();
+
     void set_trigger_enable(const RTTrigger &trigger, bool enable);
 
     bool read_uart_data(char &ch);
 
     void configure_axi_range(const RTAXI &axi, uint64_t mem_base);
+    void configure_trace_range(uint32_t reg_base, uint64_t trace_sz, uint64_t trace_base);
+    void configure_trace_offset(uint32_t reg_base, uint64_t offset);
 
     Controller(const SysInfo &sysinfo, const YAML::Node &platinfo)
     {

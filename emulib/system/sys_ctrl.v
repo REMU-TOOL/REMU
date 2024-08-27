@@ -12,6 +12,7 @@ module EmuSysCtrl #(
     input  wire         tick,
     output reg [63:0] 	tick_cnt,
     input  wire         model_busy,
+    input  wire         trace_full,
 
     output reg          run_mode,
     input  wire         pause_pending,
@@ -95,7 +96,7 @@ module EmuSysCtrl #(
 
     wire trig_active;
     wire step_finishing;
-    wire run_to_pause = (pause_busy || trig_active || step_finishing) && tick;
+    wire run_to_pause = (pause_busy || trig_active || step_finishing || trace_full) && tick;
 
     always @(posedge host_clk) begin
         if (host_rst) begin

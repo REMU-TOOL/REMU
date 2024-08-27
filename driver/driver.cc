@@ -1,11 +1,13 @@
 #include "driver.h"
 
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <stdexcept>
 #include <algorithm>
 #include <chrono>
 
+#include "regdef.h"
 #include "uart.h"
 #include "emu_utils.h"
 #include "sighandler.h"
@@ -126,6 +128,19 @@ void Driver::set_signal_value(RTSignal &signal, const BitVector &value)
 {
     ctrl.set_signal_value(signal, value);
     signal.trace[cur_tick] = value;
+}
+
+void Driver::init_trace(const SysInfo &sysinfo)
+{
+    trace_reg_base = sysinfo.trace[0].reg_offset;
+    uint32_t trace_sz = 0;//1024*1024*1024 << trace_sz
+    ctrl.configure_trace_range(trace_reg_base, 1 , 0xffffffff);
+    ctrl.configure_trace_offset(trace_reg_base, 0);
+
+    for(auto info: sysinfo.trace){
+        if (info.type != "uart_tx")
+            trace_ports.push_back(info.port_name);
+    }
 }
 
 void Driver::load_checkpoint()
@@ -266,6 +281,11 @@ bool Driver::handle_event()
         stop_requested = true;
     }
 
+    if(ctrl.get_trace_full()){
+        fprintf(stderr, "[REMU] INFO: Tick %lu: trace storage is full\n",
+            cur_tick);
+        stop_requested = true;
+    }
     // Process meta events
 
     while (!meta_event_q.empty()) {
@@ -344,6 +364,11 @@ uint32_t Driver::calc_next_event_step()
     return step;
 }
 
+void Driver::save_trace(){
+    //TODO:: read trace from trace_base to file
+    // use h2c port
+}
+
 void Driver::run()
 {
     for (auto &trigger : trigger_db.objects()) {
@@ -402,4 +427,5 @@ Driver::Driver(
 {
     init_axi(sysinfo);
     init_model(sysinfo);
+    init_trace(sysinfo);
 }

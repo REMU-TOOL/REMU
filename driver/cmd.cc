@@ -1,6 +1,7 @@
 #include "driver.h"
 #include "tokenizer.h"
 
+#include <cstdio>
 #include <readline/readline.h>
 #include <readline/history.h>
 
@@ -47,6 +48,10 @@ bool Driver::cmd_help(const std::vector<std::string> &args)
         "        Set read delay for fixed-timing RAM model.\n"
         "    rammodel <name> w-delay <delay>\n"
         "        Set write delay for fixed-timing RAM model.\n"
+        "    trace\n"
+        "        List trace ports.\n"
+        "    trace_save\n"
+        "        Save current trace to ckpt/ as a file and clear trace storage.\n"
         "\n"
         );
 
@@ -66,6 +71,22 @@ bool Driver::cmd_list(const std::vector<std::string> &args)
 bool Driver::cmd_save(const std::vector<std::string> &args)
 {
     save_checkpoint();
+    return true;
+}
+
+bool Driver::cmd_trace(const std::vector<std::string> &args)
+{
+    printf("Traced ports:\n");
+    for (auto i: trace_ports){
+        printf("%s\n", i.c_str());
+    }
+    return true;
+}
+
+bool Driver::cmd_trace_save(const std::vector<std::string> &args)
+{
+    save_trace();
+    ctrl.configure_trace_offset(trace_reg_base, 0);
     return true;
 }
 

@@ -29,6 +29,19 @@ namespace RegDef
     constexpr int SCAN_CTRL_DIRECTION   = (1 << 1);
 };
 
+namespace TraceRegDef
+{
+    constexpr int TRACE_CTRL         = 0X000;
+    constexpr int BASEADDR_L         = 0x004;
+    constexpr int BASEADDR_H         = 0x008;
+    constexpr int STORAGE_SIZE       = 0x00c;// per 1024*1024*1024
+    constexpr int INIT_OFFSET        = 0x010;
+    constexpr int TRACE_FULL         = 0x014;
+
+    constexpr int TRACE_CTRL_RUN_MODE     = (1 << 0);
+    constexpr int TRACE_CTRL_PAUSE_MODE   = (1 << 1);
+};
+
 };
 
 #endif

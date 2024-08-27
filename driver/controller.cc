@@ -1,5 +1,6 @@
 #include "controller.h"
 
+#include <cstdint>
 #include <cstdio>
 
 #include <stdexcept>
@@ -277,4 +278,24 @@ void Controller::configure_axi_range(const RTAXI &axi, uint64_t mem_base)
         reg->write(axi.reg_offset + 0x0, base >> 12);
         reg->write(axi.reg_offset + 0x4, mask >> 12);
     }
+}
+
+void Controller::configure_trace_range(uint32_t reg_base, uint64_t trace_sz, uint64_t trace_base)
+{
+    reg->write(reg_base + TraceRegDef::BASEADDR_H, trace_base >> 32);
+    reg->write(reg_base + TraceRegDef::BASEADDR_L, trace_base & 0xffffffff);
+
+    reg->write(reg_base + TraceRegDef::STORAGE_SIZE, trace_sz & 0xf);
+}
+
+void Controller::configure_trace_offset(uint32_t reg_base, uint64_t offset)
+{
+    reg->write(reg_base + TraceRegDef::INIT_OFFSET, offset);
+}
+
+bool Controller::get_trace_full(){
+    int addr = TraceRegDef::TRACE_FULL;
+    uint32_t offset = 0;
+    uint32_t value = reg->read(addr);
+    return value & (1 << offset);
 }

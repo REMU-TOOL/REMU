@@ -2,6 +2,9 @@ module FIFOAXI4Ctrl #(
     parameter REGADDR_WRITEMODE = 0,
     parameter REGADDR_BASEADDR_L = 4,
     parameter REGADDR_BASEADDR_H = 8,
+    parameter STORAGE_SIZE = 12,
+    parameter INIT_OFFSET = 16,
+    parameter REGADDR_TRACE_FULL = 20,
     parameter CTRL_ADDR_WIDTH = 16,
     parameter AXI_ADDR_WIDTH  = 36,
     parameter AXI_DATA_WIDTH  = 64,
@@ -24,6 +27,7 @@ module FIFOAXI4Ctrl #(
     input  wire                       ivalid,
     input  wire [ AXI_DATA_WIDTH-1:0] idata,
     output wire                       iready,
+    output wire                       trace_full,
 
     /*
      * AXI master interface
@@ -57,8 +61,14 @@ module FIFOAXI4Ctrl #(
   localparam WRITE_MODE_STOP = 'd0;
   localparam WRITE_MODE_RST = 'd0;
   localparam BASE_ADDR_DEFAULT = 'd0;
+  localparam STORAGE_SIZE_DEFAULT = 'd0;
+  localparam INIT_OFFSET_DEFAULT = 'd0;
+
   reg [1:0] writeMode;
   reg [AXI_ADDR_WIDTH-1:0] baseAddr;
+  reg [3:0] storage_sz;
+  reg [31:0] init_write;
+  reg trace_full;
   // ==============================================
   // ============== ctrl write ====================
   // ==============================================
@@ -66,15 +76,30 @@ module FIFOAXI4Ctrl #(
     if (rst) begin
       baseAddr  <= BASE_ADDR_DEFAULT;
       writeMode <= WRITE_MODE_RST;
+      storage_sz <= STORAGE_SIZE_DEFAULT;
+      init_write <= INIT_OFFSET_DEFAULT;
+      trace_full <= 1'd0;
     end else if (ctrl_wen) begin
-      if (ctrl_waddr == REGADDR_BASEADDR_L) begin
+      if (ctrl_waddr[11:0] == REGADDR_BASEADDR_L) begin
         baseAddr[31:0] <= ctrl_wdata;
       end
-      if (ctrl_waddr == REGADDR_BASEADDR_H) begin
+      if (ctrl_waddr[11:0] == REGADDR_BASEADDR_H) begin
         baseAddr[AXI_ADDR_WIDTH-1:32] <= ctrl_wdata[AXI_ADDR_WIDTH-32-1:0];
       end
-      if (ctrl_waddr == REGADDR_WRITEMODE) begin
+      if (ctrl_waddr[11:0] == REGADDR_WRITEMODE) begin
         writeMode <= ctrl_wdata[1:0];
+      end
+      if (ctrl_waddr[11:0] == STORAGE_SIZE) begin
+        storage_sz <= ctrl_wdata[3:0];
+      end
+      if (ctrl_waddr[11:0] == INIT_OFFSET) begin
+        init_write <= ctrl_wdata;
+      end
+      if (ctrl_waddr[11:0] == REGADDR_TRACE_FULL) begin
+        trace_full <= ctrl_wdata[0];
+      end
+      else if(writeOffsetMax)begin
+        trace_full <= 1'd1;
       end
     end
   end
@@ -83,14 +108,23 @@ module FIFOAXI4Ctrl #(
   // ==============================================
   always @(posedge clk) begin
     if (ctrl_ren) begin
-      if (ctrl_raddr == REGADDR_WRITEMODE) begin
+      if (ctrl_raddr[11:0] == REGADDR_WRITEMODE) begin
         ctrl_rdata <= (writeMode | 32'd0);
       end
-      if (ctrl_raddr == REGADDR_BASEADDR_L) begin
+      if (ctrl_raddr[11:0] == REGADDR_BASEADDR_L) begin
         ctrl_rdata <= baseAddr[31:0];
       end
-      if (ctrl_raddr == REGADDR_BASEADDR_H) begin
+      if (ctrl_raddr[11:0] == REGADDR_BASEADDR_H) begin
         ctrl_rdata <= (baseAddr[AXI_ADDR_WIDTH-1:32] | 32'd0);
+      end
+      if (ctrl_raddr[11:0] == STORAGE_SIZE) begin
+        ctrl_rdata <= (storage_sz | 32'b0);
+      end
+      if (ctrl_raddr[11:0] == INIT_OFFSET) begin
+        ctrl_rdata <= (init_write | 32'b0);
+      end
+      if (ctrl_raddr[11:0] == REGADDR_TRACE_FULL) begin
+        ctrl_rdata <= trace_full | 32'd0;
       end
     end
   end
@@ -103,7 +137,10 @@ module FIFOAXI4Ctrl #(
       writeOffset <= 'd0;
     end else if (m_axi_awvalid && m_axi_awready) begin
       // wrap mode and stop mode will not write other place
-      writeOffset <= (writeOffset + AXI_DATA_WIDTH / 8) & (WRITE_OFFSET_MAX - 1);
+      writeOffset <= (writeOffset + AXI_DATA_WIDTH / 8) & ((WRITE_OFFSET_MAX << storage_sz) - 1);
+    end
+    else if (ctrl_waddr[11:0] == INIT_OFFSET && ctrl_wen)begin
+      writeOffset <= ctrl_wdata;
     end
   end
   assign m_axi_awaddr = baseAddr + writeOffset;
@@ -152,6 +189,6 @@ module FIFOAXI4Ctrl #(
   assign m_axi_wdata   = bufferData;
   assign m_axi_awvalid = bufferBusy && !awFire;
   assign m_axi_wvalid  = bufferBusy && !wFire;
-  wire writeOffsetMax = (writeOffset == WRITE_OFFSET_MAX) && writeMode == WRITE_MODE_STOP;
+  wire writeOffsetMax = (writeOffset == (WRITE_OFFSET_MAX << storage_sz)) && writeMode == WRITE_MODE_STOP;
   assign iready = !bufferBusy && !writeOffsetMax;
 endmodule

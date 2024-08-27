@@ -281,6 +281,7 @@ void add_emutrace_backend(EmulationDatabase &database, Module *top,
     auto &info = database.trace_ports[idx];
     if (info.type == "uart_tx")
       continue;
+    info.reg_offset = TRACE_BACKEND_CFG_BASE;
     trace_port_idx.push_back(idx);
     if (info.port_width <= 1)
       log_error("width of trace_port %s less than 2 \n",
@@ -314,7 +315,6 @@ void add_emutrace_backend(EmulationDatabase &database, Module *top,
 
   trace_backend->setPort("\\host_clk", host_clk);
   trace_backend->setPort("\\host_rst", host_rst);
-  trace_backend->setPort("\\tick_cnt", host_rst);
   trace_backend->setPort("\\ctrl_wen", ctrl.wen);
   trace_backend->setPort("\\ctrl_waddr", ctrl.waddr);
   trace_backend->setPort("\\ctrl_wdata", ctrl.wdata);
@@ -322,6 +322,7 @@ void add_emutrace_backend(EmulationDatabase &database, Module *top,
   trace_backend->setPort("\\ctrl_raddr", ctrl.raddr);
   trace_backend->setPort("\\ctrl_rdata", ctrl.rdata);
   trace_backend->setPort("\\tick_cnt", top->wire("\\tick_cnt"));
+  trace_backend->setPort("\\trace_full", top->wire("\\trace_full"));
 
   for (size_t tk_idx = 0; tk_idx < trace_port_idx.size(); tk_idx++) {
     auto idx = trace_port_idx[tk_idx];
@@ -545,6 +546,8 @@ void SystemTransform::run(const std::string &trace_backend) {
   sys_ctrl->setPort("\\ctrl_rdata", sys_ctrl_sig.rdata);
   Wire *tick_cnt = top->addWire("\\tick_cnt", 64);
   sys_ctrl->setPort("\\tick_cnt", tick_cnt);
+  Wire *trace_full = top->addWire("\\trace_full", 1);
+  sys_ctrl->setPort("\\trace_full", trace_full);
 
   Wire *dma_start = top->addWire(NEW_ID);
   Wire *dma_direction = top->addWire(NEW_ID);

@@ -1,7 +1,9 @@
 #ifndef _REMU_DRIVER_H_
 #define _REMU_DRIVER_H_
 
+#include <cstdint>
 #include <memory>
+#include <string>
 #include <vector>
 #include <unordered_map>
 #include <queue>
@@ -33,6 +35,8 @@ class Driver
 
     std::unique_ptr<UartModel> uart;
     std::unordered_map<std::string, std::unique_ptr<RamModel>> rammodel;
+    std::vector<std::string> trace_ports;
+    uint64_t trace_base = 0x180000000;
 
     uint64_t cur_tick = 0;
 
@@ -49,16 +53,20 @@ class Driver
     std::priority_queue<MetaEvent, std::vector<MetaEvent>, std::greater<MetaEvent>> meta_event_q;
 
     uint64_t ckpt_interval = 0;
+    uint32_t trace_reg_base = 0x5000;
 
     void init_axi(const SysInfo &sysinfo);
     void init_model(const SysInfo &sysinfo);
     void init_perf(const std::string &file, uint64_t interval);
+    void init_trace(const SysInfo &sysinfo);
 
     BitVector get_signal_value(RTSignal &signal);
     void set_signal_value(RTSignal &signal, const BitVector &value);
 
     void load_checkpoint();
     void save_checkpoint();
+
+    void save_trace();
 
     // -> whether stop is requested
     bool handle_event();
@@ -77,6 +85,9 @@ class Driver
     bool cmd_signal         (const std::vector<std::string> &args);
     bool cmd_uart           (const std::vector<std::string> &args);
     bool cmd_rammodel       (const std::vector<std::string> &args);
+    bool cmd_trace          (const std::vector<std::string> &args);
+    bool cmd_trace_save          (const std::vector<std::string> &args);
+
 
     static std::unordered_map<std::string, decltype(&Driver::cmd_help)> cmd_dispatcher;
 

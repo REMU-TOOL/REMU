@@ -19,6 +19,7 @@ module TraceBackend #(
     input  wire                  ctrl_ren,
     input  wire [CTRL_ADDR_WIDTH-1:0] ctrl_raddr,
     output reg  [          31:0] ctrl_rdata,
+    output wire                  trace_full,
     {tracePortDefine}
     /*
      * AXI master interface
@@ -121,6 +122,7 @@ module TraceBackend #(
         .ctrl_ren(ctrl_ren),
         .ctrl_raddr(ctrl_raddr),
         .ctrl_rdata(ctrl_rdata),
+        .trace_full(trace_full),
         .ivalid(fifo_ovalid),
         .idata(fifo_odata),
         .iready(fifo_oready),
