@@ -43,7 +43,8 @@ bool TParser::run()
             file.read(buffer.data(), width);
             printf("0x");
             for (int i = width - 1; i >= 0 ; i--) {
-                printf("%x", buffer[i]);
+                printf("%x", (buffer[i]&0xf0)>>4);
+                printf("%x", buffer[i]&0xf);
             }
             printf("\n");
             pos += width;
