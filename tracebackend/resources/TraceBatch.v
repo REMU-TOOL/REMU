@@ -63,7 +63,7 @@ module {moduleName} (
     {asisgnTraceReady}
     genvar index;
     generate
-        for (index = 0; index < {traceNR}; index ++) begin
+        for (index = 0; index < {traceNR}; index = index + 1) begin
             always @(posedge host_clk) begin
                 if (host_rst) begin
                     hasData[index] <= 0;

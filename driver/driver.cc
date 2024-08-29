@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <algorithm>
 #include <chrono>
+#include <string>
 
 #include "regdef.h"
 #include "uart.h"
@@ -70,7 +71,7 @@ void Driver::init_axi(const SysInfo &sysinfo)
             p->assigned_offset = 0;
         }
         alloc_size += p->assigned_size;
-
+        trace_base = (alloc_size + 0xffff) & (~0xffff);
         fprintf(stderr, "[REMU] INFO: Allocated memory (offset 0x%08lx - 0x%08lx) for AXI port \"%s\"\n",
             p->assigned_offset,
             p->assigned_offset + p->assigned_size,
@@ -133,8 +134,11 @@ void Driver::set_signal_value(RTSignal &signal, const BitVector &value)
 void Driver::init_trace(const SysInfo &sysinfo)
 {
     trace_reg_base = sysinfo.trace[0].reg_offset;
-    uint32_t trace_sz = 0;//1024*1024*1024 << trace_sz
-    ctrl.configure_trace_range(trace_reg_base, 1 , 0xffffffff);
+    trace_sz = 0;//1024*1024*1024 << trace_sz
+    fprintf(stderr, "[REMU] INFO: Allocated memory (offset 0x%08lx - 0x%08lx) for trace port\n",
+            trace_base,
+            trace_base + (1024*1024*1024 << trace_sz));
+    ctrl.configure_trace_range(trace_reg_base, trace_sz , trace_base);
     ctrl.configure_trace_offset(trace_reg_base, 0);
 
     for(auto info: sysinfo.trace){
@@ -367,6 +371,14 @@ uint32_t Driver::calc_next_event_step()
 void Driver::save_trace(){
     //TODO:: read trace from trace_base to file
     // use h2c port
+    std::string file_name = "/trace_file_" + std::to_string(cur_tick);
+    file_name = ckpt_mgr.ckpt_root_path + file_name;
+    std::ofstream stream(file_name);
+    if (!stream.is_open()) {
+        throw std::runtime_error("Cannot open trace file.");
+    }
+    printf("[REMU] INFO: Save tracefile at %s\n", file_name.c_str());
+    ctrl.memory()->copy_to_stream(trace_base, (1024*1024)<< trace_sz, stream);
 }
 
 void Driver::run()

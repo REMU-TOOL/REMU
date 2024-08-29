@@ -55,10 +55,10 @@ public:
 class CheckpointManager
 {
     CheckpointInfo info;
-    std::string ckpt_root_path;
 
 public:
 
+    std::string ckpt_root_path;
     void flush();
 
     // SERIALIZABLE DATA BEGIN

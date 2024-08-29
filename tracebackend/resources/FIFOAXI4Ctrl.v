@@ -27,7 +27,7 @@ module FIFOAXI4Ctrl #(
     input  wire                       ivalid,
     input  wire [ AXI_DATA_WIDTH-1:0] idata,
     output wire                       iready,
-    output wire                       trace_full,
+    output reg                        trace_full,
 
     /*
      * AXI master interface
@@ -68,7 +68,6 @@ module FIFOAXI4Ctrl #(
   reg [AXI_ADDR_WIDTH-1:0] baseAddr;
   reg [3:0] storage_sz;
   reg [31:0] init_write;
-  reg trace_full;
   // ==============================================
   // ============== ctrl write ====================
   // ==============================================

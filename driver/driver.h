@@ -36,7 +36,9 @@ class Driver
     std::unique_ptr<UartModel> uart;
     std::unordered_map<std::string, std::unique_ptr<RamModel>> rammodel;
     std::vector<std::string> trace_ports;
-    uint64_t trace_base = 0x180000000;
+    uint64_t trace_base = 0x20000;
+    //uint64_t trace_base = 0x180000000;
+    uint32_t trace_sz = 0;//1024*1024*1024 << trace_sz
 
     uint64_t cur_tick = 0;
 

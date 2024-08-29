@@ -335,6 +335,8 @@ decltype(Driver::cmd_dispatcher) Driver::cmd_dispatcher = {
     {"signal",          &Driver::cmd_signal},
     {"uart",            &Driver::cmd_uart},
     {"rammodel",        &Driver::cmd_rammodel},
+    {"trace",           &Driver::cmd_trace},
+    {"trace_save",      &Driver::cmd_trace_save},
 };
 
 bool Driver::execute_cmd(const std::string &cmd)
